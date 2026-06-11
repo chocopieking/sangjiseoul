@@ -24,15 +24,30 @@ const fP  = n => n != null ? `${(+n * 100).toFixed(1)}%` : "-"
 const fPy = n => n != null ? `${Math.round(+n).toLocaleString()}원/평` : "-"
 
 // ── 데이터 ────────────────────────────────────────────────────
+// ── 비밀번호 해시 (SHA-256 hex) ─────────────────────────────
+// 실제 해시는 런타임에서 생성. 여기서는 원문을 저장하지 않고
+// hashPw() 함수를 통해 입력값을 해시한 뒤 비교합니다.
+const hashPw = async (pw) => {
+  const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(pw))
+  return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,"0")).join("")
+}
+
+// 초기 비밀번호 해시값 (SHA-256)
+// "0260111604" → 런타임에서 최초 1회 생성 후 ALL_USERS에 저장
+// 아래 _pwHash 값은 빌드 시 포함되지 않고 앱 시작 시 동적으로 세팅됩니다.
+const MASTER_PW   = "0260111604"   // 관리자 초기 비밀번호 (배포 후 반드시 변경!)
+const MASTER_ID   = "U000"
+const MASTER_EMAIL = "sogum25@gmail.com"
+
 const ALL_USERS = [
-  { id:"U001", name:"강순일",  email:"ksi@sangjiseoul.com",  role:"admin",     dept:"경영진",      avatar:"강순", active:true,  read:true,  write:true,  canManageUsers:true  },
-  { id:"U002", name:"박희태",  email:"bht@sangjiseoul.com",  role:"executive", dept:"설계1본부",   avatar:"박희", active:true,  read:true,  write:true,  canManageUsers:false },
-  { id:"U003", name:"김동헌",  email:"kdh@sangjiseoul.com",  role:"executive", dept:"설계2본부",   avatar:"김동", active:true,  read:true,  write:true,  canManageUsers:false },
-  { id:"U004", name:"천용화",  email:"cyw@sangjiseoul.com",  role:"executive", dept:"디자인본부",  avatar:"천용", active:true,  read:true,  write:false, canManageUsers:false },
-  { id:"U005", name:"정진성",  email:"jjs@sangjiseoul.com",  role:"executive", dept:"주거디자인",  avatar:"정진", active:true,  read:true,  write:true,  canManageUsers:false },
-  { id:"U006", name:"김한준",  email:"khj@sangjiseoul.com",  role:"executive", dept:"해외사업부",  avatar:"김한", active:true,  read:true,  write:false, canManageUsers:false },
-  { id:"U007", name:"임슬기",  email:"lsk@sangjiseoul.com",  role:"viewer",    dept:"운영지원",    avatar:"임슬", active:true,  read:true,  write:false, canManageUsers:false },
-  { id:"U008", name:"홍길동",  email:"hgd@gmail.com",        role:"viewer",    dept:"설계1본부",   avatar:"홍길", active:false, read:true,  write:false, canManageUsers:false },
+  { id:"U000", name:"마스터관리자", loginId:"sogum25@gmail.com",       role:"admin",     dept:"경영진",     avatar:"관리", active:true,  read:true,  write:true,  canManageUsers:true,  _pwHash:"" },
+  { id:"U001", name:"강순일",       loginId:"ksi@sangjiseoul.com",     role:"admin",     dept:"경영진",     avatar:"강순", active:true,  read:true,  write:true,  canManageUsers:true,  _pwHash:"" },
+  { id:"U002", name:"박희태",       loginId:"bht@sangjiseoul.com",     role:"executive", dept:"설계1본부",  avatar:"박희", active:true,  read:true,  write:true,  canManageUsers:false, _pwHash:"" },
+  { id:"U003", name:"김동헌",       loginId:"kdh@sangjiseoul.com",     role:"executive", dept:"설계2본부",  avatar:"김동", active:true,  read:true,  write:true,  canManageUsers:false, _pwHash:"" },
+  { id:"U004", name:"천용화",       loginId:"cyw@sangjiseoul.com",     role:"executive", dept:"디자인본부", avatar:"천용", active:true,  read:true,  write:false, canManageUsers:false, _pwHash:"" },
+  { id:"U005", name:"정진성",       loginId:"jjs@sangjiseoul.com",     role:"executive", dept:"주거디자인", avatar:"정진", active:true,  read:true,  write:true,  canManageUsers:false, _pwHash:"" },
+  { id:"U006", name:"김한준",       loginId:"khj@sangjiseoul.com",     role:"executive", dept:"해외사업부", avatar:"김한", active:true,  read:true,  write:false, canManageUsers:false, _pwHash:"" },
+  { id:"U007", name:"임슬기",       loginId:"lsk@sangjiseoul.com",     role:"viewer",    dept:"운영지원",   avatar:"임슬", active:true,  read:true,  write:false, canManageUsers:false, _pwHash:"" },
 ]
 
 const M26 = [
@@ -164,17 +179,31 @@ const S = {
 // ════════════════════════════════════════════════════════════
 export default function App() {
   // ── 인증 상태 ──
-  const [authState, setAuthState] = useState("login") // login | app
+  const [authState, setAuthState]   = useState("login")
   const [currentUser, setCurrentUser] = useState(null)
-  const [loginEmail, setLoginEmail] = useState("")
+  const [loginId,    setLoginId]    = useState("")
+  const [loginPw,    setLoginPw]    = useState("")
   const [loginError, setLoginError] = useState("")
+  const [pwVisible,  setPwVisible]  = useState(false)
+  const [loginAttempts, setLoginAttempts] = useState(0)
+  const [lockUntil,  setLockUntil]  = useState(null)
+  // ── 비밀번호 해시 맵: { userId: hash } 형태로 localStorage 저장
+  // ALL_USERS는 항상 코드에서 읽고, 비밀번호 해시만 별도 보관
+  const loadPwMap = () => {
+    try { return JSON.parse(localStorage.getItem("sjs_pw") || "{}") } catch { return {} }
+  }
+  const savePwMap = (map) => localStorage.setItem("sjs_pw", JSON.stringify(map))
+
+  const [pwMap,    setPwMap]    = useState(loadPwMap)
+  const [initDone, setInitDone] = useState(false)
+  // users는 ALL_USERS + pwMap 병합 (항상 최신)
+  const users = useMemo(() => ALL_USERS.map(u => ({...u, _pwHash: pwMap[u.id] || ""})), [pwMap])
 
   // ── 앱 상태 ──
   const [tab, setTab]         = useState("overview")
   const [alerts, setAlerts]   = useState(INIT_ALERTS)
   const [showAlerts, setShowAlerts] = useState(false)
   const [drillTarget, setDrillTarget] = useState(null) // {type, data}
-  const [users, setUsers]     = useState(ALL_USERS)
   const [showAuth, setShowAuth] = useState(false)
   const [years, setYears]     = useState(YEARS_DB)
   const [pnlData, setPnlData] = useState(PNL_MONTHLY)
@@ -185,13 +214,83 @@ export default function App() {
   const alertRef = useRef(null)
   const unread = alerts.filter(a => !a.read).length
 
-  // 로그인
-  const doLogin = () => {
-    const u = users.find(u => u.email.toLowerCase() === loginEmail.toLowerCase().trim() && u.active)
-    if (u) { setCurrentUser(u); setAuthState("app"); setLoginError("") }
-    else setLoginError("등록된 이메일이 아니거나 비활성 계정입니다.")
+  // ── 최초 실행: 비밀번호 해시 생성 ──
+  useEffect(() => {
+    const init = async () => {
+      const map = loadPwMap()
+      // 마스터 계정 해시가 없으면 초기 세팅
+      if (!map["U000"]) {
+        const masterHash  = await hashPw(MASTER_PW)
+        const defaultHash = await hashPw("sangjiseoul2026!")
+        const newMap = {...map}
+        ALL_USERS.forEach(u => {
+          if (!newMap[u.id]) newMap[u.id] = u.id === "U000" ? masterHash : defaultHash
+        })
+        savePwMap(newMap)
+        setPwMap(newMap)
+      }
+      setInitDone(true)
+    }
+    init()
+  }, [])   // eslint-disable-line
+
+
+
+  // ── 로그인 ──
+  const doLogin = async () => {
+    if (lockUntil && Date.now() < lockUntil) {
+      const sec = Math.ceil((lockUntil - Date.now()) / 1000)
+      setLoginError(`로그인 시도 횟수 초과. ${sec}초 후 다시 시도하세요.`)
+      return
+    }
+    if (!loginId.trim() || !loginPw) { setLoginError("이메일과 비밀번호를 모두 입력하세요."); return }
+
+    // 초기화 완료 대기 (혹시 아직 해시 생성 중이면 잠깐 기다림)
+    if (!initDone) { setLoginError("시스템 초기화 중입니다. 잠시 후 다시 시도하세요."); return }
+
+    const id = loginId.trim().toLowerCase()
+    const u  = users.find(u => u.loginId.toLowerCase() === id && u.active)
+    if (!u) { setLoginError("등록되지 않은 계정이거나 비활성 계정입니다."); return }
+
+    // 아직 해시가 세팅 안 된 경우 재시도 안내
+    if (!u._pwHash) { setLoginError("계정 초기화 중입니다. 3초 후 다시 시도하세요."); return }
+
+    const inputHash = await hashPw(loginPw)
+    if (inputHash !== u._pwHash) {
+      const next = loginAttempts + 1
+      setLoginAttempts(next)
+      if (next >= 5) {
+        setLockUntil(Date.now() + 5 * 60 * 1000)
+        setLoginError("비밀번호 5회 오류. 5분간 잠깁니다.")
+        setLoginAttempts(0)
+      } else {
+        setLoginError(`비밀번호가 올바르지 않습니다. (${next}/5회 — 5회 초과 시 잠금)`)
+      }
+      return
+    }
+    setLoginAttempts(0); setLockUntil(null); setLoginError("")
+    setCurrentUser(u); setAuthState("app")
+    setLoginId(""); setLoginPw("")
   }
-  const doLogout = () => { setCurrentUser(null); setAuthState("login"); setLoginEmail("") }
+
+  const doLogout = () => {
+    setCurrentUser(null); setAuthState("login")
+    setLoginId(""); setLoginPw("")
+  }
+
+  // 사용자 저장 헬퍼 — 비밀번호 해시 맵만 갱신
+  const saveUsers = (updated) => {
+    // updated는 users 배열 (AuthTab에서 변경된 버전)
+    // _pwHash만 추출해 pwMap 갱신
+    const newMap = {}
+    updated.forEach(u => { if (u._pwHash) newMap[u.id] = u._pwHash })
+    savePwMap(newMap)
+    setPwMap(newMap)
+    // mustChangePw 등 부가 정보는 sessionStorage에 임시 저장
+    try { sessionStorage.setItem("sjs_meta", JSON.stringify(
+      updated.reduce((acc, u) => { acc[u.id] = {mustChangePw: u.mustChangePw, active: u.active}; return acc }, {})
+    ))} catch {}
+  }
 
   // 알람 읽음 처리
   const readAlert = (id) => setAlerts(prev => prev.map(a => a.id === id ? {...a, read:true} : a))
@@ -218,7 +317,24 @@ export default function App() {
   // canWrite 체크
   const canWrite = currentUser?.write === true
 
-  if (authState === "login") return <LoginScreen loginEmail={loginEmail} setLoginEmail={setLoginEmail} loginError={loginError} doLogin={doLogin} users={users} />
+  // 초기화 전에는 로딩 스피너만 표시 (잠깐 스침)
+  if (!initDone) return (
+    <div style={{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:"var(--color-background-tertiary,#f5f5f3)"}}>
+      <div style={{textAlign:"center"}}>
+        <div style={{width:40,height:40,border:`3px solid ${C.navyM}`,borderTop:"3px solid transparent",borderRadius:"50%",animation:"spin 1s linear infinite",margin:"0 auto 16px"}}/>
+        <div style={{fontSize:13,color:C.gray}}>시스템 초기화 중…</div>
+        <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
+      </div>
+    </div>
+  )
+
+  if (authState === "login") return (
+    <LoginScreen loginId={loginId} setLoginId={setLoginId}
+      loginPw={loginPw} setLoginPw={setLoginPw}
+      loginError={loginError} doLogin={doLogin}
+      pwVisible={pwVisible} setPwVisible={setPwVisible}
+    />
+  )
 
   const TABS = [
     {id:"overview",  label:"📊 경영개요"},
@@ -316,7 +432,7 @@ export default function App() {
           {tab==="projects"  && <ProjectsTab   setDrillTarget={setDrillTarget} canWrite={canWrite} />}
           {tab==="pnl"       && <PnlTab        pnlData={pnlData} setPnlData={setPnlData} canWrite={canWrite} setDrillTarget={setDrillTarget} />}
           {tab==="compare"   && <CompareTab    years={years} setYears={setYears} showAddYear={showAddYear} setShowAddYear={setShowAddYear} canWrite={canWrite} />}
-          {tab==="auth_mgmt" && currentUser.role==="admin" && <AuthTab users={users} setUsers={setUsers} />}
+          {tab==="auth_mgmt" && currentUser.role==="admin" && <AuthTab users={users} saveUsers={saveUsers} currentUser={currentUser} hashPw={hashPw} />}
         </div>
       )}
     </div>
@@ -326,36 +442,58 @@ export default function App() {
 // ════════════════════════════════════════════════════════════
 // 로그인 화면
 // ════════════════════════════════════════════════════════════
-function LoginScreen({loginEmail, setLoginEmail, loginError, doLogin, users}) {
+function LoginScreen({loginId, setLoginId, loginPw, setLoginPw, loginError, doLogin, pwVisible, setPwVisible}) {
   return (
     <div style={{minHeight:"100vh", display:"flex", alignItems:"center", justifyContent:"center", background:"var(--color-background-tertiary,#f5f5f3)"}}>
       <div style={S.card({width:420, padding:"36px 40px"})}>
         <div style={{textAlign:"center", marginBottom:32}}>
-          <div style={{width:56, height:56, background:C.navy, borderRadius:14, display:"flex", alignItems:"center", justifyContent:"center", fontSize:26, margin:"0 auto 16px"}}>📐</div>
+          <div style={{width:60, height:60, background:C.navy, borderRadius:14, display:"flex", alignItems:"center", justifyContent:"center", fontSize:28, margin:"0 auto 16px"}}>📐</div>
           <div style={{fontSize:20, fontWeight:500}}>상지서울건축사사무소</div>
-          <div style={{fontSize:13, color:C.gray, marginTop:4}}>경영 대시보드 로그인</div>
+          <div style={{fontSize:13, color:C.gray, marginTop:4}}>통합 경영 대시보드</div>
         </div>
-        <div style={{background:C.navyL, borderRadius:10, padding:"12px 16px", fontSize:12, color:C.navyM, marginBottom:20, display:"flex", gap:8}}>
-          <i className="ti ti-brand-google" style={{fontSize:16, flexShrink:0}} aria-hidden="true"/>
-          <span>구글 계정 이메일을 입력하세요. 관리자가 등록한 계정만 접속 가능합니다.</span>
+
+        <div style={{background:C.navyL, border:`0.5px solid ${C.navyM}`, borderRadius:10, padding:"12px 16px", fontSize:12, color:C.navyM, marginBottom:24, display:"flex", gap:8, lineHeight:1.6}}>
+          <i className="ti ti-lock" style={{fontSize:16, flexShrink:0, marginTop:1}} aria-hidden="true"/>
+          <span>관리자로부터 발급받은 아이디와 비밀번호로 로그인하세요. 비밀번호는 첫 로그인 후 반드시 변경하시기 바랍니다.</span>
         </div>
-        <label style={S.lbl()}>이메일 주소 (구글 계정)</label>
-        <input type="email" value={loginEmail} onChange={e=>setLoginEmail(e.target.value)}
-          onKeyDown={e=>e.key==="Enter"&&doLogin()}
-          placeholder="example@gmail.com" style={{...S.inp(), marginBottom:8}}/>
-        {loginError && <div style={{fontSize:12, color:C.red, marginBottom:8}}>{loginError}</div>}
-        <button onClick={doLogin} style={{...S.btn(C.navyM), width:"100%", justifyContent:"center", padding:"11px 16px", marginBottom:20}}>
+
+        <div style={{marginBottom:14}}>
+          <label style={S.lbl()}>이메일 (아이디)</label>
+          <input type="text" value={loginId} onChange={e=>setLoginId(e.target.value)}
+            onKeyDown={e=>e.key==="Enter"&&doLogin()}
+            placeholder="이메일 주소 입력 (예: sogum25@gmail.com)" autoComplete="username"
+            style={{...S.inp(), fontSize:14}}/>
+        </div>
+
+        <div style={{marginBottom:8}}>
+          <label style={S.lbl()}>비밀번호</label>
+          <div style={{position:"relative"}}>
+            <input type={pwVisible?"text":"password"} value={loginPw} onChange={e=>setLoginPw(e.target.value)}
+              onKeyDown={e=>e.key==="Enter"&&doLogin()}
+              placeholder="비밀번호 입력" autoComplete="current-password"
+              style={{...S.inp(), fontSize:14, paddingRight:40}}/>
+            <button onClick={()=>setPwVisible(v=>!v)}
+              style={{position:"absolute", right:10, top:"50%", transform:"translateY(-50%)", background:"none", border:"none", cursor:"pointer", color:C.gray, fontSize:16}}
+              aria-label={pwVisible?"비밀번호 숨기기":"비밀번호 보기"}>
+              <i className={`ti ${pwVisible?"ti-eye-off":"ti-eye"}`} aria-hidden="true"/>
+            </button>
+          </div>
+        </div>
+
+        {loginError && (
+          <div style={{background:C.redL, border:`0.5px solid ${C.red}`, borderRadius:8, padding:"9px 13px", fontSize:12, color:C.red, marginBottom:12, display:"flex", gap:7}}>
+            <i className="ti ti-alert-circle" style={{flexShrink:0, fontSize:14, marginTop:1}} aria-hidden="true"/>
+            {loginError}
+          </div>
+        )}
+
+        <button onClick={doLogin} style={{...S.btn(C.navyM), width:"100%", justifyContent:"center", padding:"12px 16px", fontSize:14, marginTop:4}}>
           <i className="ti ti-login" aria-hidden="true"/> 로그인
         </button>
-        <div style={{borderTop:"0.5px solid var(--color-border-tertiary,#eee)", paddingTop:16}}>
-          <div style={{fontSize:12, color:C.gray, marginBottom:10}}>테스트 계정 (클릭해서 입력)</div>
-          <div style={{display:"flex", flexWrap:"wrap", gap:6}}>
-            {users.filter(u=>u.active).map(u=>(
-              <button key={u.id} onClick={()=>setLoginEmail(u.email)} style={{padding:"4px 10px", borderRadius:8, border:`1px solid var(--color-border-secondary,#ddd)`, background:"var(--color-background-secondary,#f5f5f3)", fontSize:11, cursor:"pointer", color:"var(--color-text-secondary,#666)"}}>
-                <span style={S.badge(ROLE_BADGE[u.role].bg, ROLE_BADGE[u.role].fg)}>{ROLE_BADGE[u.role].label}</span> {u.name}
-              </button>
-            ))}
-          </div>
+
+        <div style={{marginTop:20, padding:"12px 0", borderTop:"0.5px solid var(--color-border-tertiary,#eee)", fontSize:11, color:C.gray, textAlign:"center", lineHeight:1.7}}>
+          계정 문의: 시스템 관리자 (sogum25@gmail.com)<br/>
+          비밀번호 분실 시 관리자에게 초기화 요청하세요
         </div>
       </div>
     </div>
@@ -1073,20 +1211,57 @@ function CompareTab({years, setYears, showAddYear, setShowAddYear, canWrite}) {
 // ════════════════════════════════════════════════════════════
 // 권한 관리 탭 (관리자 전용)
 // ════════════════════════════════════════════════════════════
-function AuthTab({users, setUsers}) {
-  const [editId,  setEditId]  = useState(null)
-  const [editForm,setEditForm]= useState(null)
-  const [showAdd, setShowAdd] = useState(false)
-  const [newUser, setNewUser] = useState({name:"",email:"",role:"viewer",dept:"",read:true,write:false,canManageUsers:false,active:true})
+function AuthTab({users, saveUsers, currentUser, hashPw}) {
+  const [editId,   setEditId]  = useState(null)
+  const [editForm, setEditForm]= useState(null)
+  const [showAdd,  setShowAdd] = useState(false)
+  const [newUser,  setNewUser] = useState({name:"",loginId:"",role:"viewer",dept:"",read:true,write:false,canManageUsers:false,active:true,_newPw:""})
+  const [pwResetId,setPwResetId]= useState(null)
+  const [newPwVal, setNewPwVal]= useState("")
+  const [pwMsg,    setPwMsg]   = useState("")
+  const [showMyPw, setShowMyPw]= useState(false)
+  const [myOldPw,  setMyOldPw]= useState("")
+  const [myNewPw,  setMyNewPw]= useState("")
+  const [myNewPw2, setMyNewPw2]= useState("")
+  const [myPwMsg,  setMyPwMsg] = useState("")
 
   const startEdit = (u) => { setEditId(u.id); setEditForm({...u}) }
-  const saveEdit  = () => { setUsers(prev=>prev.map(u=>u.id===editId?{...editForm}:u)); setEditId(null); setEditForm(null) }
-  const toggleActive = (id) => setUsers(prev=>prev.map(u=>u.id===id?{...u,active:!u.active}:u))
-  const addUser = () => {
-    if (!newUser.name || !newUser.email) return
-    setUsers(prev=>[...prev, {...newUser, id:`U${Date.now()}`, avatar:newUser.name.slice(0,2)}])
+  const saveEdit  = () => {
+    const updated = users.map(u => u.id === editId ? {...u, ...editForm, _pwHash:u._pwHash} : u)
+    saveUsers(updated); setEditId(null); setEditForm(null)
+  }
+  const toggleActive = (id) => saveUsers(users.map(u => u.id===id ? {...u,active:!u.active} : u))
+
+  // 관리자가 특정 계정 비밀번호 초기화
+  const resetPw = async (id) => {
+    if (!newPwVal.trim()) { setPwMsg("새 비밀번호를 입력하세요"); return }
+    if (newPwVal.length < 6) { setPwMsg("비밀번호는 6자 이상이어야 합니다"); return }
+    const hash = await hashPw(newPwVal)
+    saveUsers(users.map(u => u.id===id ? {...u, _pwHash:hash, mustChangePw:true} : u))
+    setPwResetId(null); setNewPwVal(""); setPwMsg("비밀번호가 변경되었습니다")
+  }
+
+  // 내 비밀번호 변경
+  const changeMyPw = async () => {
+    if (!myOldPw || !myNewPw) { setMyPwMsg("모든 항목을 입력하세요"); return }
+    if (myNewPw !== myNewPw2)  { setMyPwMsg("새 비밀번호가 일치하지 않습니다"); return }
+    if (myNewPw.length < 6)    { setMyPwMsg("비밀번호는 6자 이상이어야 합니다"); return }
+    const me = users.find(u => u.id === currentUser.id)
+    const oldHash = await hashPw(myOldPw)
+    if (oldHash !== me._pwHash) { setMyPwMsg("현재 비밀번호가 올바르지 않습니다"); return }
+    const newHash = await hashPw(myNewPw)
+    saveUsers(users.map(u => u.id===currentUser.id ? {...u, _pwHash:newHash, mustChangePw:false} : u))
+    setMyOldPw(""); setMyNewPw(""); setMyNewPw2("")
+    setMyPwMsg("✓ 비밀번호가 변경되었습니다")
+  }
+
+  const addUser = async () => {
+    if (!newUser.name || !newUser.loginId || !newUser._newPw) return
+    const hash = await hashPw(newUser._newPw)
+    const {_newPw, ...rest} = newUser
+    saveUsers([...users, {...rest, id:`U${Date.now()}`, avatar:newUser.name.slice(0,2), _pwHash:hash, mustChangePw:true}])
     setShowAdd(false)
-    setNewUser({name:"",email:"",role:"viewer",dept:"",read:true,write:false,canManageUsers:false,active:true})
+    setNewUser({name:"",loginId:"",role:"viewer",dept:"",read:true,write:false,canManageUsers:false,active:true,_newPw:""})
   }
 
   const ROLE_OPTIONS = [
@@ -1135,7 +1310,7 @@ function AuthTab({users, setUsers}) {
         <div style={{overflowX:"auto"}}>
           <table style={{width:"100%",borderCollapse:"collapse"}}>
             <thead><tr>
-              {["사용자","이메일","역할","소속","읽기","쓰기","권한관리","상태",""].map((h,i)=><th key={h} style={S.th(i===0?"left":"center")}>{h}</th>)}
+              {["사용자","아이디","역할","소속","읽기","쓰기","권한관리","상태",""].map((h,i)=><th key={h} style={S.th(i===0?"left":"center")}>{h}</th>)}
             </tr></thead>
             <tbody>
               {users.map((u,i)=>(
@@ -1146,7 +1321,7 @@ function AuthTab({users, setUsers}) {
                       <span style={{fontSize:14,fontWeight:500}}>{u.name}</span>
                     </div>
                   </td>
-                  <td style={{...S.td("center"),fontSize:12,color:C.gray}}>{u.email}</td>
+                  <td style={{...S.td("center"),fontSize:13,fontFamily:"monospace"}}>{u.loginId}</td>
                   <td style={S.td("center")}><span style={S.badge(ROLE_BADGE[u.role].bg,ROLE_BADGE[u.role].fg)}>{ROLE_BADGE[u.role].label}</span></td>
                   <td style={{...S.td("center"),fontSize:13}}>{u.dept}</td>
                   {editId===u.id ? (
@@ -1173,10 +1348,22 @@ function AuthTab({users, setUsers}) {
                       <td style={S.td("center")}>{u.canManageUsers ? <span style={{color:C.amber,fontSize:16}}>✓</span> : <span style={{color:C.gray}}>—</span>}</td>
                       <td style={S.td("center")}><span style={S.badge(u.active?C.greenL:C.redL,u.active?C.green:C.red)}>{u.active?"활성":"비활성"}</span></td>
                       <td style={S.td("center")}>
-                        <div style={{display:"flex",gap:5,justifyContent:"center"}}>
+                        <div style={{display:"flex",gap:5,justifyContent:"center",flexWrap:"wrap"}}>
                           <button onClick={()=>startEdit(u)} style={{...S.btn(C.navyL),color:C.navy,padding:"5px 10px",fontSize:12}}>수정</button>
+                          {u.id !== currentUser.id && <button onClick={()=>{setPwResetId(u.id);setNewPwVal("");setPwMsg("")}} style={{...S.btn(C.amberL),color:C.amber,padding:"5px 10px",fontSize:12}}><i className="ti ti-key" aria-hidden="true"/> 비밀번호</button>}
                           <button onClick={()=>toggleActive(u.id)} style={{...S.btn(u.active?C.redL:C.greenL),color:u.active?C.red:C.green,padding:"5px 10px",fontSize:12}}>{u.active?"비활성화":"활성화"}</button>
                         </div>
+                        {pwResetId===u.id && (
+                          <div style={{marginTop:8,background:C.amberL,borderRadius:8,padding:"10px 12px",minWidth:220}}>
+                            <div style={{fontSize:11,color:C.amber,marginBottom:6,fontWeight:500}}>비밀번호 초기화 — {u.name}</div>
+                            <input type="password" value={newPwVal} onChange={e=>setNewPwVal(e.target.value)} placeholder="새 비밀번호 (6자 이상)" style={{...S.inp(),fontSize:12,marginBottom:6}}/>
+                            <div style={{display:"flex",gap:5}}>
+                              <button onClick={()=>resetPw(u.id)} style={{...S.btn(C.amber),padding:"5px 10px",fontSize:12}}>저장</button>
+                              <button onClick={()=>setPwResetId(null)} style={{...S.btn(C.gray),padding:"5px 10px",fontSize:12}}>취소</button>
+                            </div>
+                            {pwMsg && <div style={{fontSize:11,color:C.red,marginTop:4}}>{pwMsg}</div>}
+                          </div>
+                        )}
                       </td>
                     </>
                   )}
@@ -1187,11 +1374,35 @@ function AuthTab({users, setUsers}) {
         </div>
       </Card>
 
+      {/* 내 비밀번호 변경 */}
+      <Card title="내 비밀번호 변경" note="현재 로그인 계정">
+        <div style={{display:"flex",gap:8,alignItems:"center",marginBottom:14,flexWrap:"wrap"}}>
+          <span style={{fontSize:13}}>계정: <strong>{currentUser.loginId}</strong> ({currentUser.name})</span>
+          <button onClick={()=>setShowMyPw(v=>!v)} style={{...S.btn(C.navyL),color:C.navyM,padding:"5px 12px",fontSize:12}}>
+            <i className="ti ti-key" aria-hidden="true"/> {showMyPw?"닫기":"비밀번호 변경"}
+          </button>
+        </div>
+        {showMyPw && (
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10,maxWidth:560}}>
+            {[["현재 비밀번호",myOldPw,setMyOldPw],["새 비밀번호",myNewPw,setMyNewPw],["새 비밀번호 확인",myNewPw2,setMyNewPw2]].map(([l,v,setter])=>(
+              <div key={l}>
+                <label style={S.lbl()}>{l}</label>
+                <input type="password" value={v} onChange={e=>setter(e.target.value)} style={S.inp()}/>
+              </div>
+            ))}
+            <div style={{gridColumn:"1/-1",display:"flex",gap:8,alignItems:"center",marginTop:4}}>
+              <button onClick={changeMyPw} style={S.btn(C.navyM)}>변경 저장</button>
+              {myPwMsg && <span style={{fontSize:12,color:myPwMsg.startsWith("✓")?C.green:C.red}}>{myPwMsg}</span>}
+            </div>
+          </div>
+        )}
+      </Card>
+
       {showAdd && (
         <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.4)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:400}}>
           <div style={S.card({width:420,maxWidth:"95vw"})}>
             <div style={{fontSize:15,fontWeight:500,marginBottom:16}}>사용자 추가</div>
-            {[["name","이름 *","text"],["email","이메일 (구글 계정) *","email"],["dept","소속 부서","text"]].map(([k,l,t])=>(
+            {[["name","이름 *","text"],["loginId","아이디 * (영문·숫자, 예: bht)","text"],["dept","소속 부서","text"]].map(([k,l,t])=>(
               <div key={k} style={{marginBottom:10}}>
                 <label style={S.lbl()}>{l}</label>
                 <input type={t} value={newUser[k]||""} onChange={e=>setNewUser(p=>({...p,[k]:e.target.value}))} style={S.inp()}/>
@@ -1202,6 +1413,10 @@ function AuthTab({users, setUsers}) {
               <select value={newUser.role} onChange={e=>setNewUser(p=>({...p,role:e.target.value}))} style={{...S.inp()}}>
                 {ROLE_OPTIONS.map(r=><option key={r.v} value={r.v}>{r.l} — {r.desc}</option>)}
               </select>
+            </div>
+            <div style={{marginBottom:10}}>
+              <label style={S.lbl()}>초기 비밀번호 * (6자 이상, 첫 로그인 후 변경 안내)</label>
+              <input type="password" value={newUser._newPw||""} onChange={e=>setNewUser(p=>({...p,_newPw:e.target.value}))} placeholder="초기 비밀번호 설정" style={S.inp()}/>
             </div>
             <div style={{display:"flex",gap:20,marginBottom:14}}>
               {[["read","읽기 권한"],["write","쓰기 권한"],["canManageUsers","권한 관리"]].map(([k,l])=>(
