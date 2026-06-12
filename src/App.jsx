@@ -7,6 +7,7 @@ import {
   ComposedChart, Area, ReferenceLine, RadarChart, Radar,
   PolarGrid, PolarAngleAxis, Legend
 } from "recharts"
+import { ArchiveTab } from "./Archive.jsx"
 import {
   hashPw, ALL_USERS, MASTER_PW, ROLE_BADGE,
   fE, fW, fP, fPy, fPct, toPy, PY, getAreaBasis, calcUP, calcPnlTotals,
@@ -164,6 +165,7 @@ export default function App() {
     {id:"cashflow",  label:"💧 월수금계획"},
     {id:"projects",  label:"🏗 프로젝트"},
     {id:"pnl",       label:"📉 손익분석"},
+    {id:"archive",   label:"📁 아카이브"},
     {id:"auth_mgmt", label:"🔐 권한관리"},
   ]
 
@@ -214,6 +216,7 @@ export default function App() {
         {tab==="cashflow" && <CashflowTab/>}
         {tab==="projects" && <ProjectsTab projects={projects} setProjects={setProjects} selProjId={selProjId} setSelProjId={setSelProjId} selVerIdx={selVerIdx} setSelVerIdx={setSelVerIdx} cmpIds={cmpIds} setCmpIds={setCmpIds} showNewVer={showNewVer} setShowNewVer={setShowNewVer} canWrite={canWrite}/>}
         {tab==="pnl"      && <PnlTab pnlData={pnlData} setPnlData={setPnlData} canWrite={canWrite}/>}
+        {tab==="archive"   && <ArchiveTab currentUser={currentUser} projects={projects}/>}
         {tab==="auth_mgmt"&& currentUser.role==="admin" && <AuthTab users={users} saveUsers={saveUsers} currentUser={currentUser} hashPw={hashPw}/>}
       </div>
 
@@ -897,6 +900,35 @@ function ProjectsTab({projects,setProjects,selProjId,setSelProjId,selVerIdx,setS
                   </button>
                 ))}
                 {canWrite&&<button onClick={()=>setShowNewVer(true)} style={{...S.btn(C.green),padding:"5px 11px",fontSize:11}}>+ 버전 추가</button>}
+              {canWrite&&<label style={{...S.btn(C.amberL,C.amber),padding:"5px 11px",fontSize:11,cursor:"pointer"}}>
+                <i className="ti ti-upload" aria-hidden="true"/> 엑셀 업로드
+                <input type="file" accept=".xlsx,.xls,.csv" style={{display:"none"}} onChange={e=>{
+                  const file=e.target.files?.[0]; if(!file||!selProj) return
+                  const reader=new FileReader()
+                  reader.onload=ev=>{
+                    try {
+                      const wb=XLSX.read(ev.target.result,{type:"array"})
+                      const ws2=wb.Sheets["협력업체비용"]
+                      if(!ws2){alert("'협력업체비용' 시트가 필요합니다.");return}
+                      const r2=XLSX.utils.sheet_to_json(ws2,{header:1,defval:""})
+                      const vendors=[]
+                      const verName=String(r2[4]?.[6]||"").trim()||"v업로드"
+                      for(let i=4;i<r2.length;i++){
+                        const row=r2[i];if(!row[1]&&!row[2]) continue
+                        const cat=String(row[1]||"").trim(),name=String(row[2]||"").trim(),contract=parseInt(String(row[3]).replace(/[^0-9]/g,""))||0
+                        if(cat&&contract) vendors.push({cat,name,contract,nego1:parseInt(String(row[4]).replace(/[^0-9]/g,""))||0,nego2:parseInt(String(row[5]).replace(/[^0-9]/g,""))||0})
+                      }
+                      if(vendors.length===0){alert("협력업체 데이터를 찾을 수 없습니다.");return}
+                      const newVer={ver:verName,date:new Date().toISOString().slice(0,10),reason:"엑셀 업로드",laborCost:0,directExp:0,subContract:vendors.reduce((s,v)=>s+v.contract,0),indirect:null,profit:null,vendors}
+                      setProjects(prev=>prev.map(p=>p.id===selProj.id?{...p,versions:[...p.versions,newVer]}:p))
+                      setSelVerIdx(selProj.versions.length)
+                      alert(`협력업체 ${vendors.length}개 업로드 완료`)
+                    }catch(err){alert("파싱 오류: "+err.message)}
+                    e.target.value=""
+                  }
+                  reader.readAsArrayBuffer(file)
+                }}/>
+              </label>}
               </div>
 
               {selVer && (
@@ -915,7 +947,7 @@ function ProjectsTab({projects,setProjects,selProjId,setSelProjId,selVerIdx,setS
                               <tr key={i} style={{background:row.bg||""}}>
                                 <td style={{...S.td("left"),fontWeight:row.bold?600:400,color:row.c||"inherit"}}>{row.l}</td>
                                 <td style={{...S.td("right"),fontWeight:row.bold?600:400}}>{fW(row.v)}</td>
-                                <td style={{...S.td("right"),fontWeight:row.bold?600:400}}>{fE(row.v)}</td>
+                                <td style={{...S.td("right"),fontWeight:row.bold?600:400}}>{row.v?+(row.v/1e8).toFixed(2):"0.00"}</td>
                                 <td style={S.td("right")}>{selProj.serviceFee>0?((row.v||0)/selProj.serviceFee*100).toFixed(1)+"%":"-"}</td>
                               </tr>
                             ))}
@@ -1024,14 +1056,29 @@ function CompareProjects({projects,cmpIds,setCmpIds,allCats}) {
   return (
     <div>
       <div style={{display:"flex",gap:7,marginBottom:13,flexWrap:"wrap",alignItems:"center"}}>
-        {projects.map(p=><button key={p.id} onClick={()=>setCmpIds(prev=>prev.includes(p.id)?prev.filter(id=>id!==p.id):[...prev,p.id])}
-          style={{...S.btn(cmpIds.includes(p.id)||cmpIds.length===0?C.navyM:C.navyL,cmpIds.includes(p.id)||cmpIds.length===0?"#fff":C.navy),padding:"5px 11px",fontSize:11}}>{p.code.slice(0,12)}</button>)}
-        <select value={catFilter} onChange={e=>setCatFilter(e.target.value)} style={{padding:"5px 9px",border:"0.5px solid var(--color-border-secondary,#ccc)",borderRadius:8,fontSize:12,background:"var(--color-background-primary,#fff)",color:"var(--color-text-primary,#333)"}}>
-          <option value="">전체 분야</option>{allCats.map(c=><option key={c} value={c}>{c}</option>)}
+        <select value="" onChange={e=>{const id=e.target.value;if(!id)return;setCmpIds(prev=>prev.includes(id)?prev.filter(x=>x!==id):[...prev,id])}}
+          style={{padding:"6px 11px",border:`1px solid ${C.navyM}`,borderRadius:8,fontSize:12,background:C.navyL,color:C.navyM,minWidth:200}}>
+          <option value="">+ 프로젝트 선택</option>
+          {projects.filter(p=>!cmpIds.includes(p.id)).map(p=><option key={p.id} value={p.id}>{p.name.slice(0,30)}</option>)}
         </select>
-        <select value={priceKey} onChange={e=>setPriceKey(e.target.value)} style={{padding:"5px 9px",border:"0.5px solid var(--color-border-secondary,#ccc)",borderRadius:8,fontSize:12,background:"var(--color-background-primary,#fff)",color:"var(--color-text-primary,#333)"}}>
-          <option value="contract">원가견적</option><option value="nego1">1차NEGO</option><option value="nego2">2차NEGO</option>
-        </select>
+        {cmpIds.length>0&&<div style={{display:"flex",gap:5,flexWrap:"wrap",alignItems:"center"}}>
+          {projects.filter(p=>cmpIds.includes(p.id)).map((p,i)=>(
+            <span key={p.id} style={{display:"inline-flex",alignItems:"center",gap:5,padding:"4px 10px",borderRadius:7,background:COLORS[i%COLORS.length]+"22",border:`1px solid ${COLORS[i%COLORS.length]}`,fontSize:12,color:COLORS[i%COLORS.length],fontWeight:500}}>
+              <span style={{width:8,height:8,borderRadius:"50%",background:COLORS[i%COLORS.length],flexShrink:0}}/>
+              {p.name.slice(0,16)}
+              <button onClick={()=>setCmpIds(prev=>prev.filter(id=>id!==p.id))} style={{background:"none",border:"none",cursor:"pointer",color:COLORS[i%COLORS.length],fontSize:14,lineHeight:1,padding:"0 2px"}}>×</button>
+            </span>
+          ))}
+          <button onClick={()=>setCmpIds([])} style={{...S.btn(C.grayL,C.gray),padding:"4px 9px",fontSize:11}}>전체 해제</button>
+        </div>}
+        <div style={{display:"flex",gap:6,marginLeft:"auto"}}>
+          <select value={catFilter} onChange={e=>setCatFilter(e.target.value)} style={{padding:"5px 9px",border:"0.5px solid var(--color-border-secondary,#ccc)",borderRadius:8,fontSize:12,background:"var(--color-background-primary,#fff)",color:"var(--color-text-primary,#333)"}}>
+            <option value="">전체 분야</option>{allCats.map(c=><option key={c} value={c}>{c}</option>)}
+          </select>
+          <select value={priceKey} onChange={e=>setPriceKey(e.target.value)} style={{padding:"5px 9px",border:"0.5px solid var(--color-border-secondary,#ccc)",borderRadius:8,fontSize:12,background:"var(--color-background-primary,#fff)",color:"var(--color-text-primary,#333)"}}>
+            <option value="contract">원가견적</option><option value="nego1">1차NEGO</option><option value="nego2">2차NEGO</option>
+          </select>
+        </div>
       </div>
       <Card title="분야별 협력업체 비용 비교" note="단위: 백만원">
         <ResponsiveContainer width="100%" height={Math.max(260,tableData.length*28)}>
@@ -1044,22 +1091,69 @@ function CompareProjects({projects,cmpIds,setCmpIds,allCats}) {
           </BarChart>
         </ResponsiveContainer>
       </Card>
-      <Card title="비교 상세표" note="초록=최저 빨강=최고">
+      <Card title="비교 상세표" note="분야별 [금액 / 평당단가 / 비율] 3개 한 세트로 비교 · 초록=최저 빨강=최고">
         <div style={{overflowX:"auto"}}>
-          <table style={{width:"100%",borderCollapse:"collapse"}}>
-            <thead><tr><th style={S.th("left")}>분야</th>{selPs.map(p=><th key={p.id} style={S.th("right")}>{p.code.slice(0,12)}</th>)}<th style={S.th("right")}>최저</th><th style={S.th("right")}>최고</th><th style={S.th("right")}>차이율</th></tr></thead>
+          <table style={{width:"100%",borderCollapse:"collapse",fontSize:12}}>
+            <thead>
+              <tr style={{background:"var(--color-background-secondary,#f0f0ee)"}}>
+                <th style={{...S.th("left"),rowSpan:2}} rowSpan={2}>분야</th>
+                <th style={{...S.th("center"),rowSpan:2}} rowSpan={2}>면적기준</th>
+                {selPs.map((p,pi)=>(
+                  <th key={p.id} colSpan={3} style={{...S.th("center"),background:COLORS[pi%COLORS.length]+"22",color:COLORS[pi%COLORS.length],borderBottom:"0.5px solid "+COLORS[pi%COLORS.length]}}>
+                    {p.name.slice(0,14)}
+                  </th>
+                ))}
+                <th colSpan={2} style={S.th("center")}>최저 / 최고</th>
+              </tr>
+              <tr>
+                {selPs.map((p,pi)=>[
+                  <th key={p.id+"a"} style={{...S.th("right"),fontSize:10,background:COLORS[pi%COLORS.length]+"11"}}>금액(원)</th>,
+                  <th key={p.id+"b"} style={{...S.th("right"),fontSize:10,background:COLORS[pi%COLORS.length]+"11"}}>평당단가</th>,
+                  <th key={p.id+"c"} style={{...S.th("right"),fontSize:10,background:COLORS[pi%COLORS.length]+"11"}}>비율%</th>,
+                ])}
+                <th style={{...S.th("right"),fontSize:10}}>최저</th>
+                <th style={{...S.th("right"),fontSize:10}}>최고↑차이</th>
+              </tr>
+            </thead>
             <tbody>
               {tableData.map((row,i)=>{
                 const vals=selPs.map(p=>row[p.id]).filter(v=>v>0)
                 const min=vals.length?Math.min(...vals):0, max=vals.length?Math.max(...vals):0
+                const basis=getAreaBasis(row.cat)
                 return <tr key={row.cat} style={{background:i%2===0?"var(--color-background-primary,#fff)":"var(--color-background-secondary,#f8f8f6)"}}>
                   <td style={S.td("left")}><span style={S.bdg(C.navyL,C.navyM)}>{row.cat}</span></td>
-                  {selPs.map(p=><td key={p.id} style={{...S.td("right"),color:row[p.id]===min&&selPs.length>1&&min>0?C.green:row[p.id]===max&&selPs.length>1?C.red:"inherit",fontWeight:row[p.id]===min&&selPs.length>1&&min>0?600:400}}>{row[p.id]?fW(row[p.id]):"-"}</td>)}
-                  <td style={{...S.td("right"),color:C.green,fontWeight:600}}>{min?fW(min):"-"}</td>
-                  <td style={{...S.td("right"),color:C.red}}>{max?fW(max):"-"}</td>
-                  <td style={S.td("right")}>{min&&max>0?((max-min)/min*100).toFixed(0)+"%":"-"}</td>
+                  <td style={S.td("center")}><span style={{...S.bdg(basis==="대지"?C.amberL:basis==="1식"?C.grayL:C.greenL,basis==="대지"?C.amber:basis==="1식"?C.gray:C.green),fontSize:9}}>{basis==="대지"?"대지면적":basis==="연면적"?"연면적":"1식"}</span></td>
+                  {selPs.map((p,pi)=>{
+                    const v=row[p.id]||0
+                    const isMin=v===min&&selPs.length>1&&min>0, isMax=v===max&&selPs.length>1
+                    const color=isMin?C.green:isMax?C.red:"inherit"
+                    const pyF2=toPy(p.floorArea||0), pyS2=toPy(p.siteArea||0)
+                    const py=basis==="대지"?pyS2:basis==="연면적"?pyF2:0
+                    const up=py>0&&v>0?Math.round(v/py):null
+                    const ratio=p.serviceFee>0&&v>0?(v/p.serviceFee*100).toFixed(1):null
+                    return [
+                      <td key={p.id+"a"} style={{...S.td("right"),color,fontWeight:isMin?600:400,background:COLORS[pi%COLORS.length]+"08"}}>{v?fW(v):"-"}</td>,
+                      <td key={p.id+"b"} style={{...S.td("right"),color:up?C.navyM:C.gray,fontSize:11,background:COLORS[pi%COLORS.length]+"08"}}>{up?up.toLocaleString()+"원":"-"}</td>,
+                      <td key={p.id+"c"} style={{...S.td("right"),color:C.gray,fontSize:11,background:COLORS[pi%COLORS.length]+"08"}}>{ratio?ratio+"%":"-"}</td>,
+                    ]
+                  })}
+                  <td style={{...S.td("right"),color:C.green,fontWeight:600,fontSize:11}}>{min?fW(min):"-"}</td>
+                  <td style={{...S.td("right"),color:C.red,fontSize:11}}>{max?fW(max):"-"}<br/>{min&&max>0&&<span style={{fontSize:10,color:C.gray}}>{((max-min)/min*100).toFixed(0)}%↑</span>}</td>
                 </tr>
               })}
+              <tr style={{background:"var(--color-background-secondary,#f0f0ee)",fontWeight:600}}>
+                <td style={{...S.td("left")}} colSpan={2}>외주비 합계</td>
+                {selPs.map((p,pi)=>{
+                  const ver=p.versions[p.versions.length-1]
+                  const tot=ver?.vendors.reduce((s,v)=>s+(v[priceKey]||v.contract||0),0)||0
+                  return [
+                    <td key={p.id+"a"} style={{...S.td("right"),color:C.navyM,background:COLORS[pi%COLORS.length]+"08"}}>{fW(tot)}</td>,
+                    <td key={p.id+"b"} style={{...S.td("right"),background:COLORS[pi%COLORS.length]+"08"}}>-</td>,
+                    <td key={p.id+"c"} style={{...S.td("right"),background:COLORS[pi%COLORS.length]+"08"}}>{p.serviceFee>0?(tot/p.serviceFee*100).toFixed(1)+"%":"-"}</td>,
+                  ]
+                })}
+                <td colSpan={2}/>
+              </tr>
             </tbody>
           </table>
         </div>
@@ -1095,8 +1189,20 @@ function BenchProjects({projects,cmpIds,setCmpIds,allCats}) {
         <strong>평당단가 산출 기준</strong> — 토목·조경·흙막이·지반조사·현황측량·부대토목 → <strong style={{color:C.amber}}>대지면적</strong> / 구조·기계·전기·소방·CG·건축외주 등 → <strong style={{color:C.green}}>연면적</strong> / 친환경·교통·BIM·인테리어·외부특화·경관 → <strong style={{color:C.gray}}>1식 제외</strong>
       </div>
       <div style={{display:"flex",gap:7,marginBottom:13,flexWrap:"wrap",alignItems:"center"}}>
-        {projects.map(p=><button key={p.id} onClick={()=>setCmpIds(prev=>prev.includes(p.id)?prev.filter(id=>id!==p.id):[...prev,p.id])}
-          style={{...S.btn(cmpIds.includes(p.id)||cmpIds.length===0?C.navyM:C.navyL,cmpIds.includes(p.id)||cmpIds.length===0?"#fff":C.navy),padding:"5px 11px",fontSize:11}}>{p.code.slice(0,12)}</button>)}
+        <select value="" onChange={e=>{const id=e.target.value;if(!id)return;setCmpIds(prev=>prev.includes(id)?prev.filter(x=>x!==id):[...prev,id])}}
+          style={{padding:"6px 11px",border:`1px solid ${C.navyM}`,borderRadius:8,fontSize:12,background:C.navyL,color:C.navyM,minWidth:200}}>
+          <option value="">+ 프로젝트 선택</option>
+          {projects.filter(p=>!cmpIds.includes(p.id)).map(p=><option key={p.id} value={p.id}>{p.name.slice(0,30)}</option>)}
+        </select>
+        {cmpIds.length>0&&<div style={{display:"flex",gap:5,flexWrap:"wrap"}}>
+          {projects.filter(p=>cmpIds.includes(p.id)).map((p,i)=>(
+            <span key={p.id} style={{display:"inline-flex",alignItems:"center",gap:4,padding:"4px 9px",borderRadius:7,background:COLORS[i%COLORS.length]+"22",border:`1px solid ${COLORS[i%COLORS.length]}`,fontSize:12,color:COLORS[i%COLORS.length],fontWeight:500}}>
+              <span style={{width:8,height:8,borderRadius:"50%",background:COLORS[i%COLORS.length],flexShrink:0}}/>
+              {p.name.slice(0,14)}
+              <button onClick={()=>setCmpIds(prev=>prev.filter(id=>id!==p.id))} style={{background:"none",border:"none",cursor:"pointer",color:COLORS[i%COLORS.length],fontSize:14,lineHeight:1}}>×</button>
+            </span>
+          ))}
+        </div>}
         <select value={selCat} onChange={e=>setSelCat(e.target.value)} style={{padding:"5px 9px",border:"0.5px solid var(--color-border-secondary,#ccc)",borderRadius:8,fontSize:12,background:"var(--color-background-primary,#fff)",color:"var(--color-text-primary,#333)"}}>
           <option value="">단가산출 가능 전체 분야</option>
           {allCats.filter(c=>UP_CATS.some(u=>c.includes(u)||u.includes(c))).map(c=><option key={c} value={c}>{c}</option>)}
