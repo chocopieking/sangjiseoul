@@ -26,14 +26,26 @@ const num = v => { const n=parseFloat(v); return Number.isFinite(n)?n:0 }
 const STAFF_DEPTS  = ["설계1본부","설계2본부","주거디자인본부","디자인본부","경영지원","해외사업부"]
 const STAFF_FIELDS = [["total","합계"],["pm","PM"],["designer","설계인력"],["admin","행정"]]
 
+const TYPE_LABEL = {staff:"본부인원",pnl:"월별손익",cashflow:"월수금",years:"3개년실적",all:"전체 스냅샷"}
+const TYPE_COLOR = {staff:C.navyM,pnl:C.green,cashflow:C.amber,years:"#534AB7",all:C.red}
+
+const summarizeStaff = data => STAFF_DEPTS.map(d=>({dept:d,...(data?.[d]||{total:0,pm:0,designer:0,admin:0})}))
+const summarizePnl = data => DEPTS.map(d=>{
+  const s = (Array.isArray(data)?data:[]).reduce((a,r)=>{const bd=r.byDept?.[d]||{};return{rev:a.rev+num(bd.rev),sal:a.sal+num(bd.sal),sub:a.sub+num(bd.sub)}},{rev:0,sal:0,sub:0})
+  return {dept:d,...s,pnl:s.rev-s.sal-s.sub}
+})
+const summarizeCashflow = data => DEPTS.map(d=>({dept:d,total:(Array.isArray(data)?data:[]).reduce((s,m)=>s+num(m.byDept?.[d]),0)}))
+
 // ══════════════════════════════════════════════════════════════
 export function DataHubTab({
   currentUser, deptStaff, setDeptStaff, pnlData, setPnlData,
   cashflow, setCashflow, years, setYears,
   projects, setTab, setSelProjId, setSelVerIdx, setShowNewProj,
+  versions, saveVersion, restoreVersion, deleteVersion,
 }) {
   const isAdmin = currentUser.role === "admin"
   const canEditDept = dept => isAdmin || (currentUser.write===true && currentUser.dept===dept)
+  const canManage = isAdmin || currentUser.write===true
   const myEditable = STAFF_DEPTS.filter(d=>canEditDept(d))
 
   const SECTIONS = [
@@ -42,6 +54,7 @@ export function DataHubTab({
     {id:"cashflow",  label:"💧 월수금(부서별)"},
     {id:"years",     label:"📈 3개년 실적"},
     {id:"projects",  label:"🏗 프로젝트·협력업체"},
+    {id:"history",   label:"📜 버전 기록", accent:true},
   ]
   const [section,setSection] = useState("staff")
 
@@ -53,6 +66,7 @@ export function DataHubTab({
         <div style={{fontSize:14,lineHeight:1.7,color:"#0C447C"}}>
           <b>모든 운영 데이터를 이 화면에서 입력합니다.</b> 본부 인원·월별 손익·월수금계획은 <b>본인 본부 데이터만 입력</b>할 수 있고,
           입력 즉시 <b>전체 구성원이 조회</b>할 수 있습니다. 프로젝트·협력업체는 구조가 달라 전용 화면(프로젝트 탭)에서 관리하며, 아래 ‘프로젝트·협력업체’ 섹션에서 바로 이동할 수 있습니다.
+          저장할 때마다 <b>버전 기록</b>에 자동 보관되어 언제든 꺼내보고 복원할 수 있습니다.
           {isAdmin
             ? <div style={{marginTop:6}}><span style={S.bdg(C.greenL,"#27500A")}>관리자</span> 모든 본부 데이터를 입력할 수 있습니다.</div>
             : <div style={{marginTop:6}}>
@@ -68,18 +82,21 @@ export function DataHubTab({
         {SECTIONS.map(s=>(
           <button key={s.id} onClick={()=>setSection(s.id)} style={{
             padding:"11px 18px",border:"none",borderRadius:11,fontSize:14.5,fontWeight:700,cursor:"pointer",
-            background:section===s.id?C.navy:"var(--color-background-primary,#fff)",
-            color:section===s.id?"#fff":"var(--color-text-secondary,#888)",
+            background:section===s.id?(s.accent?C.amber:C.navy):"var(--color-background-primary,#fff)",
+            color:section===s.id?"#fff":(s.accent?C.amber:"var(--color-text-secondary,#888)"),
             boxShadow:section===s.id?"0 2px 10px rgba(12,68,124,.25)":"0 0 0 0.5px var(--color-border-tertiary,#e4e4e0)",
           }}>{s.label}</button>
         ))}
       </div>
 
-      {section==="staff"     && <StaffSection deptStaff={deptStaff} setDeptStaff={setDeptStaff} canEditDept={canEditDept}/>}
-      {section==="pnl"       && <PnlDeptSection pnlData={pnlData} setPnlData={setPnlData} canEditDept={canEditDept} currentUser={currentUser} isAdmin={isAdmin}/>}
-      {section==="cashflow"  && <CashflowDeptSection cashflow={cashflow} setCashflow={setCashflow} canEditDept={canEditDept} currentUser={currentUser} isAdmin={isAdmin}/>}
-      {section==="years"     && <YearsSection years={years} setYears={setYears} isAdmin={isAdmin}/>}
+      {section==="staff"     && <StaffSection deptStaff={deptStaff} setDeptStaff={setDeptStaff} canEditDept={canEditDept} currentUser={currentUser} saveVersion={saveVersion}/>}
+      {section==="pnl"       && <PnlDeptSection pnlData={pnlData} setPnlData={setPnlData} canEditDept={canEditDept} currentUser={currentUser} isAdmin={isAdmin} saveVersion={saveVersion}/>}
+      {section==="cashflow"  && <CashflowDeptSection cashflow={cashflow} setCashflow={setCashflow} canEditDept={canEditDept} currentUser={currentUser} isAdmin={isAdmin} saveVersion={saveVersion}/>}
+      {section==="years"     && <YearsSection years={years} setYears={setYears} isAdmin={isAdmin} currentUser={currentUser} saveVersion={saveVersion}/>}
       {section==="projects"  && <ProjectsShortcut projects={projects} currentUser={currentUser} isAdmin={isAdmin} setTab={setTab} setSelProjId={setSelProjId} setSelVerIdx={setSelVerIdx} setShowNewProj={setShowNewProj}/>}
+      {section==="history"   && <VersionHistorySection versions={versions} restoreVersion={restoreVersion} deleteVersion={deleteVersion} saveVersion={saveVersion}
+                                    currentUser={currentUser} canManage={canManage}
+                                    deptStaff={deptStaff} pnlData={pnlData} cashflow={cashflow} years={years}/>}
     </div>
   )
 }
@@ -87,13 +104,18 @@ export function DataHubTab({
 // ════════════════════════════════════════════════════════════
 // 1) 본부 인원현황
 // ════════════════════════════════════════════════════════════
-function StaffSection({deptStaff,setDeptStaff,canEditDept}) {
+function StaffSection({deptStaff,setDeptStaff,canEditDept,currentUser,saveVersion}) {
   const [editing,setEditing] = useState(false)
   const [draft,setDraft]     = useState(null)
+  const [note,setNote]       = useState("")
   const work = editing ? draft : deptStaff
-  const start = ()=>{ setDraft(JSON.parse(JSON.stringify(deptStaff))); setEditing(true) }
-  const save  = ()=>{ setDeptStaff(draft); setEditing(false); setDraft(null) }
-  const cancel= ()=>{ setEditing(false); setDraft(null) }
+  const start = ()=>{ setDraft(JSON.parse(JSON.stringify(deptStaff))); setNote(""); setEditing(true) }
+  const save  = ()=>{
+    setDeptStaff(draft)
+    saveVersion?.("staff", note.trim()||"본부 인원현황 수정", draft, currentUser.name)
+    setEditing(false); setDraft(null); setNote("")
+  }
+  const cancel= ()=>{ setEditing(false); setDraft(null); setNote("") }
   const upd   = (dept,field,v)=>setDraft(p=>({...p,[dept]:{...p[dept],[field]:num(v)}}))
   const editableAny = STAFF_DEPTS.some(canEditDept)
 
@@ -106,7 +128,8 @@ function StaffSection({deptStaff,setDeptStaff,canEditDept}) {
         </div>
         {editableAny && (!editing
           ? <button onClick={start} style={S.btn(C.navyL,C.navyM)}><i className="ti ti-edit" aria-hidden="true"/> 인원 입력</button>
-          : <div style={{display:"flex",gap:8}}>
+          : <div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap"}}>
+              <input value={note} onChange={e=>setNote(e.target.value)} placeholder="버전 메모(선택) — 예: 6월 인사발령 반영" style={{...S.inp(220),textAlign:"left"}}/>
               <button onClick={save} style={S.btn(C.green)}>저장</button>
               <button onClick={cancel} style={S.btn(C.grayL,C.gray)}>취소</button>
             </div>)}
@@ -164,23 +187,26 @@ function StaffSection({deptStaff,setDeptStaff,canEditDept}) {
 // ════════════════════════════════════════════════════════════
 // 2) 월별 손익 (부서별 — 매출/인건비/외주비)
 // ════════════════════════════════════════════════════════════
-function PnlDeptSection({pnlData,setPnlData,canEditDept,currentUser,isAdmin}) {
+function PnlDeptSection({pnlData,setPnlData,canEditDept,currentUser,isAdmin,saveVersion}) {
   const myDeptInList = DEPTS.includes(currentUser.dept) ? currentUser.dept : DEPTS[0]
   const [selDept,setSelDept] = useState(myDeptInList)
   const [editing,setEditing] = useState(false)
   const [draft,setDraft]     = useState(null)
+  const [note,setNote]       = useState("")
 
   const canEdit = canEditDept(selDept)
   const buildDraft = ()=>pnlData.map(r=>{
     const bd = r.byDept?.[selDept]||{}
     return {rev:num(bd.rev),sal:num(bd.sal),sub:num(bd.sub)}
   })
-  const start = ()=>{ setDraft(buildDraft()); setEditing(true) }
+  const start = ()=>{ setDraft(buildDraft()); setNote(""); setEditing(true) }
   const save  = ()=>{
-    setPnlData(prev=>prev.map((r,i)=>({...r,byDept:{...r.byDept,[selDept]:{...draft[i]}}})))
-    setEditing(false); setDraft(null)
+    const merged = pnlData.map((r,i)=>({...r,byDept:{...r.byDept,[selDept]:{...draft[i]}}}))
+    setPnlData(merged)
+    saveVersion?.("pnl", note.trim()||`${selDept} 월별 손익 입력`, merged, currentUser.name)
+    setEditing(false); setDraft(null); setNote("")
   }
-  const cancel = ()=>{ setEditing(false); setDraft(null) }
+  const cancel = ()=>{ setEditing(false); setDraft(null); setNote("") }
   const upd = (i,k,v)=>setDraft(p=>p.map((row,ri)=>ri===i?{...row,[k]:num(v)}:row))
 
   const FIELDS = [["rev","매출",C.green],["sal","인건비",C.navyM],["sub","외주비",C.amber]]
@@ -202,7 +228,8 @@ function PnlDeptSection({pnlData,setPnlData,canEditDept,currentUser,isAdmin}) {
           </select>
           {canEdit && (!editing
             ? <button onClick={start} style={S.btn(C.navyL,C.navyM)}><i className="ti ti-edit" aria-hidden="true"/> {selDept} 손익 입력</button>
-            : <div style={{display:"flex",gap:8}}>
+            : <div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap"}}>
+                <input value={note} onChange={e=>setNote(e.target.value)} placeholder="버전 메모(선택)" style={{...S.inp(180),textAlign:"left"}}/>
                 <button onClick={save} style={S.btn(C.green)}>저장</button>
                 <button onClick={cancel} style={S.btn(C.grayL,C.gray)}>취소</button>
               </div>)}
@@ -248,20 +275,23 @@ function PnlDeptSection({pnlData,setPnlData,canEditDept,currentUser,isAdmin}) {
 // ════════════════════════════════════════════════════════════
 // 3) 월수금계획 (부서별 — 월별 기성수금)
 // ════════════════════════════════════════════════════════════
-function CashflowDeptSection({cashflow,setCashflow,canEditDept,currentUser,isAdmin}) {
+function CashflowDeptSection({cashflow,setCashflow,canEditDept,currentUser,isAdmin,saveVersion}) {
   const myDeptInList = DEPTS.includes(currentUser.dept) ? currentUser.dept : DEPTS[0]
   const [selDept,setSelDept] = useState(myDeptInList)
   const [editing,setEditing] = useState(false)
   const [draft,setDraft]     = useState(null)
+  const [note,setNote]       = useState("")
   const canEdit = canEditDept(selDept)
 
   const buildDraft = ()=>cashflow.map(m=>num(m.byDept?.[selDept]))
-  const start = ()=>{ setDraft(buildDraft()); setEditing(true) }
+  const start = ()=>{ setDraft(buildDraft()); setNote(""); setEditing(true) }
   const save  = ()=>{
-    setCashflow(prev=>prev.map((m,i)=>({...m,byDept:{...m.byDept,[selDept]:draft[i]}})))
-    setEditing(false); setDraft(null)
+    const merged = cashflow.map((m,i)=>({...m,byDept:{...m.byDept,[selDept]:draft[i]}}))
+    setCashflow(merged)
+    saveVersion?.("cashflow", note.trim()||`${selDept} 월수금 입력`, merged, currentUser.name)
+    setEditing(false); setDraft(null); setNote("")
   }
-  const cancel = ()=>{ setEditing(false); setDraft(null) }
+  const cancel = ()=>{ setEditing(false); setDraft(null); setNote("") }
   const upd = (i,v)=>setDraft(p=>p.map((x,ri)=>ri===i?num(v):x))
 
   const work = editing ? draft : cashflow.map(m=>num(m.byDept?.[selDept]))
@@ -281,7 +311,8 @@ function CashflowDeptSection({cashflow,setCashflow,canEditDept,currentUser,isAdm
           </select>
           {canEdit && (!editing
             ? <button onClick={start} style={S.btn(C.navyL,C.navyM)}><i className="ti ti-edit" aria-hidden="true"/> {selDept} 수금 입력</button>
-            : <div style={{display:"flex",gap:8}}>
+            : <div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap"}}>
+                <input value={note} onChange={e=>setNote(e.target.value)} placeholder="버전 메모(선택)" style={{...S.inp(180),textAlign:"left"}}/>
                 <button onClick={save} style={S.btn(C.green)}>저장</button>
                 <button onClick={cancel} style={S.btn(C.grayL,C.gray)}>취소</button>
               </div>)}
@@ -317,13 +348,18 @@ function CashflowDeptSection({cashflow,setCashflow,canEditDept,currentUser,isAdm
 // ════════════════════════════════════════════════════════════
 // 4) 3개년 실적 (관리자)
 // ════════════════════════════════════════════════════════════
-function YearsSection({years,setYears,isAdmin}) {
+function YearsSection({years,setYears,isAdmin,currentUser,saveVersion}) {
   const [editing,setEditing] = useState(false)
   const [draft,setDraft]     = useState(null)
+  const [note,setNote]       = useState("")
   const work = editing ? draft : years
-  const start = ()=>{ setDraft(JSON.parse(JSON.stringify(years))); setEditing(true) }
-  const save  = ()=>{ setYears(draft); setEditing(false); setDraft(null) }
-  const cancel= ()=>{ setEditing(false); setDraft(null) }
+  const start = ()=>{ setDraft(JSON.parse(JSON.stringify(years))); setNote(""); setEditing(true) }
+  const save  = ()=>{
+    setYears(draft)
+    saveVersion?.("years", note.trim()||"3개년 실적 수정", draft, currentUser.name)
+    setEditing(false); setDraft(null); setNote("")
+  }
+  const cancel= ()=>{ setEditing(false); setDraft(null); setNote("") }
   const upd = (i,k,v)=>setDraft(p=>p.map((row,ri)=>ri===i?{...row,[k]:k==="yr"?v:num(v)}:row))
   const addYear = ()=>{
     const last = draft[draft.length-1]
@@ -340,7 +376,8 @@ function YearsSection({years,setYears,isAdmin}) {
         </div>
         {isAdmin && (!editing
           ? <button onClick={start} style={S.btn(C.navyL,C.navyM)}><i className="ti ti-edit" aria-hidden="true"/> 연도 데이터 입력</button>
-          : <div style={{display:"flex",gap:8}}>
+          : <div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap"}}>
+              <input value={note} onChange={e=>setNote(e.target.value)} placeholder="버전 메모(선택)" style={{...S.inp(180),textAlign:"left"}}/>
               <button onClick={addYear} style={S.btn(C.amber)}>+ 연도 추가</button>
               <button onClick={save} style={S.btn(C.green)}>저장</button>
               <button onClick={cancel} style={S.btn(C.grayL,C.gray)}>취소</button>
@@ -426,4 +463,177 @@ function ProjectsShortcut({projects,currentUser,isAdmin,setTab,setSelProjId,setS
           </div>}
     </div>
   )
+}
+
+// ════════════════════════════════════════════════════════════
+// 6) 버전 기록 — 저장 시 자동 보관된 스냅샷 조회/복원
+// ════════════════════════════════════════════════════════════
+const HIST_FILTERS = [["__all__","전체보기"],["staff","본부인원"],["pnl","월별손익"],["cashflow","월수금"],["years","3개년실적"],["all","통합스냅샷"]]
+
+function VersionHistorySection({versions,restoreVersion,deleteVersion,saveVersion,currentUser,canManage,deptStaff,pnlData,cashflow,years}) {
+  const [filter,setFilter]       = useState("__all__")
+  const [expandedId,setExpandedId] = useState(null)
+  const [note,setNote]           = useState("")
+  const [pendingRestore,setPendingRestore] = useState(null)
+  const [pendingDelete,setPendingDelete]   = useState(null)
+
+  const list = (versions||[]).filter(v=>filter==="__all__"||v.type===filter)
+
+  const snapshotAll = ()=>{
+    saveVersion?.("all", note.trim()||"전체 데이터 스냅샷", {deptStaff,pnlData,cashflow,years}, currentUser.name)
+    setNote("")
+  }
+  const fmtDate = iso => { try{ return new Date(iso).toLocaleString("ko-KR",{year:"numeric",month:"2-digit",day:"2-digit",hour:"2-digit",minute:"2-digit"}) }catch{ return iso } }
+
+  return (
+    <div>
+      {canManage && (
+        <div style={S.card()}>
+          <div style={cardTitle}>📌 전체 데이터 스냅샷 저장</div>
+          <div style={cardNote}>현재 본부인원·월별손익·월수금·3개년 실적 전체를 하나의 버전으로 통합 저장합니다. 월말 마감 등 중요한 시점에 사용하세요.</div>
+          <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+            <input value={note} onChange={e=>setNote(e.target.value)} placeholder="버전 메모(선택) — 예: 2026년 6월 마감" style={{...S.inp(300),textAlign:"left"}}/>
+            <button onClick={snapshotAll} style={S.btn(C.red)}><i className="ti ti-camera" aria-hidden="true"/> 지금 상태 스냅샷 저장</button>
+          </div>
+        </div>
+      )}
+
+      <div style={S.card()}>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",flexWrap:"wrap",gap:10,marginBottom:10}}>
+          <div>
+            <div style={cardTitle}>📜 버전 기록</div>
+            <div style={cardNote}>본부 인원·손익·수금·3개년 데이터를 저장할 때마다 자동으로 기록됩니다 (이 브라우저 기준 최신 80개 보관).</div>
+          </div>
+          <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+            {HIST_FILTERS.map(([k,l])=>(
+              <button key={k} onClick={()=>setFilter(k)} style={{padding:"7px 13px",border:"none",borderRadius:8,fontSize:12.5,fontWeight:600,cursor:"pointer",background:filter===k?C.navy:C.grayL,color:filter===k?"#fff":"#666"}}>{l}</button>
+            ))}
+          </div>
+        </div>
+
+        {list.length===0
+          ? <div style={{padding:"14px 16px",borderRadius:10,background:C.grayL,color:C.gray,fontSize:13}}>저장된 버전 기록이 없습니다. 각 섹션에서 데이터를 입력·저장하면 여기에 자동으로 쌓입니다.</div>
+          : list.map(v=>{
+              const expanded = expandedId===v.id
+              return (
+                <div key={v.id} style={{border:"0.5px solid var(--color-border-tertiary,#e4e4e0)",borderRadius:10,marginBottom:8,overflow:"hidden"}}>
+                  <div style={{display:"flex",alignItems:"center",gap:10,padding:"11px 14px",flexWrap:"wrap"}}>
+                    <span style={{...S.bdg("#fff",TYPE_COLOR[v.type]||C.gray),border:`1px solid ${TYPE_COLOR[v.type]||C.gray}`,fontWeight:700}}>{TYPE_LABEL[v.type]||v.type}</span>
+                    <span style={{fontSize:13.5,fontWeight:700,flex:1,minWidth:140}}>{v.label}</span>
+                    <span style={{fontSize:12,color:C.gray,whiteSpace:"nowrap"}}>{v.savedBy||"-"} · {fmtDate(v.savedAt)}</span>
+                    <button onClick={()=>setExpandedId(expanded?null:v.id)} style={{...S.btn(C.grayL,"#555"),padding:"6px 12px",fontSize:12}}>{expanded?"닫기":"보기"}</button>
+                    {canManage && <button onClick={()=>setPendingRestore(v)} style={{...S.btn(C.navyL,C.navyM),padding:"6px 12px",fontSize:12}}>복원</button>}
+                    {canManage && <button onClick={()=>setPendingDelete(v)} style={{...S.btn(C.redL,C.red),padding:"6px 12px",fontSize:12}}>삭제</button>}
+                  </div>
+                  {expanded && <div style={{padding:"0 14px 14px",borderTop:"0.5px solid var(--color-border-tertiary,#eee)"}}><SnapshotPreview snap={v}/></div>}
+                </div>
+              )
+            })}
+      </div>
+
+      {/* 복원 확인 */}
+      {pendingRestore && (
+        <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.4)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:300}}>
+          <div style={S.card({width:420,maxWidth:"95vw",marginBottom:0})}>
+            <div style={{fontSize:15,fontWeight:700,marginBottom:10}}>이 버전으로 복원하시겠습니까?</div>
+            <div style={{fontSize:13,color:"#555",marginBottom:14,lineHeight:1.7}}>
+              <span style={{...S.bdg("#fff",TYPE_COLOR[pendingRestore.type]||C.gray),border:`1px solid ${TYPE_COLOR[pendingRestore.type]||C.gray}`,fontWeight:700,marginRight:6}}>{TYPE_LABEL[pendingRestore.type]||pendingRestore.type}</span>
+              {pendingRestore.label}<br/>{fmtDate(pendingRestore.savedAt)} · {pendingRestore.savedBy}<br/><br/>
+              현재 데이터는 이 버전의 값으로 교체됩니다. 복원 전 현재 상태도 자동으로 새 버전으로 기록되니 필요하면 다시 되돌릴 수 있습니다.
+            </div>
+            <div style={{display:"flex",gap:8}}>
+              <button onClick={()=>{restoreVersion?.(pendingRestore,currentUser.name);setPendingRestore(null)}} style={S.btn(C.navyM)}>복원</button>
+              <button onClick={()=>setPendingRestore(null)} style={S.btn(C.grayL,C.gray)}>취소</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 삭제 확인 */}
+      {pendingDelete && (
+        <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.4)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:300}}>
+          <div style={S.card({width:380,maxWidth:"95vw",marginBottom:0})}>
+            <div style={{fontSize:15,fontWeight:700,marginBottom:10}}>이 버전 기록을 삭제하시겠습니까?</div>
+            <div style={{fontSize:13,color:"#555",marginBottom:14,lineHeight:1.7}}>{pendingDelete.label} · {fmtDate(pendingDelete.savedAt)}<br/>삭제 후에는 복구할 수 없습니다.</div>
+            <div style={{display:"flex",gap:8}}>
+              <button onClick={()=>{deleteVersion?.(pendingDelete.id);setPendingDelete(null)}} style={S.btn(C.red)}>삭제</button>
+              <button onClick={()=>setPendingDelete(null)} style={S.btn(C.grayL,C.gray)}>취소</button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// 스냅샷 미리보기 — 유형별 요약 테이블
+function SnapshotPreview({snap}) {
+  const {type,data} = snap
+  if(type==="staff")    return <StaffPreviewTable data={data}/>
+  if(type==="pnl")      return <PnlPreviewTable data={data}/>
+  if(type==="cashflow") return <CashflowPreviewTable data={data}/>
+  if(type==="years")    return <YearsPreviewTable data={data}/>
+  if(type==="all") return <>
+    <div style={{fontWeight:700,fontSize:13,margin:"12px 0 4px"}}>👥 본부 인원</div><StaffPreviewTable data={data.deptStaff}/>
+    <div style={{fontWeight:700,fontSize:13,margin:"12px 0 4px"}}>💰 월별 손익 (부서별 12개월 합계)</div><PnlPreviewTable data={data.pnlData}/>
+    <div style={{fontWeight:700,fontSize:13,margin:"12px 0 4px"}}>💧 월수금 (부서별 12개월 합계)</div><CashflowPreviewTable data={data.cashflow}/>
+    <div style={{fontWeight:700,fontSize:13,margin:"12px 0 4px"}}>📈 3개년 실적</div><YearsPreviewTable data={data.years}/>
+  </>
+  return null
+}
+function StaffPreviewTable({data}) {
+  const rows = summarizeStaff(data)
+  return <table style={{width:"100%",borderCollapse:"collapse",marginTop:6}}>
+    <thead><tr><th style={S.th()}>본부</th><th style={S.th("right")}>합계</th><th style={S.th("right")}>PM</th><th style={S.th("right")}>설계인력</th><th style={S.th("right")}>행정</th></tr></thead>
+    <tbody>{rows.map(r=>(
+      <tr key={r.dept}>
+        <td style={{...S.td("left"),fontWeight:600}}><span style={{display:"inline-block",width:10,height:10,borderRadius:3,background:DEPT_COLORS[r.dept]||C.gray,marginRight:7,verticalAlign:"middle"}}/>{r.dept}</td>
+        <td style={{...S.td(),fontWeight:700}}>{num(r.total).toFixed(1)}</td>
+        <td style={S.td()}>{num(r.pm).toFixed(1)}</td><td style={S.td()}>{num(r.designer).toFixed(1)}</td><td style={S.td()}>{num(r.admin).toFixed(1)}</td>
+      </tr>
+    ))}</tbody>
+  </table>
+}
+function PnlPreviewTable({data}) {
+  const rows = summarizePnl(data)
+  return <table style={{width:"100%",borderCollapse:"collapse",marginTop:6}}>
+    <thead><tr><th style={S.th()}>본부</th><th style={S.th("right")}>매출(억)</th><th style={S.th("right")}>인건비(억)</th><th style={S.th("right")}>외주비(억)</th><th style={S.th("right")}>손익(억)</th></tr></thead>
+    <tbody>{rows.map(r=>(
+      <tr key={r.dept}>
+        <td style={{...S.td("left"),fontWeight:600}}><span style={{display:"inline-block",width:10,height:10,borderRadius:3,background:DEPT_COLORS[r.dept]||C.gray,marginRight:7,verticalAlign:"middle"}}/>{r.dept}</td>
+        <td style={{...S.td(),color:C.green}}>{r.rev.toFixed(2)}</td>
+        <td style={S.td()}>{r.sal.toFixed(2)}</td>
+        <td style={{...S.td(),color:C.amber}}>{r.sub.toFixed(2)}</td>
+        <td style={{...S.td(),fontWeight:700,color:r.pnl>=0?C.green:C.red}}>{r.pnl.toFixed(2)}</td>
+      </tr>
+    ))}</tbody>
+  </table>
+}
+function CashflowPreviewTable({data}) {
+  const rows = summarizeCashflow(data)
+  const total = rows.reduce((s,r)=>s+r.total,0)
+  return <table style={{width:"100%",borderCollapse:"collapse",marginTop:6}}>
+    <thead><tr><th style={S.th()}>본부</th><th style={S.th("right")}>연간 합계(억)</th></tr></thead>
+    <tbody>
+      {rows.map(r=>(
+        <tr key={r.dept}>
+          <td style={{...S.td("left"),fontWeight:600}}><span style={{display:"inline-block",width:10,height:10,borderRadius:3,background:DEPT_COLORS[r.dept]||C.gray,marginRight:7,verticalAlign:"middle"}}/>{r.dept}</td>
+          <td style={{...S.td(),fontWeight:700,color:DEPT_COLORS[r.dept]||C.navyM}}>{r.total.toFixed(2)}</td>
+        </tr>
+      ))}
+      <tr style={{background:"var(--color-background-secondary,#f0f0ee)",fontWeight:700}}>
+        <td style={S.td("left")}>합계</td><td style={{...S.td(),fontSize:15,color:C.navy}}>{total.toFixed(2)}</td>
+      </tr>
+    </tbody>
+  </table>
+}
+function YearsPreviewTable({data}) {
+  const rows = Array.isArray(data) ? data : []
+  const FIELDS = [["목표수주","수주목표"],["실행수주","수주실행"],["목표매출","매출목표"],["실행매출","매출실행"],["인원","연평균인원"]]
+  return <table style={{width:"100%",borderCollapse:"collapse",marginTop:6}}>
+    <thead><tr><th style={S.th()}>연도</th>{FIELDS.map(([k,l])=><th key={k} style={S.th("right")}>{l}(억)</th>)}</tr></thead>
+    <tbody>{rows.map((y,i)=>(
+      <tr key={i}><td style={{...S.td("left"),fontWeight:700}}>{y.yr}</td>{FIELDS.map(([k])=><td key={k} style={S.td()}>{num(y[k]).toFixed(2)}</td>)}</tr>
+    ))}</tbody>
+  </table>
 }

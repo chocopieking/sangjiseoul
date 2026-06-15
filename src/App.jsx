@@ -5,7 +5,7 @@ import {
   BarChart, Bar, LineChart, Line, PieChart, Pie, Cell,
   XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid,
   ComposedChart, Area, ReferenceLine, RadarChart, Radar,
-  PolarGrid, PolarAngleAxis, Legend
+  PolarGrid, PolarAngleAxis, Legend, LabelList
 } from "recharts"
 import { ArchiveTab } from "./Archive.jsx"
 import { OptimizeTab } from "./Optimize.jsx"
@@ -109,6 +109,22 @@ export default function App() {
   const [pnlData, setPnlData]     = useState(PNL_INIT)
   const [years, setYears]         = useState(YEARS_DB_INIT)
   const [cashflow, setCashflow]   = useState(CF_2026)
+
+  // ── 데이터 버전 기록 (스냅샷) ───────────────────────────────
+  const [versions, setVersions] = useState(()=>{ try{ return JSON.parse(localStorage.getItem("sjs_versions")||"[]") }catch{ return [] } })
+  const persistVersions = list => { try{ localStorage.setItem("sjs_versions", JSON.stringify(list.slice(0,80))) }catch{} ; setVersions(list.slice(0,80)) }
+  const saveVersion = useCallback((type,label,data,by)=>{
+    const snap = {id:`${Date.now()}_${Math.random().toString(36).slice(2,7)}`, type, label, savedBy:by, savedAt:new Date().toISOString(), data:JSON.parse(JSON.stringify(data))}
+    setVersions(prev=>{ const next=[snap,...prev].slice(0,80); try{localStorage.setItem("sjs_versions",JSON.stringify(next))}catch{} ; return next })
+  },[])
+  const restoreVersion = useCallback((snap,by)=>{
+    if(snap.type==="staff"||snap.type==="all") setDeptStaff(snap.data.deptStaff??snap.data)
+    if(snap.type==="pnl"||snap.type==="all")   setPnlData(snap.data.pnlData??snap.data)
+    if(snap.type==="cashflow"||snap.type==="all") setCashflow(snap.data.cashflow??snap.data)
+    if(snap.type==="years"||snap.type==="all") setYears(snap.data.years??snap.data)
+    saveVersion(snap.type,`복원: ${snap.label}`,snap.data,by)
+  },[saveVersion])
+  const deleteVersion = id => persistVersions(versions.filter(v=>v.id!==id))
   const [deptStaff, setDeptStaff] = useState(DEPT_STAFF_INIT)
   const [alerts, setAlerts]       = useState(ALERTS_INIT)
   const [showAlerts, setShowAlerts] = useState(false)
@@ -253,7 +269,7 @@ export default function App() {
       {/* 바디 */}
       <div style={{padding:"15px 18px",maxWidth:1440,margin:"0 auto"}}>
         {tab==="analysis" && <AnalysisTab deptStaff={deptStaff} setDeptStaff={setDeptStaff} years={years} setYears={setYears} canWrite={canWrite} cashflow={cashflow}/>}
-        {tab==="datahub" && <DataHubTab currentUser={currentUser} deptStaff={deptStaff} setDeptStaff={setDeptStaff} pnlData={pnlData} setPnlData={setPnlData} cashflow={cashflow} setCashflow={setCashflow} years={years} setYears={setYears} projects={projects} setTab={setTab} setSelProjId={setSelProjId} setSelVerIdx={setSelVerIdx} setShowNewProj={setShowNewProj}/>}
+        {tab==="datahub" && <DataHubTab currentUser={currentUser} deptStaff={deptStaff} setDeptStaff={setDeptStaff} pnlData={pnlData} setPnlData={setPnlData} cashflow={cashflow} setCashflow={setCashflow} years={years} setYears={setYears} projects={projects} setTab={setTab} setSelProjId={setSelProjId} setSelVerIdx={setSelVerIdx} setShowNewProj={setShowNewProj} versions={versions} saveVersion={saveVersion} restoreVersion={restoreVersion} deleteVersion={deleteVersion}/>}
         {tab==="cashflow" && <CashflowTab cashflow={cashflow} setCashflow={setCashflow} currentUser={currentUser}/>}
         {tab==="projects" && <ProjectsTab projects={projects} setProjects={setProjects} selProjId={selProjId} setSelProjId={setSelProjId} selVerIdx={selVerIdx} setSelVerIdx={setSelVerIdx} cmpIds={cmpIds} setCmpIds={setCmpIds} showNewVer={showNewVer} setShowNewVer={setShowNewVer} canWrite={canWrite}/>}
         {tab==="pnl"      && <PnlTab pnlData={pnlData} setPnlData={setPnlData} canWrite={canWrite}/>}
@@ -633,6 +649,25 @@ function AnalysisTab({deptStaff,setDeptStaff,years,setYears,canWrite,cashflow}) 
   )
 }
 
+// 본부별 스택 + 합계를 함께 보여주는 툴팁
+function StackTotalTooltip({active,payload,label}) {
+  if(!active||!payload?.length) return null
+  const total = payload.reduce((s,p)=>s+(Number(p.value)||0),0)
+  return (
+    <div style={{background:"var(--color-background-primary,#fff)",border:"1px solid var(--color-border-tertiary,#e4e4e0)",borderRadius:10,padding:"11px 14px",fontSize:12.5,boxShadow:"0 4px 16px rgba(0,0,0,.12)",minWidth:150}}>
+      <div style={{fontWeight:700,marginBottom:6,fontSize:13}}>{label}</div>
+      {payload.slice().reverse().map(p=>(
+        <div key={p.dataKey} style={{display:"flex",justifyContent:"space-between",gap:14,padding:"2px 0",color:p.color}}>
+          <span>{p.name}</span><span style={{fontWeight:600}}>{(+p.value)>0?(+p.value).toFixed(2)+"억":"-"}</span>
+        </div>
+      ))}
+      <div style={{display:"flex",justifyContent:"space-between",gap:14,marginTop:6,paddingTop:6,borderTop:"1px solid var(--color-border-tertiary,#eee)",fontWeight:800,fontSize:15,color:C.navy}}>
+        <span>합계</span><span>{total.toFixed(2)}억</span>
+      </div>
+    </div>
+  )
+}
+
 // ════════════════════════════════════════════════════════════
 // 월수금계획 탭
 // ════════════════════════════════════════════════════════════
@@ -679,14 +714,16 @@ function CashflowTab({cashflow,setCashflow,currentUser}) {
               {DEPTS.map((d,i)=><span key={d} style={{display:"flex",alignItems:"center",gap:4}}><span style={{width:10,height:10,borderRadius:2,background:COLORS[i],flexShrink:0}}/>{d}</span>)}
               <span style={{display:"flex",alignItems:"center",gap:4}}><span style={{width:10,height:10,borderRadius:2,background:C.amber}}/> 어음</span>
             </div>
-            <ResponsiveContainer width="100%" height={260}>
-              <BarChart data={CF_2026.map(m=>({name:m.m,...Object.fromEntries(DEPTS.map(d=>[d,+(m.byDept?.[d]||0).toFixed(2)])),어음:+m.note.toFixed(2)}))} margin={{top:4,right:6,left:-10,bottom:0}}>
+            <ResponsiveContainer width="100%" height={290}>
+              <BarChart data={CF_2026.map(m=>({name:m.m,...Object.fromEntries(DEPTS.map(d=>[d,+(m.byDept?.[d]||0).toFixed(2)])),어음:+m.note.toFixed(2),합계:+(m.cash+m.note).toFixed(2)}))} margin={{top:30,right:6,left:-10,bottom:0}}>
                 <CartesianGrid strokeDasharray="3 3" stroke="rgba(0,0,0,.05)"/>
                 <XAxis dataKey="name" tick={{fontSize:11}} tickFormatter={v=>v.replace("월","")} tickLine={false}/>
                 <YAxis tick={{fontSize:9}} tickFormatter={v=>v+"억"}/>
-                <Tooltip formatter={(v,n)=>[`${v.toFixed(2)}억`,n]}/>
-                {DEPTS.map((d,i)=><Bar key={d} dataKey={d} fill={COLORS[i]} stackId="s" barSize={22} radius={i===DEPTS.length-1?[3,3,0,0]:[0,0,0,0]}/>)}
-                <Bar dataKey="어음" fill={C.amber} stackId="s" barSize={22} radius={[3,3,0,0]}/>
+                <Tooltip content={<StackTotalTooltip/>}/>
+                {DEPTS.map((d,i)=><Bar key={d} dataKey={d} name={d} fill={COLORS[i]} stackId="s" barSize={22} radius={i===DEPTS.length-1?[3,3,0,0]:[0,0,0,0]}/>)}
+                <Bar dataKey="어음" name="어음" fill={C.amber} stackId="s" barSize={22} radius={[3,3,0,0]}>
+                  <LabelList dataKey="합계" position="top" formatter={v=>`${(+v).toFixed(2)}억`} style={{fontSize:13,fontWeight:800,fill:C.navy}}/>
+                </Bar>
               </BarChart>
             </ResponsiveContainer>
           </Card>
