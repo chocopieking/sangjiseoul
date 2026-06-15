@@ -70,7 +70,20 @@ export const BIZ_2026 = {
   alertLevel:"비상경영",
 }
 
-// ── 본부별 인원 (편집 가능) ────────────────────────────────────
+// ── 본부 목록 (관리 화면에서 추가/수정/삭제) ───────────────────
+// finance:true 인 본부만 월별손익/월수금 부서별 입력 대상이 됩니다.
+export const DEPARTMENTS_INIT = [
+  {name:"설계1본부",   color:"#185FA5", finance:true},
+  {name:"설계2본부",   color:"#1D9E75", finance:true},
+  {name:"주거디자인본부",color:"#BA7517", finance:true},
+  {name:"디자인본부",  color:"#A32D2D", finance:true},
+  {name:"경영지원",    color:"#534AB7", finance:false},
+  {name:"해외사업부",  color:"#0F6E56", finance:false},
+]
+export const DEPT_COLOR_POOL = ["#185FA5","#1D9E75","#BA7517","#A32D2D","#534AB7","#0F6E56","#D85A30","#7C5295","#2E86AB","#C0392B"]
+export const DEPT_BIZ_EMPTY = {orderTarget:0,orderDone:0,orderConfirmed:0,revTarget:0,revCum:0,cost5m:0,pnl5m:0}
+export const DEPT_STAFF_EMPTY = {total:0,pm:0,designer:0,admin:0}
+
 export const DEPT_STAFF_INIT = {
   "설계1본부":   {total:10.5, pm:4, designer:5, admin:1.5},
   "설계2본부":   {total:17.83, pm:5, designer:11, admin:1.83},

@@ -7,7 +7,8 @@ import {
   XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid,
   ReferenceLine, Legend, LabelList
 } from "recharts"
-import { fE, fW, fPct, DEPTS, DEPT_COLORS, DEPT_BIZ, BIZ_2026 } from "./data.js"
+import { fE, fW, fPct, BIZ_2026 } from "./data.js"
+import { useDepts } from "./DeptContext.jsx"
 
 // ── 스타일 (App.jsx 팔레트와 동일) ─────────────────────────────
 const C = {
@@ -59,6 +60,7 @@ const BoldLabel = (color,suffix="억") => (props)=>{
 
 // ══════════════════════════════════════════════════════════════
 export function OptimizeTab({projects,deptStaff,pnlData}) {
+  const {DEPTS,DEPT_COLORS,DEPT_BIZ} = useDepts()
   // ── 1) 실적 베이스라인 (1~5월 실적 기반, 연환산) ───────────────
   const base = useMemo(()=>{
     const actual = Array.isArray(pnlData) ? pnlData.slice(0,5) : []

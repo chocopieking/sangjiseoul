@@ -10,12 +10,14 @@ import {
 import { ArchiveTab } from "./Archive.jsx"
 import { OptimizeTab } from "./Optimize.jsx"
 import { DataHubTab } from "./DataHub.jsx"
+import { DeptContext, useDepts } from "./DeptContext.jsx"
 import {
   hashPw, ALL_USERS, MASTER_PW, ROLE_BADGE,
   fE, fW, fP, fPy, fPct, toPy, PY, getAreaBasis, calcUP, calcPnlTotals,
-  MONTHS, DEPTS, DEPT_COLORS, COLORS,
+  MONTHS, COLORS,
   BIZ_2026, DEPT_STAFF_INIT, DEPT_BIZ, CF_2026, PNL_INIT, YEARS_DB_INIT,
   STAFF_TARGET_INIT, STAFF_MONTHLY_INIT,
+  DEPARTMENTS_INIT, DEPT_COLOR_POOL, DEPT_BIZ_EMPTY, DEPT_STAFF_EMPTY,
   PROJECTS_INIT, ALERTS_INIT
 } from "./data.js"
 
@@ -140,6 +142,85 @@ export default function App() {
   const [deptStaff, setDeptStaff] = useState(DEPT_STAFF_INIT)
   const [staffTarget, setStaffTarget]   = useState(STAFF_TARGET_INIT)
   const [staffMonthly, setStaffMonthly] = useState(STAFF_MONTHLY_INIT)
+  const [deptBiz, setDeptBiz]     = useState(DEPT_BIZ)
+
+  // ── 본부(부서) 목록 — 추가/이름변경/삭제 가능 ─────────────────
+  const [departments, setDepartments] = useState(()=>{
+    try{ const s=JSON.parse(localStorage.getItem("sjs_departments")||"null"); return Array.isArray(s)&&s.length?s:DEPARTMENTS_INIT }catch{ return DEPARTMENTS_INIT }
+  })
+  const persistDepartments = list => { try{localStorage.setItem("sjs_departments",JSON.stringify(list))}catch{} ; setDepartments(list) }
+  const DEPTS       = useMemo(()=>departments.filter(d=>d.finance).map(d=>d.name),[departments])
+  const STAFF_DEPTS = useMemo(()=>departments.map(d=>d.name),[departments])
+  const DEPT_COLORS = useMemo(()=>Object.fromEntries(departments.map(d=>[d.name,d.color])),[departments])
+  const omitKey = (obj,key)=>{ if(!obj||!(key in obj)) return obj||{}; const {[key]:_,...rest}=obj; return rest }
+  const renameObjKey = (obj,oldK,newK)=>{ if(!obj||!(oldK in obj)) return obj||{}; const {[oldK]:val,...rest}=obj; return {...rest,[newK]:val} }
+
+  const deptUsage = useCallback(name=>{
+    const staff = num=>Number.isFinite(+num)?+num:0
+    return {
+      staff: staff(deptStaff?.[name]?.total),
+      projects: projects.filter(p=>(p.depts||[]).includes(name)).length,
+      users: ALL_USERS.filter(u=>u.dept===name).map(u=>u.name),
+    }
+  },[deptStaff,projects])
+
+  const addDept = useCallback((name,color,finance)=>{
+    name = (name||"").trim()
+    if(!name) return {ok:false,msg:"본부명을 입력하세요."}
+    if(STAFF_DEPTS.includes(name)) return {ok:false,msg:"이미 존재하는 본부명입니다."}
+    persistDepartments([...departments,{name,color:color||DEPT_COLOR_POOL[departments.length%DEPT_COLOR_POOL.length],finance:!!finance}])
+    setDeptStaff(prev=>({...prev,[name]:{...DEPT_STAFF_EMPTY}}))
+    setStaffTarget(prev=>({...prev,[name]:Object.fromEntries((years||[]).map(y=>[y.yr,0]))}))
+    setStaffMonthly(prev=>({...prev,[name]:Object.fromEntries((years||[]).map(y=>[y.yr,Array(12).fill(0)]))}))
+    if(finance){
+      setDeptBiz(prev=>({...prev,[name]:{...DEPT_BIZ_EMPTY}}))
+      setPnlData(prev=>prev.map(r=>({...r,byDept:{...r.byDept,[name]:{rev:0,sal:0,sub:0}}})))
+      setCashflow(prev=>prev.map(m=>({...m,byDept:{...m.byDept,[name]:0}})))
+    }
+    return {ok:true}
+  },[departments,STAFF_DEPTS,years])
+
+  const renameDept = useCallback((oldName,newName)=>{
+    newName = (newName||"").trim()
+    if(!newName) return {ok:false,msg:"본부명을 입력하세요."}
+    if(oldName===newName) return {ok:true}
+    if(STAFF_DEPTS.includes(newName)) return {ok:false,msg:"이미 존재하는 본부명입니다."}
+    persistDepartments(departments.map(d=>d.name===oldName?{...d,name:newName}:d))
+    setDeptStaff(prev=>renameObjKey(prev,oldName,newName))
+    setStaffTarget(prev=>renameObjKey(prev,oldName,newName))
+    setStaffMonthly(prev=>renameObjKey(prev,oldName,newName))
+    setDeptBiz(prev=>renameObjKey(prev,oldName,newName))
+    setPnlData(prev=>prev.map(r=>({...r,byDept:renameObjKey(r.byDept,oldName,newName)})))
+    setCashflow(prev=>prev.map(m=>({...m,byDept:renameObjKey(m.byDept,oldName,newName)})))
+    setProjects(prev=>prev.map(p=>({...p,depts:(p.depts||[]).map(d=>d===oldName?newName:d)})))
+    return {ok:true}
+  },[departments,STAFF_DEPTS])
+
+  const deleteDept = useCallback(name=>{
+    if(STAFF_DEPTS.length<=1) return {ok:false,msg:"최소 1개 본부는 필요합니다."}
+    persistDepartments(departments.filter(d=>d.name!==name))
+    setDeptStaff(prev=>omitKey(prev,name))
+    setStaffTarget(prev=>omitKey(prev,name))
+    setStaffMonthly(prev=>omitKey(prev,name))
+    setDeptBiz(prev=>omitKey(prev,name))
+    setPnlData(prev=>prev.map(r=>({...r,byDept:omitKey(r.byDept,name)})))
+    setCashflow(prev=>prev.map(m=>({...m,byDept:omitKey(m.byDept,name)})))
+    setProjects(prev=>prev.map(p=>({...p,depts:(p.depts||[]).filter(d=>d!==name)})))
+    return {ok:true}
+  },[departments,STAFF_DEPTS])
+
+  const setDeptColor = (name,color)=>persistDepartments(departments.map(d=>d.name===name?{...d,color}:d))
+  const setDeptFinance = (name,finance)=>{
+    persistDepartments(departments.map(d=>d.name===name?{...d,finance}:d))
+    if(finance){
+      setDeptBiz(prev=>prev[name]?prev:{...prev,[name]:{...DEPT_BIZ_EMPTY}})
+      setPnlData(prev=>prev.map(r=>r.byDept?.[name]?r:{...r,byDept:{...r.byDept,[name]:{rev:0,sal:0,sub:0}}}))
+      setCashflow(prev=>prev.map(m=>m.byDept?.[name]!=null?m:{...m,byDept:{...m.byDept,[name]:0}}))
+    }
+  }
+  const deptCtx = {departments,DEPTS,STAFF_DEPTS,DEPT_COLORS,DEPT_BIZ:deptBiz,
+    isAdmin:currentUser?.role==="admin",addDept,renameDept,deleteDept,setDeptColor,setDeptFinance,deptUsage}
+
   const [alerts, setAlerts]       = useState(ALERTS_INIT)
   const [showAlerts, setShowAlerts] = useState(false)
   const [selProjId, setSelProjId] = useState(null)
@@ -239,6 +320,7 @@ export default function App() {
   ]
 
   return (
+    <DeptContext.Provider value={deptCtx}>
     <div style={{fontFamily:"var(--font-sans,'Apple SD Gothic Neo',sans-serif)",fontSize:13,color:"var(--color-text-primary,#222)",background:"var(--color-background-tertiary,#f5f5f3)",minHeight:"100vh"}}>
 
       {/* 헤더 */}
@@ -294,6 +376,7 @@ export default function App() {
 
       {showNewProj&&<NewProjModal onClose={()=>setShowNewProj(false)} onSave={p=>{setProjects(prev=>[...prev,{...p,id:`P${Date.now()}`,versions:[]}]);setShowNewProj(false)}}/>}
     </div>
+    </DeptContext.Provider>
   )
 }
 
@@ -361,8 +444,9 @@ function AlertPanel({alerts,readAlert,readAll,setTab,setShowAlerts}) {
 // 경영분석 탭 — 본부별 + 통합 인터랙티브
 // ════════════════════════════════════════════════════════════
 function AnalysisTab({deptStaff,setDeptStaff,years,setYears,canWrite,cashflow}) {
+  const {DEPTS,DEPT_COLORS,DEPT_BIZ} = useDepts()
   const [view, setView]     = useState("total")  // total | dept
-  const [selDept, setSelDept] = useState("설계1본부")
+  const [selDept, setSelDept] = useState(()=>DEPTS[0]||"")
   const [editStaff, setEditStaff] = useState(false)
   const [staffDraft, setStaffDraft] = useState(null)
   const [showAddYear, setShowAddYear] = useState(false)
@@ -702,9 +786,10 @@ function StackTotalTooltip({active,payload,label}) {
 // 월수금계획 탭
 // ════════════════════════════════════════════════════════════
 function CashflowTab({cashflow,setCashflow,currentUser}) {
+  const {DEPTS,DEPT_COLORS} = useDepts()
   const CF_2026 = cashflow
   const [view, setView] = useState("total")
-  const [selDept, setSelDept] = useState("설계1본부")
+  const [selDept, setSelDept] = useState(()=>DEPTS[0]||"")
 
   const totalCash=CF_2026.reduce((s,d)=>s+d.cash,0)
   const totalNote=CF_2026.reduce((s,d)=>s+d.note,0)
@@ -741,7 +826,7 @@ function CashflowTab({cashflow,setCashflow,currentUser}) {
           </div>}
           <Card title="월별 기성수금 — 전체 합산 + 본부별 구성" note="VAT포함 억원 · 스택=본부별">
             <div style={{display:"flex",gap:10,marginBottom:8,flexWrap:"wrap",fontSize:11,color:"var(--color-text-secondary,#888)"}}>
-              {DEPTS.map((d,i)=><span key={d} style={{display:"flex",alignItems:"center",gap:4}}><span style={{width:10,height:10,borderRadius:2,background:COLORS[i],flexShrink:0}}/>{d}</span>)}
+              {DEPTS.map((d)=><span key={d} style={{display:"flex",alignItems:"center",gap:4}}><span style={{width:10,height:10,borderRadius:2,background:DEPT_COLORS[d]||C.navyM,flexShrink:0}}/>{d}</span>)}
               <span style={{display:"flex",alignItems:"center",gap:4}}><span style={{width:10,height:10,borderRadius:2,background:C.amber}}/> 어음</span>
             </div>
             <ResponsiveContainer width="100%" height={290}>
@@ -750,7 +835,7 @@ function CashflowTab({cashflow,setCashflow,currentUser}) {
                 <XAxis dataKey="name" tick={{fontSize:11}} tickFormatter={v=>v.replace("월","")} tickLine={false}/>
                 <YAxis tick={{fontSize:9}} tickFormatter={v=>v+"억"}/>
                 <Tooltip content={<StackTotalTooltip/>}/>
-                {DEPTS.map((d,i)=><Bar key={d} dataKey={d} name={d} fill={COLORS[i]} stackId="s" barSize={22} radius={i===DEPTS.length-1?[3,3,0,0]:[0,0,0,0]}>
+                {DEPTS.map((d,i)=><Bar key={d} dataKey={d} name={d} fill={DEPT_COLORS[d]||COLORS[i%COLORS.length]} stackId="s" barSize={22} radius={i===DEPTS.length-1?[3,3,0,0]:[0,0,0,0]}>
                   <LabelList dataKey={d} position="center" formatter={v=>v>=2?(+v).toFixed(1):""} style={{fontSize:9.5,fontWeight:700,fill:"#fff"}}/>
                 </Bar>)}
                 <Bar dataKey="어음" name="어음" fill={C.amber} stackId="s" barSize={22} radius={[3,3,0,0]}>
@@ -1375,8 +1460,9 @@ function BenchProjects({projects,cmpIds,setCmpIds,allCats}) {
 // 손익분석 탭
 // ════════════════════════════════════════════════════════════
 function PnlTab({pnlData,setPnlData,canWrite}) {
+  const {DEPTS,DEPT_COLORS,DEPT_BIZ} = useDepts()
   const [view,setView]   = useState("total")
-  const [selDept,setSelDept] = useState("설계1본부")
+  const [selDept,setSelDept] = useState(()=>DEPTS[0]||"")
   const [editing,setEditing] = useState(false)
   const [draft,setDraft] = useState(null)
 
@@ -1527,7 +1613,7 @@ function PnlTab({pnlData,setPnlData,canWrite}) {
                   <thead><tr>{["구분","매출","인건비","외주비","경비","공동비","지출합계","손익"].map((h,i)=><th key={h} style={S.th(i>0?"right":"left")}>{h}</th>)}</tr></thead>
                   <tbody>
                     <tr style={{background:C.navyL}}><td style={{...S.td("left"),color:C.navy,fontWeight:600}}>전사 합계</td><td style={{...S.td("right"),color:C.green}}>29.61</td><td style={S.td("right")}>17.40</td><td style={S.td("right")}>24.31</td><td style={S.td("right")}>4.82</td><td style={S.td("right")}>6.38</td><td style={{...S.td("right"),color:C.red}}>57.37</td><td style={{...S.td("right"),color:C.red,fontWeight:600}}>-27.76</td></tr>
-                    {Object.entries(DEPT_BIZ).map(([d,db],i)=>(
+                    {DEPTS.map((d,i)=>{const db=DEPT_BIZ[d]||DEPT_BIZ_EMPTY; return(
                       <tr key={d} style={{background:i%2===0?"var(--color-background-primary)":"var(--color-background-secondary)",fontWeight:d===selDept?600:400}}>
                         <td style={{...S.td("left"),color:d===selDept?DEPT_COLORS[d]:undefined}}>{d}{d===selDept&&<span style={{...S.bdg(C.navyL,C.navyM),marginLeft:5,fontSize:9}}>현재</span>}</td>
                         <td style={{...S.td("right"),color:C.green}}>{db.revCum.toFixed(2)}</td>
@@ -1538,7 +1624,7 @@ function PnlTab({pnlData,setPnlData,canWrite}) {
                         <td style={{...S.td("right"),color:C.red}}>{db.cost5m.toFixed(2)}</td>
                         <td style={{...S.td("right"),fontWeight:500,color:db.pnl5m>=0?C.green:C.red}}>{db.pnl5m.toFixed(2)}</td>
                       </tr>
-                    ))}
+                    )})}
                   </tbody>
                 </table>
               </div>
@@ -1696,9 +1782,9 @@ function AuthTab({users,saveUsers,currentUser,hashPw}) {
 // 공통 모달: 프로젝트 등록
 // ════════════════════════════════════════════════════════════
 const PROJ_TYPES = ["공동주택","주상복합","업무시설","공공청사","의료시설","교육시설","물류창고","제약공장","기타"]
-const DEPT_LIST  = ["설계1본부","설계2본부","디자인본부","주거디자인본부","해외사업부","경영지원"]
 
 function NewProjModal({onClose,onSave}) {
+  const {STAFF_DEPTS} = useDepts()
   const [f,setF]=useState({year:new Date().getFullYear()+"",code:"",name:"",depts:[""],pm:"",director:"",projType:"",usage:"",scale:"",siteArea:0,buildArea:0,floorArea:0,units:0,client:"",clientPm:"",totalFee:0,shareRatio:100,serviceFee:0,address:"",contractDate:"",orderDate:"",note:"",type:"확정",prog:0})
   const u=(k,v)=>setF(p=>({...p,[k]:v}))
   const pyF=toPy(f.floorArea||0), pyS=toPy(f.siteArea||0)
@@ -1715,7 +1801,7 @@ function NewProjModal({onClose,onSave}) {
             <div style={{gridColumn:"1/-1"}}><F label="프로젝트명 *" val={f.name} onChange={v=>u("name",v)}/></div>
           </div>},
           {title:"조직정보",content:<>
-            <div style={{marginBottom:9}}><label style={S.lbl()}>주관본부 (복수선택)</label><div style={{display:"flex",flexWrap:"wrap",gap:5}}>{DEPT_LIST.map(d=><label key={d} style={{display:"flex",alignItems:"center",gap:3,fontSize:12,cursor:"pointer",padding:"3px 8px",borderRadius:6,border:`1px solid ${f.depts.includes(d)?C.navyM:"var(--color-border-secondary)"}`,background:f.depts.includes(d)?C.navyL:"transparent"}}><input type="checkbox" checked={f.depts.includes(d)} onChange={e=>u("depts",e.target.checked?[...f.depts,d]:f.depts.filter(x=>x!==d))}/>{d}</label>)}</div></div>
+            <div style={{marginBottom:9}}><label style={S.lbl()}>주관본부 (복수선택)</label><div style={{display:"flex",flexWrap:"wrap",gap:5}}>{STAFF_DEPTS.map(d=><label key={d} style={{display:"flex",alignItems:"center",gap:3,fontSize:12,cursor:"pointer",padding:"3px 8px",borderRadius:6,border:`1px solid ${f.depts.includes(d)?C.navyM:"var(--color-border-secondary)"}`,background:f.depts.includes(d)?C.navyL:"transparent"}}><input type="checkbox" checked={f.depts.includes(d)} onChange={e=>u("depts",e.target.checked?[...f.depts,d]:f.depts.filter(x=>x!==d))}/>{d}</label>)}</div></div>
             <div style={S.grid(2,9)}><F label="담당PM" val={f.pm} onChange={v=>u("pm",v)}/><F label="담당본부장" val={f.director} onChange={v=>u("director",v)}/><F label="발주처" val={f.client} onChange={v=>u("client",v)}/><F label="발주처담당자" val={f.clientPm} onChange={v=>u("clientPm",v)}/></div>
           </>},
           {title:"면적정보",content:<div style={S.grid(3,9)}>

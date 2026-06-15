@@ -2,7 +2,8 @@
 // 데이터관리 탭 — 모든 운영 데이터를 한 곳에서, 본부별 권한으로 입력
 // ══════════════════════════════════════════════════════════════
 import { useState } from "react"
-import { fE, MONTHS, DEPTS, DEPT_COLORS } from "./data.js"
+import { fE, MONTHS } from "./data.js"
+import { useDepts } from "./DeptContext.jsx"
 
 const C = {
   navy:"#0C447C",navyM:"#185FA5",navyL:"#E6F1FB",
@@ -23,18 +24,17 @@ const cardTitle = {fontSize:17,fontWeight:700,marginBottom:4,letterSpacing:-.2}
 const cardNote  = {fontSize:12.5,color:C.gray,marginBottom:14}
 const num = v => { const n=parseFloat(v); return Number.isFinite(n)?n:0 }
 
-const STAFF_DEPTS  = ["설계1본부","설계2본부","주거디자인본부","디자인본부","경영지원","해외사업부"]
 const STAFF_FIELDS = [["total","합계"],["pm","PM"],["designer","설계인력"],["admin","행정"]]
 
 const TYPE_LABEL = {staff:"본부인원",pnl:"월별손익",cashflow:"월수금",years:"3개년실적",all:"전체 스냅샷"}
 const TYPE_COLOR = {staff:C.navyM,pnl:C.green,cashflow:C.amber,years:"#534AB7",all:C.red}
 
-const summarizeStaff = data => STAFF_DEPTS.map(d=>({dept:d,...(data?.[d]||{total:0,pm:0,designer:0,admin:0})}))
-const summarizePnl = data => DEPTS.map(d=>{
+const summarizeStaff = (data,staffDepts) => (staffDepts||[]).map(d=>({dept:d,...(data?.[d]||{total:0,pm:0,designer:0,admin:0})}))
+const summarizePnl = (data,depts) => (depts||[]).map(d=>{
   const s = (Array.isArray(data)?data:[]).reduce((a,r)=>{const bd=r.byDept?.[d]||{};return{rev:a.rev+num(bd.rev),sal:a.sal+num(bd.sal),sub:a.sub+num(bd.sub)}},{rev:0,sal:0,sub:0})
   return {dept:d,...s,pnl:s.rev-s.sal-s.sub}
 })
-const summarizeCashflow = data => DEPTS.map(d=>({dept:d,total:(Array.isArray(data)?data:[]).reduce((s,m)=>s+num(m.byDept?.[d]),0)}))
+const summarizeCashflow = (data,depts) => (depts||[]).map(d=>({dept:d,total:(Array.isArray(data)?data:[]).reduce((s,m)=>s+num(m.byDept?.[d]),0)}))
 
 // ══════════════════════════════════════════════════════════════
 export function DataHubTab({
@@ -44,6 +44,7 @@ export function DataHubTab({
   projects, setTab, setSelProjId, setSelVerIdx, setShowNewProj,
   versions, saveVersion, restoreVersion, deleteVersion,
 }) {
+  const {STAFF_DEPTS,DEPTS,DEPT_COLORS,departments,addDept,renameDept,deleteDept,setDeptColor,setDeptFinance,deptUsage} = useDepts()
   const isAdmin = currentUser.role === "admin"
   const canEditDept = dept => isAdmin || (currentUser.write===true && currentUser.dept===dept)
   const canManage = isAdmin || currentUser.write===true
@@ -55,6 +56,7 @@ export function DataHubTab({
     {id:"cashflow",  label:"💧 월수금(부서별)"},
     {id:"years",     label:"📈 3개년 실적"},
     {id:"projects",  label:"🏗 프로젝트·협력업체"},
+    {id:"depts",     label:"🏢 본부 관리"},
     {id:"history",   label:"📜 버전 기록", accent:true},
   ]
   const [section,setSection] = useState("staff")
@@ -90,13 +92,14 @@ export function DataHubTab({
         ))}
       </div>
 
-      {section==="staff"     && <StaffSection deptStaff={deptStaff} setDeptStaff={setDeptStaff} staffTarget={staffTarget} setStaffTarget={setStaffTarget} staffMonthly={staffMonthly} setStaffMonthly={setStaffMonthly} years={years} canEditDept={canEditDept} currentUser={currentUser} saveVersion={saveVersion}/>}
-      {section==="pnl"       && <PnlDeptSection pnlData={pnlData} setPnlData={setPnlData} canEditDept={canEditDept} currentUser={currentUser} isAdmin={isAdmin} saveVersion={saveVersion}/>}
-      {section==="cashflow"  && <CashflowDeptSection cashflow={cashflow} setCashflow={setCashflow} canEditDept={canEditDept} currentUser={currentUser} isAdmin={isAdmin} saveVersion={saveVersion}/>}
+      {section==="staff"     && <StaffSection deptStaff={deptStaff} setDeptStaff={setDeptStaff} staffTarget={staffTarget} setStaffTarget={setStaffTarget} staffMonthly={staffMonthly} setStaffMonthly={setStaffMonthly} years={years} STAFF_DEPTS={STAFF_DEPTS} DEPT_COLORS={DEPT_COLORS} canEditDept={canEditDept} currentUser={currentUser} saveVersion={saveVersion}/>}
+      {section==="pnl"       && <PnlDeptSection pnlData={pnlData} setPnlData={setPnlData} DEPTS={DEPTS} canEditDept={canEditDept} currentUser={currentUser} isAdmin={isAdmin} saveVersion={saveVersion}/>}
+      {section==="cashflow"  && <CashflowDeptSection cashflow={cashflow} setCashflow={setCashflow} DEPTS={DEPTS} DEPT_COLORS={DEPT_COLORS} canEditDept={canEditDept} currentUser={currentUser} isAdmin={isAdmin} saveVersion={saveVersion}/>}
       {section==="years"     && <YearsSection years={years} setYears={setYears} isAdmin={isAdmin} currentUser={currentUser} saveVersion={saveVersion}/>}
       {section==="projects"  && <ProjectsShortcut projects={projects} currentUser={currentUser} isAdmin={isAdmin} setTab={setTab} setSelProjId={setSelProjId} setSelVerIdx={setSelVerIdx} setShowNewProj={setShowNewProj}/>}
+      {section==="depts"     && <DeptManageSection departments={departments} addDept={addDept} renameDept={renameDept} deleteDept={deleteDept} setDeptColor={setDeptColor} setDeptFinance={setDeptFinance} deptUsage={deptUsage} isAdmin={isAdmin}/>}
       {section==="history"   && <VersionHistorySection versions={versions} restoreVersion={restoreVersion} deleteVersion={deleteVersion} saveVersion={saveVersion}
-                                    currentUser={currentUser} canManage={canManage}
+                                    currentUser={currentUser} canManage={canManage} STAFF_DEPTS={STAFF_DEPTS} DEPTS={DEPTS} DEPT_COLORS={DEPT_COLORS}
                                     deptStaff={deptStaff} staffTarget={staffTarget} staffMonthly={staffMonthly} pnlData={pnlData} cashflow={cashflow} years={years}/>}
     </div>
   )
@@ -105,7 +108,7 @@ export function DataHubTab({
 // ════════════════════════════════════════════════════════════
 // 1) 본부 인원현황
 // ════════════════════════════════════════════════════════════
-function StaffSection({deptStaff,setDeptStaff,staffTarget,setStaffTarget,staffMonthly,setStaffMonthly,years,canEditDept,currentUser,saveVersion}) {
+function StaffSection({deptStaff,setDeptStaff,staffTarget,setStaffTarget,staffMonthly,setStaffMonthly,years,STAFF_DEPTS,DEPT_COLORS,canEditDept,currentUser,saveVersion}) {
   const [editing,setEditing] = useState(false)
   const [draft,setDraft]     = useState(null)
   const [note,setNote]       = useState("")
@@ -183,7 +186,7 @@ function StaffSection({deptStaff,setDeptStaff,staffTarget,setStaffTarget,staffMo
         </table>
       </div>
     </div>
-    <StaffPlanSection deptStaff={deptStaff} staffTarget={staffTarget} setStaffTarget={setStaffTarget} staffMonthly={staffMonthly} setStaffMonthly={setStaffMonthly} years={years} canEditDept={canEditDept} currentUser={currentUser} saveVersion={saveVersion}/>
+    <StaffPlanSection deptStaff={deptStaff} staffTarget={staffTarget} setStaffTarget={setStaffTarget} staffMonthly={staffMonthly} setStaffMonthly={setStaffMonthly} years={years} STAFF_DEPTS={STAFF_DEPTS} DEPT_COLORS={DEPT_COLORS} canEditDept={canEditDept} currentUser={currentUser} saveVersion={saveVersion}/>
     </>
   )
 }
@@ -191,7 +194,7 @@ function StaffSection({deptStaff,setDeptStaff,staffTarget,setStaffTarget,staffMo
 // ════════════════════════════════════════════════════════════
 // 2) 월별 손익 (부서별 — 매출/인건비/외주비)
 // ════════════════════════════════════════════════════════════
-function PnlDeptSection({pnlData,setPnlData,canEditDept,currentUser,isAdmin,saveVersion}) {
+function PnlDeptSection({pnlData,setPnlData,DEPTS,canEditDept,currentUser,isAdmin,saveVersion}) {
   const myDeptInList = DEPTS.includes(currentUser.dept) ? currentUser.dept : DEPTS[0]
   const [selDept,setSelDept] = useState(myDeptInList)
   const [editing,setEditing] = useState(false)
@@ -279,7 +282,7 @@ function PnlDeptSection({pnlData,setPnlData,canEditDept,currentUser,isAdmin,save
 // ════════════════════════════════════════════════════════════
 // 3) 월수금계획 (부서별 — 월별 기성수금)
 // ════════════════════════════════════════════════════════════
-function CashflowDeptSection({cashflow,setCashflow,canEditDept,currentUser,isAdmin,saveVersion}) {
+function CashflowDeptSection({cashflow,setCashflow,DEPTS,DEPT_COLORS,canEditDept,currentUser,isAdmin,saveVersion}) {
   const myDeptInList = DEPTS.includes(currentUser.dept) ? currentUser.dept : DEPTS[0]
   const [selDept,setSelDept] = useState(myDeptInList)
   const [editing,setEditing] = useState(false)
@@ -474,7 +477,7 @@ function ProjectsShortcut({projects,currentUser,isAdmin,setTab,setSelProjId,setS
 // ════════════════════════════════════════════════════════════
 const HIST_FILTERS = [["__all__","전체보기"],["staff","본부인원"],["pnl","월별손익"],["cashflow","월수금"],["years","3개년실적"],["all","통합스냅샷"]]
 
-function VersionHistorySection({versions,restoreVersion,deleteVersion,saveVersion,currentUser,canManage,deptStaff,staffTarget,staffMonthly,pnlData,cashflow,years}) {
+function VersionHistorySection({versions,restoreVersion,deleteVersion,saveVersion,currentUser,canManage,STAFF_DEPTS,DEPTS,DEPT_COLORS,deptStaff,staffTarget,staffMonthly,pnlData,cashflow,years}) {
   const [filter,setFilter]       = useState("__all__")
   const [expandedId,setExpandedId] = useState(null)
   const [note,setNote]           = useState("")
@@ -529,7 +532,7 @@ function VersionHistorySection({versions,restoreVersion,deleteVersion,saveVersio
                     {canManage && <button onClick={()=>setPendingRestore(v)} style={{...S.btn(C.navyL,C.navyM),padding:"6px 12px",fontSize:12}}>복원</button>}
                     {canManage && <button onClick={()=>setPendingDelete(v)} style={{...S.btn(C.redL,C.red),padding:"6px 12px",fontSize:12}}>삭제</button>}
                   </div>
-                  {expanded && <div style={{padding:"0 14px 14px",borderTop:"0.5px solid var(--color-border-tertiary,#eee)"}}><SnapshotPreview snap={v}/></div>}
+                  {expanded && <div style={{padding:"0 14px 14px",borderTop:"0.5px solid var(--color-border-tertiary,#eee)"}}><SnapshotPreview snap={v} STAFF_DEPTS={STAFF_DEPTS} DEPTS={DEPTS} DEPT_COLORS={DEPT_COLORS}/></div>}
                 </div>
               )
             })}
@@ -571,48 +574,48 @@ function VersionHistorySection({versions,restoreVersion,deleteVersion,saveVersio
 }
 
 // 스냅샷 미리보기 — 유형별 요약 테이블
-function SnapshotPreview({snap}) {
+function SnapshotPreview({snap,STAFF_DEPTS,DEPTS,DEPT_COLORS}) {
   const {type,data} = snap
-  if(type==="staff")    return <><StaffPreviewTable data={data}/><StaffPlanPreviewTable data={data}/></>
-  if(type==="pnl")      return <PnlPreviewTable data={data}/>
-  if(type==="cashflow") return <CashflowPreviewTable data={data}/>
+  if(type==="staff")    return <><StaffPreviewTable data={data} STAFF_DEPTS={STAFF_DEPTS} DEPT_COLORS={DEPT_COLORS}/><StaffPlanPreviewTable data={data} STAFF_DEPTS={STAFF_DEPTS} DEPT_COLORS={DEPT_COLORS}/></>
+  if(type==="pnl")      return <PnlPreviewTable data={data} DEPTS={DEPTS} DEPT_COLORS={DEPT_COLORS}/>
+  if(type==="cashflow") return <CashflowPreviewTable data={data} DEPTS={DEPTS} DEPT_COLORS={DEPT_COLORS}/>
   if(type==="years")    return <YearsPreviewTable data={data}/>
   if(type==="all") return <>
-    <div style={{fontWeight:700,fontSize:13,margin:"12px 0 4px"}}>👥 본부 인원</div><StaffPreviewTable data={data.deptStaff}/>
-    <div style={{fontWeight:700,fontSize:13,margin:"12px 0 4px"}}>📅 연간 인원계획</div><StaffPlanPreviewTable data={data}/>
-    <div style={{fontWeight:700,fontSize:13,margin:"12px 0 4px"}}>💰 월별 손익 (부서별 12개월 합계)</div><PnlPreviewTable data={data.pnlData}/>
-    <div style={{fontWeight:700,fontSize:13,margin:"12px 0 4px"}}>💧 월수금 (부서별 12개월 합계)</div><CashflowPreviewTable data={data.cashflow}/>
+    <div style={{fontWeight:700,fontSize:13,margin:"12px 0 4px"}}>👥 본부 인원</div><StaffPreviewTable data={data.deptStaff} STAFF_DEPTS={STAFF_DEPTS} DEPT_COLORS={DEPT_COLORS}/>
+    <div style={{fontWeight:700,fontSize:13,margin:"12px 0 4px"}}>📅 연간 인원계획</div><StaffPlanPreviewTable data={data} STAFF_DEPTS={STAFF_DEPTS} DEPT_COLORS={DEPT_COLORS}/>
+    <div style={{fontWeight:700,fontSize:13,margin:"12px 0 4px"}}>💰 월별 손익 (부서별 12개월 합계)</div><PnlPreviewTable data={data.pnlData} DEPTS={DEPTS} DEPT_COLORS={DEPT_COLORS}/>
+    <div style={{fontWeight:700,fontSize:13,margin:"12px 0 4px"}}>💧 월수금 (부서별 12개월 합계)</div><CashflowPreviewTable data={data.cashflow} DEPTS={DEPTS} DEPT_COLORS={DEPT_COLORS}/>
     <div style={{fontWeight:700,fontSize:13,margin:"12px 0 4px"}}>📈 3개년 실적</div><YearsPreviewTable data={data.years}/>
   </>
   return null
 }
-function StaffPreviewTable({data}) {
+function StaffPreviewTable({data,STAFF_DEPTS,DEPT_COLORS}) {
   const ds = data?.deptStaff || data
-  const rows = summarizeStaff(ds)
+  const rows = summarizeStaff(ds,STAFF_DEPTS)
   return <table style={{width:"100%",borderCollapse:"collapse",marginTop:6}}>
     <thead><tr><th style={S.th()}>본부</th><th style={S.th("right")}>합계</th><th style={S.th("right")}>PM</th><th style={S.th("right")}>설계인력</th><th style={S.th("right")}>행정</th></tr></thead>
     <tbody>{rows.map(r=>(
       <tr key={r.dept}>
-        <td style={{...S.td("left"),fontWeight:600}}><span style={{display:"inline-block",width:10,height:10,borderRadius:3,background:DEPT_COLORS[r.dept]||C.gray,marginRight:7,verticalAlign:"middle"}}/>{r.dept}</td>
+        <td style={{...S.td("left"),fontWeight:600}}><span style={{display:"inline-block",width:10,height:10,borderRadius:3,background:DEPT_COLORS?.[r.dept]||C.gray,marginRight:7,verticalAlign:"middle"}}/>{r.dept}</td>
         <td style={{...S.td(),fontWeight:700}}>{num(r.total).toFixed(1)}</td>
         <td style={S.td()}>{num(r.pm).toFixed(1)}</td><td style={S.td()}>{num(r.designer).toFixed(1)}</td><td style={S.td()}>{num(r.admin).toFixed(1)}</td>
       </tr>
     ))}</tbody>
   </table>
 }
-function StaffPlanPreviewTable({data}) {
+function StaffPlanPreviewTable({data,STAFF_DEPTS,DEPT_COLORS}) {
   const target = data?.staffTarget, monthly = data?.staffMonthly
   if(!target && !monthly) return null
-  const yrs = Object.keys((monthly||target)?.[STAFF_DEPTS[0]]||{})
+  const yrs = Object.keys((monthly||target)?.[STAFF_DEPTS?.[0]]||{})
   const yr = yrs[yrs.length-1]
   return <table style={{width:"100%",borderCollapse:"collapse",marginTop:6}}>
     <thead><tr><th style={S.th()}>본부{yr?` (${yr}년)`:""}</th><th style={S.th("right")}>목표인원</th><th style={S.th("right")}>현인원</th><th style={S.th("right")}>연간평균</th></tr></thead>
-    <tbody>{STAFF_DEPTS.map(d=>{
+    <tbody>{(STAFF_DEPTS||[]).map(d=>{
       const m = monthly?.[d]?.[yr]||Array(12).fill(0)
       const li = lastFilled(m), cur = li>=0?num(m[li]):0, a = annualAvg(m), t = num(target?.[d]?.[yr])
       return (
         <tr key={d}>
-          <td style={{...S.td("left"),fontWeight:600}}><span style={{display:"inline-block",width:10,height:10,borderRadius:3,background:DEPT_COLORS[d]||C.gray,marginRight:7,verticalAlign:"middle"}}/>{d}</td>
+          <td style={{...S.td("left"),fontWeight:600}}><span style={{display:"inline-block",width:10,height:10,borderRadius:3,background:DEPT_COLORS?.[d]||C.gray,marginRight:7,verticalAlign:"middle"}}/>{d}</td>
           <td style={S.td()}>{t.toFixed(0)}명</td>
           <td style={S.td()}>{li>=0?cur.toFixed(1)+"명":"-"}{li>=0&&<span style={{fontSize:10,color:C.gray,marginLeft:4}}>({MONTHS[li]})</span>}</td>
           <td style={{...S.td(),fontWeight:700,color:a>0?C.green:"var(--color-text-secondary,#aaa)"}}>{a>0?a.toFixed(1)+"명":"-"}</td>
@@ -621,13 +624,13 @@ function StaffPlanPreviewTable({data}) {
     })}</tbody>
   </table>
 }
-function PnlPreviewTable({data}) {
-  const rows = summarizePnl(data)
+function PnlPreviewTable({data,DEPTS,DEPT_COLORS}) {
+  const rows = summarizePnl(data,DEPTS)
   return <table style={{width:"100%",borderCollapse:"collapse",marginTop:6}}>
     <thead><tr><th style={S.th()}>본부</th><th style={S.th("right")}>매출(억)</th><th style={S.th("right")}>인건비(억)</th><th style={S.th("right")}>외주비(억)</th><th style={S.th("right")}>손익(억)</th></tr></thead>
     <tbody>{rows.map(r=>(
       <tr key={r.dept}>
-        <td style={{...S.td("left"),fontWeight:600}}><span style={{display:"inline-block",width:10,height:10,borderRadius:3,background:DEPT_COLORS[r.dept]||C.gray,marginRight:7,verticalAlign:"middle"}}/>{r.dept}</td>
+        <td style={{...S.td("left"),fontWeight:600}}><span style={{display:"inline-block",width:10,height:10,borderRadius:3,background:DEPT_COLORS?.[r.dept]||C.gray,marginRight:7,verticalAlign:"middle"}}/>{r.dept}</td>
         <td style={{...S.td(),color:C.green}}>{r.rev.toFixed(2)}</td>
         <td style={S.td()}>{r.sal.toFixed(2)}</td>
         <td style={{...S.td(),color:C.amber}}>{r.sub.toFixed(2)}</td>
@@ -636,16 +639,16 @@ function PnlPreviewTable({data}) {
     ))}</tbody>
   </table>
 }
-function CashflowPreviewTable({data}) {
-  const rows = summarizeCashflow(data)
+function CashflowPreviewTable({data,DEPTS,DEPT_COLORS}) {
+  const rows = summarizeCashflow(data,DEPTS)
   const total = rows.reduce((s,r)=>s+r.total,0)
   return <table style={{width:"100%",borderCollapse:"collapse",marginTop:6}}>
     <thead><tr><th style={S.th()}>본부</th><th style={S.th("right")}>연간 합계(억)</th></tr></thead>
     <tbody>
       {rows.map(r=>(
         <tr key={r.dept}>
-          <td style={{...S.td("left"),fontWeight:600}}><span style={{display:"inline-block",width:10,height:10,borderRadius:3,background:DEPT_COLORS[r.dept]||C.gray,marginRight:7,verticalAlign:"middle"}}/>{r.dept}</td>
-          <td style={{...S.td(),fontWeight:700,color:DEPT_COLORS[r.dept]||C.navyM}}>{r.total.toFixed(2)}</td>
+          <td style={{...S.td("left"),fontWeight:600}}><span style={{display:"inline-block",width:10,height:10,borderRadius:3,background:DEPT_COLORS?.[r.dept]||C.gray,marginRight:7,verticalAlign:"middle"}}/>{r.dept}</td>
+          <td style={{...S.td(),fontWeight:700,color:DEPT_COLORS?.[r.dept]||C.navyM}}>{r.total.toFixed(2)}</td>
         </tr>
       ))}
       <tr style={{background:"var(--color-background-secondary,#f0f0ee)",fontWeight:700}}>
@@ -671,7 +674,7 @@ function YearsPreviewTable({data}) {
 const lastFilled = monthly => { let idx=-1; (monthly||[]).forEach((v,i)=>{if(num(v)>0)idx=i}); return idx }
 const annualAvg  = monthly => { const f=(monthly||[]).filter(v=>num(v)>0); return f.length? f.reduce((s,v)=>s+num(v),0)/f.length : 0 }
 
-function StaffPlanSection({deptStaff,staffTarget,setStaffTarget,staffMonthly,setStaffMonthly,years,canEditDept,currentUser,saveVersion}) {
+function StaffPlanSection({deptStaff,staffTarget,setStaffTarget,staffMonthly,setStaffMonthly,years,STAFF_DEPTS,DEPT_COLORS,canEditDept,currentUser,saveVersion}) {
   const YEARS = (years||[]).map(y=>y.yr)
   const myDeptInList = STAFF_DEPTS.includes(currentUser.dept) ? currentUser.dept : STAFF_DEPTS[0]
   const [selDept,setSelDept] = useState(myDeptInList)
@@ -816,3 +819,143 @@ function StaffPlanSection({deptStaff,staffTarget,setStaffTarget,staffMonthly,set
     </div>
   )
 }
+
+// ════════════════════════════════════════════════════════════
+// 7) 본부 관리 — 본부 추가 · 이름변경 · 삭제 · 색상/재무추적 설정
+// ════════════════════════════════════════════════════════════
+function DeptManageSection({departments,addDept,renameDept,deleteDept,setDeptColor,setDeptFinance,deptUsage,isAdmin}) {
+  const [editingName,setEditingName] = useState(null) // 원래 이름
+  const [editVal,setEditVal] = useState("")
+  const [editMsg,setEditMsg] = useState("")
+  const [pendingDelete,setPendingDelete] = useState(null) // {name,usage}
+
+  const [newName,setNewName] = useState("")
+  const [newColor,setNewColor] = useState("#185FA5")
+  const [newFinance,setNewFinance] = useState(true)
+  const [addMsg,setAddMsg] = useState("")
+
+  const startRename = d=>{ setEditingName(d.name); setEditVal(d.name); setEditMsg("") }
+  const cancelRename = ()=>{ setEditingName(null); setEditVal(""); setEditMsg("") }
+  const saveRename = d=>{
+    const r = renameDept(d.name, editVal)
+    if(!r.ok){ setEditMsg(r.msg||"변경할 수 없습니다."); return }
+    setEditingName(null); setEditVal(""); setEditMsg("")
+  }
+
+  const askDelete = d=> setPendingDelete({name:d.name, usage:deptUsage(d.name)})
+  const confirmDelete = ()=>{ if(pendingDelete) deleteDept(pendingDelete.name); setPendingDelete(null) }
+
+  const submitAdd = ()=>{
+    const r = addDept(newName, newColor, newFinance)
+    if(!r.ok){ setAddMsg(r.msg||"추가할 수 없습니다."); return }
+    setNewName(""); setNewColor(DEPT_COLOR_POOL_DEFAULT[(departments.length+1)%DEPT_COLOR_POOL_DEFAULT.length]); setNewFinance(true); setAddMsg("")
+  }
+
+  return (
+    <div>
+      <div style={{background:C.navyL,borderLeft:`6px solid ${C.navyM}`,borderRadius:"0 12px 12px 0",padding:"14px 18px",marginBottom:18,fontSize:13.5,lineHeight:1.8,color:"#0C447C"}}>
+        <b>본부(부서)를 추가·이름변경·삭제합니다.</b> 변경 즉시 본부 인원현황·월별손익·월수금·경영분석·경영최적화·프로젝트·아카이브 전체 화면에 반영됩니다.
+        <br/>"재무추적"을 켠 본부는 월별손익·월수금을 본부별로 입력할 수 있습니다(설계 계열 본부 권장). 행정·해외 등 인원만 관리하는 본부는 꺼두세요.
+        <br/><span style={{...S.bdg(C.amberL,"#633806"),marginTop:6,display:"inline-flex"}}>주의</span> 사용자 계정의 "소속 부서"는 별도 시스템(권한관리)에 고정되어 있어, 본부명을 변경해도 기존 계정의 소속은 자동으로 바뀌지 않습니다. 이름을 바꾼 경우 관리자가 계정 소속을 함께 점검해 주세요.
+        {!isAdmin && <div style={{marginTop:6}}><span style={S.bdg(C.amberL,"#633806")}>조회 전용</span> 본부 추가·수정·삭제는 관리자만 가능합니다.</div>}
+      </div>
+
+      <div style={S.card()}>
+        <div style={cardTitle}>🏢 본부 목록</div>
+        <div style={cardNote}>색상은 모든 차트·표에서 해당 본부를 구분하는 색으로 사용됩니다.</div>
+        <div style={{overflowX:"auto"}}>
+          <table style={{width:"100%",borderCollapse:"collapse",minWidth:760}}>
+            <thead><tr>
+              <th style={S.th("center")}>색상</th>
+              <th style={S.th()}>본부명</th>
+              <th style={S.th("center")}>재무추적</th>
+              <th style={S.th("right")}>인원</th>
+              <th style={S.th("right")}>프로젝트</th>
+              <th style={S.th()}>연결 계정</th>
+              <th style={S.th("center")}>관리</th>
+            </tr></thead>
+            <tbody>
+              {departments.map((d,i)=>{
+                const usage = deptUsage(d.name)
+                const editing = editingName===d.name
+                return (
+                  <tr key={d.name} style={{background:i%2===0?"var(--color-background-primary,#fff)":"var(--color-background-secondary,#f8f8f6)"}}>
+                    <td style={S.td("center")}>
+                      {isAdmin
+                        ? <input type="color" value={d.color} onChange={e=>setDeptColor(d.name,e.target.value)} style={{width:34,height:28,border:"none",borderRadius:6,cursor:"pointer",background:"none"}}/>
+                        : <span style={{display:"inline-block",width:16,height:16,borderRadius:4,background:d.color}}/>}
+                    </td>
+                    <td style={S.td("left")}>
+                      {editing
+                        ? <div style={{display:"flex",gap:6,alignItems:"center"}}>
+                            <input value={editVal} onChange={e=>setEditVal(e.target.value)} style={{...S.inp(160),textAlign:"left",fontWeight:700}}/>
+                            <button onClick={()=>saveRename(d)} style={{...S.btn(C.green),padding:"6px 12px",fontSize:12}}>저장</button>
+                            <button onClick={cancelRename} style={{...S.btn(C.grayL,C.gray),padding:"6px 12px",fontSize:12}}>취소</button>
+                          </div>
+                        : <span style={{fontWeight:700}}>{d.name}</span>}
+                      {editing && editMsg && <div style={{fontSize:11.5,color:C.red,marginTop:4}}>{editMsg}</div>}
+                    </td>
+                    <td style={S.td("center")}>
+                      {isAdmin
+                        ? <input type="checkbox" checked={!!d.finance} onChange={e=>setDeptFinance(d.name,e.target.checked)} style={{width:18,height:18,cursor:"pointer"}}/>
+                        : (d.finance ? <span style={{...S.bdg(C.greenL,"#27500A"),fontSize:11}}>ON</span> : <span style={{...S.bdg(C.grayL,C.gray),fontSize:11}}>OFF</span>)}
+                    </td>
+                    <td style={S.td()}>{usage.staff.toFixed(1)}명</td>
+                    <td style={S.td()}>{usage.projects}건</td>
+                    <td style={{...S.td("left"),fontSize:12,color:C.gray}}>{usage.users.length?usage.users.join(", "):"-"}</td>
+                    <td style={S.td("center")}>
+                      {isAdmin && !editing && <div style={{display:"flex",gap:6,justifyContent:"center"}}>
+                        <button onClick={()=>startRename(d)} style={{...S.btn(C.navyL,C.navyM),padding:"6px 12px",fontSize:12}}>이름변경</button>
+                        <button onClick={()=>askDelete(d)} style={{...S.btn(C.redL,C.red),padding:"6px 12px",fontSize:12}}>삭제</button>
+                      </div>}
+                    </td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {isAdmin && (
+        <div style={S.card()}>
+          <div style={cardTitle}>+ 본부 추가</div>
+          <div style={cardNote}>새 본부를 추가하면 인원현황·인원계획에 0으로 초기화되어 즉시 입력할 수 있게 됩니다. 재무추적을 켜면 월별손익·월수금 입력란도 함께 생성됩니다.</div>
+          <div style={{display:"flex",gap:10,alignItems:"center",flexWrap:"wrap"}}>
+            <input value={newName} onChange={e=>setNewName(e.target.value)} placeholder="본부명 (예: 신사업본부)" style={{...S.inp(200),textAlign:"left"}}/>
+            <input type="color" value={newColor} onChange={e=>setNewColor(e.target.value)} style={{width:40,height:36,border:"none",borderRadius:8,cursor:"pointer",background:"none"}}/>
+            <label style={{display:"flex",alignItems:"center",gap:6,fontSize:13,fontWeight:600,cursor:"pointer"}}>
+              <input type="checkbox" checked={newFinance} onChange={e=>setNewFinance(e.target.checked)} style={{width:18,height:18,cursor:"pointer"}}/>재무추적(손익·수금 부서별 입력)
+            </label>
+            <button onClick={submitAdd} style={S.btn(C.green)}><i className="ti ti-plus" aria-hidden="true"/> 본부 추가</button>
+          </div>
+          {addMsg && <div style={{fontSize:12.5,color:C.red,marginTop:8}}>{addMsg}</div>}
+        </div>
+      )}
+
+      {/* 삭제 확인 */}
+      {pendingDelete && (
+        <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.4)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:300}}>
+          <div style={S.card({width:420,maxWidth:"95vw",marginBottom:0})}>
+            <div style={{fontSize:15,fontWeight:700,marginBottom:10}}>'{pendingDelete.name}' 본부를 삭제하시겠습니까?</div>
+            <div style={{fontSize:13,color:"#555",marginBottom:14,lineHeight:1.8}}>
+              인원현황·인원계획·월별손익·월수금에서 이 본부의 데이터가 모두 제거되고, 연결된 프로젝트에서도 담당본부 목록에서 빠집니다.
+              {(pendingDelete.usage.staff>0||pendingDelete.usage.projects>0||pendingDelete.usage.users.length>0) && (
+                <div style={{marginTop:8,...S.bdg(C.amberL,"#633806"),display:"block",padding:"8px 12px",lineHeight:1.8}}>
+                  현재 인원 {pendingDelete.usage.staff.toFixed(1)}명, 연결 프로젝트 {pendingDelete.usage.projects}건
+                  {pendingDelete.usage.users.length>0 && <>, 소속 계정: {pendingDelete.usage.users.join(", ")}</>}
+                  이 있습니다. 그래도 삭제하면 위 데이터의 본부 연결이 모두 해제됩니다.
+                </div>
+              )}
+            </div>
+            <div style={{display:"flex",gap:8}}>
+              <button onClick={confirmDelete} style={S.btn(C.red)}>삭제</button>
+              <button onClick={()=>setPendingDelete(null)} style={S.btn(C.grayL,C.gray)}>취소</button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+const DEPT_COLOR_POOL_DEFAULT = ["#185FA5","#1D9E75","#BA7517","#A32D2D","#534AB7","#0F6E56","#D85A30","#7C5295","#2E86AB","#C0392B"]

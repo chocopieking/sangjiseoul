@@ -1,5 +1,6 @@
 import { useState, useMemo, useRef } from "react"
 import { uploadFile, db } from "./supabase.js"
+import { useDepts } from "./DeptContext.jsx"
 
 const C={navy:"#0C447C",navyM:"#185FA5",navyL:"#E6F1FB",green:"#1D9E75",greenL:"#EAF3DE",amber:"#BA7517",amberL:"#FAEEDA",red:"#A32D2D",redL:"#FCEBEB",gray:"#888780",grayL:"#F1EFE8",dark:"#1A1A2E"}
 
@@ -15,7 +16,6 @@ const CAT={
   "기타":    {icon:"ti-folder",          color:"#888780",bg:"#F1EFE8"},
 }
 const CATS=Object.keys(CAT)
-const DEPTS=["설계1본부","설계2본부","디자인본부","주거디자인본부","해외사업부","경영지원"]
 
 const DEMO=[
   {id:"A001",title:"평택고덕 A68BL 기본설계 계약서",category:"계약서",project_id:"P001",dept:"설계2본부",date_created:"2026-01-20",tags:["평택고덕","계약","2026"],file_type:"pdf",file_size_kb:1240,description:"DA 컨소시엄 기본설계 계약 체결서류 일체",thumbnail_url:null,version:"1.0",created_at:"2026-01-20T00:00:00"},
@@ -33,6 +33,7 @@ const DEMO=[
 function fSize(kb){return kb<1024?kb+"KB":(kb/1024).toFixed(1)+"MB"}
 
 export function ArchiveTab({currentUser,projects}){
+  const {STAFF_DEPTS:DEPTS} = useDepts()
   const [items,setItems]=useState(DEMO)
   const [view,setView]=useState("grid")
   const [zoom,setZoom]=useState("m")
