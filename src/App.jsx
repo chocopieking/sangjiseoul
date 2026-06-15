@@ -8,6 +8,8 @@ import {
   PolarGrid, PolarAngleAxis, Legend
 } from "recharts"
 import { ArchiveTab } from "./Archive.jsx"
+import { OptimizeTab } from "./Optimize.jsx"
+import { DataHubTab } from "./DataHub.jsx"
 import {
   hashPw, ALL_USERS, MASTER_PW, ROLE_BADGE,
   fE, fW, fP, fPy, fPct, toPy, PY, getAreaBasis, calcUP, calcPnlTotals,
@@ -106,6 +108,7 @@ export default function App() {
   const [projects, setProjects]   = useState(PROJECTS_INIT)
   const [pnlData, setPnlData]     = useState(PNL_INIT)
   const [years, setYears]         = useState(YEARS_DB_INIT)
+  const [cashflow, setCashflow]   = useState(CF_2026)
   const [deptStaff, setDeptStaff] = useState(DEPT_STAFF_INIT)
   const [alerts, setAlerts]       = useState(ALERTS_INIT)
   const [showAlerts, setShowAlerts] = useState(false)
@@ -156,15 +159,51 @@ export default function App() {
     reader.readAsArrayBuffer(file)
   },[projects])
 
+  // 엑셀 양식 다운로드 (업로드 파서가 읽는 행 위치와 정확히 일치)
+  const downloadTemplate = useCallback(()=>{
+    const ws1 = XLSX.utils.aoa_to_sheet([
+      ["■ 프로젝트정보 입력 양식 (상지서울건축사사무소)"],
+      ["행 번호/형식을 변경하지 마세요. 파란 음영 행에만 값을 입력한 뒤 저장하세요."],
+      ["프로젝트코드는 영문/숫자 조합, 담당본부는 정확한 본부명을 콤마(,)로 구분해 입력합니다."],
+      [],
+      ["프로젝트코드","연도","프로젝트명","유형","담당본부(콤마구분)","PM","담당임원"],
+      ["E26999-SAMPLE","2026","○○현장 신축공사 실시설계 용역","공동주택","설계1본부","홍길동","홍길동 이사"],
+      ["발주처","발주처담당자","","","세대수","주소"],
+      ["○○공사","김담당","","",500,"서울특별시 ○○구 ○○로 123"],
+      ["총용역비(원,VAT별도)","상지 지분율(%)","상지 용역비(원,VAT별도)","대지면적(㎡)","","연면적(㎡)"],
+      [500000000,100,500000000,10000,"",30000],
+      ["계약일(YYYY-MM-DD)","수주일(YYYY-MM-DD, 계약금10%수령일)"],
+      ["2026-01-01","2026-01-15"],
+    ])
+    ws1["!cols"]=[{wch:18},{wch:18},{wch:30},{wch:14},{wch:20},{wch:12},{wch:14}]
+
+    const ws2 = XLSX.utils.aoa_to_sheet([
+      ["■ 협력업체 비용 입력 양식"],
+      ["프로젝트코드는 시트1의 프로젝트코드와 정확히 일치해야 합니다. 5행부터 여러 업체를 추가할 수 있습니다."],
+      [],
+      ["프로젝트코드","공종","업체명","계약금액(원)","NEGO1(원)","NEGO2(원)"],
+      ["E26999-SAMPLE","구조","○○구조엔지니어링",30000000,"",""],
+      ["E26999-SAMPLE","기계설비","○○설비",25000000,"",""],
+    ])
+    ws2["!cols"]=[{wch:18},{wch:14},{wch:22},{wch:14},{wch:14},{wch:14}]
+
+    const wb = XLSX.utils.book_new()
+    XLSX.utils.book_append_sheet(wb,ws1,"프로젝트정보")
+    XLSX.utils.book_append_sheet(wb,ws2,"협력업체비용")
+    XLSX.writeFile(wb,"상지서울_프로젝트입력양식.xlsx")
+  },[])
+
   if (!initDone) return <div style={{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:"var(--color-background-tertiary,#f5f5f3)"}}><div style={{textAlign:"center"}}><div style={{width:36,height:36,border:`3px solid ${C.navyM}`,borderTop:"3px solid transparent",borderRadius:"50%",animation:"spin 1s linear infinite",margin:"0 auto 12px"}}/><div style={{fontSize:13,color:C.gray}}>초기화 중…</div><style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style></div></div>
 
   if (auth==="login") return <LoginScreen {...{loginId,setLoginId,loginPw,setLoginPw,loginError,doLogin,pwVisible,setPwVisible}}/>
 
   const TABS = [
     {id:"analysis",  label:"📊 경영분석"},
+    {id:"datahub",   label:"🗄️ 데이터관리"},
     {id:"cashflow",  label:"💧 월수금계획"},
     {id:"projects",  label:"🏗 프로젝트"},
     {id:"pnl",       label:"📉 손익분석"},
+    {id:"optimize",  label:"⚙️ 경영최적화"},
     {id:"archive",   label:"📁 아카이브"},
     {id:"auth_mgmt", label:"🔐 권한관리"},
   ]
@@ -184,6 +223,7 @@ export default function App() {
         <div style={{display:"flex",gap:6,alignItems:"center",flexWrap:"wrap"}}>
           <button onClick={()=>setShowNewProj(true)} style={S.btn(C.green)}><i className="ti ti-plus" aria-hidden="true"/> 프로젝트</button>
           <button onClick={()=>uploadRef.current?.click()} style={S.btn(C.amberL,C.amber)}><i className="ti ti-upload" aria-hidden="true"/> 엑셀</button>
+          <button onClick={downloadTemplate} style={{...S.btn("rgba(255,255,255,.12)","#fff"),border:"1px solid rgba(255,255,255,.2)"}}><i className="ti ti-file-download" aria-hidden="true"/> 양식 다운로드</button>
           <input ref={uploadRef} type="file" accept=".xlsx,.xls,.csv" style={{display:"none"}} onChange={handleUpload}/>
           {uploadMsg&&<span style={{fontSize:10,color:uploadMsg.startsWith("✓")?C.green:C.red,background:"rgba(255,255,255,.1)",padding:"3px 7px",borderRadius:6}}>{uploadMsg}</span>}
           {/* 알람 */}
@@ -206,16 +246,18 @@ export default function App() {
       {/* 탭 바 */}
       <div style={{background:"var(--color-background-primary,#fff)",borderBottom:"0.5px solid var(--color-border-tertiary,#e0e0e0)",display:"flex",overflowX:"auto",padding:"0 15px"}}>
         {TABS.filter(t=>t.id!=="auth_mgmt"||currentUser.role==="admin").map(t=>(
-          <button key={t.id} onClick={()=>setTab(t.id)} style={{padding:"10px 15px",border:"none",background:"none",fontSize:13,fontWeight:tab===t.id?500:400,cursor:"pointer",whiteSpace:"nowrap",color:tab===t.id?C.navyM:"var(--color-text-secondary,#888)",borderBottom:tab===t.id?`2px solid ${C.navyM}`:"2px solid transparent"}}>{t.label}</button>
+          <button key={t.id} onClick={()=>setTab(t.id)} style={{padding:"10px 15px",border:"none",background:"none",fontSize:13,fontWeight:tab===t.id?500:(t.id==="datahub"?700:400),cursor:"pointer",whiteSpace:"nowrap",color:tab===t.id?C.navyM:(t.id==="datahub"?C.amber:"var(--color-text-secondary,#888)"),borderBottom:tab===t.id?`2px solid ${C.navyM}`:"2px solid transparent"}}>{t.label}</button>
         ))}
       </div>
 
       {/* 바디 */}
       <div style={{padding:"15px 18px",maxWidth:1440,margin:"0 auto"}}>
-        {tab==="analysis" && <AnalysisTab deptStaff={deptStaff} setDeptStaff={setDeptStaff} years={years} setYears={setYears} canWrite={canWrite}/>}
-        {tab==="cashflow" && <CashflowTab/>}
+        {tab==="analysis" && <AnalysisTab deptStaff={deptStaff} setDeptStaff={setDeptStaff} years={years} setYears={setYears} canWrite={canWrite} cashflow={cashflow}/>}
+        {tab==="datahub" && <DataHubTab currentUser={currentUser} deptStaff={deptStaff} setDeptStaff={setDeptStaff} pnlData={pnlData} setPnlData={setPnlData} cashflow={cashflow} setCashflow={setCashflow} years={years} setYears={setYears} projects={projects} setTab={setTab} setSelProjId={setSelProjId} setSelVerIdx={setSelVerIdx} setShowNewProj={setShowNewProj}/>}
+        {tab==="cashflow" && <CashflowTab cashflow={cashflow} setCashflow={setCashflow} currentUser={currentUser}/>}
         {tab==="projects" && <ProjectsTab projects={projects} setProjects={setProjects} selProjId={selProjId} setSelProjId={setSelProjId} selVerIdx={selVerIdx} setSelVerIdx={setSelVerIdx} cmpIds={cmpIds} setCmpIds={setCmpIds} showNewVer={showNewVer} setShowNewVer={setShowNewVer} canWrite={canWrite}/>}
         {tab==="pnl"      && <PnlTab pnlData={pnlData} setPnlData={setPnlData} canWrite={canWrite}/>}
+        {tab==="optimize" && <OptimizeTab projects={projects} deptStaff={deptStaff} pnlData={pnlData}/>}
         {tab==="archive"   && <ArchiveTab currentUser={currentUser} projects={projects}/>}
         {tab==="auth_mgmt"&& currentUser.role==="admin" && <AuthTab users={users} saveUsers={saveUsers} currentUser={currentUser} hashPw={hashPw}/>}
       </div>
@@ -288,7 +330,7 @@ function AlertPanel({alerts,readAlert,readAll,setTab,setShowAlerts}) {
 // ════════════════════════════════════════════════════════════
 // 경영분석 탭 — 본부별 + 통합 인터랙티브
 // ════════════════════════════════════════════════════════════
-function AnalysisTab({deptStaff,setDeptStaff,years,setYears,canWrite}) {
+function AnalysisTab({deptStaff,setDeptStaff,years,setYears,canWrite,cashflow}) {
   const [view, setView]     = useState("total")  // total | dept
   const [selDept, setSelDept] = useState("설계1본부")
   const [editStaff, setEditStaff] = useState(false)
@@ -363,7 +405,7 @@ function AnalysisTab({deptStaff,setDeptStaff,years,setYears,canWrite}) {
               {l:"누계 매출",    v:fE(b.revenueCum),     s:`${(b.revenueCum/b.revenueTarget*100).toFixed(1)}%`, c:C.amber, acc:C.amber, bar:b.revenueCum/b.revenueTarget},
               {l:"누계 지출",    v:fE(b.costCum),        s:"5월 누계",            c:C.red, acc:C.red},
               {l:"누계 손익",    v:fE(b.pnlCum),         s:"매출-지출",           c:C.red, acc:"#791F1F"},
-              {l:"예상기성(연간)",v:fE(CF_2026.reduce((s,d)=>s+d.cash+d.note,0)), s:"현금+어음", c:C.navyM, acc:C.navyM},
+              {l:"예상기성(연간)",v:fE(cashflow.reduce((s,d)=>s+d.cash+d.note,0)), s:"현금+어음", c:C.navyM, acc:C.navyM},
             ].map(k=>(
               <div key={k.l} style={{...S.kpi(k.acc)}}
                 onMouseEnter={e=>e.currentTarget.style.boxShadow="0 2px 14px rgba(24,95,165,.13)"}
@@ -523,7 +565,7 @@ function AnalysisTab({deptStaff,setDeptStaff,years,setYears,canWrite}) {
       {view==="dept" && (() => {
         const db=DEPT_BIZ[selDept], st=deptStaff[selDept]||{total:1}
         const done=db.orderDone+db.orderConfirmed
-        const cfDept = CF_2026.map(m=>({name:m.m, 기성:(m.byDept?.[selDept]||0)+( m.note||0)}))
+        const cfDept = cashflow.map(m=>({name:m.m, 기성:(m.byDept?.[selDept]||0)+( m.note||0)}))
         return (
           <>
             <div style={S.grid(5)}>
@@ -594,7 +636,8 @@ function AnalysisTab({deptStaff,setDeptStaff,years,setYears,canWrite}) {
 // ════════════════════════════════════════════════════════════
 // 월수금계획 탭
 // ════════════════════════════════════════════════════════════
-function CashflowTab() {
+function CashflowTab({cashflow,setCashflow,currentUser}) {
+  const CF_2026 = cashflow
   const [view, setView] = useState("total")
   const [selDept, setSelDept] = useState("설계1본부")
 
