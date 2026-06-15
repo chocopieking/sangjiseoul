@@ -1230,7 +1230,7 @@ function ProjectsTab({projects,setProjects,selProjId,setSelProjId,selVerIdx,setS
                 <span style={{fontSize:11,color:C.gray}}>버전:</span>
                 {selProj.versions.map((v,i)=>(
                   <button key={i} onClick={()=>setSelVerIdx(i)} style={{...S.btn(i===selVerIdx?C.navyM:C.navyL,i===selVerIdx?"#fff":C.navy),padding:"5px 11px",fontSize:11}}>
-                    {v.ver} <span style={{fontSize:9,opacity:.7}}>({v.date})</span>
+                    {v.round&&<span style={{background:i===selVerIdx?"rgba(255,255,255,.25)":"rgba(24,95,165,.15)",borderRadius:5,padding:"1px 5px",marginRight:4,fontSize:10,fontWeight:700}}>{v.round}차</span>}{v.ver} <span style={{fontSize:9,opacity:.7}}>({v.date})</span>
                   </button>
                 ))}
                 {canWrite&&<button onClick={()=>setShowNewVer(true)} style={{...S.btn(C.green),padding:"5px 11px",fontSize:11}}>+ 버전 추가</button>}
@@ -1253,7 +1253,8 @@ function ProjectsTab({projects,setProjects,selProjId,setSelProjId,selVerIdx,setS
                         if(cat&&contract) vendors.push({cat,name,contract,nego1:parseInt(String(row[4]).replace(/[^0-9]/g,""))||0,nego2:parseInt(String(row[5]).replace(/[^0-9]/g,""))||0})
                       }
                       if(vendors.length===0){alert("협력업체 데이터를 찾을 수 없습니다.");return}
-                      const newVer={ver:verName,date:new Date().toISOString().slice(0,10),reason:"엑셀 업로드",laborCost:0,directExp:0,subContract:vendors.reduce((s,v)=>s+v.contract,0),indirect:null,profit:null,vendors}
+                      const nextRound2=(selProj.versions.reduce((mx,v)=>Math.max(mx,v.round||0),0)||0)+1
+                      const newVer={ver:verName||`${nextRound2}차 실행계획서`,round:nextRound2,date:new Date().toISOString().slice(0,10),reason:"엑셀 업로드",laborCost:0,directExp:0,subContract:vendors.reduce((s,v)=>s+v.contract,0),indirect:null,profit:null,vendors}
                       setProjects(prev=>prev.map(p=>p.id===selProj.id?{...p,versions:[...p.versions,newVer]}:p))
                       setSelVerIdx(selProj.versions.length)
                       alert(`협력업체 ${vendors.length}개 업로드 완료`)
@@ -1268,7 +1269,7 @@ function ProjectsTab({projects,setProjects,selProjId,setSelProjId,selVerIdx,setS
               {selVer && (
                 <>
                   <div style={S.grid(2,12)}>
-                    <Card title="비용 구성 요약" note={selVer.ver}>
+                    <Card title="비용 구성 요약" note={`${selVer.round?selVer.round+"차 · ":""}${selVer.ver}`}>
                       {(()=>{
                         const pnl=calcPnlTotals(selVer)
                         return <table style={{width:"100%",borderCollapse:"collapse"}}>
@@ -1303,6 +1304,9 @@ function ProjectsTab({projects,setProjects,selProjId,setSelProjId,selVerIdx,setS
                       </ResponsiveContainer>
                     </Card>
                   </div>
+
+                  {/* ── 회차별 비교 분석 ── */}
+                  <VersionCompareCard proj={selProj} selVerIdx={selVerIdx}/>
 
                   {/* 협력업체 상세 */}
                   <Card title="협력업체 상세" note="토목·조경·지반·흙막이·현황측량·부대토목 → 대지면적 기준 | 친환경·교통·BIM·인테리어·외부특화·경관 → 1식">
@@ -1376,7 +1380,242 @@ function ProjectsTab({projects,setProjects,selProjId,setSelProjId,selVerIdx,setS
   )
 }
 
-// ── 프로젝트별 연도별 월수금계획(기성) ─────────────────────────
+// ── 회차별 실행계획서 비교 분석 ──────────────────────────────
+function VersionCompareCard({proj,selVerIdx}) {
+  const versions = useMemo(()=>{
+    // round가 있으면 round 기준, 없으면 index 기준 정렬
+    return [...proj.versions]
+      .map((v,i)=>({...v,_origIdx:i}))
+      .sort((a,b)=>(a.round||a._origIdx+1)-(b.round||b._origIdx+1))
+  },[proj.versions])
+
+  if(versions.length<2) return (
+    <Card title="📊 회차별 비교 분석" note="실행계획서 2회차 이상부터 회차간 이윤 추이를 비교합니다.">
+      <div style={{padding:"12px 14px",borderRadius:10,background:C.grayL,color:C.gray,fontSize:13}}>
+        회차가 2개 이상이면 회차간 금액 증감·이윤율 변화를 자동으로 비교합니다.<br/>
+        위에서 "버전 추가" 또는 엑셀 업로드로 회차를 추가해주세요.
+      </div>
+    </Card>
+  )
+
+  const ITEMS = [
+    {key:"laborCost", label:"직접인건비", color:C.navyM},
+    {key:"directExp", label:"직접경비",   color:C.navyM},
+    {key:"subContract",label:"외주용역비", color:C.amber},
+    {key:"_direct",   label:"직접비 소계", color:C.navy, bold:true},
+    {key:"_indirect", label:"간접비",     color:C.gray},
+    {key:"_profit",   label:"이윤",       color:C.green, bold:true},
+    {key:"_total",    label:"예상합계",   color:C.navy,  bold:true},
+  ]
+
+  const pnls = versions.map(v=>{
+    const p=calcPnlTotals(v)
+    return {laborCost:v.laborCost||0,directExp:v.directExp||0,subContract:v.subContract||0,_direct:p.direct,_indirect:p.indirect,_profit:p.profit,_total:p.total}
+  })
+
+  const svc = proj.serviceFee||0
+
+  // 이윤율 추이 차트 데이터
+  const chartData = versions.map((v,i)=>{
+    const pnl=calcPnlTotals(v)
+    const profitRate = svc>0 ? +(pnl.profit/svc*100).toFixed(1) : 0
+    const subRate    = svc>0 ? +(pnl.direct/svc*100).toFixed(1) : 0
+    return {
+      name: v.round ? `${v.round}차` : `v${v._origIdx+1}`,
+      이윤율: profitRate,
+      직접비율: subRate,
+      이윤: +(pnl.profit/1e8).toFixed(2),
+      직접비: +(pnl.direct/1e8).toFixed(2),
+    }
+  })
+
+  const firstPnl = pnls[0]
+  const lastPnl  = pnls[pnls.length-1]
+
+  // 전체 변화 요약 (1차 → 최신)
+  const profitChange = lastPnl._profit - firstPnl._profit
+  const profitPctChange = firstPnl._profit!==0 ? (profitChange/firstPnl._profit*100) : 0
+  const isGood = profitChange >= 0
+
+  return (
+    <Card title="📊 회차별 실행계획서 비교 분석" note="회차 순서대로 각 항목의 금액 변화·이윤율 추이를 모니터링합니다.">
+      {/* 요약 헤드라인 */}
+      <div style={{display:"flex",gap:12,flexWrap:"wrap",marginBottom:16}}>
+        <div style={{background:isGood?C.greenL:C.redL,borderRadius:10,padding:"10px 16px",flex:1,minWidth:180}}>
+          <div style={{fontSize:11,color:isGood?C.green:C.red,fontWeight:600,marginBottom:3}}>1차 → {versions.length}차 이윤 변화</div>
+          <div style={{fontSize:20,fontWeight:800,color:isGood?C.green:C.red}}>
+            {isGood?"+":""}{fE(profitChange)}
+          </div>
+          <div style={{fontSize:12,color:isGood?C.green:C.red}}>({isGood?"+":""}{profitPctChange.toFixed(1)}%)</div>
+        </div>
+        {versions.map((v,i)=>{
+          const p=pnls[i]
+          const rate=svc>0?+(p._profit/svc*100).toFixed(1):null
+          return (
+            <div key={i} style={{background:selVerIdx===v._origIdx?"var(--color-background-primary,#fff)":C.grayL,borderRadius:10,padding:"10px 16px",flex:1,minWidth:140,border:`1px solid ${selVerIdx===v._origIdx?C.navyM:"transparent"}`}}>
+              <div style={{fontSize:11,fontWeight:700,color:C.gray,marginBottom:3}}>{v.round?`${v.round}차`:v.ver}</div>
+              <div style={{fontSize:13,fontWeight:700,color:C.navy}}>{fE(p._profit)}</div>
+              <div style={{fontSize:11,color:rate!=null&&rate<5?C.red:C.green}}>{rate!=null?`이윤율 ${rate}%`:"-"}</div>
+            </div>
+          )
+        })}
+      </div>
+
+      {/* 이윤율 추이 차트 */}
+      <div style={{marginBottom:14}}>
+        <div style={{fontSize:12,color:C.gray,fontWeight:600,marginBottom:6}}>이윤율 추이 (용역비 대비 %)</div>
+        <ResponsiveContainer width="100%" height={180}>
+          <BarChart data={chartData} margin={{top:20,right:20,left:0,bottom:0}}>
+            <CartesianGrid strokeDasharray="3 3" stroke="rgba(0,0,0,.05)"/>
+            <XAxis dataKey="name" tick={{fontSize:12,fontWeight:600}}/>
+            <YAxis tick={{fontSize:10}} tickFormatter={v=>v+"%"} domain={[0,"auto"]}/>
+            <Tooltip formatter={(v,n)=>[v+(n==="이윤율"||n==="직접비율"?"%":"억"),n]}/>
+            <Bar dataKey="이윤율" fill={C.green} radius={[4,4,0,0]} barSize={40}>
+              <LabelList dataKey="이윤율" position="top" formatter={v=>v+"%"} style={{fontSize:12,fontWeight:700,fill:C.green}}/>
+            </Bar>
+          </BarChart>
+        </ResponsiveContainer>
+      </div>
+
+      {/* 항목별 회차 비교표 */}
+      <div style={{overflowX:"auto"}}>
+        <table style={{width:"100%",borderCollapse:"collapse",minWidth:600}}>
+          <thead>
+            <tr>
+              <th style={S.th()}>항목</th>
+              {versions.map((v,i)=>(
+                <th key={i} style={S.th("right")}>
+                  {v.round?`${v.round}차`:v.ver}
+                  <div style={{fontSize:9,color:C.gray,fontWeight:400}}>{v.date}</div>
+                </th>
+              ))}
+              {versions.length>=2 && <>
+                <th style={{...S.th("right"),color:C.amber}}>증감액<div style={{fontSize:9,fontWeight:400}}>(1차→최신)</div></th>
+                <th style={{...S.th("right"),color:C.amber}}>증감율</th>
+              </>}
+              <th style={S.th("right")}>최신 비율<div style={{fontSize:9,fontWeight:400}}>(용역비 대비)</div></th>
+            </tr>
+          </thead>
+          <tbody>
+            {ITEMS.map(item=>{
+              const vals = pnls.map(p=>p[item.key]||0)
+              const diff = vals.length>=2 ? vals[vals.length-1]-vals[0] : null
+              const diffPct = (diff!=null&&vals[0]!==0) ? (diff/vals[0]*100) : null
+              const latestRate = svc>0 ? (vals[vals.length-1]/svc*100) : null
+              // 각 회차간 증감 표시를 위한 delta 계산
+              const deltas = vals.map((v,i)=>i===0?null:v-vals[i-1])
+              return (
+                <tr key={item.key} style={{
+                  background:item.bold?"var(--color-background-secondary,#f5f5f3)":"var(--color-background-primary,#fff)",
+                  borderTop:item.bold?`1px solid ${C.navyL}`:"none"
+                }}>
+                  <td style={{...S.td("left"),fontWeight:item.bold?700:400,color:item.color||"inherit"}}>{item.label}</td>
+                  {vals.map((v,i)=>(
+                    <td key={i} style={{...S.td("right"),fontWeight:item.bold?700:400}}>
+                      <div style={{color:item.color||"inherit"}}>{fE(v)}</div>
+                      {deltas[i]!=null&&deltas[i]!==0&&(
+                        <div style={{fontSize:10,color:deltas[i]>0?C.red:C.green,fontWeight:600}}>
+                          {deltas[i]>0?"+":""}{(deltas[i]/1e8).toFixed(2)}억
+                        </div>
+                      )}
+                    </td>
+                  ))}
+                  {versions.length>=2 && <>
+                    <td style={{...S.td("right"),fontWeight:700,color:diff==null?C.gray:diff>0?C.red:diff<0?C.green:C.gray}}>
+                      {diff!=null?(diff>=0?"+":"")+fE(diff):"-"}
+                    </td>
+                    <td style={{...S.td("right"),fontWeight:700,color:diffPct==null?C.gray:diffPct>0?C.red:diffPct<0?C.green:C.gray}}>
+                      {diffPct!=null?(diffPct>=0?"+":"")+diffPct.toFixed(1)+"%":"-"}
+                    </td>
+                  </>}
+                  <td style={{...S.td("right"),color:latestRate!=null&&item.key==="_profit"?(latestRate<5?C.red:latestRate>12?C.green:C.amber):C.gray}}>
+                    {latestRate!=null?latestRate.toFixed(1)+"%":"-"}
+                  </td>
+                </tr>
+              )
+            })}
+          </tbody>
+        </table>
+      </div>
+
+      {/* 외주비 분야별 회차 비교 */}
+      {versions.some(v=>(v.vendors||[]).length>0) && (
+        <VendorVersionCompare versions={versions} proj={proj}/>
+      )}
+    </Card>
+  )
+}
+
+// 협력업체(외주비) 분야별 회차 비교
+function VendorVersionCompare({versions,proj}) {
+  const allCats = useMemo(()=>[...new Set(versions.flatMap(v=>(v.vendors||[]).map(x=>x.cat)))].sort(),[versions])
+  const svc = proj.serviceFee||0
+  const pyF = (proj.floorArea||0)/3.3058
+  const pyS = (proj.siteArea||0)/3.3058
+
+  return (
+    <div style={{marginTop:16}}>
+      <div style={{fontSize:12,color:C.gray,fontWeight:600,marginBottom:8,borderTop:`1px solid ${C.navyL}`,paddingTop:10}}>외주비 분야별 회차 비교</div>
+      <div style={{overflowX:"auto"}}>
+        <table style={{width:"100%",borderCollapse:"collapse",minWidth:560}}>
+          <thead>
+            <tr>
+              <th style={S.th()}>분야</th>
+              {versions.map((v,i)=>(
+                <th key={i} style={S.th("right")}>{v.round?`${v.round}차`:v.ver}<div style={{fontSize:9,color:C.gray,fontWeight:400}}>원가견적</div></th>
+              ))}
+              {versions.length>=2 && <th style={{...S.th("right"),color:C.amber}}>증감액</th>}
+              <th style={S.th("right")}>평당단가(최신)</th>
+            </tr>
+          </thead>
+          <tbody>
+            {allCats.map((cat,ci)=>{
+              const vals=versions.map(v=>{const vd=(v.vendors||[]).find(x=>x.cat===cat);return vd?(vd.nego2||vd.nego1||vd.contract||0):0})
+              const diff=vals.length>=2?vals[vals.length-1]-vals[0]:null
+              const basis=getAreaBasis(cat)
+              const py=basis==="대지"?pyS:basis==="연면적"?pyF:0
+              const latestAmt=vals[vals.length-1]
+              const up=py>0&&latestAmt>0?Math.round(latestAmt/py):null
+              return (
+                <tr key={cat} style={{background:ci%2===0?"var(--color-background-primary,#fff)":"var(--color-background-secondary,#f8f8f6)"}}>
+                  <td style={{...S.td("left")}}><span style={{...S.bdg(C.navyL,C.navyM),fontSize:11}}>{cat}</span></td>
+                  {vals.map((v,i)=>(
+                    <td key={i} style={S.td("right")}>
+                      {v>0?fW(v):<span style={{color:C.gray}}>-</span>}
+                    </td>
+                  ))}
+                  {versions.length>=2&&<td style={{...S.td("right"),fontWeight:700,color:diff==null?C.gray:diff>0?C.red:diff<0?C.green:C.gray}}>
+                    {diff!=null&&diff!==0?(diff>=0?"+":"")+fW(diff):"-"}
+                  </td>}
+                  <td style={{...S.td("right"),fontSize:12,color:C.navyM}}>
+                    {up?fPy(up):"1식"}
+                  </td>
+                </tr>
+              )
+            })}
+            {/* 합계 */}
+            <tr style={{background:"var(--color-background-secondary,#f0f0ee)",fontWeight:700}}>
+              <td style={{...S.td("left")}}>외주비 합계</td>
+              {versions.map((v,i)=>{
+                const total=(v.vendors||[]).reduce((s,x)=>s+(x.nego2||x.nego1||x.contract||0),0)
+                return <td key={i} style={{...S.td("right"),color:C.amber}}>{fE(total)}</td>
+              })}
+              {versions.length>=2&&(()=>{
+                const t0=(versions[0].vendors||[]).reduce((s,x)=>s+(x.nego2||x.nego1||x.contract||0),0)
+                const tN=(versions[versions.length-1].vendors||[]).reduce((s,x)=>s+(x.nego2||x.nego1||x.contract||0),0)
+                const d=tN-t0
+                return <td style={{...S.td("right"),color:d>0?C.red:d<0?C.green:C.gray}}>{d!==0?(d>0?"+":"")+fW(d):"-"}</td>
+              })()}
+              <td/>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  )
+}
+
+
 function ProjectCashflowCard({proj,setProjects,canWrite}) {
   const plan = proj.cashflowPlan||[]
   const [editing,setEditing]   = useState(false)
@@ -2149,20 +2388,44 @@ function NewProjModal({onClose,onSave,initial=null}) {
 
 function NewVerModal({proj,onClose,onSave}) {
   const last=proj.versions[proj.versions.length-1]
-  const [f,setF]=useState({ver:`v${proj.versions.length+1}.0 ${proj.versions.length}차변경`,date:new Date().toISOString().slice(0,10),reason:"",laborCost:last?.laborCost||0,directExp:last?.directExp||0,subContract:last?.subContract||0,indirect:null,profit:null,vendors:(last?.vendors||[]).map(v=>({...v}))})
+  // 회차: 기존 버전들 중 최대 회차+1 기본값
+  const nextRound = (proj.versions.reduce((mx,v)=>Math.max(mx,v.round||0),0)||0)+1
+  const [f,setF]=useState({
+    ver:`${nextRound}차 실행계획서`,
+    round:nextRound,
+    date:new Date().toISOString().slice(0,10),
+    reason:"",
+    laborCost:last?.laborCost||0,
+    directExp:last?.directExp||0,
+    subContract:last?.subContract||0,
+    indirect:null,profit:null,
+    vendors:(last?.vendors||[]).map(v=>({...v}))
+  })
   const u=(k,v)=>setF(p=>({...p,[k]:v}))
+  const pnl = calcPnlTotals(f)
   return (
     <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.4)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:400,padding:20}}>
-      <div style={S.card({width:"100%",maxWidth:480})}>
-        <div style={{fontSize:14,fontWeight:500,marginBottom:14}}>버전 추가</div>
-        <div style={S.grid(2,9)}>
-          <F label="버전명" val={f.ver} onChange={v=>u("ver",v)}/><F label="작성일" val={f.date} onChange={v=>u("date",v)} type="date"/>
-          <F label="변경사유" val={f.reason} onChange={v=>u("reason",v)}/><div style={{fontSize:11,color:C.gray,padding:"8px 0",lineHeight:1.7}}>간접비·이윤은 0이면 자동계산</div>
+      <div style={S.card({width:"100%",maxWidth:520})}>
+        <div style={{fontSize:14,fontWeight:500,marginBottom:14}}>실행계획서 회차 추가</div>
+        <div style={S.grid(3,9)}>
+          <F label="회차" val={f.round} onChange={v=>u("round",parseInt(v)||1)} type="number" ph="예: 1"/>
+          <div style={{gridColumn:"span 2"}}><F label="버전명 (자동생성됨)" val={f.ver} onChange={v=>u("ver",v)}/></div>
+          <F label="작성일" val={f.date} onChange={v=>u("date",v)} type="date"/>
+          <div style={{gridColumn:"span 2"}}><F label="변경사유" val={f.reason} onChange={v=>u("reason",v)} ph="예: 협력업체 재선정"/></div>
+        </div>
+        <div style={{fontSize:11,color:C.navyM,fontWeight:600,margin:"10px 0 6px",borderBottom:`1px solid ${C.navyL}`,paddingBottom:4}}>비용 구성</div>
+        <div style={S.grid(3,9)}>
           <F label="직접인건비(원)" val={f.laborCost} onChange={v=>u("laborCost",parseInt(v)||0)} type="number"/>
           <F label="직접경비(원)" val={f.directExp} onChange={v=>u("directExp",parseInt(v)||0)} type="number"/>
           <F label="외주용역비(원)" val={f.subContract} onChange={v=>u("subContract",parseInt(v)||0)} type="number"/>
         </div>
-        <div style={{background:C.navyL,borderRadius:7,padding:"7px 11px",fontSize:11,color:C.navyM,marginBottom:12}}>직접비 합계: {fE((f.laborCost||0)+(f.directExp||0)+(f.subContract||0))}</div>
+        <div style={{background:C.navyL,borderRadius:7,padding:"7px 11px",fontSize:11,color:C.navyM,marginBottom:12,display:"flex",gap:16,flexWrap:"wrap"}}>
+          <span>직접비 합계: <b>{fE(pnl.direct)}</b></span>
+          <span>간접비(자동): <b>{fE(pnl.indirect)}</b></span>
+          <span>이윤(자동): <b>{fE(pnl.profit)}</b></span>
+          <span style={{color:C.navy}}>예상합계: <b>{fE(pnl.total)}</b></span>
+        </div>
+        <div style={{fontSize:11,color:C.gray,marginBottom:10}}>※ 간접비·이윤은 0이면 자동계산 (직접인건비×1.1, 직접비×8.3%)</div>
         <div style={{display:"flex",gap:7}}><button onClick={()=>onSave(f)} style={S.btn(C.navyM)}>저장</button><button onClick={onClose} style={S.btn(C.grayL,C.gray)}>취소</button></div>
       </div>
     </div>

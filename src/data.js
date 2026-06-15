@@ -211,7 +211,7 @@ export const getDeptShares = p => {
 }
 // 누락 필드 보강 (orderType/cashflowPlan/deptShares)
 export const normalizeProject = p => ({
-  orderType:"민간", bidType:"민간수의", cashflowPlan:[],
+  orderType:"민간", bidType:"민간수의", cashflowPlan:[], cashflowOpening:{},
   ...p,
   deptShares: getDeptShares(p),
 })
