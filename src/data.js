@@ -39,8 +39,21 @@ export const calcPnlTotals = ver => {
 
 // 비밀번호 해시
 export const hashPw = async pw => {
-  const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(pw))
-  return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,"0")).join("")
+  try{
+    if (crypto?.subtle?.digest) {
+      const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(pw))
+      return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,"0")).join("")
+    }
+  }catch{ /* crypto.subtle 사용 불가 환경 → 아래 대체 해시 사용 */ }
+  // 일부 브라우저(특정 인앱 웹뷰 등)는 crypto.subtle을 지원하지 않을 수 있음.
+  // 그런 경우에도 로그인 화면이 멈추지 않도록 비암호학적 대체 해시를 사용한다.
+  let h1=0x811c9dc5, h2=0x1000193
+  for(let i=0;i<pw.length;i++){
+    const c = pw.charCodeAt(i)
+    h1 = Math.imul(h1 ^ c, 16777619) >>> 0
+    h2 = Math.imul(h2 ^ c, 0x01000193) >>> 0
+  }
+  return "fb-"+h1.toString(16).padStart(8,"0")+h2.toString(16).padStart(8,"0")
 }
 
 // ── 사용자 ────────────────────────────────────────────────────

@@ -80,15 +80,21 @@ export default function App() {
 
   useEffect(()=>{
     const init = async ()=>{
-      const map = pwMap
-      if (!map["U000"]) {
-        const mh = await hashPw(MASTER_PW)
-        const dh = await hashPw("sangjiseoul2026!")
-        const nm = {...map}
-        ALL_USERS.forEach(u=>{ if(!nm[u.id]) nm[u.id]=u.id==="U000"?mh:dh })
-        savePwMap(nm)
+      try{
+        const map = pwMap
+        if (!map["U000"]) {
+          const mh = await hashPw(MASTER_PW)
+          const dh = await hashPw("sangjiseoul2026!")
+          const nm = {...map}
+          ALL_USERS.forEach(u=>{ if(!nm[u.id]) nm[u.id]=u.id==="U000"?mh:dh })
+          savePwMap(nm)
+        }
+      }catch(e){
+        console.error("초기 비밀번호 설정 중 오류:", e)
+      }finally{
+        // 위에서 오류가 나더라도 화면이 "초기화 중…"에 멈춰있지 않도록 항상 완료 처리
+        setInitDone(true)
       }
-      setInitDone(true)
     }
     init()
   },[])
