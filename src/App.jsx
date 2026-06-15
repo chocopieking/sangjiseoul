@@ -150,7 +150,17 @@ export default function App() {
   const [deptStaff, setDeptStaff] = useState(DEPT_STAFF_INIT)
   const [staffTarget, setStaffTarget]   = useState(STAFF_TARGET_INIT)
   const [staffMonthly, setStaffMonthly] = useState(STAFF_MONTHLY_INIT)
-  const [deptBiz, setDeptBiz]     = useState(DEPT_BIZ)
+  const [deptBiz, setDeptBizRaw] = useState(()=>{
+    try{
+      const s = JSON.parse(localStorage.getItem("sjs_dept_biz")||"null")
+      return (s && typeof s==="object" && !Array.isArray(s)) ? {...DEPT_BIZ, ...s} : DEPT_BIZ
+    }catch{ return DEPT_BIZ }
+  })
+  const setDeptBiz = updater => setDeptBizRaw(prev=>{
+    const next = typeof updater==="function" ? updater(prev) : updater
+    try{ localStorage.setItem("sjs_dept_biz", JSON.stringify(next)) }catch{}
+    return next
+  })
 
   // ── 본부(부서) 목록 — 추가/이름변경/삭제 가능 ─────────────────
   const [departments, setDepartments] = useState(()=>{
@@ -244,7 +254,16 @@ export default function App() {
       setCashflow(prev=>prev.map(m=>m.byDept?.[name]!=null?m:{...m,byDept:{...m.byDept,[name]:0}}))
     }
   }
-  const deptCtx = {departments,DEPTS,STAFF_DEPTS,DEPT_COLORS,DEPT_BIZ:deptBiz,
+  // departments(영속)에는 있지만 deptBiz(영속)에는 없는 본부가 있을 수 있음
+  // (예: 이전 버전에서 본부 추가/이름변경 후 deptBiz가 갱신되지 않은 채 저장된 경우).
+  // 화면 렌더링이 깨지지 않도록 누락된 본부는 빈 값으로 채워 항상 안전한 객체를 제공한다.
+  const safeDeptBiz = useMemo(()=>{
+    const out = {...deptBiz}
+    DEPTS.forEach(d=>{ if(!out[d]) out[d] = {...DEPT_BIZ_EMPTY} })
+    return out
+  },[deptBiz,DEPTS])
+
+  const deptCtx = {departments,DEPTS,STAFF_DEPTS,DEPT_COLORS,DEPT_BIZ:safeDeptBiz,
     isAdmin:currentUser?.role==="admin",addDept,renameDept,deleteDept,setDeptColor,setDeptFinance,deptUsage}
 
   // ── 프로젝트별 월수금계획(cashflowPlan) → 본부별/연도별 합산 ──
