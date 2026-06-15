@@ -84,6 +84,11 @@ export const DEPT_COLOR_POOL = ["#185FA5","#1D9E75","#BA7517","#A32D2D","#534AB7
 export const DEPT_BIZ_EMPTY = {orderTarget:0,orderDone:0,orderConfirmed:0,revTarget:0,revCum:0,cost5m:0,pnl5m:0}
 export const DEPT_STAFF_EMPTY = {total:0,pm:0,designer:0,admin:0}
 
+// ── 협력업체 ────────────────────────────────────────────────
+export const VENDOR_EMPTY = {ceoName:"",ceoPhone:"",ceoEmail:"",contactName:"",contactPhone:"",contactEmail:"",note:""}
+export const BID_TYPES = ["민간수의","제안공모","경쟁설계","기타"]
+
+
 export const DEPT_STAFF_INIT = {
   "설계1본부":   {total:10.5, pm:4, designer:5, admin:1.5},
   "설계2본부":   {total:17.83, pm:5, designer:11, admin:1.83},
@@ -182,6 +187,22 @@ export const STAFF_MONTHLY_INIT = Object.fromEntries(
 )
 
 // ── 프로젝트 ─────────────────────────────────────────────────
+// ── 프로젝트: 본부별 지분율 / 정규화 ────────────────────────────
+// deptShares: [{dept, share}] (share % 합계 100). 미지정 시 depts를 균등분배로 추정.
+export const getDeptShares = p => {
+  if(p?.deptShares?.length) return p.deptShares
+  const ds = (p?.depts||[]).filter(Boolean)
+  if(!ds.length) return []
+  const base = +(100/ds.length).toFixed(2)
+  return ds.map((d,i)=>({dept:d, share: i===ds.length-1 ? +(100-base*(ds.length-1)).toFixed(2) : base}))
+}
+// 누락 필드 보강 (orderType/cashflowPlan/deptShares)
+export const normalizeProject = p => ({
+  orderType:"민간", bidType:"민간수의", cashflowPlan:[],
+  ...p,
+  deptShares: getDeptShares(p),
+})
+
 export const PROJECTS_INIT = [
   {
     id:"P001",year:"2026",code:"E26004-VSH-W",
