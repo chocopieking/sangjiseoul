@@ -80,6 +80,8 @@ export const DEPT_STAFF_INIT = {
   "해외사업부":  {total:2.67, pm:2, designer:0.67, admin:0},
 }
 
+// 연간 인원계획(목표인원/월별 현인원)은 YEARS_DB_INIT 정의 이후로 이동
+
 // ── 본부별 실적 ───────────────────────────────────────────────
 export const DEPT_BIZ = {
   "설계1본부":   {orderTarget:20,orderDone:1.47,orderConfirmed:19.15,revTarget:43,revCum:11.38,cost5m:21.08,pnl5m:-6.57},
@@ -153,6 +155,18 @@ export const YEARS_DB_INIT = [
   {yr:"2025",목표수주:170,  실행수주:95,    목표매출:150,   실행매출:120,   인원:70},
   {yr:"2026",목표수주:170,  실행수주:96.72, 목표매출:145,   실행매출:29.61, 인원:61.75},
 ]
+
+// 연간 인원계획 — 본부별 "연도별" 목표인원 / 월별 현인원(입력 전 0)
+export const STAFF_TARGET_INIT = Object.fromEntries(
+  Object.entries(DEPT_STAFF_INIT).map(([d,s])=>[d,
+    Object.fromEntries(YEARS_DB_INIT.map(y=>[y.yr, Math.round(s.total)]))
+  ])
+)
+export const STAFF_MONTHLY_INIT = Object.fromEntries(
+  Object.keys(DEPT_STAFF_INIT).map(d=>[d,
+    Object.fromEntries(YEARS_DB_INIT.map(y=>[y.yr, Array(12).fill(0)]))
+  ])
+)
 
 // ── 프로젝트 ─────────────────────────────────────────────────
 export const PROJECTS_INIT = [

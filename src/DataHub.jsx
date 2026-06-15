@@ -38,7 +38,8 @@ const summarizeCashflow = data => DEPTS.map(d=>({dept:d,total:(Array.isArray(dat
 
 // ══════════════════════════════════════════════════════════════
 export function DataHubTab({
-  currentUser, deptStaff, setDeptStaff, pnlData, setPnlData,
+  currentUser, deptStaff, setDeptStaff, staffTarget, setStaffTarget, staffMonthly, setStaffMonthly,
+  pnlData, setPnlData,
   cashflow, setCashflow, years, setYears,
   projects, setTab, setSelProjId, setSelVerIdx, setShowNewProj,
   versions, saveVersion, restoreVersion, deleteVersion,
@@ -89,14 +90,14 @@ export function DataHubTab({
         ))}
       </div>
 
-      {section==="staff"     && <StaffSection deptStaff={deptStaff} setDeptStaff={setDeptStaff} canEditDept={canEditDept} currentUser={currentUser} saveVersion={saveVersion}/>}
+      {section==="staff"     && <StaffSection deptStaff={deptStaff} setDeptStaff={setDeptStaff} staffTarget={staffTarget} setStaffTarget={setStaffTarget} staffMonthly={staffMonthly} setStaffMonthly={setStaffMonthly} years={years} canEditDept={canEditDept} currentUser={currentUser} saveVersion={saveVersion}/>}
       {section==="pnl"       && <PnlDeptSection pnlData={pnlData} setPnlData={setPnlData} canEditDept={canEditDept} currentUser={currentUser} isAdmin={isAdmin} saveVersion={saveVersion}/>}
       {section==="cashflow"  && <CashflowDeptSection cashflow={cashflow} setCashflow={setCashflow} canEditDept={canEditDept} currentUser={currentUser} isAdmin={isAdmin} saveVersion={saveVersion}/>}
       {section==="years"     && <YearsSection years={years} setYears={setYears} isAdmin={isAdmin} currentUser={currentUser} saveVersion={saveVersion}/>}
       {section==="projects"  && <ProjectsShortcut projects={projects} currentUser={currentUser} isAdmin={isAdmin} setTab={setTab} setSelProjId={setSelProjId} setSelVerIdx={setSelVerIdx} setShowNewProj={setShowNewProj}/>}
       {section==="history"   && <VersionHistorySection versions={versions} restoreVersion={restoreVersion} deleteVersion={deleteVersion} saveVersion={saveVersion}
                                     currentUser={currentUser} canManage={canManage}
-                                    deptStaff={deptStaff} pnlData={pnlData} cashflow={cashflow} years={years}/>}
+                                    deptStaff={deptStaff} staffTarget={staffTarget} staffMonthly={staffMonthly} pnlData={pnlData} cashflow={cashflow} years={years}/>}
     </div>
   )
 }
@@ -104,7 +105,7 @@ export function DataHubTab({
 // ════════════════════════════════════════════════════════════
 // 1) 본부 인원현황
 // ════════════════════════════════════════════════════════════
-function StaffSection({deptStaff,setDeptStaff,canEditDept,currentUser,saveVersion}) {
+function StaffSection({deptStaff,setDeptStaff,staffTarget,setStaffTarget,staffMonthly,setStaffMonthly,years,canEditDept,currentUser,saveVersion}) {
   const [editing,setEditing] = useState(false)
   const [draft,setDraft]     = useState(null)
   const [note,setNote]       = useState("")
@@ -120,6 +121,7 @@ function StaffSection({deptStaff,setDeptStaff,canEditDept,currentUser,saveVersio
   const editableAny = STAFF_DEPTS.some(canEditDept)
 
   return (
+    <>
     <div style={S.card()}>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",flexWrap:"wrap",gap:10,marginBottom:4}}>
         <div>
@@ -181,6 +183,8 @@ function StaffSection({deptStaff,setDeptStaff,canEditDept,currentUser,saveVersio
         </table>
       </div>
     </div>
+    <StaffPlanSection deptStaff={deptStaff} staffTarget={staffTarget} setStaffTarget={setStaffTarget} staffMonthly={staffMonthly} setStaffMonthly={setStaffMonthly} years={years} canEditDept={canEditDept} currentUser={currentUser} saveVersion={saveVersion}/>
+    </>
   )
 }
 
@@ -470,7 +474,7 @@ function ProjectsShortcut({projects,currentUser,isAdmin,setTab,setSelProjId,setS
 // ════════════════════════════════════════════════════════════
 const HIST_FILTERS = [["__all__","전체보기"],["staff","본부인원"],["pnl","월별손익"],["cashflow","월수금"],["years","3개년실적"],["all","통합스냅샷"]]
 
-function VersionHistorySection({versions,restoreVersion,deleteVersion,saveVersion,currentUser,canManage,deptStaff,pnlData,cashflow,years}) {
+function VersionHistorySection({versions,restoreVersion,deleteVersion,saveVersion,currentUser,canManage,deptStaff,staffTarget,staffMonthly,pnlData,cashflow,years}) {
   const [filter,setFilter]       = useState("__all__")
   const [expandedId,setExpandedId] = useState(null)
   const [note,setNote]           = useState("")
@@ -480,7 +484,7 @@ function VersionHistorySection({versions,restoreVersion,deleteVersion,saveVersio
   const list = (versions||[]).filter(v=>filter==="__all__"||v.type===filter)
 
   const snapshotAll = ()=>{
-    saveVersion?.("all", note.trim()||"전체 데이터 스냅샷", {deptStaff,pnlData,cashflow,years}, currentUser.name)
+    saveVersion?.("all", note.trim()||"전체 데이터 스냅샷", {deptStaff,staffTarget,staffMonthly,pnlData,cashflow,years}, currentUser.name)
     setNote("")
   }
   const fmtDate = iso => { try{ return new Date(iso).toLocaleString("ko-KR",{year:"numeric",month:"2-digit",day:"2-digit",hour:"2-digit",minute:"2-digit"}) }catch{ return iso } }
@@ -569,12 +573,13 @@ function VersionHistorySection({versions,restoreVersion,deleteVersion,saveVersio
 // 스냅샷 미리보기 — 유형별 요약 테이블
 function SnapshotPreview({snap}) {
   const {type,data} = snap
-  if(type==="staff")    return <StaffPreviewTable data={data}/>
+  if(type==="staff")    return <><StaffPreviewTable data={data}/><StaffPlanPreviewTable data={data}/></>
   if(type==="pnl")      return <PnlPreviewTable data={data}/>
   if(type==="cashflow") return <CashflowPreviewTable data={data}/>
   if(type==="years")    return <YearsPreviewTable data={data}/>
   if(type==="all") return <>
     <div style={{fontWeight:700,fontSize:13,margin:"12px 0 4px"}}>👥 본부 인원</div><StaffPreviewTable data={data.deptStaff}/>
+    <div style={{fontWeight:700,fontSize:13,margin:"12px 0 4px"}}>📅 연간 인원계획</div><StaffPlanPreviewTable data={data}/>
     <div style={{fontWeight:700,fontSize:13,margin:"12px 0 4px"}}>💰 월별 손익 (부서별 12개월 합계)</div><PnlPreviewTable data={data.pnlData}/>
     <div style={{fontWeight:700,fontSize:13,margin:"12px 0 4px"}}>💧 월수금 (부서별 12개월 합계)</div><CashflowPreviewTable data={data.cashflow}/>
     <div style={{fontWeight:700,fontSize:13,margin:"12px 0 4px"}}>📈 3개년 실적</div><YearsPreviewTable data={data.years}/>
@@ -582,7 +587,8 @@ function SnapshotPreview({snap}) {
   return null
 }
 function StaffPreviewTable({data}) {
-  const rows = summarizeStaff(data)
+  const ds = data?.deptStaff || data
+  const rows = summarizeStaff(ds)
   return <table style={{width:"100%",borderCollapse:"collapse",marginTop:6}}>
     <thead><tr><th style={S.th()}>본부</th><th style={S.th("right")}>합계</th><th style={S.th("right")}>PM</th><th style={S.th("right")}>설계인력</th><th style={S.th("right")}>행정</th></tr></thead>
     <tbody>{rows.map(r=>(
@@ -592,6 +598,27 @@ function StaffPreviewTable({data}) {
         <td style={S.td()}>{num(r.pm).toFixed(1)}</td><td style={S.td()}>{num(r.designer).toFixed(1)}</td><td style={S.td()}>{num(r.admin).toFixed(1)}</td>
       </tr>
     ))}</tbody>
+  </table>
+}
+function StaffPlanPreviewTable({data}) {
+  const target = data?.staffTarget, monthly = data?.staffMonthly
+  if(!target && !monthly) return null
+  const yrs = Object.keys((monthly||target)?.[STAFF_DEPTS[0]]||{})
+  const yr = yrs[yrs.length-1]
+  return <table style={{width:"100%",borderCollapse:"collapse",marginTop:6}}>
+    <thead><tr><th style={S.th()}>본부{yr?` (${yr}년)`:""}</th><th style={S.th("right")}>목표인원</th><th style={S.th("right")}>현인원</th><th style={S.th("right")}>연간평균</th></tr></thead>
+    <tbody>{STAFF_DEPTS.map(d=>{
+      const m = monthly?.[d]?.[yr]||Array(12).fill(0)
+      const li = lastFilled(m), cur = li>=0?num(m[li]):0, a = annualAvg(m), t = num(target?.[d]?.[yr])
+      return (
+        <tr key={d}>
+          <td style={{...S.td("left"),fontWeight:600}}><span style={{display:"inline-block",width:10,height:10,borderRadius:3,background:DEPT_COLORS[d]||C.gray,marginRight:7,verticalAlign:"middle"}}/>{d}</td>
+          <td style={S.td()}>{t.toFixed(0)}명</td>
+          <td style={S.td()}>{li>=0?cur.toFixed(1)+"명":"-"}{li>=0&&<span style={{fontSize:10,color:C.gray,marginLeft:4}}>({MONTHS[li]})</span>}</td>
+          <td style={{...S.td(),fontWeight:700,color:a>0?C.green:"var(--color-text-secondary,#aaa)"}}>{a>0?a.toFixed(1)+"명":"-"}</td>
+        </tr>
+      )
+    })}</tbody>
   </table>
 }
 function PnlPreviewTable({data}) {
@@ -636,4 +663,156 @@ function YearsPreviewTable({data}) {
       <tr key={i}><td style={{...S.td("left"),fontWeight:700}}>{y.yr}</td>{FIELDS.map(([k])=><td key={k} style={S.td()}>{num(y[k]).toFixed(2)}</td>)}</tr>
     ))}</tbody>
   </table>
+}
+
+// ════════════════════════════════════════════════════════════
+// 1b) 연간 인원계획 — 본부별 목표인원 / 월별 현인원 / 연간평균
+// ════════════════════════════════════════════════════════════
+const lastFilled = monthly => { let idx=-1; (monthly||[]).forEach((v,i)=>{if(num(v)>0)idx=i}); return idx }
+const annualAvg  = monthly => { const f=(monthly||[]).filter(v=>num(v)>0); return f.length? f.reduce((s,v)=>s+num(v),0)/f.length : 0 }
+
+function StaffPlanSection({deptStaff,staffTarget,setStaffTarget,staffMonthly,setStaffMonthly,years,canEditDept,currentUser,saveVersion}) {
+  const YEARS = (years||[]).map(y=>y.yr)
+  const myDeptInList = STAFF_DEPTS.includes(currentUser.dept) ? currentUser.dept : STAFF_DEPTS[0]
+  const [selDept,setSelDept] = useState(myDeptInList)
+  const [selYear,setSelYear] = useState(YEARS[YEARS.length-1]||"2026")
+  const [editing,setEditing] = useState(false)
+  const [draft,setDraft]     = useState(null) // {target, monthly:[12]}
+  const [note,setNote]       = useState("")
+  const canEdit = canEditDept(selDept)
+
+  const getTarget  = (d,y)=>num(staffTarget?.[d]?.[y])
+  const getMonthly = (d,y)=>staffMonthly?.[d]?.[y]||Array(12).fill(0)
+
+  const start = ()=>{ setDraft({target:getTarget(selDept,selYear), monthly:[...getMonthly(selDept,selYear)]}); setNote(""); setEditing(true) }
+  const save  = ()=>{
+    const newTarget  = {...staffTarget,  [selDept]:{...(staffTarget?.[selDept]||{}),  [selYear]:draft.target}}
+    const newMonthly = {...staffMonthly, [selDept]:{...(staffMonthly?.[selDept]||{}), [selYear]:draft.monthly}}
+    setStaffTarget(newTarget); setStaffMonthly(newMonthly)
+    saveVersion?.("staff", note.trim()||`${selDept} ${selYear}년 인원계획 입력`, {deptStaff, staffTarget:newTarget, staffMonthly:newMonthly}, currentUser.name)
+    setEditing(false); setDraft(null); setNote("")
+  }
+  const cancel = ()=>{ setEditing(false); setDraft(null); setNote("") }
+  const updMonth  = (i,v)=>setDraft(p=>({...p, monthly:p.monthly.map((x,ri)=>ri===i?num(v):x)}))
+  const updTarget = v=>setDraft(p=>({...p,target:num(v)}))
+
+  const work = editing ? draft : {target:getTarget(selDept,selYear), monthly:getMonthly(selDept,selYear)}
+  const lastIdx  = lastFilled(work.monthly)
+  const current  = lastIdx>=0 ? num(work.monthly[lastIdx]) : 0
+  const avg      = annualAvg(work.monthly)
+  const rate     = work.target>0 ? current/work.target*100 : 0
+  const rateBdg  = r => r>=100 ? S.bdg(C.greenL,"#27500A") : r>=85 ? S.bdg(C.amberL,"#633806") : S.bdg(C.redL,C.red)
+
+  return (
+    <div style={S.card()}>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",flexWrap:"wrap",gap:12,marginBottom:6}}>
+        <div>
+          <div style={cardTitle}>📅 연간 인원계획 — 연도별 목표인원 대비 월별 현인원</div>
+          <div style={cardNote}>연도별로 본부 목표인원을 설정하고 매월 현인원을 입력하면, 해당 연도의 연간 평균인원·목표 달성률이 자동 계산됩니다.</div>
+        </div>
+        <div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap"}}>
+          <select value={selYear} onChange={e=>{setSelYear(e.target.value);setEditing(false);setDraft(null)}}
+            style={{padding:"9px 13px",border:"1px solid var(--color-border-secondary,#ccc)",borderRadius:10,fontSize:14,fontWeight:700,background:"#fff",color:C.navy}}>
+            {YEARS.map(y=><option key={y} value={y}>{y}년</option>)}
+          </select>
+          <select value={selDept} onChange={e=>{setSelDept(e.target.value);setEditing(false);setDraft(null)}}
+            style={{padding:"9px 13px",border:"1px solid var(--color-border-secondary,#ccc)",borderRadius:10,fontSize:14,fontWeight:600,background:"#fff"}}>
+            {STAFF_DEPTS.map(d=><option key={d} value={d}>{d}</option>)}
+          </select>
+          {canEdit && (!editing
+            ? <button onClick={start} style={S.btn(C.navyL,C.navyM)}><i className="ti ti-edit" aria-hidden="true"/> {selDept} {selYear} 계획 입력</button>
+            : <div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap"}}>
+                <input value={note} onChange={e=>setNote(e.target.value)} placeholder="버전 메모(선택)" style={{...S.inp(180),textAlign:"left"}}/>
+                <button onClick={save} style={S.btn(C.green)}>저장</button>
+                <button onClick={cancel} style={S.btn(C.grayL,C.gray)}>취소</button>
+              </div>)}
+        </div>
+      </div>
+      {!canEdit && <div style={{...S.bdg(C.amberL,"#633806"),marginBottom:12}}>조회 전용 — {selDept}은(는) 현재 계정으로 입력할 수 없습니다.</div>}
+
+      {/* 선택 본부 KPI */}
+      <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:12,marginBottom:14}}>
+        <div style={S.card({marginBottom:0,padding:"13px 15px"})}>
+          <div style={{fontSize:12,color:C.gray,marginBottom:6}}>목표인원 ({selYear})</div>
+          {editing
+            ? <input type="number" step="1" value={work.target} onChange={e=>updTarget(e.target.value)} style={{...S.inp(80),fontSize:20,fontWeight:800}}/>
+            : <div style={{fontSize:24,fontWeight:800,color:C.navy}}>{work.target.toFixed(0)}명</div>}
+        </div>
+        <div style={S.card({marginBottom:0,padding:"13px 15px"})}>
+          <div style={{fontSize:12,color:C.gray,marginBottom:6}}>현인원 {lastIdx>=0?`(${MONTHS[lastIdx]} 기준)`:"(미입력)"}</div>
+          <div style={{fontSize:24,fontWeight:800,color:C.navyM}}>{lastIdx>=0?current.toFixed(1)+"명":"-"}</div>
+        </div>
+        <div style={S.card({marginBottom:0,padding:"13px 15px"})}>
+          <div style={{fontSize:12,color:C.gray,marginBottom:6}}>{selYear} 연간 평균인원 (입력월 기준)</div>
+          <div style={{fontSize:24,fontWeight:800,color:C.green}}>{avg>0?avg.toFixed(1)+"명":"-"}</div>
+        </div>
+        <div style={S.card({marginBottom:0,padding:"13px 15px"})}>
+          <div style={{fontSize:12,color:C.gray,marginBottom:6}}>목표 달성률 (현인원 기준)</div>
+          <div style={{fontSize:24,fontWeight:800,color:rate>=100?C.green:rate>=85?C.amber:C.red}}>{lastIdx>=0?rate.toFixed(0)+"%":"-"}</div>
+        </div>
+      </div>
+
+      {/* 월별 현인원 입력표 */}
+      <div style={{overflowX:"auto",marginBottom:18}}>
+        <table style={{width:"100%",borderCollapse:"collapse",minWidth:900}}>
+          <thead><tr>
+            <th style={S.th()}>{selYear}년 구분</th>
+            {MONTHS.map(m=><th key={m} style={S.th("right")}>{m}</th>)}
+            <th style={S.th("right")}>연간평균</th>
+          </tr></thead>
+          <tbody>
+            <tr>
+              <td style={{...S.td("left"),fontWeight:700,color:DEPT_COLORS[selDept]||C.navyM}}>현인원(명)</td>
+              {work.monthly.map((v,i)=>(
+                <td key={i} style={S.td()}>
+                  {editing
+                    ? <input type="number" step="0.1" value={v} onChange={e=>updMonth(i,e.target.value)} style={S.inp(58)}/>
+                    : <span style={{color:v>0?DEPT_COLORS[selDept]||C.navyM:"var(--color-text-secondary,#aaa)",fontWeight:v>0?700:400}}>{v>0?(+v).toFixed(1):"-"}</span>}
+                </td>
+              ))}
+              <td style={{...S.td(),fontSize:15,fontWeight:800,color:C.green}}>{avg>0?avg.toFixed(1):"-"}</td>
+            </tr>
+            <tr>
+              <td style={{...S.td("left"),color:C.gray}}>목표 대비</td>
+              {work.monthly.map((v,i)=>{
+                const r = work.target>0&&num(v)>0 ? num(v)/work.target*100 : null
+                return <td key={i} style={S.td()}>{r!=null?<span style={{...rateBdg(r),fontSize:10.5}}>{r.toFixed(0)}%</span>:<span style={{color:"var(--color-text-secondary,#ccc)"}}>-</span>}</td>
+              })}
+              <td/>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      {/* 전체 본부 현황 요약 */}
+      <div style={cardNote}>{selYear}년 기준 전체 본부 현황</div>
+      <div style={{overflowX:"auto"}}>
+        <table style={{width:"100%",borderCollapse:"collapse",minWidth:600}}>
+          <thead><tr>
+            <th style={S.th()}>본부</th><th style={S.th("right")}>목표인원</th>
+            <th style={S.th("right")}>현인원</th><th style={S.th("right")}>연간평균</th><th style={S.th("right")}>달성률</th>
+          </tr></thead>
+          <tbody>
+            {STAFF_DEPTS.map((d,i)=>{
+              const monthly = getMonthly(d,selYear)
+              const li = lastFilled(monthly)
+              const cur = li>=0?num(monthly[li]):0
+              const a = annualAvg(monthly)
+              const t = getTarget(d,selYear)
+              const r = t>0&&li>=0 ? cur/t*100 : null
+              return (
+                <tr key={d} style={{background:i%2===0?"var(--color-background-primary,#fff)":"var(--color-background-secondary,#f8f8f6)"}}>
+                  <td style={{...S.td("left"),fontWeight:600}}><span style={{display:"inline-block",width:10,height:10,borderRadius:3,background:DEPT_COLORS[d]||C.gray,marginRight:7,verticalAlign:"middle"}}/>{d}</td>
+                  <td style={S.td()}>{t.toFixed(0)}명</td>
+                  <td style={S.td()}>{li>=0?cur.toFixed(1)+"명":"-"}{li>=0&&<span style={{fontSize:10,color:C.gray,marginLeft:4}}>({MONTHS[li]})</span>}</td>
+                  <td style={{...S.td(),fontWeight:700,color:a>0?C.green:"var(--color-text-secondary,#aaa)"}}>{a>0?a.toFixed(1)+"명":"-"}</td>
+                  <td style={S.td()}>{r!=null?<span style={rateBdg(r)}>{r.toFixed(0)}%</span>:"-"}</td>
+                </tr>
+              )
+            })}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  )
 }

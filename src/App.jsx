@@ -15,6 +15,7 @@ import {
   fE, fW, fP, fPy, fPct, toPy, PY, getAreaBasis, calcUP, calcPnlTotals,
   MONTHS, DEPTS, DEPT_COLORS, COLORS,
   BIZ_2026, DEPT_STAFF_INIT, DEPT_BIZ, CF_2026, PNL_INIT, YEARS_DB_INIT,
+  STAFF_TARGET_INIT, STAFF_MONTHLY_INIT,
   PROJECTS_INIT, ALERTS_INIT
 } from "./data.js"
 
@@ -35,6 +36,12 @@ const TYPE_BADGE = {
   계약:{bg:C.navyL, fg:C.navy},  확정:{bg:C.greenL,fg:"#27500A"},
   추진:{bg:C.amberL,fg:"#633806"},기성:{bg:"#E1F5EE",fg:"#085041"},
 }
+
+// ── 차트 값 라벨 헬퍼 (모든 차트에 수치 기본 표기) ───────────────
+const lbl = (color,dec=2,size=11,suffix="")=>({
+  formatter:v=>(v>0?(+v).toFixed(dec)+suffix:""),
+  style:{fontSize:size,fontWeight:700,fill:color},
+})
 
 // ── 스타일 헬퍼 ───────────────────────────────────────────────
 const S = {
@@ -118,7 +125,12 @@ export default function App() {
     setVersions(prev=>{ const next=[snap,...prev].slice(0,80); try{localStorage.setItem("sjs_versions",JSON.stringify(next))}catch{} ; return next })
   },[])
   const restoreVersion = useCallback((snap,by)=>{
-    if(snap.type==="staff"||snap.type==="all") setDeptStaff(snap.data.deptStaff??snap.data)
+    if(snap.type==="staff"||snap.type==="all") {
+      if(snap.data.deptStaff) setDeptStaff(snap.data.deptStaff)
+      else if(!snap.data.staffTarget && !snap.data.staffMonthly) setDeptStaff(snap.data)
+      if(snap.data.staffTarget)  setStaffTarget(snap.data.staffTarget)
+      if(snap.data.staffMonthly) setStaffMonthly(snap.data.staffMonthly)
+    }
     if(snap.type==="pnl"||snap.type==="all")   setPnlData(snap.data.pnlData??snap.data)
     if(snap.type==="cashflow"||snap.type==="all") setCashflow(snap.data.cashflow??snap.data)
     if(snap.type==="years"||snap.type==="all") setYears(snap.data.years??snap.data)
@@ -126,6 +138,8 @@ export default function App() {
   },[saveVersion])
   const deleteVersion = id => persistVersions(versions.filter(v=>v.id!==id))
   const [deptStaff, setDeptStaff] = useState(DEPT_STAFF_INIT)
+  const [staffTarget, setStaffTarget]   = useState(STAFF_TARGET_INIT)
+  const [staffMonthly, setStaffMonthly] = useState(STAFF_MONTHLY_INIT)
   const [alerts, setAlerts]       = useState(ALERTS_INIT)
   const [showAlerts, setShowAlerts] = useState(false)
   const [selProjId, setSelProjId] = useState(null)
@@ -269,7 +283,7 @@ export default function App() {
       {/* 바디 */}
       <div style={{padding:"15px 18px",maxWidth:1440,margin:"0 auto"}}>
         {tab==="analysis" && <AnalysisTab deptStaff={deptStaff} setDeptStaff={setDeptStaff} years={years} setYears={setYears} canWrite={canWrite} cashflow={cashflow}/>}
-        {tab==="datahub" && <DataHubTab currentUser={currentUser} deptStaff={deptStaff} setDeptStaff={setDeptStaff} pnlData={pnlData} setPnlData={setPnlData} cashflow={cashflow} setCashflow={setCashflow} years={years} setYears={setYears} projects={projects} setTab={setTab} setSelProjId={setSelProjId} setSelVerIdx={setSelVerIdx} setShowNewProj={setShowNewProj} versions={versions} saveVersion={saveVersion} restoreVersion={restoreVersion} deleteVersion={deleteVersion}/>}
+        {tab==="datahub" && <DataHubTab currentUser={currentUser} deptStaff={deptStaff} setDeptStaff={setDeptStaff} staffTarget={staffTarget} setStaffTarget={setStaffTarget} staffMonthly={staffMonthly} setStaffMonthly={setStaffMonthly} pnlData={pnlData} setPnlData={setPnlData} cashflow={cashflow} setCashflow={setCashflow} years={years} setYears={setYears} projects={projects} setTab={setTab} setSelProjId={setSelProjId} setSelVerIdx={setSelVerIdx} setShowNewProj={setShowNewProj} versions={versions} saveVersion={saveVersion} restoreVersion={restoreVersion} deleteVersion={deleteVersion}/>}
         {tab==="cashflow" && <CashflowTab cashflow={cashflow} setCashflow={setCashflow} currentUser={currentUser}/>}
         {tab==="projects" && <ProjectsTab projects={projects} setProjects={setProjects} selProjId={selProjId} setSelProjId={setSelProjId} selVerIdx={selVerIdx} setSelVerIdx={setSelVerIdx} cmpIds={cmpIds} setCmpIds={setCmpIds} showNewVer={showNewVer} setShowNewVer={setShowNewVer} canWrite={canWrite}/>}
         {tab==="pnl"      && <PnlTab pnlData={pnlData} setPnlData={setPnlData} canWrite={canWrite}/>}
@@ -460,14 +474,18 @@ function AnalysisTab({deptStaff,setDeptStaff,years,setYears,canWrite,cashflow}) 
               </div>
               <div>
                 <div style={{fontSize:12,color:C.gray,fontWeight:500,marginBottom:8}}>매출·지출·손익 (5월 누계, 억원)</div>
-                <ResponsiveContainer width="100%" height={160}>
-                  <BarChart data={deptBarData} margin={{top:4,right:6,left:-12,bottom:0}}>
+                <ResponsiveContainer width="100%" height={200}>
+                  <BarChart data={deptBarData} barGap={6} barCategoryGap="20%" margin={{top:22,right:6,left:-12,bottom:0}}>
                     <CartesianGrid strokeDasharray="3 3" stroke="rgba(0,0,0,.05)"/>
                     <XAxis dataKey="name" tick={{fontSize:11}} tickLine={false}/>
                     <YAxis tick={{fontSize:9}} tickFormatter={v=>v+"억"}/>
                     <Tooltip formatter={(v,n)=>[`${v.toFixed(2)}억`,n]}/>
-                    <Bar dataKey="매출실행" name="매출" fill={C.green} opacity={.85} radius={[3,3,0,0]} barSize={14}/>
-                    <Bar dataKey="지출" name="지출" fill={C.red} opacity={.75} radius={[3,3,0,0]} barSize={14}/>
+                    <Bar dataKey="매출실행" name="매출" fill={C.green} opacity={.85} radius={[3,3,0,0]} barSize={32}>
+                      <LabelList dataKey="매출실행" position="top" {...lbl(C.green)}/>
+                    </Bar>
+                    <Bar dataKey="지출" name="지출" fill={C.red} opacity={.75} radius={[3,3,0,0]} barSize={32}>
+                      <LabelList dataKey="지출" position="top" {...lbl(C.red)}/>
+                    </Bar>
                   </BarChart>
                 </ResponsiveContainer>
               </div>
@@ -494,17 +512,21 @@ function AnalysisTab({deptStaff,setDeptStaff,years,setYears,canWrite,cashflow}) 
             </Card>
 
             <Card title="본부별 인당 수주·매출" note="억원/인 · 5월 누계 기준" style={{marginBottom:0}}>
-              <ResponsiveContainer width="100%" height={180}>
+              <ResponsiveContainer width="100%" height={210}>
                 <BarChart data={DEPTS.map(d=>{
                   const db=DEPT_BIZ[d], st=deptStaff[d]||{total:1}
                   return {name:d.replace("본부","").slice(0,4), 인당수주:+((db.orderDone+db.orderConfirmed)/st.total).toFixed(2), 인당매출:+(db.revCum/st.total).toFixed(2)}
-                })} margin={{top:4,right:6,left:-12,bottom:0}}>
+                })} barGap={6} barCategoryGap="20%" margin={{top:22,right:6,left:-12,bottom:0}}>
                   <CartesianGrid strokeDasharray="3 3" stroke="rgba(0,0,0,.05)"/>
                   <XAxis dataKey="name" tick={{fontSize:11}} tickLine={false}/>
                   <YAxis tick={{fontSize:9}} tickFormatter={v=>v+"억"}/>
                   <Tooltip formatter={(v,n)=>[`${v.toFixed(2)}억/인`,n]}/>
-                  <Bar dataKey="인당수주" name="인당수주" fill={C.navyM} radius={[3,3,0,0]} barSize={16}/>
-                  <Bar dataKey="인당매출" name="인당매출" fill={C.amber} radius={[3,3,0,0]} barSize={16}/>
+                  <Bar dataKey="인당수주" name="인당수주" fill={C.navyM} radius={[3,3,0,0]} barSize={32}>
+                    <LabelList dataKey="인당수주" position="top" {...lbl(C.navyM)}/>
+                  </Bar>
+                  <Bar dataKey="인당매출" name="인당매출" fill={C.amber} radius={[3,3,0,0]} barSize={32}>
+                    <LabelList dataKey="인당매출" position="top" {...lbl(C.amber)}/>
+                  </Bar>
                 </BarChart>
               </ResponsiveContainer>
             </Card>
@@ -515,15 +537,21 @@ function AnalysisTab({deptStaff,setDeptStaff,years,setYears,canWrite,cashflow}) 
             <div style={{display:"flex",gap:6,marginBottom:10,flexWrap:"wrap",alignItems:"center"}}>
               {canWrite&&<button onClick={()=>setShowAddYear(true)} style={{...S.btn(C.green),padding:"5px 11px",fontSize:11}}>+ 연도 추가</button>}
             </div>
-            <ResponsiveContainer width="100%" height={220}>
-              <ComposedChart data={yearLine} margin={{top:4,right:10,left:-10,bottom:0}}>
+            <ResponsiveContainer width="100%" height={280}>
+              <ComposedChart data={yearLine} barGap={8} barCategoryGap="20%" margin={{top:26,right:10,left:-10,bottom:0}}>
                 <CartesianGrid strokeDasharray="3 3" stroke="rgba(0,0,0,.05)"/>
-                <XAxis dataKey="name" tick={{fontSize:12}}/>
-                <YAxis tick={{fontSize:10}} tickFormatter={v=>v+"억"}/>
+                <XAxis dataKey="name" tick={{fontSize:13,fontWeight:600}}/>
+                <YAxis tick={{fontSize:11}} tickFormatter={v=>v+"억"}/>
                 <Tooltip formatter={(v,n)=>[`${(+v).toFixed(2)}억`,n]}/>
-                <Bar dataKey="수주" fill={C.navyM} opacity={.8} radius={[3,3,0,0]} barSize={20}/>
-                <Bar dataKey="매출" fill={C.amber} opacity={.75} radius={[3,3,0,0]} barSize={20}/>
-                <Line type="monotone" dataKey="인원" yAxisId="right" stroke={C.gray} strokeDasharray="5 3" strokeWidth={1.5} dot={{r:3}}/>
+                <Bar dataKey="수주" fill={C.navyM} opacity={.8} radius={[5,5,0,0]} barSize={62}>
+                  <LabelList dataKey="수주" position="top" {...lbl(C.navyM,2,12)}/>
+                </Bar>
+                <Bar dataKey="매출" fill={C.amber} opacity={.75} radius={[5,5,0,0]} barSize={62}>
+                  <LabelList dataKey="매출" position="top" {...lbl(C.amber,2,12)}/>
+                </Bar>
+                <Line type="monotone" dataKey="인원" yAxisId="right" stroke={C.gray} strokeDasharray="5 3" strokeWidth={1.5} dot={{r:3}}>
+                  <LabelList dataKey="인원" position="top" {...lbl(C.gray,1,11,"명")}/>
+                </Line>
                 <YAxis yAxisId="right" orientation="right" tick={{fontSize:9}} tickFormatter={v=>v+"명"}/>
                 <ReferenceLine yAxisId="right" y={0} stroke="none"/>
               </ComposedChart>
@@ -602,13 +630,15 @@ function AnalysisTab({deptStaff,setDeptStaff,years,setYears,canWrite,cashflow}) 
             </div>
             <div style={S.grid(2,12)}>
               <Card title={`${selDept} 월별 기성수금`} note="VAT포함 억원" style={{marginBottom:0}}>
-                <ResponsiveContainer width="100%" height={200}>
-                  <BarChart data={cfDept} margin={{top:4,right:6,left:-12,bottom:0}}>
+                <ResponsiveContainer width="100%" height={230}>
+                  <BarChart data={cfDept} barCategoryGap="22%" margin={{top:22,right:6,left:-12,bottom:0}}>
                     <CartesianGrid strokeDasharray="3 3" stroke="rgba(0,0,0,.05)"/>
                     <XAxis dataKey="name" tick={{fontSize:10}} tickFormatter={v=>v.replace("월","")}/>
                     <YAxis tick={{fontSize:9}} tickFormatter={v=>v+"억"}/>
                     <Tooltip formatter={(v,n)=>[`${v.toFixed(2)}억`,n]}/>
-                    <Bar dataKey="기성" fill={DEPT_COLORS[selDept]||C.navyM} radius={[3,3,0,0]} barSize={20}/>
+                    <Bar dataKey="기성" fill={DEPT_COLORS[selDept]||C.navyM} radius={[4,4,0,0]} barSize={36}>
+                      <LabelList dataKey="기성" position="top" {...lbl(DEPT_COLORS[selDept]||C.navyM,2,10)}/>
+                    </Bar>
                   </BarChart>
                 </ResponsiveContainer>
               </Card>
@@ -720,8 +750,11 @@ function CashflowTab({cashflow,setCashflow,currentUser}) {
                 <XAxis dataKey="name" tick={{fontSize:11}} tickFormatter={v=>v.replace("월","")} tickLine={false}/>
                 <YAxis tick={{fontSize:9}} tickFormatter={v=>v+"억"}/>
                 <Tooltip content={<StackTotalTooltip/>}/>
-                {DEPTS.map((d,i)=><Bar key={d} dataKey={d} name={d} fill={COLORS[i]} stackId="s" barSize={22} radius={i===DEPTS.length-1?[3,3,0,0]:[0,0,0,0]}/>)}
+                {DEPTS.map((d,i)=><Bar key={d} dataKey={d} name={d} fill={COLORS[i]} stackId="s" barSize={22} radius={i===DEPTS.length-1?[3,3,0,0]:[0,0,0,0]}>
+                  <LabelList dataKey={d} position="center" formatter={v=>v>=2?(+v).toFixed(1):""} style={{fontSize:9.5,fontWeight:700,fill:"#fff"}}/>
+                </Bar>)}
                 <Bar dataKey="어음" name="어음" fill={C.amber} stackId="s" barSize={22} radius={[3,3,0,0]}>
+                  <LabelList dataKey="어음" position="center" formatter={v=>v>=2?(+v).toFixed(1):""} style={{fontSize:9.5,fontWeight:700,fill:"#fff"}}/>
                   <LabelList dataKey="합계" position="top" formatter={v=>`${(+v).toFixed(2)}억`} style={{fontSize:13,fontWeight:800,fill:C.navy}}/>
                 </Bar>
               </BarChart>
@@ -780,14 +813,14 @@ function CashflowTab({cashflow,setCashflow,currentUser}) {
               ))}
             </div>
             <Card title={`${selDept} 월별 기성수금`} note="VAT포함 억원">
-              <ResponsiveContainer width="100%" height={240}>
-                <BarChart data={deptCash} margin={{top:4,right:6,left:-10,bottom:0}}>
+              <ResponsiveContainer width="100%" height={280}>
+                <BarChart data={deptCash} margin={{top:26,right:6,left:-10,bottom:0}}>
                   <CartesianGrid strokeDasharray="3 3" stroke="rgba(0,0,0,.05)"/>
-                  <XAxis dataKey="name" tick={{fontSize:11}} tickFormatter={v=>v.replace("월","")} tickLine={false}/>
-                  <YAxis tick={{fontSize:9}} tickFormatter={v=>v+"억"}/>
+                  <XAxis dataKey="name" tick={{fontSize:13,fontWeight:600}} tickFormatter={v=>v.replace("월","")} tickLine={false}/>
+                  <YAxis tick={{fontSize:11}} tickFormatter={v=>v+"억"}/>
                   <Tooltip formatter={(v,_)=>[`${v.toFixed(2)}억`,"기성수금"]}/>
-                  <Bar dataKey="기성" fill={DEPT_COLORS[selDept]||C.navyM} radius={[3,3,0,0]} barSize={24}
-                    label={{position:"top",fontSize:10,formatter:v=>v>0?v.toFixed(2):""}}/>
+                  <Bar dataKey="기성" fill={DEPT_COLORS[selDept]||C.navyM} radius={[5,5,0,0]} barSize={46}
+                    label={{position:"top",fontSize:13,fontWeight:800,fill:DEPT_COLORS[selDept]||C.navyM,formatter:v=>v>0?v.toFixed(2):""}}/>
                 </BarChart>
               </ResponsiveContainer>
             </Card>
@@ -1036,13 +1069,15 @@ function ProjectsTab({projects,setProjects,selProjId,setSelProjId,selVerIdx,setS
                       })()}
                     </Card>
                     <Card title="외주비 구성 (억원)">
-                      <ResponsiveContainer width="100%" height={200}>
-                        <BarChart data={selVer.vendors.filter(v=>v.contract>0).map(v=>({name:v.cat.length>5?v.cat.slice(0,5)+"…":v.cat,금액:+(v.contract/1e6).toFixed(1)}))} layout="vertical" margin={{left:55,right:20}}>
+                      <ResponsiveContainer width="100%" height={Math.max(200,selVer.vendors.filter(v=>v.contract>0).length*32)}>
+                        <BarChart data={selVer.vendors.filter(v=>v.contract>0).map(v=>({name:v.cat.length>5?v.cat.slice(0,5)+"…":v.cat,금액:+(v.contract/1e6).toFixed(1)}))} layout="vertical" margin={{left:55,right:36}}>
                           <CartesianGrid strokeDasharray="3 3" stroke="rgba(0,0,0,.05)"/>
                           <XAxis type="number" tick={{fontSize:9}} tickFormatter={v=>v+"M"}/>
-                          <YAxis type="category" dataKey="name" tick={{fontSize:10}} width={55}/>
+                          <YAxis type="category" dataKey="name" tick={{fontSize:11}} width={55}/>
                           <Tooltip formatter={v=>[v+"백만원","계약금"]}/>
-                          <Bar dataKey="금액" fill={C.navyM} radius={[0,3,3,0]} barSize={12}/>
+                          <Bar dataKey="금액" fill={C.navyM} radius={[0,4,4,0]} barSize={20}>
+                            <LabelList dataKey="금액" position="right" formatter={v=>v>0?`${v}M`:""} style={{fontSize:11,fontWeight:700,fill:C.navyM}}/>
+                          </Bar>
                         </BarChart>
                       </ResponsiveContainer>
                     </Card>
@@ -1132,7 +1167,7 @@ function CompareProjects({projects,cmpIds,setCmpIds,allCats}) {
       return row
     }).filter(row=>selPs.some(p=>row[p.id]>0))
   },[selPs,allCats,catFilter,priceKey])
-  const barData=tableData.map(row=>({name:row.cat.length>6?row.cat.slice(0,6)+"…":row.cat,...Object.fromEntries(selPs.map(p=>[p.code.slice(0,10),+(row[p.id]/1e6).toFixed(1)]))}))
+  const barData=tableData.map(row=>({name:row.cat.length>6?row.cat.slice(0,6)+"…":row.cat,...Object.fromEntries(selPs.map(p=>[p.id,+(row[p.id]/1e6).toFixed(1)]))}))
   return (
     <div>
       <div style={{display:"flex",gap:7,marginBottom:13,flexWrap:"wrap",alignItems:"center"}}>
@@ -1161,13 +1196,15 @@ function CompareProjects({projects,cmpIds,setCmpIds,allCats}) {
         </div>
       </div>
       <Card title="분야별 협력업체 비용 비교" note="단위: 백만원">
-        <ResponsiveContainer width="100%" height={Math.max(260,tableData.length*28)}>
-          <BarChart data={barData} layout="vertical" margin={{left:70,right:20,top:4,bottom:4}}>
+        <ResponsiveContainer width="100%" height={Math.max(260,tableData.length*28*Math.max(1,selPs.length))}>
+          <BarChart data={barData} layout="vertical" margin={{left:70,right:42,top:4,bottom:4}}>
             <CartesianGrid strokeDasharray="3 3" stroke="rgba(0,0,0,.05)"/>
             <XAxis type="number" tick={{fontSize:9}} tickFormatter={v=>v+"M"}/>
             <YAxis type="category" dataKey="name" tick={{fontSize:10}} width={70}/>
             <Tooltip formatter={(v,n)=>[`${v}백만원`,n]}/><Legend wrapperStyle={{fontSize:11}}/>
-            {selPs.map((p,i)=><Bar key={p.id} dataKey={p.code.slice(0,10)} fill={COLORS[i%COLORS.length]} radius={[0,3,3,0]} barSize={11}/>)}
+            {selPs.map((p,i)=><Bar key={p.id} dataKey={p.id} name={p.name.length>14?p.name.slice(0,14)+"…":p.name} fill={COLORS[i%COLORS.length]} radius={[0,3,3,0]} barSize={Math.max(10,18-selPs.length)}>
+              <LabelList dataKey={p.id} position="right" formatter={v=>v>0?`${v}M`:""} style={{fontSize:9.5,fontWeight:700,fill:COLORS[i%COLORS.length]}}/>
+            </Bar>)}
           </BarChart>
         </ResponsiveContainer>
       </Card>
@@ -1257,12 +1294,12 @@ function BenchProjects({projects,cmpIds,setCmpIds,allCats}) {
         const basis=getAreaBasis(cat);if(basis==="1식") return
         const py=basis==="대지"?toPy(p.siteArea||0):toPy(p.floorArea||0)
         if(py<=0) return
-        items.push({projId:p.id,code:p.code.slice(0,12),up:vd.contract/py,up2:vd.nego2?(vd.nego2/py):null,basis:basis==="대지"?"대지면적":"연면적",vendor:vd.name})
+        items.push({projId:p.id,up:vd.contract/py,up2:vd.nego2?(vd.nego2/py):null,basis:basis==="대지"?"대지면적":"연면적",vendor:vd.name})
       })
       return {cat,items}
     }).filter(r=>r.items.length>0)
   },[selPs,allCats,selCat])
-  const barData=benchData.map(row=>({name:row.cat.length>5?row.cat.slice(0,5)+"…":row.cat,...Object.fromEntries(row.items.map(i=>[i.code,+i.up.toFixed(0)]))}))
+  const barData=benchData.map(row=>({name:row.cat.length>5?row.cat.slice(0,5)+"…":row.cat,...Object.fromEntries(row.items.map(i=>[i.projId,+i.up.toFixed(0)]))}))
   return (
     <div>
       <div style={{background:C.navyL,borderLeft:`3px solid ${C.navyM}`,borderRadius:"0 8px 8px 0",padding:"9px 13px",fontSize:12,color:C.navyM,marginBottom:13,lineHeight:1.7}}>
@@ -1289,13 +1326,15 @@ function BenchProjects({projects,cmpIds,setCmpIds,allCats}) {
         </select>
       </div>
       <Card title="공종별 평당단가 비교 (원/평)" note="1식 항목 제외">
-        <ResponsiveContainer width="100%" height={Math.max(240,benchData.length*28)}>
-          <BarChart data={barData} layout="vertical" margin={{left:60,right:20}}>
+        <ResponsiveContainer width="100%" height={Math.max(240,benchData.length*28*Math.max(1,selPs.length))}>
+          <BarChart data={barData} layout="vertical" margin={{left:60,right:50}}>
             <CartesianGrid strokeDasharray="3 3" stroke="rgba(0,0,0,.05)"/>
             <XAxis type="number" tick={{fontSize:9}} tickFormatter={v=>v.toLocaleString()}/>
             <YAxis type="category" dataKey="name" tick={{fontSize:10}} width={60}/>
             <Tooltip formatter={(v,n)=>[`${v.toLocaleString()}원/평`,n]}/><Legend wrapperStyle={{fontSize:11}}/>
-            {selPs.map((p,i)=><Bar key={p.id} dataKey={p.code.slice(0,12)} fill={COLORS[i%COLORS.length]} radius={[0,3,3,0]} barSize={12}/>)}
+            {selPs.map((p,i)=><Bar key={p.id} dataKey={p.id} name={p.name.length>14?p.name.slice(0,14)+"…":p.name} fill={COLORS[i%COLORS.length]} radius={[0,3,3,0]} barSize={Math.max(10,18-selPs.length)}>
+              <LabelList dataKey={p.id} position="right" formatter={v=>v>0?v.toLocaleString():""} style={{fontSize:9.5,fontWeight:700,fill:COLORS[i%COLORS.length]}}/>
+            </Bar>)}
           </BarChart>
         </ResponsiveContainer>
       </Card>
@@ -1304,7 +1343,7 @@ function BenchProjects({projects,cmpIds,setCmpIds,allCats}) {
           <table style={{width:"100%",borderCollapse:"collapse"}}>
             <thead><tr>
               <th style={S.th("left")}>분야</th><th style={S.th("center")}>기준</th>
-              {selPs.map(p=><th key={p.id} style={S.th("right")}>{p.code.slice(0,12)}<br/><span style={{fontSize:9,fontWeight:400,color:C.gray}}>원/평 (업체)</span></th>)}
+              {selPs.map(p=><th key={p.id} style={S.th("right")}>{p.name.length>10?p.name.slice(0,10)+"…":p.name}<br/><span style={{fontSize:9,fontWeight:400,color:C.gray}}>원/평 (업체)</span></th>)}
               <th style={S.th("right")}>최저</th><th style={S.th("right")}>최고</th><th style={S.th("right")}>차이</th>
             </tr></thead>
             <tbody>
@@ -1392,14 +1431,18 @@ function PnlTab({pnlData,setPnlData,canWrite}) {
       {view==="total" && (
         <>
           <Card title="월별 매출·지출 추이" note="바 클릭 시 해당 월 상세">
-            <ResponsiveContainer width="100%" height={230}>
-              <ComposedChart data={lineData} margin={{top:4,right:10,left:-10,bottom:0}}>
+            <ResponsiveContainer width="100%" height={270}>
+              <ComposedChart data={lineData} margin={{top:24,right:10,left:-10,bottom:0}}>
                 <CartesianGrid strokeDasharray="3 3" stroke="rgba(0,0,0,.05)"/>
                 <XAxis dataKey="name" tick={{fontSize:11}} tickFormatter={v=>v.replace("월","")} tickLine={false}/>
                 <YAxis tick={{fontSize:10}} tickFormatter={v=>v+"억"}/>
                 <Tooltip formatter={(v,n)=>[`${v.toFixed(2)}억`,n]}/>
-                <Bar dataKey="매출" fill={C.green} opacity={.8} radius={[3,3,0,0]} barSize={18}/>
-                <Bar dataKey="지출" fill={C.red} opacity={.7} radius={[3,3,0,0]} barSize={18}/>
+                <Bar dataKey="매출" fill={C.green} opacity={.8} radius={[4,4,0,0]} barSize={30}>
+                  <LabelList dataKey="매출" position="top" {...lbl(C.green,2,10)}/>
+                </Bar>
+                <Bar dataKey="지출" fill={C.red} opacity={.7} radius={[4,4,0,0]} barSize={30}>
+                  <LabelList dataKey="지출" position="top" {...lbl(C.red,2,10)}/>
+                </Bar>
                 <Line type="monotone" dataKey="손익" stroke={C.gray} strokeWidth={2} dot={{r:3}} strokeDasharray="5 3"/>
                 <ReferenceLine y={0} stroke={C.red} strokeDasharray="4 2"/>
               </ComposedChart>
@@ -1461,14 +1504,18 @@ function PnlTab({pnlData,setPnlData,canWrite}) {
               ))}
             </div>
             <Card title={`${selDept} 월별 손익 추이`} note="본부별 배분 추정치 · 실제 입력 시 손익 탭에서 직접 입력 가능">
-              <ResponsiveContainer width="100%" height={230}>
-                <ComposedChart data={deptDataMonthly} margin={{top:4,right:10,left:-10,bottom:0}}>
+              <ResponsiveContainer width="100%" height={270}>
+                <ComposedChart data={deptDataMonthly} margin={{top:24,right:10,left:-10,bottom:0}}>
                   <CartesianGrid strokeDasharray="3 3" stroke="rgba(0,0,0,.05)"/>
                   <XAxis dataKey="name" tick={{fontSize:11}} tickFormatter={v=>v.replace("월","")} tickLine={false}/>
                   <YAxis tick={{fontSize:10}} tickFormatter={v=>v+"억"}/>
                   <Tooltip formatter={(v,n)=>[`${v.toFixed(2)}억`,n]}/>
-                  <Bar dataKey="매출" fill={C.green} opacity={.8} radius={[3,3,0,0]} barSize={18}/>
-                  <Bar dataKey="지출" fill={C.red} opacity={.7} radius={[3,3,0,0]} barSize={18}/>
+                  <Bar dataKey="매출" fill={C.green} opacity={.8} radius={[4,4,0,0]} barSize={30}>
+                    <LabelList dataKey="매출" position="top" {...lbl(C.green,2,10)}/>
+                  </Bar>
+                  <Bar dataKey="지출" fill={C.red} opacity={.7} radius={[4,4,0,0]} barSize={30}>
+                    <LabelList dataKey="지출" position="top" {...lbl(C.red,2,10)}/>
+                  </Bar>
                   <Line type="monotone" dataKey="손익" stroke={C.gray} strokeWidth={2} dot={{r:3}} strokeDasharray="5 3"/>
                   <ReferenceLine y={0} stroke={C.red} strokeDasharray="4 2"/>
                 </ComposedChart>

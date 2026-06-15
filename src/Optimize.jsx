@@ -253,7 +253,9 @@ export function OptimizeTab({projects,deptStaff,pnlData}) {
               <Bar dataKey="비용" fill={C.amber} radius={[8,8,0,0]} barSize={86}>
                 <LabelList dataKey="비용" content={BoldLabel(C.amber)}/>
               </Bar>
-              <Line dataKey="손익" stroke={C.red} strokeWidth={4} dot={{r:8,strokeWidth:2,fill:"#fff"}} activeDot={{r:10}}/>
+              <Line dataKey="손익" stroke={C.red} strokeWidth={4} dot={{r:8,strokeWidth:2,fill:"#fff"}} activeDot={{r:10}}>
+                <LabelList dataKey="손익" position="bottom" formatter={v=>`손익 ${v}억`} style={{fontSize:13,fontWeight:800,fill:C.red}}/>
+              </Line>
             </ComposedChart>
           </ResponsiveContainer>
         </div>
