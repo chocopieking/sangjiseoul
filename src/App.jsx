@@ -2100,23 +2100,66 @@ function ProjectCashflowCard({proj,setProjects,canWrite}) {
             <table style={{width:"100%",borderCollapse:"collapse",minWidth:760}}>
               <thead><tr>
                 <th style={S.th()}>구분</th>
-                {MONTHS.map(m=><th key={m} style={S.th("right")}>{m}</th>)}
+                {MONTHS.map((m,mi)=>{
+                  const nowY=new Date().getFullYear(), nowM=new Date().getMonth()+1
+                  const isPast=parseInt(y)<nowY||(parseInt(y)===nowY&&(mi+1)<nowM)
+                  const isCur =parseInt(y)===nowY&&(mi+1)===nowM
+                  return (
+                    <th key={m} style={{...S.th("right"),
+                      color:isCur?"#3B72F6":isPast?"#6B7280":"#111827",
+                      background:isCur?"#EEF3FF":isPast?"#F9FAFB":"var(--color-background-secondary,#f8f8f6)",
+                      position:"relative"
+                    }}>
+                      {m}
+                      {isCur&&<div style={{position:"absolute",bottom:0,left:"50%",transform:"translateX(-50%)",width:4,height:4,borderRadius:"50%",background:"#3B72F6"}}/>}
+                    </th>
+                  )
+                })}
                 <th style={S.th("right")}>합계</th>
               </tr></thead>
               <tbody>
                 {[["plan","계획기성",C.navyM],["actual","입금(실적)",C.green]].map(([field,label,color])=>{
                   const vals=Array.from({length:12},(_,i)=>getCell(y,i+1,field))
                   const total=vals.reduce((s,v)=>s+v,0)
+                  const nowY = new Date().getFullYear()
+                  const nowM = new Date().getMonth()+1  // 1-indexed
                   return (
                     <tr key={field}>
                       <td style={{...S.td("left"),fontWeight:700,color}}>{label}</td>
-                      {vals.map((v,i)=>(
-                        <td key={i} style={S.td()}>
-                          {editing
-                            ? <input type="number" step="0.01" value={v} onChange={e=>setCell(y,i+1,field,e.target.value)} style={S.inp(58)}/>
-                            : <span style={{color:v>0?color:"var(--color-text-secondary,#aaa)",fontWeight:v>0?700:400}}>{v>0?v.toFixed(2):"-"}</span>}
-                        </td>
-                      ))}
+                      {vals.map((v,mi)=>{
+                        const monthNum = mi+1
+                        const isPast   = parseInt(y)<nowY || (parseInt(y)===nowY && monthNum<nowM)
+                        const isCurrent= parseInt(y)===nowY && monthNum===nowM
+                        const isFuture = parseInt(y)>nowY || (parseInt(y)===nowY && monthNum>nowM)
+                        // 계획기성: 현재월 포함 미래만 활성 / 과거는 비활성(회색)
+                        // 입금실적: 과거+현재월 활성 / 미래는 비활성
+                        const disabled = editing && (
+                          (field==="plan"   && isPast)   ||  // 계획: 과거 비활성
+                          (field==="actual" && isFuture)     // 실적: 미래 비활성
+                        )
+                        const bgColor = disabled
+                          ? "#F3F4F6"
+                          : field==="plan"&&!isPast?"#EEF3FF"
+                          : field==="actual"&&!isFuture?"#E6F9F2"
+                          : undefined
+                        return (
+                          <td key={mi} style={S.td()}>
+                            {editing
+                              ? <input
+                                  type="number" step="0.01" value={v}
+                                  onChange={e=>!disabled&&setCell(y,mi+1,field,e.target.value)}
+                                  readOnly={disabled}
+                                  title={disabled
+                                    ? field==="plan"
+                                      ? "계획기성은 현재월 이후에만 입력 가능합니다"
+                                      : "입금실적은 현재월까지만 입력 가능합니다"
+                                    : undefined}
+                                  style={{...S.inp(58),background:bgColor,color:disabled?"#9CA3AF":"inherit",cursor:disabled?"not-allowed":"text"}}
+                                />
+                              : <span style={{color:v>0?color:"var(--color-text-secondary,#aaa)",fontWeight:v>0?700:400}}>{v>0?v.toFixed(2):"-"}</span>}
+                          </td>
+                        )
+                      })}
                       <td style={{...S.td(),fontWeight:800,color}}>{total.toFixed(2)}</td>
                     </tr>
                   )
@@ -2851,8 +2894,8 @@ function NewVerModal({proj,onClose,onSave}) {
           ))}
           {/* 요약 뱃지 */}
           <div style={{marginLeft:"auto",display:"flex",gap:10,alignItems:"center",fontSize:13,color:C.navyM,fontWeight:600}}>
-            <span style={{...S.bdg(C.navyL,C.navyM)}}>이윤 {fE(pnl.profit)}</span>
-            <span style={{...S.bdg(C.greenL||"#EAF3DE",C.green)}}>합계 {fE(pnl.total)}</span>
+            <span style={{...S.bdg(C.navyL,C.navyM)}}>이윤 {fE(pnl.profit/1e8)}</span>
+            <span style={{...S.bdg(C.greenL||"#EAF3DE",C.green)}}>합계 {fE(pnl.total/1e8)}</span>
           </div>
         </div>
 
@@ -2870,17 +2913,17 @@ function NewVerModal({proj,onClose,onSave}) {
             <div>
               <label style={S.lbl()}>직접인건비 (원)</label>
               <input type="number" value={laborCost} onChange={e=>setLaborCost(parseInt(e.target.value)||0)} style={S.inp()}/>
-              <div style={{fontSize:12,color:C.navyM,marginTop:4}}>{fE(laborCost)} 억</div>
+              <div style={{fontSize:12,color:C.navyM,marginTop:4}}>{fE(laborCost/1e8)}억</div>
             </div>
             <div>
               <label style={S.lbl()}>직접경비 (원)</label>
               <input type="number" value={directExp} onChange={e=>setDirectExp(parseInt(e.target.value)||0)} style={S.inp()}/>
-              <div style={{fontSize:12,color:C.navyM,marginTop:4}}>{fE(directExp)} 억</div>
+              <div style={{fontSize:12,color:C.navyM,marginTop:4}}>{fE(directExp/1e8)}억</div>
             </div>
             <div>
               <label style={S.lbl()}>외주용역비 (자동합산)</label>
               <div style={{...S.inp(),background:"var(--color-background-secondary,#f5f5f3)",color:C.navyM,fontWeight:700,cursor:"default"}}>{subTotal.toLocaleString()}</div>
-              <div style={{fontSize:12,color:C.navyM,marginTop:4}}>{fE(subTotal)} 억 ({vendors.length}개 업체)</div>
+              <div style={{fontSize:12,color:C.navyM,marginTop:4}}>{fE(subTotal/1e8)}억 ({vendors.length}개 업체)</div>
             </div>
             <div>
               <label style={S.lbl()}>간접비 (0이면 자동: 인건비×110%)</label>
@@ -2890,14 +2933,14 @@ function NewVerModal({proj,onClose,onSave}) {
             <div>
               <label style={S.lbl()}>이윤 (0이면 자동: 직접비×8.3%)</label>
               <input type="number" value={profit||""} onChange={e=>setProfit(parseInt(e.target.value)||null)} placeholder="0이면 자동" style={S.inp()}/>
-              <div style={{fontSize:12,color:C.gray,marginTop:4}}>자동: {fE(Math.round(pnl.direct*0.083))}</div>
+              <div style={{fontSize:12,color:C.gray,marginTop:4}}>자동: {fE(Math.round(pnl.direct*0.083)/1e8)}</div>
             </div>
             <div style={{display:"flex",flexDirection:"column",justifyContent:"flex-end"}}>
               <div style={{background:C.navyL,borderRadius:10,padding:"12px 16px"}}>
                 <div style={{fontSize:12,color:C.navyM,marginBottom:4}}>예상 합계</div>
-                <div style={{fontSize:22,fontWeight:800,color:C.navy}}>{fE(pnl.total)}</div>
+                <div style={{fontSize:22,fontWeight:800,color:C.navy}}>{fE(pnl.total/1e8)}</div>
                 <div style={{fontSize:12,color:C.gray,marginTop:2}}>
-                  직접{fE(pnl.direct)} + 간접{fE(pnl.indirect)} + 이윤{fE(pnl.profit)}
+                  직접{fE(pnl.direct/1e8)} + 간접{fE(pnl.indirect/1e8)} + 이윤{fE(pnl.profit/1e8)}
                 </div>
               </div>
             </div>
@@ -2914,7 +2957,7 @@ function NewVerModal({proj,onClose,onSave}) {
         {/* 협력업체 탭 */}
         {tab==="vendors" && <>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
-            <div style={{fontSize:14,fontWeight:700,color:C.navyM}}>협력업체 목록 — 총 {fE(subTotal)} ({vendors.length}개)</div>
+            <div style={{fontSize:14,fontWeight:700,color:C.navyM}}>협력업체 목록 — 총 {fE(subTotal/1e8)}억 ({vendors.length}개)</div>
             <button onClick={()=>setShowAddV(v=>!v)} style={{...S.btn(C.green),padding:"7px 14px"}}>+ 협력업체 추가</button>
           </div>
 
@@ -3004,7 +3047,7 @@ function NewVerModal({proj,onClose,onSave}) {
           <button onClick={save} style={{...S.btn(C.navyM),padding:"11px 24px",fontSize:15}}>✓ 저장</button>
           <button onClick={onClose} style={{...S.btn(C.grayL,C.gray),padding:"11px 24px",fontSize:15}}>취소</button>
           <div style={{marginLeft:"auto",fontSize:13,color:C.gray,alignSelf:"center"}}>
-            회차 {round}차 · 직접{fE(pnl.direct)} · 간접{fE(pnl.indirect)} · 이윤{fE(pnl.profit)} · <b style={{color:C.navy}}>합계 {fE(pnl.total)}</b>
+            회차 {round}차 · 직접{fE(pnl.direct/1e8)} · 간접{fE(pnl.indirect/1e8)} · 이윤{fE(pnl.profit/1e8)} · <b style={{color:C.navy}}>합계 {fE(pnl.total/1e8)}</b>
           </div>
         </div>
       </div>
