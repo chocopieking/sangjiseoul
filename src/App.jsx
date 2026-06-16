@@ -22,6 +22,7 @@ import {
   DEPARTMENTS_INIT, DEPT_COLOR_POOL, DEPT_BIZ_EMPTY, DEPT_STAFF_EMPTY,
   PROJECTS_INIT, ALERTS_INIT, normalizeProject, getDeptShares, BID_TYPES, CONTRACT_TYPES_DEFAULT
 } from "./data.js"
+import { isConfigured, dbGet, dbSet, dbGetAll, dbSetAll, subscribeChanges } from "./supabase.js"
 
 // ── 색상 팔레트 ───────────────────────────────────────────────
 const num = v => { const n=parseFloat(v); return Number.isFinite(n)?n:0 }
@@ -115,18 +116,97 @@ export default function App() {
       return
     }
     setLoginAttempts(0); setLockUntil(null); setLoginError("")
-    setCurrentUser(u); setAuth("app"); setLoginId(""); setLoginPw("")
+    setCurrentUser(u); setAuth("app"); setLoginId(""); setLoginPw(""); userEmail.current = u.email||u.name||"unknown"
   }
   const doLogout = ()=>{ setCurrentUser(null); setAuth("login"); setLoginId(""); setLoginPw("") }
   const saveUsers = (updated)=>{ const nm={}; updated.forEach(u=>{if(u._pwHash)nm[u.id]=u._pwHash}); savePwMap(nm) }
   const canWrite = currentUser?.write===true
 
-  // ── 앱 상태 ──
+  // ── DB 연동 레이어 ────────────────────────────────────────────
+  // Supabase가 설정되면 DB 우선, localStorage를 오프라인 캐시로 사용.
+  // Supabase 미설정 시 localStorage만 사용 (기존과 동일).
+  const USE_DB = isConfigured()
+  const [dbReady, setDbReady] = useState(!USE_DB)  // DB 없으면 즉시 ready
+  const [dbStatus, setDbStatus] = useState(USE_DB ? "connecting" : "local")  // connecting|ok|error|local
+  const userEmail = useRef("")  // 현재 로그인 사용자 이메일 (수정자 기록용)
+
+  // localStorage 읽기 (초기값 fallback)
+  const lsGet = (key, init) => {
+    try{ const v=localStorage.getItem(key); return v ? JSON.parse(v) : init }catch{ return init }
+  }
+  // localStorage 쓰기
+  const lsSet = (key, val) => { try{ localStorage.setItem(key, JSON.stringify(val)) }catch{} }
+
+  // DB + localStorage 동시 저장 setter factory
+  const mkPersist = (setter, key) => updater => setter(prev => {
+    const next = typeof updater === "function" ? updater(prev) : updater
+    lsSet(key, next)
+    if (USE_DB) dbSet(key, next, userEmail.current).catch(()=>{})
+    return next
+  })
+
+  // 앱 시작 시 Supabase에서 전체 데이터 로드
+  useEffect(() => {
+    if (!USE_DB) return
+    dbGetAll().then(all => {
+      if (!all) { setDbStatus("error"); setDbReady(true); return }
+      // 각 key의 DB값으로 state 갱신 (DB > localStorage > 초기값 순)
+      const g = (k, init) => (all[k] !== undefined && all[k] !== null) ? all[k] : lsGet(k, init)
+      setProjectsRaw(g("sjs_projects", PROJECTS_INIT).map(normalizeProject))
+      setPnlDataRaw(g("sjs_pnl", PNL_INIT))
+      setYearsRaw(g("sjs_years", YEARS_DB_INIT))
+      setCashflowRaw(g("sjs_cashflow", CF_2026))
+      setDeptStaffRaw(g("sjs_dept_staff", DEPT_STAFF_INIT))
+      setStaffTargetRaw(g("sjs_staff_target", STAFF_TARGET_INIT))
+      setStaffMonthlyRaw(g("sjs_staff_monthly", STAFF_MONTHLY_INIT))
+      setDepartments(g("sjs_departments", DEPARTMENTS_INIT))
+      setDeptBizRaw(g("sjs_dept_biz", DEPT_BIZ))
+      setVendorsDBRaw(g("sjs_vendors", {}))
+      setVendorPaymentsRaw(g("sjs_vendor_payments", []))
+      setContractTypesRaw(g("sjs_contract_types", CONTRACT_TYPES_DEFAULT))
+      setDbStatus("ok")
+      setDbReady(true)
+    }).catch(() => { setDbStatus("error"); setDbReady(true) })
+  }, [])  // eslint-disable-line
+
+  // 실시간 구독: 다른 사용자가 수정하면 즉시 반영
+  useEffect(() => {
+    if (!USE_DB) return
+    const unsub = subscribeChanges((key, value) => {
+      if (key === "sjs_projects")       setProjectsRaw(value.map(normalizeProject))
+      else if (key === "sjs_pnl")       setPnlDataRaw(value)
+      else if (key === "sjs_years")     setYearsRaw(value)
+      else if (key === "sjs_cashflow")  setCashflowRaw(value)
+      else if (key === "sjs_dept_staff") setDeptStaffRaw(value)
+      else if (key === "sjs_staff_target") setStaffTargetRaw(value)
+      else if (key === "sjs_staff_monthly") setStaffMonthlyRaw(value)
+      else if (key === "sjs_departments") setDepartments(value)
+      else if (key === "sjs_dept_biz")  setDeptBizRaw(value)
+      else if (key === "sjs_vendors")   setVendorsDBRaw(value)
+      else if (key === "sjs_vendor_payments") setVendorPaymentsRaw(value)
+      else if (key === "sjs_contract_types") setContractTypesRaw(value)
+    })
+    return unsub
+  }, [])  // eslint-disable-line
+
+  // ── 앱 상태 ── (모두 localStorage 영속화)
   const [tab, setTab]             = useState("analysis")
-  const [projects, setProjects]   = useState(()=>PROJECTS_INIT.map(normalizeProject))
-  const [pnlData, setPnlData]     = useState(PNL_INIT)
-  const [years, setYears]         = useState(YEARS_DB_INIT)
-  const [cashflow, setCashflow]   = useState(CF_2026)
+
+  const [projectsRaw, setProjectsRaw]   = useState(()=>lsGet("sjs_projects", PROJECTS_INIT).map(normalizeProject))
+  const setProjects = mkPersist(setProjectsRaw, "sjs_projects")
+  const projects = projectsRaw
+
+  const [pnlDataRaw, setPnlDataRaw]     = useState(()=>lsGet("sjs_pnl", PNL_INIT))
+  const setPnlData = mkPersist(setPnlDataRaw, "sjs_pnl")
+  const pnlData = pnlDataRaw
+
+  const [yearsRaw, setYearsRaw]         = useState(()=>lsGet("sjs_years", YEARS_DB_INIT))
+  const setYears = mkPersist(setYearsRaw, "sjs_years")
+  const years = yearsRaw
+
+  const [cashflowRaw, setCashflowRaw]   = useState(()=>lsGet("sjs_cashflow", CF_2026))
+  const setCashflow = mkPersist(setCashflowRaw, "sjs_cashflow")
+  const cashflow = cashflowRaw
 
   // ── 데이터 버전 기록 (스냅샷) ───────────────────────────────
   const [versions, setVersions] = useState(()=>{ try{ return JSON.parse(localStorage.getItem("sjs_versions")||"[]") }catch{ return [] } })
@@ -148,9 +228,17 @@ export default function App() {
     saveVersion(snap.type,`복원: ${snap.label}`,snap.data,by)
   },[saveVersion])
   const deleteVersion = id => persistVersions(versions.filter(v=>v.id!==id))
-  const [deptStaff, setDeptStaff] = useState(DEPT_STAFF_INIT)
-  const [staffTarget, setStaffTarget]   = useState(STAFF_TARGET_INIT)
-  const [staffMonthly, setStaffMonthly] = useState(STAFF_MONTHLY_INIT)
+  const [deptStaffRaw, setDeptStaffRaw]       = useState(()=>lsGet("sjs_dept_staff", DEPT_STAFF_INIT))
+  const setDeptStaff = mkPersist(setDeptStaffRaw, "sjs_dept_staff")
+  const deptStaff = deptStaffRaw
+
+  const [staffTargetRaw, setStaffTargetRaw]   = useState(()=>lsGet("sjs_staff_target", STAFF_TARGET_INIT))
+  const setStaffTarget = mkPersist(setStaffTargetRaw, "sjs_staff_target")
+  const staffTarget = staffTargetRaw
+
+  const [staffMonthlyRaw, setStaffMonthlyRaw] = useState(()=>lsGet("sjs_staff_monthly", STAFF_MONTHLY_INIT))
+  const setStaffMonthly = mkPersist(setStaffMonthlyRaw, "sjs_staff_monthly")
+  const staffMonthly = staffMonthlyRaw
   const [deptBiz, setDeptBizRaw] = useState(()=>{
     try{
       const s = JSON.parse(localStorage.getItem("sjs_dept_biz")||"null")
@@ -392,7 +480,21 @@ export default function App() {
     XLSX.writeFile(wb,"상지서울_프로젝트입력양식.xlsx")
   },[])
 
-  if (!initDone) return <div style={{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:"var(--color-background-tertiary,#f5f5f3)"}}><div style={{textAlign:"center"}}><div style={{width:36,height:36,border:`3px solid ${C.navyM}`,borderTop:"3px solid transparent",borderRadius:"50%",animation:"spin 1s linear infinite",margin:"0 auto 12px"}}/><div style={{fontSize:13,color:C.gray}}>초기화 중…</div><style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style></div></div>
+  // DB 로딩 중 스피너
+  if (!initDone || !dbReady) return (
+    <div style={{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:"var(--color-background-tertiary,#f5f5f3)"}}>
+      <div style={{textAlign:"center"}}>
+        <div style={{width:40,height:40,border:`3px solid ${C.navyM}`,borderTop:"3px solid transparent",borderRadius:"50%",animation:"spin 1s linear infinite",margin:"0 auto 14px"}}/>
+        <div style={{fontSize:14,fontWeight:600,color:C.navyM,marginBottom:4}}>
+          {!initDone ? "시스템 초기화 중…" : dbStatus==="connecting" ? "데이터베이스 연결 중…" : "데이터 불러오는 중…"}
+        </div>
+        <div style={{fontSize:12,color:C.gray}}>
+          {USE_DB ? "Supabase DB에서 데이터를 불러옵니다." : "localStorage에서 데이터를 불러옵니다."}
+        </div>
+        <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
+      </div>
+    </div>
+  )
 
   if (auth==="login") return <LoginScreen {...{loginId,setLoginId,loginPw,setLoginPw,loginError,doLogin,pwVisible,setPwVisible}}/>
 
@@ -437,6 +539,16 @@ export default function App() {
           </div>
           {/* 사용자 */}
           <div style={{display:"flex",alignItems:"center",gap:7}}>
+            {/* DB 연결 상태 */}
+            <div title={dbStatus==="ok"?"DB 연결됨":dbStatus==="error"?"DB 연결 실패 (로컬 저장 중)":dbStatus==="local"?"로컬 저장 모드":"연결 중…"}
+              style={{fontSize:10,padding:"2px 7px",borderRadius:8,fontWeight:700,
+                background:dbStatus==="ok"?"rgba(29,158,117,.25)":dbStatus==="error"?"rgba(163,45,45,.25)":"rgba(255,255,255,.1)",
+                color:dbStatus==="ok"?"#6EE4C0":dbStatus==="error"?"#FF9999":"#85B7EB",
+                border:`1px solid ${dbStatus==="ok"?"rgba(29,158,117,.4)":dbStatus==="error"?"rgba(163,45,45,.4)":"rgba(255,255,255,.2)"}`,
+                cursor:"default",userSelect:"none"
+              }}>
+              {dbStatus==="ok"?"● DB":dbStatus==="error"?"✕ DB 오류":dbStatus==="local"?"○ 로컬":"◌ 연결 중"}
+            </div>
             <div style={{width:28,height:28,borderRadius:"50%",background:"#378ADD",display:"flex",alignItems:"center",justifyContent:"center",fontSize:10,fontWeight:500,color:"#fff"}}>{currentUser.avatar}</div>
             <div><div style={{fontSize:11,color:"#fff",fontWeight:500}}>{currentUser.name}</div><div style={{fontSize:10,color:"#85B7EB"}}>{ROLE_BADGE[currentUser.role]?.label}</div></div>
             <button onClick={doLogout} style={{...S.btn("rgba(255,255,255,.1)","#85B7EB"),padding:"4px 9px",fontSize:10,border:"1px solid rgba(255,255,255,.15)"}}>로그아웃</button>
@@ -454,7 +566,7 @@ export default function App() {
       {/* 바디 */}
       <div style={{padding:"15px 18px",maxWidth:1440,margin:"0 auto"}}>
         {tab==="analysis" && <AnalysisTab deptStaff={deptStaff} setDeptStaff={setDeptStaff} years={years} setYears={setYears} canWrite={canWrite} cashflow={effectiveCashflow}/>}
-        {tab==="datahub" && <DataHubTab currentUser={currentUser} deptStaff={deptStaff} setDeptStaff={setDeptStaff} staffTarget={staffTarget} setStaffTarget={setStaffTarget} staffMonthly={staffMonthly} setStaffMonthly={setStaffMonthly} pnlData={pnlData} setPnlData={setPnlData} cashflow={cashflow} setCashflow={setCashflow} years={years} setYears={setYears} projects={projects} setTab={setTab} setSelProjId={setSelProjId} setSelVerIdx={setSelVerIdx} setShowNewProj={setShowNewProj} versions={versions} saveVersion={saveVersion} restoreVersion={restoreVersion} deleteVersion={deleteVersion} contractTypes={contractTypes} setContractTypes={setContractTypes}/>}
+        {tab==="datahub" && <DataHubTab currentUser={currentUser} deptStaff={deptStaff} setDeptStaff={setDeptStaff} staffTarget={staffTarget} setStaffTarget={setStaffTarget} staffMonthly={staffMonthly} setStaffMonthly={setStaffMonthly} pnlData={pnlData} setPnlData={setPnlData} cashflow={cashflow} setCashflow={setCashflow} years={years} setYears={setYears} projects={projects} setProjects={setProjects} setTab={setTab} setSelProjId={setSelProjId} setSelVerIdx={setSelVerIdx} setShowNewProj={setShowNewProj} versions={versions} saveVersion={saveVersion} restoreVersion={restoreVersion} deleteVersion={deleteVersion} contractTypes={contractTypes} setContractTypes={setContractTypes} allData={null} restoreAllData={(entries)=>dbSetAll(entries, userEmail.current)} dbStatus={dbStatus}/>}
         {tab==="cashflow" && <CashflowTab cashflow={effectiveCashflow} setCashflow={setCashflow} currentUser={currentUser} projects={projects} projectCashflowByDept={projectCashflowByDept}/>}
         {tab==="projects" && <ProjectsTab projects={projects} setProjects={setProjects} selProjId={selProjId} setSelProjId={setSelProjId} selVerIdx={selVerIdx} setSelVerIdx={setSelVerIdx} cmpIds={cmpIds} setCmpIds={setCmpIds} showNewVer={showNewVer} setShowNewVer={setShowNewVer} canWrite={canWrite} contractTypes={contractTypes}/>}
         {tab==="vendors" && <VendorsTab projects={projects} setProjects={setProjects} vendorsDB={vendorsDB} setVendorsDB={setVendorsDB} vendorPayments={vendorPayments} setVendorPayments={setVendorPayments} canWrite={canWrite} currentUser={currentUser} setTab={setTab} setSelProjId={setSelProjId} setSelVerIdx={setSelVerIdx}/>}

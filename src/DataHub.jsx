@@ -41,9 +41,10 @@ export function DataHubTab({
   currentUser, deptStaff, setDeptStaff, staffTarget, setStaffTarget, staffMonthly, setStaffMonthly,
   pnlData, setPnlData,
   cashflow, setCashflow, years, setYears,
-  projects, setTab, setSelProjId, setSelVerIdx, setShowNewProj,
+  projects, setProjects, setTab, setSelProjId, setSelVerIdx, setShowNewProj,
   versions, saveVersion, restoreVersion, deleteVersion,
   contractTypes, setContractTypes,
+  allData, restoreAllData,
 }) {
   const {STAFF_DEPTS,DEPTS,DEPT_COLORS,departments,addDept,renameDept,deleteDept,setDeptColor,setDeptFinance,deptUsage} = useDepts()
   const isAdmin = currentUser.role === "admin"
@@ -59,6 +60,7 @@ export function DataHubTab({
     {id:"projects",  label:"🏗 프로젝트·협력업체"},
     {id:"depts",     label:"🏢 본부 관리"},
     {id:"ctypes",    label:"🏷 수주유형 관리"},
+    {id:"backup",    label:"💾 데이터 백업·복구", accent:true},
     {id:"history",   label:"📜 버전 기록", accent:true},
   ]
   const [section,setSection] = useState("staff")
@@ -101,6 +103,7 @@ export function DataHubTab({
       {section==="projects"  && <ProjectsShortcut projects={projects} currentUser={currentUser} isAdmin={isAdmin} setTab={setTab} setSelProjId={setSelProjId} setSelVerIdx={setSelVerIdx} setShowNewProj={setShowNewProj}/>}
       {section==="depts"     && <DeptManageSection departments={departments} addDept={addDept} renameDept={renameDept} deleteDept={deleteDept} setDeptColor={setDeptColor} setDeptFinance={setDeptFinance} deptUsage={deptUsage} isAdmin={isAdmin}/>}
       {section==="ctypes"    && <ContractTypeSection contractTypes={contractTypes||[]} setContractTypes={setContractTypes} canManage={canManage}/>}
+      {section==="backup"    && <BackupSection allData={allData} restoreAllData={restoreAllData} isAdmin={isAdmin}/>}
       {section==="history"   && <VersionHistorySection versions={versions} restoreVersion={restoreVersion} deleteVersion={deleteVersion} saveVersion={saveVersion}
                                     currentUser={currentUser} canManage={canManage} STAFF_DEPTS={STAFF_DEPTS} DEPTS={DEPTS} DEPT_COLORS={DEPT_COLORS}
                                     deptStaff={deptStaff} staffTarget={staffTarget} staffMonthly={staffMonthly} pnlData={pnlData} cashflow={cashflow} years={years}/>}
@@ -1061,6 +1064,123 @@ function ContractTypeSection({contractTypes, setContractTypes, canManage}) {
         ※ 유형을 삭제해도 이미 해당 유형으로 저장된 프로젝트에는 영향을 주지 않습니다.<br/>
         ※ 유형 이름을 수정하면 이후 신규 등록/수정 시 새 이름으로 선택됩니다.
       </div>
+    </div>
+  )
+}
+
+// ── 데이터 백업·복구 ────────────────────────────────────────────
+function BackupSection({allData, restoreAllData, isAdmin}) {
+  const [msg, setMsg] = useState("")
+  const [importing, setImporting] = useState(false)
+  const flash = (m,ok=true) => { setMsg({text:m,ok}); setTimeout(()=>setMsg(""),4000) }
+
+  const SJS_KEYS = [
+    "sjs_projects","sjs_pnl","sjs_years","sjs_cashflow",
+    "sjs_dept_staff","sjs_staff_target","sjs_staff_monthly",
+    "sjs_departments","sjs_dept_biz","sjs_vendors","sjs_vendor_payments",
+    "sjs_contract_types","sjs_versions","sjs_pw",
+  ]
+
+  // 전체 내보내기
+  const exportAll = () => {
+    const snap = {__sjs_backup:true, __version:2, __savedAt:new Date().toISOString(), data:{}}
+    SJS_KEYS.forEach(k=>{ try{ const v=localStorage.getItem(k); if(v) snap.data[k]=JSON.parse(v) }catch{} })
+    const blob = new Blob([JSON.stringify(snap,null,2)],{type:"application/json"})
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement("a"); a.href=url
+    a.download = `sjs_backup_${new Date().toISOString().slice(0,10)}.json`
+    a.click(); URL.revokeObjectURL(url)
+    flash("✓ 백업 파일을 다운로드했습니다. 안전한 곳에 보관하세요.")
+  }
+
+  // 불러오기
+  const importAll = (e) => {
+    const file = e.target.files?.[0]; if(!file) return
+    const reader = new FileReader()
+    reader.onload = ev => {
+      try {
+        const snap = JSON.parse(ev.target.result)
+        if(!snap.__sjs_backup) { flash("⚠ 올바른 백업 파일이 아닙니다.",false); return }
+        if(!window.confirm(`${snap.__savedAt?.slice(0,10)||"알 수 없음"} 날짜의 백업 파일을 복구합니다.\n\n현재 입력된 모든 데이터가 백업 파일로 대체됩니다.\n계속하시겠습니까?`)) return
+        SJS_KEYS.forEach(k=>{ if(snap.data[k]!==undefined) try{ localStorage.setItem(k,JSON.stringify(snap.data[k])) }catch{} })
+        flash("✓ 복구 완료! 페이지를 새로고침하면 데이터가 반영됩니다.")
+        setTimeout(()=>window.location.reload(), 1500)
+      } catch(err) { flash("⚠ 파일을 읽는 중 오류가 발생했습니다: "+err.message, false) }
+      e.target.value=""
+    }
+    reader.readAsText(file)
+  }
+
+  const C2 = {navy:"#0C447C",navyM:"#185FA5",navyL:"#E6F1FB",green:"#1D9E75",greenL:"#EAF3DE",red:"#A32D2D",redL:"#FCEBEB",amber:"#BA7517",amberL:"#FAEEDA",gray:"#888780",grayL:"#F1EFE8"}
+  const card2 = {background:"var(--color-background-primary,#fff)",border:"0.5px solid var(--color-border-tertiary,#e4e4e0)",borderRadius:14,padding:"20px 24px",marginBottom:16}
+  const btn2  = (bg,fg="#fff")=>({padding:"10px 20px",background:bg,color:fg,border:"none",borderRadius:10,fontSize:13.5,fontWeight:700,cursor:"pointer",display:"inline-flex",alignItems:"center",gap:7})
+
+  // localStorage 사용 현황
+  const lsSize = SJS_KEYS.reduce((s,k)=>{ try{return s+(localStorage.getItem(k)||"").length}catch{return s} },0)
+  const lsKB = (lsSize/1024).toFixed(1)
+
+  return (
+    <div>
+      {/* 안내 배너 */}
+      <div style={{...card2,background:C2.amberL,border:`1px solid ${C2.amber}44`}}>
+        <div style={{fontSize:15,fontWeight:700,color:C2.amber,marginBottom:6}}>💾 데이터 백업·복구 안내</div>
+        <div style={{fontSize:13,color:"#5a3c00",lineHeight:1.8}}>
+          시스템의 모든 데이터는 <b>이 브라우저의 localStorage</b>에 저장됩니다.<br/>
+          GitHub에 새 파일을 올려도 <b>같은 도메인이면 데이터가 유지</b>되지만,<br/>
+          다른 브라우저·기기로 접속하거나 브라우저 데이터를 지우면 사라집니다.<br/><br/>
+          <b>👉 중요 데이터는 정기적으로 아래의 "전체 백업 내보내기"를 사용해 JSON 파일로 보관하세요.</b>
+        </div>
+      </div>
+
+      {/* 저장 현황 */}
+      <div style={{...card2}}>
+        <div style={{fontSize:14,fontWeight:700,marginBottom:10}}>📊 현재 저장 현황</div>
+        <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(200px,1fr))",gap:8}}>
+          {SJS_KEYS.filter(k=>k!=="sjs_pw").map(k=>{
+            let size=0, count=""; 
+            try{ const v=localStorage.getItem(k); if(v){ size=v.length; try{const p=JSON.parse(v); count=Array.isArray(p)?`${p.length}건`:(typeof p==="object"?`${Object.keys(p).length}항목`:"")}catch{} } }catch{}
+            if(!size) return null
+            return (
+              <div key={k} style={{background:"var(--color-background-secondary,#f8f8f6)",borderRadius:8,padding:"8px 12px"}}>
+                <div style={{fontSize:10,color:C2.gray,fontWeight:600,marginBottom:2}}>{k.replace("sjs_","")}</div>
+                <div style={{fontSize:13,fontWeight:700}}>{count}</div>
+                <div style={{fontSize:10,color:C2.gray}}>{(size/1024).toFixed(1)}KB</div>
+              </div>
+            )
+          })}
+        </div>
+        <div style={{marginTop:10,fontSize:12,color:C2.gray}}>총 저장 용량: <b>{lsKB}KB</b> / 브라우저 최대 ~5MB</div>
+      </div>
+
+      {/* 내보내기 / 가져오기 */}
+      <div style={{...card2}}>
+        <div style={{fontSize:14,fontWeight:700,marginBottom:14}}>📤 전체 백업 내보내기</div>
+        <div style={{fontSize:13,color:C2.gray,marginBottom:12,lineHeight:1.7}}>
+          현재 저장된 모든 데이터(프로젝트, 인원정보, 손익, 수금계획, 협력업체 등)를<br/>
+          JSON 파일 하나로 내보냅니다. GitHub 업로드 전 또는 정기적으로 백업하세요.
+        </div>
+        <button onClick={exportAll} style={btn2(C2.navyM)}>
+          📥 전체 데이터 JSON 백업
+        </button>
+      </div>
+
+      <div style={{...card2}}>
+        <div style={{fontSize:14,fontWeight:700,marginBottom:14}}>📥 백업 파일에서 복구</div>
+        <div style={{fontSize:13,color:C2.gray,marginBottom:12,lineHeight:1.7}}>
+          이전에 내보낸 백업 JSON 파일을 불러와 데이터를 복구합니다.<br/>
+          <b style={{color:C2.red}}>⚠ 복구 시 현재 입력된 모든 데이터가 백업 파일로 덮어씌워집니다.</b>
+        </div>
+        <label style={btn2(C2.green)}>
+          📂 백업 파일 불러오기 (JSON)
+          <input type="file" accept=".json" style={{display:"none"}} onChange={importAll}/>
+        </label>
+      </div>
+
+      {msg && (
+        <div style={{...card2,background:msg.ok?C2.greenL:C2.redL,border:`1px solid ${msg.ok?C2.green:C2.red}44`,color:msg.ok?C2.green:C2.red,fontWeight:700,fontSize:14}}>
+          {msg.text}
+        </div>
+      )}
     </div>
   )
 }

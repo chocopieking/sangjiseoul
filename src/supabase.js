@@ -1,31 +1,101 @@
-// Supabase 클라이언트 설정
-// .env 파일에 VITE_SUPABASE_URL, VITE_SUPABASE_ANON_KEY 설정 필요
+// ══════════════════════════════════════════════════════════════
+// Supabase 연동 — 키-값 방식 (app_data 테이블)
+// 환경변수: VITE_SUPABASE_URL, VITE_SUPABASE_ANON_KEY
+// ══════════════════════════════════════════════════════════════
 import { createClient } from '@supabase/supabase-js'
 
-const URL  = import.meta.env.VITE_SUPABASE_URL  || ''
-const KEY  = import.meta.env.VITE_SUPABASE_ANON_KEY || ''
+const SB_URL = import.meta.env.VITE_SUPABASE_URL  || ''
+const SB_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY || ''
+const ORG_ID = 'sjs'
 
-export const supabase = URL && KEY ? createClient(URL, KEY, {
-  auth: { persistSession: true, autoRefreshToken: true }
-}) : null
+export const supabase = SB_URL && SB_KEY
+  ? createClient(SB_URL, SB_KEY, { auth:{ persistSession:true, autoRefreshToken:true } })
+  : null
 
-export const isSupabaseConfigured = () => !!URL && !!KEY
+export const isConfigured = () => !!(SB_URL && SB_KEY)
 
-// ── Auth helpers ──────────────────────────────────────────
+// ── 단일 키 읽기 ──────────────────────────────────────────────
+export async function dbGet(key) {
+  if (!supabase) return null
+  const { data, error } = await supabase
+    .from('app_data')
+    .select('value')
+    .eq('org_id', ORG_ID)
+    .eq('key', key)
+    .single()
+  if (error) { console.warn(`dbGet(${key}):`, error.message); return null }
+  return data?.value ?? null
+}
+
+// ── 단일 키 저장 (upsert) ─────────────────────────────────────
+export async function dbSet(key, value, updatedBy = '') {
+  if (!supabase) return false
+  const { error } = await supabase
+    .from('app_data')
+    .upsert({ org_id: ORG_ID, key, value, updated_by: updatedBy },
+             { onConflict: 'org_id,key' })
+  if (error) { console.warn(`dbSet(${key}):`, error.message); return false }
+  return true
+}
+
+// ── 전체 데이터 한 번에 읽기 (앱 초기 로드용) ─────────────────
+export async function dbGetAll() {
+  if (!supabase) return null
+  const { data, error } = await supabase
+    .from('app_data')
+    .select('key,value')
+    .eq('org_id', ORG_ID)
+  if (error) { console.warn('dbGetAll:', error.message); return null }
+  return Object.fromEntries((data||[]).map(r => [r.key, r.value]))
+}
+
+// ── 전체 데이터 한 번에 쓰기 (백업 복구용) ────────────────────
+export async function dbSetAll(entries, updatedBy = '') {
+  if (!supabase) return false
+  const rows = Object.entries(entries).map(([key, value]) => ({
+    org_id: ORG_ID, key, value, updated_by: updatedBy
+  }))
+  const { error } = await supabase
+    .from('app_data')
+    .upsert(rows, { onConflict: 'org_id,key' })
+  if (error) { console.warn('dbSetAll:', error.message); return false }
+  return true
+}
+
+// ── 실시간 구독 (다른 사용자 변경 즉시 반영) ──────────────────
+export function subscribeChanges(onUpdate) {
+  if (!supabase) return ()=>{}
+  const channel = supabase
+    .channel('app_data_changes')
+    .on('postgres_changes', {
+      event: 'UPDATE',
+      schema: 'public',
+      table: 'app_data',
+      filter: `org_id=eq.${ORG_ID}`
+    }, payload => {
+      onUpdate(payload.new.key, payload.new.value)
+    })
+    .subscribe()
+  return () => supabase.removeChannel(channel)
+}
+
+// ── Auth helpers ──────────────────────────────────────────────
 export const signInWithGoogle = () =>
   supabase?.auth.signInWithOAuth({
     provider: 'google',
     options: { redirectTo: window.location.origin }
   })
 
-export const signInWithEmail = (email, password) =>
-  supabase?.auth.signInWithPassword({ email, password })
+export const signInWithEmail = (email, pw) =>
+  supabase?.auth.signInWithPassword({ email, password: pw })
 
 export const signOut = () => supabase?.auth.signOut()
 export const getSession = () => supabase?.auth.getSession()
-export const onAuthChange = (cb) => supabase?.auth.onAuthStateChange(cb)
+export const onAuthChange = cb => supabase?.auth.onAuthStateChange(cb)
 
-// ── Storage helpers ───────────────────────────────────────
+export default supabase
+
+// ── 하위 호환 — Archive.jsx 등에서 사용 ──────────────────────
 export const BUCKET = 'sjs-archive'
 
 export const uploadFile = async (file, path) => {
@@ -44,58 +114,18 @@ export const deleteFile = async (path) => {
 export const getFileUrl = (path) =>
   supabase?.storage.from(BUCKET).getPublicUrl(path).data.publicUrl || ''
 
-// ── DB helpers ────────────────────────────────────────────
+// db 객체 (Archive.jsx 호환)
 export const db = {
-  // 프로젝트
-  getProjects:   ()       => supabase?.from('projects').select('*').order('created_at',{ascending:false}),
-  getProject:    (id)     => supabase?.from('projects').select(`*, project_versions(*, project_vendors(*)), archive_items(*)`).eq('id',id).single(),
-  upsertProject: (data)   => supabase?.from('projects').upsert(data),
-  deleteProject: (id)     => supabase?.from('projects').delete().eq('id',id),
-
-  // 버전
-  getVersions:   (projId) => supabase?.from('project_versions').select(`*, project_vendors(*)`).eq('project_id',projId).order('created_at'),
-  upsertVersion: (data)   => supabase?.from('project_versions').upsert(data),
-
-  // 협력업체
-  upsertVendors: (rows)   => supabase?.from('project_vendors').upsert(rows),
-  deleteVendors: (verId)  => supabase?.from('project_vendors').delete().eq('version_id',verId),
-
-  // 기성수금
-  getCashflow:   (year)   => supabase?.from('cashflow').select('*').eq('year',year).order('month'),
-  upsertCashflow:(data)   => supabase?.from('cashflow').upsert(data, {onConflict:'year,month,dept'}),
-
-  // 손익
-  getPnl:        (year)   => supabase?.from('pnl_monthly').select('*').eq('year',year).order('month'),
-  upsertPnl:     (data)   => supabase?.from('pnl_monthly').upsert(data, {onConflict:'year,month,dept'}),
-
-  // 아카이브
-  getArchive:    (filters={}) => {
-    let q = supabase?.from('archive_items').select('*').order('created_at',{ascending:false})
+  getArchive: (filters={}) => {
+    if (!supabase) return null
+    let q = supabase.from('archive_items').select('*').order('created_at',{ascending:false})
     if (filters.category)   q = q.eq('category', filters.category)
     if (filters.project_id) q = q.eq('project_id', filters.project_id)
     if (filters.dept)       q = q.eq('dept', filters.dept)
-    if (filters.search)     q = q.textSearch('search_vector', filters.search, {config:'simple'})
     return q
   },
-  upsertArchive: (data)   => supabase?.from('archive_items').upsert(data),
-  deleteArchive: (id)     => supabase?.from('archive_items').delete().eq('id',id),
-
-  // 인사
-  getStaff:      ()       => supabase?.from('staff').select('*').eq('is_active',true).order('dept'),
-
-  // 연도 집계
-  getYearly:     ()       => supabase?.from('yearly_summary').select('*').order('year'),
-  upsertYearly:  (data)   => supabase?.from('yearly_summary').upsert(data, {onConflict:'year'}),
-
-  // 사용자
-  getUsers:      ()       => supabase?.from('user_profiles').select('*').order('dept'),
-  updateUser:    (id,data)=> supabase?.from('user_profiles').update(data).eq('id',id),
-
-  // 실시간
-  subscribeProjects: (cb) =>
-    supabase?.channel('projects').on('postgres_changes',{event:'*',schema:'public',table:'projects'},cb).subscribe(),
-  subscribeArchive: (cb) =>
-    supabase?.channel('archive').on('postgres_changes',{event:'*',schema:'public',table:'archive_items'},cb).subscribe(),
+  upsertArchive: (data) => supabase?.from('archive_items').upsert(data),
+  deleteArchive: (id)   => supabase?.from('archive_items').delete().eq('id', id),
+  getUsers:      ()     => supabase?.from('user_profiles').select('*').order('dept'),
+  updateUser:    (id,d) => supabase?.from('user_profiles').update(d).eq('id', id),
 }
-
-export default supabase
