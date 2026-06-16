@@ -122,75 +122,22 @@ export default function App() {
   const saveUsers = (updated)=>{ const nm={}; updated.forEach(u=>{if(u._pwHash)nm[u.id]=u._pwHash}); savePwMap(nm) }
   const canWrite = currentUser?.write===true
 
-  // ── DB 연동 레이어 ────────────────────────────────────────────
-  // Supabase가 설정되면 DB 우선, localStorage를 오프라인 캐시로 사용.
-  // Supabase 미설정 시 localStorage만 사용 (기존과 동일).
+  // ── 헬퍼 ──────────────────────────────────────────────────────
   const USE_DB = isConfigured()
-  const [dbReady, setDbReady] = useState(!USE_DB)  // DB 없으면 즉시 ready
-  const [dbStatus, setDbStatus] = useState(USE_DB ? "connecting" : "local")  // connecting|ok|error|local
-  const userEmail = useRef("")  // 현재 로그인 사용자 이메일 (수정자 기록용)
-
-  // localStorage 읽기 (초기값 fallback)
-  const lsGet = (key, init) => {
-    try{ const v=localStorage.getItem(key); return v ? JSON.parse(v) : init }catch{ return init }
-  }
-  // localStorage 쓰기
-  const lsSet = (key, val) => { try{ localStorage.setItem(key, JSON.stringify(val)) }catch{} }
-
-  // DB + localStorage 동시 저장 setter factory
+  const userEmail = useRef("")
+  const lsGet = (key, init) => { try{ const v=localStorage.getItem(key); return v?JSON.parse(v):init }catch{ return init } }
+  const lsSet = (key, val)  => { try{ localStorage.setItem(key, JSON.stringify(val)) }catch{} }
   const mkPersist = (setter, key) => updater => setter(prev => {
-    const next = typeof updater === "function" ? updater(prev) : updater
+    const next = typeof updater==="function" ? updater(prev) : updater
     lsSet(key, next)
     if (USE_DB) dbSet(key, next, userEmail.current).catch(()=>{})
     return next
   })
 
-  // 앱 시작 시 Supabase에서 전체 데이터 로드
-  useEffect(() => {
-    if (!USE_DB) return
-    dbGetAll().then(all => {
-      if (!all) { setDbStatus("error"); setDbReady(true); return }
-      // 각 key의 DB값으로 state 갱신 (DB > localStorage > 초기값 순)
-      const g = (k, init) => (all[k] !== undefined && all[k] !== null) ? all[k] : lsGet(k, init)
-      setProjectsRaw(g("sjs_projects", PROJECTS_INIT).map(normalizeProject))
-      setPnlDataRaw(g("sjs_pnl", PNL_INIT))
-      setYearsRaw(g("sjs_years", YEARS_DB_INIT))
-      setCashflowRaw(g("sjs_cashflow", CF_2026))
-      setDeptStaffRaw(g("sjs_dept_staff", DEPT_STAFF_INIT))
-      setStaffTargetRaw(g("sjs_staff_target", STAFF_TARGET_INIT))
-      setStaffMonthlyRaw(g("sjs_staff_monthly", STAFF_MONTHLY_INIT))
-      setDepartments(g("sjs_departments", DEPARTMENTS_INIT))
-      setDeptBizRaw(g("sjs_dept_biz", DEPT_BIZ))
-      setVendorsDBRaw(g("sjs_vendors", {}))
-      setVendorPaymentsRaw(g("sjs_vendor_payments", []))
-      setContractTypesRaw(g("sjs_contract_types", CONTRACT_TYPES_DEFAULT))
-      setDbStatus("ok")
-      setDbReady(true)
-    }).catch(() => { setDbStatus("error"); setDbReady(true) })
-  }, [])  // eslint-disable-line
-
-  // 실시간 구독: 다른 사용자가 수정하면 즉시 반영
-  useEffect(() => {
-    if (!USE_DB) return
-    const unsub = subscribeChanges((key, value) => {
-      if (key === "sjs_projects")       setProjectsRaw(value.map(normalizeProject))
-      else if (key === "sjs_pnl")       setPnlDataRaw(value)
-      else if (key === "sjs_years")     setYearsRaw(value)
-      else if (key === "sjs_cashflow")  setCashflowRaw(value)
-      else if (key === "sjs_dept_staff") setDeptStaffRaw(value)
-      else if (key === "sjs_staff_target") setStaffTargetRaw(value)
-      else if (key === "sjs_staff_monthly") setStaffMonthlyRaw(value)
-      else if (key === "sjs_departments") setDepartments(value)
-      else if (key === "sjs_dept_biz")  setDeptBizRaw(value)
-      else if (key === "sjs_vendors")   setVendorsDBRaw(value)
-      else if (key === "sjs_vendor_payments") setVendorPaymentsRaw(value)
-      else if (key === "sjs_contract_types") setContractTypesRaw(value)
-    })
-    return unsub
-  }, [])  // eslint-disable-line
-
-  // ── 앱 상태 ── (모두 localStorage 영속화)
+  // ── 앱 상태 (state 먼저 선언 → useEffect에서 setter 참조 가능) ──
   const [tab, setTab]             = useState("analysis")
+  const [dbReady, setDbReady]     = useState(!USE_DB)
+  const [dbStatus, setDbStatus]   = useState(USE_DB ? "connecting" : "local")
 
   const [projectsRaw, setProjectsRaw]   = useState(()=>lsGet("sjs_projects", PROJECTS_INIT).map(normalizeProject))
   const setProjects = mkPersist(setProjectsRaw, "sjs_projects")
@@ -283,6 +230,48 @@ export default function App() {
     try{ localStorage.setItem("sjs_contract_types", JSON.stringify(list)) }catch{}
     setContractTypesRaw(list)
   }
+
+  // ── Supabase: 앱 시작 시 전체 로드 (state 선언 후에 위치해야 함) ──
+  useEffect(() => {
+    if (!USE_DB) return
+    dbGetAll().then(all => {
+      if (!all) { setDbStatus("error"); setDbReady(true); return }
+      const g = (k, init) => (all[k] !== undefined && all[k] !== null) ? all[k] : lsGet(k, init)
+      setProjectsRaw(g("sjs_projects", PROJECTS_INIT).map(normalizeProject))
+      setPnlDataRaw(g("sjs_pnl", PNL_INIT))
+      setYearsRaw(g("sjs_years", YEARS_DB_INIT))
+      setCashflowRaw(g("sjs_cashflow", CF_2026))
+      setDeptStaffRaw(g("sjs_dept_staff", DEPT_STAFF_INIT))
+      setStaffTargetRaw(g("sjs_staff_target", STAFF_TARGET_INIT))
+      setStaffMonthlyRaw(g("sjs_staff_monthly", STAFF_MONTHLY_INIT))
+      setDepartments(g("sjs_departments", DEPARTMENTS_INIT))
+      setDeptBizRaw(g("sjs_dept_biz", DEPT_BIZ))
+      setVendorsDBRaw(g("sjs_vendors", {}))
+      setVendorPaymentsRaw(g("sjs_vendor_payments", []))
+      setContractTypesRaw(g("sjs_contract_types", CONTRACT_TYPES_DEFAULT))
+      setDbStatus("ok"); setDbReady(true)
+    }).catch(() => { setDbStatus("error"); setDbReady(true) })
+  }, []) // eslint-disable-line
+
+  // ── Supabase: 실시간 구독 ──────────────────────────────────
+  useEffect(() => {
+    if (!USE_DB) return
+    const unsub = subscribeChanges((key, value) => {
+      if      (key==="sjs_projects")         setProjectsRaw(value.map(normalizeProject))
+      else if (key==="sjs_pnl")              setPnlDataRaw(value)
+      else if (key==="sjs_years")            setYearsRaw(value)
+      else if (key==="sjs_cashflow")         setCashflowRaw(value)
+      else if (key==="sjs_dept_staff")       setDeptStaffRaw(value)
+      else if (key==="sjs_staff_target")     setStaffTargetRaw(value)
+      else if (key==="sjs_staff_monthly")    setStaffMonthlyRaw(value)
+      else if (key==="sjs_departments")      setDepartments(value)
+      else if (key==="sjs_dept_biz")         setDeptBizRaw(value)
+      else if (key==="sjs_vendors")          setVendorsDBRaw(value)
+      else if (key==="sjs_vendor_payments")  setVendorPaymentsRaw(value)
+      else if (key==="sjs_contract_types")   setContractTypesRaw(value)
+    })
+    return unsub
+  }, []) // eslint-disable-line
 
   const DEPTS       = useMemo(()=>departments.filter(d=>d.finance).map(d=>d.name),[departments])
   const STAFF_DEPTS = useMemo(()=>departments.map(d=>d.name),[departments])
