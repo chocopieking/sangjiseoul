@@ -20,6 +20,7 @@ import { DataHubTab } from "./DataHub.jsx"
 import { VendorsTab } from "./Vendors.jsx"
 import { WeeklyReportTab } from "./WeeklyReport.jsx"
 import { SmartSearch, AIAssistant, AIFloatButton, WeeklyBriefing } from "./AIAssistant.jsx"
+import { ManualTab } from "./ManualTab.jsx"
 import { DeptContext, useDepts } from "./DeptContext.jsx"
 import {
   hashPw, ALL_USERS, MASTER_PW, ROLE_BADGE,
@@ -637,6 +638,7 @@ export default function App() {
     {id:"pnl",       label:"📉 손익분석"},
     {id:"optimize",  label:"⚙️ 경영최적화"},
     {id:"archive",   label:"📁 아카이브"},
+    {id:"manual",    label:"📚 업무매뉴얼 AI"},
     {id:"auth_mgmt", label:"🔐 권한관리"},
   ]
 
@@ -757,6 +759,7 @@ export default function App() {
         {tab==="pnl"      && <PnlTab pnlData={pnlData} setPnlData={setPnlData} canWrite={canWrite}/>}
         {tab==="optimize" && <OptimizeTab projects={projects} deptStaff={deptStaff} pnlData={pnlData}/>}
         {tab==="archive"   && <ArchiveTab currentUser={currentUser} projects={projects}/>}
+        {tab==="manual"    && <ManualTab/>}
         {tab==="auth_mgmt"&& currentUser.role==="admin" && <AuthTab users={users} saveUsers={saveUsers} currentUser={currentUser} hashPw={hashPw}/>}
         </div>
       </div>

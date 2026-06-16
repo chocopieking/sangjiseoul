@@ -184,7 +184,8 @@ export function AIAssistant({ data, onNavigate, isOpen, onClose }) {
     const history = messages.filter(m=>m.role!=="assistant"||messages.indexOf(m)>0).slice(-6)
 
     try {
-      const res = await fetch("https://api.anthropic.com/v1/messages",{
+      // Vercel Edge Function 프록시를 통해 호출 (CORS 우회)
+      const res = await fetch("/api/chat", {
         method:"POST",
         headers:{"Content-Type":"application/json"},
         body: JSON.stringify({
@@ -206,7 +207,10 @@ ${ctx}`,
       const reply = json.content?.[0]?.text || "응답을 가져오지 못했습니다."
       setMessages(prev=>[...prev,{role:"assistant",text:reply}])
     } catch(e) {
-      setMessages(prev=>[...prev,{role:"assistant",text:"⚠ 연결 오류가 발생했습니다. 잠시 후 다시 시도해주세요."}])
+      const msg = e.message?.includes("Failed to fetch")
+        ? "⚠ 서버 연결 오류입니다.\n\nVercel 환경변수에 ANTHROPIC_API_KEY가 설정되어 있는지 확인하세요.\n\nVercel 대시보드 → Settings → Environment Variables → ANTHROPIC_API_KEY 추가"
+        : `⚠ 오류: ${e.message}`
+      setMessages(prev=>[...prev,{role:"assistant",text:msg}])
     }
     setLoading(false)
   }
