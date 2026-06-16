@@ -19,8 +19,9 @@ import { OptimizeTab } from "./Optimize.jsx"
 import { DataHubTab } from "./DataHub.jsx"
 import { VendorsTab } from "./Vendors.jsx"
 import { WeeklyReportTab } from "./WeeklyReport.jsx"
-import { SmartSearch, AIAssistant, AIFloatButton, WeeklyBriefing } from "./AIAssistant.jsx"
-import { ManualTab } from "./ManualTab.jsx"
+// AI 기능 — 추후 ANTHROPIC_API_KEY 설정 시 활성화 가능
+// import { SmartSearch, AIAssistant, AIFloatButton, WeeklyBriefing } from "./AIAssistant.jsx"
+// import { ManualTab } from "./ManualTab.jsx"
 import { DeptContext, useDepts } from "./DeptContext.jsx"
 import {
   hashPw, ALL_USERS, MASTER_PW, ROLE_BADGE,
@@ -425,7 +426,7 @@ export default function App() {
   const [selVerIdx, setSelVerIdx] = useState(0)
   const [cmpIds, setCmpIds]       = useState([])
   const [showNewProj, setShowNewProj] = useState(false)
-  const [showAI, setShowAI]           = useState(false)
+  // const [showAI, setShowAI] = useState(false)  // AI 기능 추후 활성화
   const [showNewVer, setShowNewVer]   = useState(false)
   const [uploadMsg, setUploadMsg]     = useState("")
   const uploadRef = useRef(null)
@@ -635,10 +636,12 @@ export default function App() {
     {id:"cashflow",  label:"💧 월수금계획"},
     {id:"projects",  label:"🏗 프로젝트"},
     {id:"vendors",   label:"🤝 협력업체"},
+    {id:"contract",  label:"📄 계약서"},
+    {id:"manual",    label:"📚 업무매뉴얼"},
     {id:"pnl",       label:"📉 손익분석"},
     {id:"optimize",  label:"⚙️ 경영최적화"},
     {id:"archive",   label:"📁 아카이브"},
-    {id:"manual",    label:"📚 업무매뉴얼 AI"},
+    {id:"manual",    label:"📚 업무매뉴얼"},  // AI 연동 시 AI 기반 검색으로 업그레이드 가능
     {id:"auth_mgmt", label:"🔐 권한관리"},
   ]
 
@@ -660,14 +663,6 @@ export default function App() {
               <div style={{fontSize:11,color:"#6B7280",fontWeight:500,lineHeight:1.2}}>통합경영시스템</div>
             </div>
           </div>
-        </div>
-
-        {/* 검색 */}
-        <div style={{padding:"10px 12px",borderBottom:"1px solid #F3F4F6"}}>
-          <SmartSearch
-            data={{projects,vendorPayments}}
-            onNavigate={(tab,id)=>{ setTab(tab); if(id&&tab==="projects") setSelProjId(id) }}
-          />
         </div>
 
         {/* 퀵액션 버튼들 */}
@@ -750,7 +745,7 @@ export default function App() {
 
         {/* 바디 */}
         <div style={{padding:"20px 24px",maxWidth:1440}}>
-          {tab==="analysis" && <WeeklyBriefing data={{projects,cashflow:effectiveCashflow,years}}/>}
+
         {tab==="analysis" && <AnalysisTab deptStaff={deptStaff} setDeptStaff={setDeptStaff} years={years} setYears={setYears} canWrite={canWrite} cashflow={effectiveCashflow}/>}
         {tab==="datahub" && <DataHubTab currentUser={currentUser} deptStaff={deptStaff} setDeptStaff={setDeptStaff} staffTarget={staffTarget} setStaffTarget={setStaffTarget} staffMonthly={staffMonthly} setStaffMonthly={setStaffMonthly} pnlData={pnlData} setPnlData={setPnlData} cashflow={cashflow} setCashflow={setCashflow} years={years} setYears={setYears} projects={projects} setProjects={setProjects} setTab={setTab} setSelProjId={setSelProjId} setSelVerIdx={setSelVerIdx} setShowNewProj={setShowNewProj} versions={versions} saveVersion={saveVersion} restoreVersion={restoreVersion} deleteVersion={deleteVersion} contractTypes={contractTypes} setContractTypes={setContractTypes} projTypes={projTypes} setProjTypes={setProjTypes} bidTypes={bidTypes} setBidTypes={setBidTypes} allData={null} restoreAllData={(entries)=>dbSetAll(entries, userEmail.current)} dbStatus={dbStatus}/>}
         {tab==="cashflow" && <CashflowTab cashflow={effectiveCashflow} setCashflow={setCashflow} currentUser={currentUser} projects={projects} projectCashflowByDept={projectCashflowByDept}/>}
@@ -759,7 +754,8 @@ export default function App() {
         {tab==="pnl"      && <PnlTab pnlData={pnlData} setPnlData={setPnlData} canWrite={canWrite}/>}
         {tab==="optimize" && <OptimizeTab projects={projects} deptStaff={deptStaff} pnlData={pnlData}/>}
         {tab==="archive"   && <ArchiveTab currentUser={currentUser} projects={projects}/>}
-        {tab==="manual"    && <ManualTab/>}
+        {tab==="contract"  && <ContractTab projects={projects} currentUser={currentUser}/>}
+        {tab==="manual"    && <ManualPlaceholder/>}
         {tab==="auth_mgmt"&& currentUser.role==="admin" && <AuthTab users={users} saveUsers={saveUsers} currentUser={currentUser} hashPw={hashPw}/>}
         </div>
       </div>
@@ -767,14 +763,7 @@ export default function App() {
 
       {showNewProj&&<NewProjModal onClose={()=>setShowNewProj(false)} onSave={p=>{setProjects(prev=>[...prev,normalizeProject({...p,id:`P${Date.now()}`,versions:[]})]);setShowNewProj(false)}}/>}
 
-      {/* AI 어시스턴트 */}
-      <AIFloatButton onClick={()=>setShowAI(v=>!v)} hasNew={false}/>
-      <AIAssistant
-        data={{projects,cashflow:effectiveCashflow,years,vendorPayments}}
-        onNavigate={(tab,id)=>{ setTab(tab); if(id&&tab==="projects") setSelProjId(id); setShowAI(false) }}
-        isOpen={showAI}
-        onClose={()=>setShowAI(false)}
-      />
+      {/* AI 어시스턴트: ANTHROPIC_API_KEY 설정 후 AIAssistant.jsx 활성화 */}
     </div>
     </DeptContext.Provider>
   )
@@ -3043,4 +3032,375 @@ function F({label,val,onChange,type="text",ph="",opts=[]}) {
       ?<select value={val} onChange={e=>onChange(e.target.value)} style={S.inp()}><option value="">선택</option>{opts.map(o=><option key={o} value={o}>{o}</option>)}</select>
       :<input type={type} value={val} onChange={e=>onChange(e.target.value)} placeholder={ph} style={S.inp()}/>}
   </div>
+}
+
+// ── 업무매뉴얼 플레이스홀더 (추후 AI 연동 시 ManualTab으로 교체) ──
+function ManualPlaceholder() {
+  return (
+    <div style={{padding:"40px",textAlign:"center"}}>
+      <div style={{fontSize:48,marginBottom:16}}>📚</div>
+      <div style={{fontSize:22,fontWeight:800,color:"#111827",marginBottom:8}}>업무매뉴얼</div>
+      <div style={{fontSize:15,color:"#6B7280",lineHeight:1.8,maxWidth:520,margin:"0 auto"}}>
+        업무 매뉴얼 PDF를 업로드하여 전직원이 언제 어디서나 열람할 수 있는 공간입니다.<br/>
+        현재는 파일 보관 기능만 제공하며, <b>ANTHROPIC_API_KEY</b> 설정 시 AI 질의응답 기능이 활성화됩니다.
+      </div>
+      <div style={{marginTop:24,display:"flex",gap:10,justifyContent:"center",flexWrap:"wrap"}}>
+        {["업무매뉴얼 v7.0","계약서 양식","실행계획서 가이드","외주비 정산 절차","결재 프로세스"].map((t,i)=>(
+          <div key={i} style={{padding:"10px 18px",background:"#EEF3FF",color:"#3B72F6",borderRadius:20,fontSize:14,fontWeight:600}}>{t}</div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+// ── 설계용역 표준계약서 생성 탭 ────────────────────────────────
+function ContractTab({projects, currentUser}) {
+  const [selProjId, setSelProjId] = useState(projects[0]?.id||"")
+  const proj = projects.find(p=>p.id===selProjId)
+
+  // 계약서 변수 (프로젝트에서 자동 채우기 + 수동 수정 가능)
+  const [form, setForm] = useState({
+    contractDate:"",
+    contractTitle:"",
+    siteAddr:"",
+    usage:"",
+    structure:"철근콘크리트조",
+    scale:"",
+    siteArea:"",
+    floorArea:"",
+    totalFee:"",
+    // 갑 (발주처)
+    gabName:"",
+    gabCeo:"",
+    gabRegNo:"",
+    gabAddr:"",
+    gabTel:"",
+    // 을 (상지서울)
+    eulName:"(주)상지서울건축사사무소",
+    eulCeo:"허 동 윤",
+    eulRegNo:"602-81-08127",
+    eulAddr:"서울특별시 강남구 자곡로 174-10 강남에이스타워 909호",
+    eulTel:"02) 6011-1642",
+    // 대금 지불 일정
+    payments:[
+      {stage:"용역계약 시",     ratio:20, note:"계약일로부터 7일 이내 현금"},
+      {stage:"건축(통합)심의 접수 시",ratio:20, note:""},
+      {stage:"건축허가 접수 시",ratio:30, note:""},
+      {stage:"착공신고 접수 시",ratio:25, note:""},
+      {stage:"사용승인 접수 시",ratio:5,  note:""},
+    ]
+  })
+  const u = (k,v) => setForm(p=>({...p,[k]:v}))
+  const [generating, setGenerating] = useState(false)
+
+  // 프로젝트 선택 시 자동 채우기
+  const autoFill = (p) => {
+    if(!p) return
+    setForm(prev=>({...prev,
+      contractTitle: p.name||"",
+      siteAddr: p.address||"",
+      usage: p.usage||"",
+      scale: p.scale||"",
+      siteArea: p.siteArea?`${p.siteArea.toLocaleString()}m²`:prev.siteArea,
+      floorArea: p.floorArea?`${p.floorArea.toLocaleString()}m²`:prev.floorArea,
+      totalFee: p.serviceFee?p.serviceFee.toLocaleString():prev.totalFee,
+      gabName: p.client||prev.gabName,
+      contractDate: p.contractDate||prev.contractDate,
+    }))
+  }
+
+  // 지불금액 자동계산
+  const feeNum = parseInt((form.totalFee||"").replace(/[^0-9]/g,""))||0
+  const payments = form.payments.map(p=>({...p, amount: Math.round(feeNum*p.ratio/100)}))
+  const totalRatio = form.payments.reduce((s,p)=>s+p.ratio,0)
+
+  // Word(.docx) 생성
+  const generateContract = async () => {
+    setGenerating(true)
+    try {
+      const {
+        Document: D, Packer, Paragraph: P2, TextRun: TR,
+        Table: T2, TableRow: TR2, TableCell: TC, AlignmentType: AT,
+        BorderStyle: BS, WidthType: WT, ShadingType: ST, VerticalAlign: VA,
+        Header: H2, Footer: F2, PageNumber: PN, UnderlineType
+      } = await import("docx")
+
+      const W2 = 9360
+      const BD = {style:BS.SINGLE,size:6,color:"888888"}
+      const BDS = {top:BD,bottom:BD,left:BD,right:BD}
+      const c = (txt,opts={})=>new TC({
+        borders:BDS, verticalAlign:VA.CENTER,
+        margins:{top:80,bottom:80,left:120,right:120},
+        shading:opts.shade?{fill:opts.shade,type:ST.CLEAR}:undefined,
+        width:opts.w?{size:opts.w,type:WT.DXA}:undefined,
+        rowSpan:opts.rs, columnSpan:opts.cs,
+        children:[new P2({alignment:opts.align||AT.CENTER,children:[new TR({
+          text:String(txt||""),font:"맑은 고딕",size:opts.sz||19,bold:!!opts.bold,color:opts.color||"000000"
+        })]})]
+      })
+      const p = (txt,opts={})=>new P2({
+        alignment:opts.align||AT.LEFT,
+        spacing:{before:opts.before||0,after:opts.after||120},
+        indent:opts.indent?{left:opts.indent}:undefined,
+        children:[new TR({text:String(txt||""),font:"맑은 고딕",size:opts.sz||19,bold:!!opts.bold,color:opts.color||"000000",underline:opts.ul?{type:UnderlineType.SINGLE}:undefined})]
+      })
+      const ttl = (txt)=>p(txt,{align:AT.CENTER,sz:28,bold:true,before:240,after:120})
+      const h1 = (txt)=>p(txt,{sz:21,bold:true,before:200,after:80,color:"1A3B6E"})
+      const hr = ()=>new P2({border:{bottom:{style:BS.SINGLE,size:4,color:"CCCCCC",space:1}},children:[new TR({text:"",font:"맑은 고딕",size:8})]})
+      const sp = (n=1)=>[...Array(n)].map(()=>p("",{before:0,after:60}))
+
+      // 계약금액 한글 표기 (간단 버전)
+      const feeWon = feeNum>0?feeNum.toLocaleString("ko-KR")+"원":"-"
+      const todayStr = form.contractDate || new Date().toLocaleDateString("ko-KR").replace(/\./g,".").replace(/\s/g,"")
+
+      const children = [
+        // 표지
+        p("건 축 물 의  설 계  표 준  계 약 서",{align:AT.CENTER,sz:22,color:"666666",before:120,after:60}),
+        ...sp(1),
+        ttl("설  계  용  역  계  약  서"),
+        p(form.contractTitle,{align:AT.CENTER,sz:22,before:60,after:240}),
+        ...sp(2),
+        p(todayStr,{align:AT.CENTER,sz:20,before:0,after:60}),
+        ...sp(1),
+        p(form.gabName||"발주처",{align:AT.CENTER,sz:20,bold:true}),
+        p(form.eulName,{align:AT.CENTER,sz:20,bold:true}),
+        ...sp(3),
+
+        // 계약 조건 표
+        h1("■ 계약 조건"),
+        new T2({width:{size:W2,type:WT.DXA},columnWidths:[2000,7360],rows:[
+          new TR2({children:[c("1. 용역명",{w:2000,shade:"F3F4F6",bold:true,align:AT.LEFT}),c(form.contractTitle,{w:7360,align:AT.LEFT})]}),
+          new TR2({children:[c("2. 대지위치",{w:2000,shade:"F3F4F6",bold:true,align:AT.LEFT}),c(form.siteAddr,{w:7360,align:AT.LEFT})]}),
+          new TR2({children:[c("3. 설계내용",{w:2000,shade:"F3F4F6",bold:true,align:AT.LEFT,rs:5}),c(`① 대지면적 : ${form.siteArea}`,{w:7360,align:AT.LEFT})]}),
+          new TR2({children:[c(`② 용도 : ${form.usage}`,{w:7360,align:AT.LEFT})]}),
+          new TR2({children:[c(`③ 구조 : ${form.structure}`,{w:7360,align:AT.LEFT})]}),
+          new TR2({children:[c(`④ 규모 : ${form.scale}`,{w:7360,align:AT.LEFT})]}),
+          new TR2({children:[c(`⑤ 연면적 : ${form.floorArea}`,{w:7360,align:AT.LEFT})]}),
+          new TR2({children:[c("4. 계약금액",{w:2000,shade:"F3F4F6",bold:true,align:AT.LEFT}),c(`일금 ${feeWon} (부가세 별도)`,{w:7360,align:AT.LEFT,bold:true})]}),
+        ]}),
+        ...sp(2),
+
+        p('"갑" 과 "을"은 상호 신의와 성실을 원칙으로 이 계약서에 의하여 설계계약을 체결하고 각 1부씩 보관한다.',{sz:18,before:120,after:200}),
+
+        // 당사자
+        new T2({width:{size:W2,type:WT.DXA},columnWidths:[4500,360,4500],rows:[
+          new TR2({children:[
+            c('"갑" (발주처)',{w:4500,shade:"EEF3FF",bold:true,sz:20}),
+            c("",{w:360}),
+            c('"을" (수급인)',{w:4500,shade:"EEF3FF",bold:true,sz:20}),
+          ]}),
+          new TR2({children:[
+            c(`상호/성명 : ${form.gabName} / 대표이사 ${form.gabCeo} (인)`,{w:4500,align:AT.LEFT}),
+            c("",{w:360}),
+            c(`상호/성명 : ${form.eulName} / 대표이사 ${form.eulCeo} (인)`,{w:4500,align:AT.LEFT}),
+          ]}),
+          new TR2({children:[
+            c(`사업자등록번호 : ${form.gabRegNo}`,{w:4500,align:AT.LEFT}),
+            c("",{w:360}),
+            c(`사업자등록번호 : ${form.eulRegNo}`,{w:4500,align:AT.LEFT}),
+          ]}),
+          new TR2({children:[
+            c(`주소 : ${form.gabAddr}`,{w:4500,align:AT.LEFT}),
+            c("",{w:360}),
+            c(`주소 : ${form.eulAddr}`,{w:4500,align:AT.LEFT}),
+          ]}),
+          new TR2({children:[
+            c(`전화번호 : ${form.gabTel}`,{w:4500,align:AT.LEFT}),
+            c("",{w:360}),
+            c(`전화번호 : ${form.eulTel}`,{w:4500,align:AT.LEFT}),
+          ]}),
+        ]}),
+
+        new P2({children:[],pageBreakBefore:true}),
+
+        // 계약 일반 조건
+        h1("계약 일반 조건"),
+        hr(),
+        p("제1조(총칙)  이 계약은 건축법 제9조의2 및 건축사 용역의 범위와 대가기준에 의하여 건축주(이하 \"갑\"이라 한다)가 건축사법 제23조 제1항의 규정에 의하여 업무신고한 건축사(이하 \"을\"이라 한다)에게 위탁한 설계업무의 수행에 필요한 상호간의 권리와 의무등을 정한다.",{sz:18,after:80}),
+        p(`제2조(계약면적 및 용역기간)`,{sz:18,bold:true,after:40}),
+        p(`① 계약면적("을"이 총괄하여 작성한 전체 설계면적) : ${form.floorArea}`,{sz:18,after:40,indent:400}),
+        p(`② 대가기간 : 계약체결일로부터 사용승인완료시까지`,{sz:18,after:80,indent:400}),
+        p("제3조(계약의 범위)",{sz:18,bold:true,after:40}),
+        p("① 계약의 범위 등은 [별표1]의 \"계약 및 업무의 범위\"를 참고하여 결정한다.",{sz:18,after:40,indent:400}),
+        p("② 준공도서 및 건축물관리대장 작성 등의 설계업무를 위해 필요한 세부 사항은 \"갑\"과 \"을\"이 협의하여 정한다.",{sz:18,after:80,indent:400}),
+        p("제4조(대가의 산출 및 지불방법)",{sz:18,bold:true,after:40}),
+        p("① 설계업무에 대한 대가의 산출기준 및 방법은 대가기준에 의한다.",{sz:18,after:40,indent:400}),
+        p("② 대가를 분할하여 지불하는 경우에 그 지불시기 및 지불금액은 다음과 같이 이행함을 원칙으로 하되, \"갑\"과 \"을\"이 협의하여 추가·조정할 수 있다.",{sz:18,after:80,indent:400}),
+        ...sp(1),
+
+        // 지불 일정 표
+        new T2({width:{size:W2,type:WT.DXA},columnWidths:[2800,1000,2400,3160],rows:[
+          new TR2({children:[
+            c("지  불  시  기",{w:2800,shade:"1A3B6E",bold:true,color:"FFFFFF"}),
+            c("지불비율",{w:1000,shade:"1A3B6E",bold:true,color:"FFFFFF"}),
+            c("지  불  금  액",{w:2400,shade:"1A3B6E",bold:true,color:"FFFFFF"}),
+            c("비       고",{w:3160,shade:"1A3B6E",bold:true,color:"FFFFFF"}),
+          ]}),
+          ...payments.map((row,i)=>new TR2({children:[
+            c(row.stage,{w:2800,align:AT.LEFT}),
+            c(`${row.ratio}%`,{w:1000}),
+            c(row.amount>0?`₩ ${row.amount.toLocaleString()}`:"-",{w:2400}),
+            c(row.note,{w:3160,align:AT.LEFT,sz:17}),
+          ]})),
+          new TR2({children:[
+            c("계",{w:2800,shade:"F3F4F6",bold:true}),
+            c(`${totalRatio}%`,{w:1000,shade:"F3F4F6",bold:true}),
+            c(`₩ ${feeNum.toLocaleString()}`,{w:2400,shade:"F3F4F6",bold:true}),
+            c("부가가치세 별도",{w:3160,shade:"F3F4F6",sz:17}),
+          ]}),
+        ]}),
+        ...sp(1),
+        p("③ (지연손해금) \"갑\"이 본 조 제2항에서 정한 지급기일을 경과하여 대금을 지급하는 경우, 미지급 금액에 대하여 지급기일 다음 날부터 완제일까지 일 0.1%를 지연손해금으로 가산하여 지급하여야 한다.",{sz:18,after:40,indent:400}),
+        p("④ (지급과 성과물 인도의 관계) 최종 잔금의 경우 \"갑\"이 \"을\"에게 입금을 완료한 후 1일 이내에 \"을\"은 최종 설계도서를 인도하는 것을 원칙으로 한다.",{sz:18,after:40,indent:400}),
+        p("⑤ (업무 정지권) \"갑\"이 대금 지급을 14일 이상 지체할 경우, \"을\"은 서면 통보 후 즉시 용역 업무를 일시 정지할 수 있다.",{sz:18,after:80,indent:400}),
+        p("제5조(대가의 조정)  설계업무의 수행기간이 1년을 초과하는 경우 노임단가 변경 시 \"갑\"과 \"을\"이 협의하여 대가를 조정할 수 있다. \"갑\"의 사유로 계약면적이 5% 이상 증감되는 경우 해당금액을 정산한다.",{sz:18,after:80}),
+        p("제6조~제15조  — 계약 일반 조건 본문 참조 (건축물의 설계 표준 계약서 기준 적용)",{sz:18,color:"888888",after:80}),
+        ...sp(2),
+        new P2({alignment:AT.RIGHT,spacing:{before:240,after:60},children:[new TR({text:todayStr,font:"맑은 고딕",size:20})]}),
+        new P2({alignment:AT.RIGHT,spacing:{before:0,after:180},children:[new TR({text:`"갑" ${form.gabName}  /  "을" ${form.eulName}`,font:"맑은 고딕",size:20})]}),
+      ]
+
+      const doc = new D({
+        styles:{default:{document:{run:{font:"맑은 고딕",size:19}}}},
+        sections:[{
+          properties:{page:{size:{width:11906,height:16838},margin:{top:1134,right:1134,bottom:1134,left:1134}}},
+          headers:{default:new H2({children:[new P2({alignment:AT.RIGHT,border:{bottom:{style:BS.SINGLE,size:4,color:"BBBBBB",space:1}},spacing:{after:80},children:[new TR({text:"설계용역 표준계약서  |  상지서울건축사사무소",font:"맑은 고딕",size:15,color:"888888"})]})]}),},
+          footers:{default:new F2({children:[new P2({alignment:AT.CENTER,border:{top:{style:BS.SINGLE,size:4,color:"BBBBBB",space:1}},children:[new TR({text:"- ",font:"맑은 고딕",size:15,color:"888888"}),new TR({children:[PN.CURRENT],font:"맑은 고딕",size:15,color:"888888"}),new TR({text:" -",font:"맑은 고딕",size:15,color:"888888"})]})]}),},
+          children
+        }]
+      })
+      const blob = await Packer.toBlob(doc)
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement("a")
+      a.href = url
+      a.download = `설계용역계약서_${form.contractTitle||"초안"}_${todayStr}.docx`
+      a.click()
+      URL.revokeObjectURL(url)
+    } catch(e) { alert("생성 오류: "+e.message) }
+    setGenerating(false)
+  }
+
+  const lbl2 = (t)=>({display:"block",fontSize:13,fontWeight:700,color:"#6B7280",marginBottom:5})
+  const inp2 = {padding:"10px 14px",border:"1.5px solid #E5E7EB",borderRadius:10,fontSize:14,width:"100%",boxSizing:"border-box",fontFamily:"inherit",outline:"none"}
+  const card2 = {background:"#fff",border:"1px solid #E5E7EB",borderRadius:16,padding:"22px 26px",marginBottom:16,boxShadow:"0 1px 4px rgba(0,0,0,.05)"}
+
+  return (
+    <div style={{maxWidth:900,margin:"0 auto"}}>
+      {/* 헤더 */}
+      <div style={{...card2,background:"linear-gradient(135deg,#1A3B6E,#3B72F6)",color:"#fff"}}>
+        <div style={{fontSize:22,fontWeight:800,marginBottom:4}}>📄 설계용역 표준계약서 생성</div>
+        <div style={{fontSize:14,opacity:.85}}>변경 항목만 수정하면 바로 사용 가능한 표준계약서를 Word(.docx)로 생성합니다.</div>
+      </div>
+
+      {/* 프로젝트 자동채우기 */}
+      <div style={card2}>
+        <div style={{fontSize:16,fontWeight:800,color:"#111827",marginBottom:12}}>⚡ 프로젝트 정보 자동 불러오기</div>
+        <div style={{display:"flex",gap:10,alignItems:"flex-end"}}>
+          <div style={{flex:1}}>
+            <label style={lbl2()}>등록된 프로젝트에서 정보 가져오기</label>
+            <select value={selProjId} onChange={e=>setSelProjId(e.target.value)} style={inp2}>
+              <option value="">— 직접 입력 —</option>
+              {projects.map(p=><option key={p.id} value={p.id}>{p.name}</option>)}
+            </select>
+          </div>
+          <button onClick={()=>autoFill(proj)} style={{...S.btn(),padding:"11px 20px",flexShrink:0}} disabled={!proj}>
+            자동 채우기
+          </button>
+        </div>
+      </div>
+
+      {/* 계약 기본정보 */}
+      <div style={card2}>
+        <div style={{fontSize:16,fontWeight:800,color:"#111827",marginBottom:16}}>1. 계약 기본정보</div>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14}}>
+          <div><label style={lbl2()}>계약일자</label><input type="date" value={form.contractDate} onChange={e=>u("contractDate",e.target.value)} style={inp2}/></div>
+          <div><label style={lbl2()}>계약금액 (원, VAT별도)</label><input value={form.totalFee} onChange={e=>u("totalFee",e.target.value)} placeholder="예: 2,378,000,000" style={inp2}/></div>
+          <div style={{gridColumn:"span 2"}}><label style={lbl2()}>용역명 (계약 제목)</label><input value={form.contractTitle} onChange={e=>u("contractTitle",e.target.value)} placeholder="예: 청량리 주상복합 건설사업 용역" style={inp2}/></div>
+          <div style={{gridColumn:"span 2"}}><label style={lbl2()}>대지위치</label><input value={form.siteAddr} onChange={e=>u("siteAddr",e.target.value)} style={inp2}/></div>
+          <div><label style={lbl2()}>용도</label><input value={form.usage} onChange={e=>u("usage",e.target.value)} style={inp2}/></div>
+          <div><label style={lbl2()}>구조</label><input value={form.structure} onChange={e=>u("structure",e.target.value)} style={inp2}/></div>
+          <div><label style={lbl2()}>규모</label><input value={form.scale} onChange={e=>u("scale",e.target.value)} placeholder="지하 7층 / 지상 25층" style={inp2}/></div>
+          <div><label style={lbl2()}>대지면적</label><input value={form.siteArea} onChange={e=>u("siteArea",e.target.value)} style={inp2}/></div>
+          <div><label style={lbl2()}>연면적</label><input value={form.floorArea} onChange={e=>u("floorArea",e.target.value)} style={inp2}/></div>
+        </div>
+      </div>
+
+      {/* 갑 정보 */}
+      <div style={card2}>
+        <div style={{fontSize:16,fontWeight:800,color:"#111827",marginBottom:16}}>2. "갑" (발주처) 정보</div>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14}}>
+          <div><label style={lbl2()}>상호/회사명</label><input value={form.gabName} onChange={e=>u("gabName",e.target.value)} style={inp2}/></div>
+          <div><label style={lbl2()}>대표자 성명</label><input value={form.gabCeo} onChange={e=>u("gabCeo",e.target.value)} placeholder="홍 길 동" style={inp2}/></div>
+          <div><label style={lbl2()}>사업자등록번호</label><input value={form.gabRegNo} onChange={e=>u("gabRegNo",e.target.value)} style={inp2}/></div>
+          <div><label style={lbl2()}>전화번호</label><input value={form.gabTel} onChange={e=>u("gabTel",e.target.value)} style={inp2}/></div>
+          <div style={{gridColumn:"span 2"}}><label style={lbl2()}>주소</label><input value={form.gabAddr} onChange={e=>u("gabAddr",e.target.value)} style={inp2}/></div>
+        </div>
+      </div>
+
+      {/* 을 정보 */}
+      <div style={card2}>
+        <div style={{fontSize:16,fontWeight:800,color:"#111827",marginBottom:4}}>3. "을" (상지서울) 정보</div>
+        <div style={{fontSize:13,color:"#6B7280",marginBottom:14}}>기본값이 입력되어 있습니다. 변경 시 수정하세요.</div>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14}}>
+          <div><label style={lbl2()}>상호명</label><input value={form.eulName} onChange={e=>u("eulName",e.target.value)} style={inp2}/></div>
+          <div><label style={lbl2()}>대표자 성명</label><input value={form.eulCeo} onChange={e=>u("eulCeo",e.target.value)} style={inp2}/></div>
+          <div><label style={lbl2()}>사업자등록번호</label><input value={form.eulRegNo} onChange={e=>u("eulRegNo",e.target.value)} style={inp2}/></div>
+          <div><label style={lbl2()}>전화번호</label><input value={form.eulTel} onChange={e=>u("eulTel",e.target.value)} style={inp2}/></div>
+          <div style={{gridColumn:"span 2"}}><label style={lbl2()}>주소</label><input value={form.eulAddr} onChange={e=>u("eulAddr",e.target.value)} style={inp2}/></div>
+        </div>
+      </div>
+
+      {/* 대금 지불 일정 */}
+      <div style={card2}>
+        <div style={{fontSize:16,fontWeight:800,color:"#111827",marginBottom:14}}>4. 대금 지불 일정</div>
+        <div style={{overflowX:"auto"}}>
+          <table style={{width:"100%",borderCollapse:"collapse"}}>
+            <thead><tr style={{background:"#F8FAFC"}}>
+              <th style={{padding:"11px 14px",textAlign:"left",fontSize:13,fontWeight:700,color:"#6B7280",border:"1px solid #E5E7EB"}}>지불 시기</th>
+              <th style={{padding:"11px 14px",textAlign:"center",fontSize:13,fontWeight:700,color:"#6B7280",border:"1px solid #E5E7EB",width:90}}>비율(%)</th>
+              <th style={{padding:"11px 14px",textAlign:"right",fontSize:13,fontWeight:700,color:"#6B7280",border:"1px solid #E5E7EB",width:160}}>금액 (자동계산)</th>
+              <th style={{padding:"11px 14px",textAlign:"left",fontSize:13,fontWeight:700,color:"#6B7280",border:"1px solid #E5E7EB"}}>비고</th>
+            </tr></thead>
+            <tbody>
+              {form.payments.map((row,i)=>(
+                <tr key={i}>
+                  <td style={{padding:"8px 12px",border:"1px solid #E5E7EB"}}>
+                    <input value={row.stage} onChange={e=>setForm(p=>({...p,payments:p.payments.map((r,ri)=>ri===i?{...r,stage:e.target.value}:r)}))} style={{...inp2,padding:"6px 10px",fontSize:13.5}}/>
+                  </td>
+                  <td style={{padding:"8px 12px",border:"1px solid #E5E7EB"}}>
+                    <input type="number" value={row.ratio} onChange={e=>setForm(p=>({...p,payments:p.payments.map((r,ri)=>ri===i?{...r,ratio:parseInt(e.target.value)||0}:r)}))} style={{...inp2,padding:"6px 10px",fontSize:13.5,textAlign:"center"}}/>
+                  </td>
+                  <td style={{padding:"8px 12px",border:"1px solid #E5E7EB",textAlign:"right",fontWeight:700,color:"#3B72F6",fontSize:14}}>
+                    {payments[i].amount>0?`₩ ${payments[i].amount.toLocaleString()}`:"-"}
+                  </td>
+                  <td style={{padding:"8px 12px",border:"1px solid #E5E7EB"}}>
+                    <input value={row.note} onChange={e=>setForm(p=>({...p,payments:p.payments.map((r,ri)=>ri===i?{...r,note:e.target.value}:r)}))} style={{...inp2,padding:"6px 10px",fontSize:13.5}}/>
+                  </td>
+                </tr>
+              ))}
+              <tr style={{background:"#EEF3FF",fontWeight:700}}>
+                <td style={{padding:"11px 14px",border:"1px solid #E5E7EB",fontSize:14}}>합계</td>
+                <td style={{padding:"11px 14px",border:"1px solid #E5E7EB",textAlign:"center",fontSize:14,color:totalRatio===100?"#0EA86E":"#EF4444"}}>{totalRatio}% {totalRatio!==100&&"⚠"}</td>
+                <td style={{padding:"11px 14px",border:"1px solid #E5E7EB",textAlign:"right",fontSize:15,color:"#1A3B6E"}}>₩ {feeNum.toLocaleString()}</td>
+                <td style={{padding:"11px 14px",border:"1px solid #E5E7EB",fontSize:13,color:"#6B7280"}}>부가가치세 별도</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        {totalRatio!==100&&<div style={{marginTop:8,color:"#EF4444",fontSize:13,fontWeight:600}}>⚠ 비율 합계가 {totalRatio}%입니다. 100%가 되어야 합니다.</div>}
+      </div>
+
+      {/* 생성 버튼 */}
+      <div style={{...card2,textAlign:"center"}}>
+        <button onClick={generateContract} disabled={generating||totalRatio!==100||!form.contractTitle||!form.gabName}
+          style={{...S.btn(),padding:"14px 40px",fontSize:16,borderRadius:12,opacity:(generating||totalRatio!==100||!form.contractTitle||!form.gabName)?.5:1}}>
+          {generating?"생성 중...":"📄 계약서 Word(.docx) 생성"}
+        </button>
+        <div style={{fontSize:12.5,color:"#6B7280",marginTop:10}}>
+          생성된 파일을 한글(HWP)에서 열어 HWP로 저장하거나, Word에서 바로 사용하세요.<br/>
+          기안 첨부, 이메일 발송, 인트라넷 업로드 등에 활용 가능합니다.
+        </div>
+      </div>
+    </div>
+  )
 }
