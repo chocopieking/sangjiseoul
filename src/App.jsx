@@ -520,9 +520,9 @@ export default function App() {
           </div>
         </div>
         <div style={{display:"flex",gap:6,alignItems:"center",flexWrap:"wrap"}}>
-          <button onClick={()=>setShowNewProj(true)} style={S.btn(C.green)}><i className="ti ti-plus" aria-hidden="true"/> 프로젝트</button>
-          <button onClick={()=>uploadRef.current?.click()} style={S.btn(C.amberL,C.amber)}><i className="ti ti-upload" aria-hidden="true"/> 엑셀</button>
-          <button onClick={downloadTemplate} style={{...S.btn("rgba(255,255,255,.12)","#fff"),border:"1px solid rgba(255,255,255,.2)"}}><i className="ti ti-file-download" aria-hidden="true"/> 양식 다운로드</button>
+          <button onClick={()=>setShowNewProj(true)} style={S.btn(C.green)}><i className="ti ti-plus" aria-hidden="true"/> 프로젝트 개설</button>
+          <button onClick={()=>uploadRef.current?.click()} style={S.btn(C.amberL,C.amber)}><i className="ti ti-upload" aria-hidden="true"/> 프로젝트 정보 업로드</button>
+          <button onClick={downloadTemplate} style={{...S.btn("rgba(255,255,255,.12)","#fff"),border:"1px solid rgba(255,255,255,.2)"}}><i className="ti ti-file-download" aria-hidden="true"/> 프로젝트 양식 다운로드</button>
           <input ref={uploadRef} type="file" accept=".xlsx,.xls,.csv" style={{display:"none"}} onChange={handleUpload}/>
           {uploadMsg&&<span style={{fontSize:10,color:uploadMsg.startsWith("✓")?C.green:C.red,background:"rgba(255,255,255,.1)",padding:"3px 7px",borderRadius:6}}>{uploadMsg}</span>}
           {/* 알람 */}
@@ -1375,83 +1375,75 @@ function ProjectsTab({projects,setProjects,selProjId,setSelProjId,selVerIdx,setS
                 ))}
                 {canWrite&&<button onClick={()=>setShowNewVer(true)} style={{...S.btn(C.green),padding:"5px 11px",fontSize:11}}>+ 버전 추가</button>}
               {canWrite&&<label style={{...S.btn(C.amberL,C.amber),padding:"5px 11px",fontSize:11,cursor:"pointer"}}>
-                <i className="ti ti-upload" aria-hidden="true"/> 엑셀 업로드
-                <input type="file" accept=".xlsx,.xls,.csv" style={{display:"none"}} onChange={e=>{
+                <i className="ti ti-upload" aria-hidden="true"/> 실행계획서 업로드
+                <input type="file" accept=".xlsx,.xls" style={{display:"none"}} onChange={e=>{
                   const file=e.target.files?.[0]; if(!file||!selProj) return
                   const reader=new FileReader()
                   reader.onload=ev=>{
-                    try {
+                    try{
                       const wb=XLSX.read(ev.target.result,{type:"array"})
-
-                      // ── 기본정보 시트에서 비용항목 읽기 ──────────────────
-                      // 다운로드 양식 행 구조:
-                      // row0: 프로젝트코드 / 작성일(col4)
-                      // row10: 직접인건비 / 금액(col1)
-                      // row11: 직접경비   / 금액(col1)
-                      // row12: 외주용역비 / 금액(col1)
-                      // row13: 간접비     / 금액(col1)
-                      // row14: 이윤       / 금액(col1)
-                      let laborCostRead=0, directExpRead=0, indirectRead=null, profitRead=null
-                      let verDateRead="", verNameRead="", roundRead=null
-                      const ws1=wb.Sheets["기본정보"]
-                      if(ws1){
-                        const r1=XLSX.utils.sheet_to_json(ws1,{header:1,defval:""})
-                        const parseAmt=v=>{ const n=parseInt(String(v).replace(/[^0-9-]/g,"")); return Number.isFinite(n)?n:0 }
-                        verDateRead = String(r1[0]?.[4]||"").trim()
-                        verNameRead = String(r1[0]?.[1]||"").trim()  // 혹시 버전명 저장했다면
-                        // 행 레이블로 탐색 (위치가 조금 달라도 대응)
-                        r1.forEach(row=>{
-                          const lbl=String(row[0]||"").trim()
-                          if(lbl==="직접인건비") laborCostRead=parseAmt(row[1])
-                          else if(lbl==="직접경비")  directExpRead=parseAmt(row[1])
-                          else if(lbl==="간접비")    indirectRead=parseAmt(row[1])||null
-                          else if(lbl==="이윤")      profitRead=parseAmt(row[1])||null
-                        })
-                      }
-
-                      // ── 협력업체비용 시트 읽기 ──────────────────────────
-                      const ws2=wb.Sheets["협력업체비용"]
-                      if(!ws2){alert("'협력업체비용' 시트가 필요합니다.");return}
-                      const r2=XLSX.utils.sheet_to_json(ws2,{header:1,defval:""})
+                      const wsName=wb.SheetNames.find(n=>n.includes("실행계획서")||n.includes("계획"))||wb.SheetNames[0]
+                      const ws=wb.Sheets[wsName]
+                      const rows=XLSX.utils.sheet_to_json(ws,{header:1,defval:null})
+                      const toN=v=>{if(v==null)return 0;const n=parseFloat(String(v).replace(/[,원\s]/g,""));return Number.isFinite(n)?n:0}
+                      const rLbl=r=>String(r?.[0]||"").trim()
+                      const hasLbl=(r,lbl)=>rLbl(r).replace(/\s/g,"").includes(lbl.replace(/\s/g,""))
+                      let projName="",dept="",pm="",client="",dateStr="",laborCost=0,directExp=0,subContract=0,indirect=null,profit=null
                       const vendors=[]
-                      // r2[0]: 프로젝트코드 / col4: 버전명
-                      const verNameFromSheet=String(r2[0]?.[4]||"").trim()
-                      for(let i=3;i<r2.length;i++){
-                        const row=r2[i]; if(!row[0]&&!row[1]) continue
-                        const cat=String(row[0]||"").trim(), name=String(row[1]||"").trim()
-                        const contract=parseInt(String(row[2]).replace(/[^0-9]/g,""))||0
-                        if(cat&&contract) vendors.push({
-                          cat, name, contract,
-                          nego1:parseInt(String(row[3]).replace(/[^0-9]/g,""))||0,
-                          nego2:parseInt(String(row[4]).replace(/[^0-9]/g,""))||0
-                        })
-                      }
-
-                      // 회차: 기존 최대 + 1 (기본정보 시트에 명시된 경우 우선)
-                      const nextRound2=(selProj.versions.reduce((mx,v)=>Math.max(mx,v.round||0),0)||0)+1
-                      roundRead = roundRead || nextRound2
-                      const verDate = verDateRead || new Date().toISOString().slice(0,10)
-                      const verName = verNameFromSheet || verNameRead || `${roundRead}차 실행계획서`
-                      const subContractTotal = vendors.length>0
-                        ? vendors.reduce((s,v)=>s+v.contract,0)
-                        : laborCostRead>0 ? 0 : 0  // 협력업체 없으면 0
-
-                      const newVer={
-                        ver:verName, round:roundRead, date:verDate, reason:"엑셀 업로드",
-                        laborCost:laborCostRead, directExp:directExpRead,
-                        subContract: vendors.length>0 ? subContractTotal : subContractTotal,
-                        indirect:indirectRead, profit:profitRead,
-                        vendors
-                      }
-                      setProjects(prev=>prev.map(p=>p.id===selProj.id?{...p,versions:[...p.versions,newVer]}:p))
+                      const totalRows=rows.length
+                      rows.forEach((r,ri)=>{
+                        const lbl=rLbl(r),lbl2=lbl.replace(/\s|\(.*\)/g,"")
+                        if(hasLbl(r,"프로젝트명")) projName=String(r[1]||"").replace(/^\[.*?\]\s*/,"").trim()
+                        if(hasLbl(r,"주관부서"))  dept=String(r[1]||"").trim()
+                        if(hasLbl(r,"담당PM")||hasLbl(r,"담당P M")) pm=String(r[6]||r[2]||"").trim()
+                        if(hasLbl(r,"발주처")&&!hasLbl(r,"담당")) client=String(r[1]||"").trim()
+                        if(hasLbl(r,"작성일")){ const dt=String(r[6]||r[1]||"").replace(/작성일\s*:/,"").trim(); if(dt) dateStr=dt }
+                        if(lbl2.includes("예상용역금액")||lbl2.includes("예상용역비")){ const v=parseFloat(String(r[1]||"").replace(/[,원\s(VAT별도)]/g,"")); if(Number.isFinite(v)&&v>0) {} }
+                        if(lbl2==="직접인건비합계"){ let s=0;for(let c=2;c<r.length;c+=2)s+=toN(r[c]);if(s>0)laborCost=s }
+                        if(lbl2==="직접경비합계"){  let s=0;for(let c=2;c<r.length;c+=2)s+=toN(r[c]);if(s>0)directExp=s }
+                        if(lbl2.includes("외주용역비")&&lbl2.includes("합계")&&lbl2.includes("1+2")){ let s=0;for(let c=2;c<r.length;c+=2)s+=toN(r[c]);if(s>0)subContract=s }
+                        if(ri>totalRows*0.65){
+                          if(lbl2==="직접인건비"){ const v=toN(r[2]||r[1]);if(v>0)laborCost=v }
+                          if(lbl2==="직접경비"){  const v=toN(r[2]||r[1]);if(v>0)directExp=v }
+                          if(lbl2==="외주용역비"){ const v=toN(r[2]||r[1]);if(v>0)subContract=v }
+                          if(lbl2.startsWith("간접비")){ const v=toN(r[2]||r[1]);if(v>0)indirect=v }
+                          if(lbl2==="이윤"||lbl2==="이 윤"){ const v=toN(r[2]||r[1]);if(v>0)profit=v }
+                        }
+                      })
+                      let inV=false
+                      rows.forEach(r=>{
+                        const lbl=rLbl(r).replace(/\s/g,"")
+                        if(lbl.includes("부문")&&String(r[1]||"").replace(/\s/g,"").includes("업체")){inV=true;return}
+                        if(inV){
+                          if(lbl.includes("소계")||lbl.includes("합계")||lbl.includes("총괄")||lbl.includes("실행계획")){inV=false;return}
+                          const cat=String(r[0]||"").trim(),name=String(r[1]||"").trim()
+                          if(!cat||!name)return
+                          let total=0;for(let c=2;c<r.length;c+=2)total+=toN(r[c])
+                          if(total>0)vendors.push({cat,name,contract:total,nego1:0,nego2:0})
+                        }
+                      })
+                      const nextR=(selProj.versions.reduce((mx,v)=>Math.max(mx,v.round||0),0)||0)+1
+                      const fnM=file.name.match(/변경?(\d+)차|(\d+)차/)
+                      const roundRead=fnM?parseInt(fnM[1]||fnM[2]):nextR
+                      let verDate=new Date().toISOString().slice(0,10)
+                      if(dateStr){const m=dateStr.match(/(\d{4})[-.](\d{1,2})[-.](\d{1,2})/);if(m)verDate=`${m[1]}-${m[2].padStart(2,"0")}-${m[3].padStart(2,"0")}`}
+                      const newVer={ver:`${roundRead}차 실행계획서`,round:roundRead,date:verDate,reason:"엑셀 업로드",laborCost,directExp,subContract,indirect,profit,vendors}
+                      // 프로젝트 기본정보도 함께 업데이트 (비어있는 필드만)
+                      setProjects(prev=>prev.map(p=>{
+                        if(p.id!==selProj.id) return p
+                        const updated={...p,versions:[...p.versions,newVer]}
+                        if(pm&&!p.pm)       updated.pm=pm
+                        if(client&&!p.client) updated.client=client
+                        if(dept&&!p.director) updated.director=dept
+                        return updated
+                      }))
                       setSelVerIdx(selProj.versions.length)
-
-                      // 업로드 결과 요약
                       const parts=[]
-                      if(laborCostRead) parts.push(`인건비 ${(laborCostRead/1e8).toFixed(2)}억`)
-                      if(directExpRead) parts.push(`직접경비 ${(directExpRead/1e8).toFixed(2)}억`)
+                      if(laborCost)   parts.push(`인건비 ${(laborCost/1e8).toFixed(2)}억`)
+                      if(directExp)   parts.push(`직접경비 ${(directExp/1e8).toFixed(2)}억`)
+                      if(subContract) parts.push(`외주비 ${(subContract/1e8).toFixed(2)}억`)
                       if(vendors.length) parts.push(`협력업체 ${vendors.length}개`)
-                      alert(`✓ 업로드 완료 — ${parts.join(" · ")||"비용 항목 없음"}\n※ 기본정보 시트가 없거나 비용이 0이면 수동 수정이 필요합니다.`)
+                      alert(`✓ 업로드 완료\n${parts.join(" · ")||"금액 없음 — 수동 입력 필요"}\n\n프로젝트명: ${projName||"(없음)"}\n담당PM: ${pm||"(없음)"}\n발주처: ${client||"(없음)"}\n협력업체: ${vendors.length}개`)
                     }catch(err){alert("파싱 오류: "+err.message)}
                     e.target.value=""
                   }

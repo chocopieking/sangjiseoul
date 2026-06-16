@@ -26,21 +26,23 @@ const fDate = iso=>iso?iso.slice(0,10):""
 const fDT   = iso=>{ if(!iso) return "-"; const d=new Date(iso); return `${d.getFullYear()}.${String(d.getMonth()+1).padStart(2,"0")}.${String(d.getDate()).padStart(2,"0")} ${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}` }
 const getWeek = ()=>{ const d=new Date(); const start=new Date(d.getFullYear(),0,1); const w=Math.ceil(((d-start)/86400000+start.getDay()+1)/7); return `${d.getFullYear()}-W${String(w).padStart(2,"0")}` }
 
-// ── 설계 단계 정의 ─────────────────────────────────────────────
-const DESIGN_STAGES = [
+// ── 설계 단계 기본값 (프로젝트별 커스텀 가능) ───────────────────
+export const DEFAULT_DESIGN_STAGES = [
   {id:"contract",  label:"계약시",   color:C.navyM},
   {id:"review",    label:"심의",     color:C.amber},
   {id:"permit",    label:"인허가",   color:C.green},
   {id:"impl",      label:"실시설계", color:"#534AB7"},
   {id:"site",      label:"현장관리", color:C.red},
 ]
+const STAGE_COLORS = [C.navyM, C.amber, C.green, "#534AB7", C.red, "#D85A30", "#7C5295", "#2E86AB"]
 
 // 빈 WeeklyReport 초기값
 export const WEEKLY_REPORT_EMPTY = {
-  scheduleLog:  [],   // [{id,date,content,category,updatedAt,createdAt}]
-  stages:       {},   // {stageId:{startDate,endDate,progress,currentNote,updatedAt}}
-  agendas:      [],   // [{id,week,items:[{text,done,updatedAt}],createdAt,updatedAt}]
-  contacts:     [],   // [{id,org,orgType,name,title,phone,email,note,createdAt,updatedAt}]
+  scheduleLog:  [],
+  stagesDef:    null,  // null이면 DEFAULT_DESIGN_STAGES 사용
+  stages:       {},
+  agendas:      [],
+  contacts:     [],
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -192,12 +194,27 @@ function ScheduleLogSection({wr, save, canWrite, proj}) {
 }
 
 // ══════════════════════════════════════════════════════════════
-// 2) 설계진행현황 (단계별)
+// 2) 설계진행현황 (단계별) — 단계 추가/수정/삭제/순서변경 가능
 // ══════════════════════════════════════════════════════════════
 function StagesSection({wr, save, canWrite, proj}) {
-  const stages = wr.stages || {}
-  const [editStage, setEditStage] = useState(null)
-  const [draft, setDraft]         = useState({})
+  const stagesDef = wr.stagesDef || DEFAULT_DESIGN_STAGES
+  const stages    = wr.stages || {}
+  const [editStage, setEditStage]   = useState(null)
+  const [draft, setDraft]           = useState({})
+  const [editingDef, setEditingDef] = useState(false)
+  const [defDraft, setDefDraft]     = useState(null)
+
+  // 단계정의 편집 시작/저장/취소
+  const startDefEdit = () => { setDefDraft(stagesDef.map(s=>({...s}))); setEditingDef(true) }
+  const saveDefEdit  = () => { save({stagesDef: defDraft}); setEditingDef(false) }
+  const cancelDefEdit= () => setEditingDef(false)
+  const addStage = () => {
+    const idx = defDraft.length
+    setDefDraft(p=>[...p,{id:`stage_${Date.now()}`,label:"새 단계",color:STAGE_COLORS[idx%STAGE_COLORS.length]}])
+  }
+  const removeStage = i => setDefDraft(p=>p.filter((_,ri)=>ri!==i))
+  const moveStage = (i,dir) => setDefDraft(p=>{ const a=[...p]; const j=i+dir; if(j<0||j>=a.length) return a; [a[i],a[j]]=[a[j],a[i]]; return a })
+  const updateStageDef = (i,k,v) => setDefDraft(p=>p.map((s,ri)=>ri===i?{...s,[k]:v}:s))
 
   // 기성/매출 연동: cashflowPlan에서 실적 합산
   const totalServiceFee = proj.serviceFee || 0
@@ -240,9 +257,45 @@ function StagesSection({wr, save, canWrite, proj}) {
         <div style={{fontSize:11,color:C.navyM,marginTop:8}}>※ 누계 입금기성은 "프로젝트 정보 → 연도별 월수금계획" 입금실적 합산값입니다.</div>
       </div>
 
+      {/* 단계정의 관리 버튼 */}
+      {canWrite && !editingDef && (
+        <div style={{display:"flex",gap:8,marginBottom:12,alignItems:"center"}}>
+          <button onClick={startDefEdit} style={{...btn(C.navyL,C.navyM),padding:"6px 14px",fontSize:12}}>⚙ 설계단계 추가·수정·삭제</button>
+          <span style={{fontSize:11,color:C.gray}}>{stagesDef.length}단계 · 클릭해서 단계명 변경, 추가, 삭제</span>
+        </div>
+      )}
+
+      {/* 단계정의 편집 패널 */}
+      {editingDef && defDraft && (
+        <div style={{...card(),border:`1.5px solid ${C.navyM}`,marginBottom:14}}>
+          <div style={{fontSize:14,fontWeight:700,marginBottom:12,color:C.navyM}}>⚙ 설계단계 구성 편집</div>
+          <div style={{display:"flex",flexDirection:"column",gap:8,marginBottom:12}}>
+            {defDraft.map((s,i)=>(
+              <div key={s.id} style={{display:"flex",gap:8,alignItems:"center"}}>
+                <div style={{display:"flex",flexDirection:"column",gap:2}}>
+                  <button onClick={()=>moveStage(i,-1)} disabled={i===0} style={{...btn(C.navyL,C.navyM),padding:"2px 6px",fontSize:10,opacity:i===0?.4:1}}>▲</button>
+                  <button onClick={()=>moveStage(i,1)} disabled={i===defDraft.length-1} style={{...btn(C.navyL,C.navyM),padding:"2px 6px",fontSize:10,opacity:i===defDraft.length-1?.4:1}}>▼</button>
+                </div>
+                <div style={{width:18,height:18,borderRadius:4,background:s.color,flexShrink:0,border:"2px solid rgba(0,0,0,.1)"}}/>
+                <input value={s.label} onChange={e=>updateStageDef(i,"label",e.target.value)}
+                  style={{...inp(140),fontWeight:600}} placeholder="단계명"/>
+                <input type="color" value={s.color} onChange={e=>updateStageDef(i,"color",e.target.value)}
+                  style={{width:36,height:32,padding:2,border:"1px solid #ccc",borderRadius:6,cursor:"pointer"}}/>
+                <button onClick={()=>removeStage(i)} style={{...btn(C.redL,C.red),padding:"4px 10px",fontSize:12}}>삭제</button>
+              </div>
+            ))}
+          </div>
+          <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+            <button onClick={addStage} style={{...btn(C.green),padding:"6px 14px",fontSize:12}}>+ 단계 추가</button>
+            <button onClick={saveDefEdit} style={{...btn(C.navyM),padding:"6px 14px",fontSize:12}}>✓ 저장</button>
+            <button onClick={cancelDefEdit} style={{...btn(C.grayL,C.gray),padding:"6px 14px",fontSize:12}}>취소</button>
+          </div>
+        </div>
+      )}
+
       {/* 단계별 카드 */}
       <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(300px,1fr))",gap:12}}>
-        {DESIGN_STAGES.map(stage=>{
+        {stagesDef.map(stage=>{
           const st = stages[stage.id] || {}
           const prog = st.progress||0
           return (
@@ -364,10 +417,12 @@ function AgendaSection({wr, save, canWrite}) {
         </div>
 
         {canWrite&&(
-          <div style={{display:"flex",gap:8,marginBottom:14}}>
-            <input value={newItem} onChange={e=>setNewItem(e.target.value)} onKeyDown={e=>e.key==="Enter"&&addItem()}
-              placeholder="새 안건 입력 (Enter)" style={{...inp(),flex:1}}/>
-            <button onClick={addItem} style={btn(C.navyM)}>+ 추가</button>
+          <div style={{display:"flex",gap:8,marginBottom:14,alignItems:"flex-end"}}>
+            <textarea value={newItem} onChange={e=>setNewItem(e.target.value)}
+              onKeyDown={e=>{ if(e.key==="Enter"&&(e.ctrlKey||e.metaKey)){e.preventDefault();addItem()} }}
+              placeholder={"새 안건 입력 (Ctrl+Enter로 추가)\n여러 줄로 자유롭게 작성하세요."} rows={3}
+              style={{...inp(),flex:1,resize:"vertical",lineHeight:1.6,minHeight:72}}/>
+            <button onClick={addItem} style={{...btn(C.navyM),padding:"10px 16px",alignSelf:"flex-end"}}>+ 추가</button>
           </div>
         )}
 
@@ -379,13 +434,18 @@ function AgendaSection({wr, save, canWrite}) {
                   <span style={{fontSize:14,fontWeight:700,color:C.navy,flexShrink:0,paddingTop:1}}>{idx+1}.</span>
                   {canWrite&&<input type="checkbox" checked={item.done} onChange={()=>toggleDone(item.id)} style={{marginTop:3,accentColor:C.green,cursor:"pointer",flexShrink:0}}/>}
                   {editAg?.itemId===item.id
-                    ? <div style={{flex:1,display:"flex",gap:7,flexWrap:"wrap"}}>
-                        <input value={editAg.text} onChange={e=>setEditAg(p=>({...p,text:e.target.value}))} style={{...inp(),flex:1}}/>
-                        <button onClick={saveEditItem} style={{...btn(C.green),padding:"4px 10px",fontSize:11}}>저장</button>
-                        <button onClick={()=>setEditAg(null)} style={{...btn(C.grayL,C.gray),padding:"4px 10px",fontSize:11}}>취소</button>
+                    ? <div style={{flex:1,display:"flex",flexDirection:"column",gap:7}}>
+                        <textarea value={editAg.text} onChange={e=>setEditAg(p=>({...p,text:e.target.value}))}
+                          onKeyDown={e=>{ if(e.key==="Enter"&&(e.ctrlKey||e.metaKey)){e.preventDefault();saveEditItem()} }}
+                          rows={3} style={{...inp(),resize:"vertical",whiteSpace:"pre-wrap",lineHeight:1.6}}/>
+                        <div style={{display:"flex",gap:6}}>
+                          <button onClick={saveEditItem} style={{...btn(C.green),padding:"4px 10px",fontSize:11}}>저장</button>
+                          <button onClick={()=>setEditAg(null)} style={{...btn(C.grayL,C.gray),padding:"4px 10px",fontSize:11}}>취소</button>
+                          <span style={{fontSize:10,color:C.gray,alignSelf:"center"}}>Ctrl+Enter로 저장</span>
+                        </div>
                       </div>
                     : <div style={{flex:1}}>
-                        <div style={{fontSize:13.5,fontWeight:500,textDecoration:item.done?"line-through":"none",color:item.done?C.gray:"var(--color-text-primary)"}}>{item.text}</div>
+                        <div style={{fontSize:13.5,fontWeight:500,textDecoration:item.done?"line-through":"none",color:item.done?C.gray:"var(--color-text-primary)",whiteSpace:"pre-wrap",lineHeight:1.7}}>{item.text}</div>
                         <div style={{fontSize:10.5,color:C.gray,marginTop:2}}>
                           등록: {fDT(item.createdAt)}{item.updatedAt!==item.createdAt?` · 수정: ${fDT(item.updatedAt)}`:""}
                         </div>
@@ -418,7 +478,7 @@ function AgendaSection({wr, save, canWrite}) {
                 {ag.items.map((item,idx)=>(
                   <div key={item.id} style={{display:"flex",gap:8,fontSize:13,color:item.done?C.gray:"var(--color-text-primary)",textDecoration:item.done?"line-through":"none"}}>
                     <span style={{color:C.navyM,fontWeight:700,flexShrink:0}}>{idx+1}.</span>
-                    <span>{item.text}</span>
+                    <span style={{whiteSpace:"pre-wrap",lineHeight:1.6}}>{item.text}</span>
                     {item.done&&<span style={{...badge(C.greenL,C.green),fontSize:10,flexShrink:0}}>완료</span>}
                   </div>
                 ))}
