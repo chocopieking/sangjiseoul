@@ -236,7 +236,14 @@ export default function App() {
     if (!USE_DB) return
     dbGetAll().then(all => {
       if (!all) { setDbStatus("error"); setDbReady(true); return }
-      const g = (k, init) => (all[k] !== undefined && all[k] !== null) ? all[k] : lsGet(k, init)
+      const g = (k, init) => {
+        const v = all[k]
+        if (v === undefined || v === null) return lsGet(k, init)
+        // 빈 배열이면 초기값 사용 (DB에 빈값으로 시드된 경우)
+        if (Array.isArray(v) && v.length === 0) return lsGet(k, init)
+        if (typeof v === 'object' && !Array.isArray(v) && Object.keys(v).length === 0) return lsGet(k, init)
+        return v
+      }
       setProjectsRaw(g("sjs_projects", PROJECTS_INIT).map(normalizeProject))
       setPnlDataRaw(g("sjs_pnl", PNL_INIT))
       setYearsRaw(g("sjs_years", YEARS_DB_INIT))
@@ -809,7 +816,7 @@ function AnalysisTab({deptStaff,setDeptStaff,years,setYears,canWrite,cashflow}) 
           </div>
 
           {/* 3개년 추이 */}
-          <Card title="연도별 수주·매출 추이" note={`${years[0].yr}~${years[years.length-1].yr} · VAT별도(수주) / VAT포함(매출)`}>
+          {years.length>0 && <Card title="연도별 수주·매출 추이" note={`${years[0].yr}~${years[years.length-1].yr} · VAT별도(수주) / VAT포함(매출)`}>
             <div style={{display:"flex",gap:6,marginBottom:10,flexWrap:"wrap",alignItems:"center"}}>
               {canWrite&&<button onClick={()=>setShowAddYear(true)} style={{...S.btn(C.green),padding:"5px 11px",fontSize:11}}>+ 연도 추가</button>}
             </div>
@@ -832,7 +839,7 @@ function AnalysisTab({deptStaff,setDeptStaff,years,setYears,canWrite,cashflow}) 
                 <ReferenceLine yAxisId="right" y={0} stroke="none"/>
               </ComposedChart>
             </ResponsiveContainer>
-          </Card>
+          </Card>}
 
           {/* 본부별 손익 요약 테이블 */}
           <Card title="본부별 수주·매출·지출·손익 종합 (5월 누계)">

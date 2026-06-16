@@ -4,8 +4,8 @@
 // ══════════════════════════════════════════════════════════════
 import { createClient } from '@supabase/supabase-js'
 
-const SB_URL = import.meta.env.VITE_SUPABASE_URL  || ''
-const SB_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY || ''
+const SB_URL = (import.meta.env.VITE_SUPABASE_URL  || '').trim()
+const SB_KEY = (import.meta.env.VITE_SUPABASE_ANON_KEY || '').trim()
 const ORG_ID = 'sjs'
 
 export const supabase = SB_URL && SB_KEY
