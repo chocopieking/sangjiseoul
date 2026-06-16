@@ -19,6 +19,7 @@ import { OptimizeTab } from "./Optimize.jsx"
 import { DataHubTab } from "./DataHub.jsx"
 import { VendorsTab } from "./Vendors.jsx"
 import { WeeklyReportTab } from "./WeeklyReport.jsx"
+import { SmartSearch, AIAssistant, AIFloatButton, WeeklyBriefing } from "./AIAssistant.jsx"
 import { DeptContext, useDepts } from "./DeptContext.jsx"
 import {
   hashPw, ALL_USERS, MASTER_PW, ROLE_BADGE,
@@ -423,6 +424,7 @@ export default function App() {
   const [selVerIdx, setSelVerIdx] = useState(0)
   const [cmpIds, setCmpIds]       = useState([])
   const [showNewProj, setShowNewProj] = useState(false)
+  const [showAI, setShowAI]           = useState(false)
   const [showNewVer, setShowNewVer]   = useState(false)
   const [uploadMsg, setUploadMsg]     = useState("")
   const uploadRef = useRef(null)
@@ -658,6 +660,14 @@ export default function App() {
           </div>
         </div>
 
+        {/* 검색 */}
+        <div style={{padding:"10px 12px",borderBottom:"1px solid #F3F4F6"}}>
+          <SmartSearch
+            data={{projects,vendorPayments}}
+            onNavigate={(tab,id)=>{ setTab(tab); if(id&&tab==="projects") setSelProjId(id) }}
+          />
+        </div>
+
         {/* 퀵액션 버튼들 */}
         <div style={{padding:"14px 12px",borderBottom:"1px solid #F3F4F6"}}>
           <button onClick={()=>setShowNewProj(true)} style={{...S.btn(C.navyM),width:"100%",justifyContent:"center",padding:"10px",fontSize:13.5,borderRadius:10,marginBottom:6}}>
@@ -738,6 +748,7 @@ export default function App() {
 
         {/* 바디 */}
         <div style={{padding:"20px 24px",maxWidth:1440}}>
+          {tab==="analysis" && <WeeklyBriefing data={{projects,cashflow:effectiveCashflow,years}}/>}
         {tab==="analysis" && <AnalysisTab deptStaff={deptStaff} setDeptStaff={setDeptStaff} years={years} setYears={setYears} canWrite={canWrite} cashflow={effectiveCashflow}/>}
         {tab==="datahub" && <DataHubTab currentUser={currentUser} deptStaff={deptStaff} setDeptStaff={setDeptStaff} staffTarget={staffTarget} setStaffTarget={setStaffTarget} staffMonthly={staffMonthly} setStaffMonthly={setStaffMonthly} pnlData={pnlData} setPnlData={setPnlData} cashflow={cashflow} setCashflow={setCashflow} years={years} setYears={setYears} projects={projects} setProjects={setProjects} setTab={setTab} setSelProjId={setSelProjId} setSelVerIdx={setSelVerIdx} setShowNewProj={setShowNewProj} versions={versions} saveVersion={saveVersion} restoreVersion={restoreVersion} deleteVersion={deleteVersion} contractTypes={contractTypes} setContractTypes={setContractTypes} projTypes={projTypes} setProjTypes={setProjTypes} bidTypes={bidTypes} setBidTypes={setBidTypes} allData={null} restoreAllData={(entries)=>dbSetAll(entries, userEmail.current)} dbStatus={dbStatus}/>}
         {tab==="cashflow" && <CashflowTab cashflow={effectiveCashflow} setCashflow={setCashflow} currentUser={currentUser} projects={projects} projectCashflowByDept={projectCashflowByDept}/>}
@@ -752,6 +763,15 @@ export default function App() {
       </div>
 
       {showNewProj&&<NewProjModal onClose={()=>setShowNewProj(false)} onSave={p=>{setProjects(prev=>[...prev,normalizeProject({...p,id:`P${Date.now()}`,versions:[]})]);setShowNewProj(false)}}/>}
+
+      {/* AI 어시스턴트 */}
+      <AIFloatButton onClick={()=>setShowAI(v=>!v)} hasNew={false}/>
+      <AIAssistant
+        data={{projects,cashflow:effectiveCashflow,years,vendorPayments}}
+        onNavigate={(tab,id)=>{ setTab(tab); if(id&&tab==="projects") setSelProjId(id); setShowAI(false) }}
+        isOpen={showAI}
+        onClose={()=>setShowAI(false)}
+      />
     </div>
     </DeptContext.Provider>
   )
