@@ -2,6 +2,13 @@
 import { useState, useMemo, useRef, useEffect, useCallback } from "react"
 import * as XLSX from "xlsx"
 import {
+  Document as DocxDocument, Packer, Paragraph as DocxParagraph, TextRun,
+  Table as DocxTable, TableRow as DocxTableRow, TableCell as DocxTableCell,
+  AlignmentType as DocxAlign, BorderStyle, WidthType, ShadingType,
+  VerticalAlign as DocxVAlign, Header as DocxHeader, Footer as DocxFooter,
+  PageNumber
+} from "docx"
+import {
   BarChart, Bar, LineChart, Line, PieChart, Pie, Cell,
   XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid,
   ComposedChart, Area, ReferenceLine, RadarChart, Radar,
@@ -27,11 +34,13 @@ import { isConfigured, dbGet, dbSet, dbGetAll, dbSetAll, subscribeChanges } from
 // ── 색상 팔레트 ───────────────────────────────────────────────
 const num = v => { const n=parseFloat(v); return Number.isFinite(n)?n:0 }
 const C = {
-  navy:"#0C447C",navyM:"#185FA5",navyL:"#E6F1FB",
-  green:"#1D9E75",greenL:"#EAF3DE",
-  amber:"#BA7517",amberL:"#FAEEDA",
-  red:"#A32D2D",  redL:"#FCEBEB",
-  gray:"#888780", grayL:"#F1EFE8",
+  // 발주오라 스타일 — 선명한 블루 포인트, 화이트 배경, 클린 카드
+  navy:"#1A3B6E",   navyM:"#3B72F6",  navyL:"#EEF3FF",   // 메인 블루
+  green:"#0EA86E",  greenL:"#E6F9F2",                     // 성공/완료
+  amber:"#F59E0B",  amberL:"#FEF3C7",                     // 경고
+  red:"#EF4444",    redL:"#FEE2E2",                       // 오류
+  gray:"#6B7280",   grayL:"#F3F4F6",                      // 중립
+  border:"#E5E7EB", bg:"#F8FAFC",                         // 배경
 }
 const LEVEL_STYLE = {
   critical:{bg:C.redL,  fg:C.red,  border:C.red},
@@ -51,15 +60,15 @@ const lbl = (color,dec=2,size=11,suffix="")=>({
 
 // ── 스타일 헬퍼 ───────────────────────────────────────────────
 const S = {
-  card:(x={})=>({background:"var(--color-background-primary,#fff)",border:"0.5px solid var(--color-border-tertiary,#e4e4e0)",borderRadius:12,padding:"15px 17px",marginBottom:13,...x}),
-  kpi:(accent=C.navyM)=>({background:"var(--color-background-primary,#fff)",border:"0.5px solid var(--color-border-tertiary,#e4e4e0)",borderRadius:12,padding:"14px 16px",borderLeft:`4px solid ${accent}`,cursor:"pointer",transition:"box-shadow .15s"}),
-  grid:(c,g=12)=>({display:"grid",gridTemplateColumns:`repeat(${c},1fr)`,gap:g,marginBottom:g}),
-  th:(a="left")=>({padding:"8px 10px",textAlign:a,fontSize:11,fontWeight:500,color:"var(--color-text-secondary,#888)",background:"var(--color-background-secondary,#f8f8f6)",borderBottom:"0.5px solid var(--color-border-tertiary,#eee)",whiteSpace:"nowrap"}),
-  td:(a="right")=>({padding:"8px 10px",borderBottom:"0.5px solid var(--color-border-tertiary,#eee)",textAlign:a,fontSize:13,verticalAlign:"middle"}),
-  btn:(bg=C.navyM,fg="#fff")=>({padding:"7px 13px",background:bg,color:fg,border:"none",borderRadius:8,fontSize:12,fontWeight:500,cursor:"pointer",display:"inline-flex",alignItems:"center",gap:5}),
-  inp:()=>({padding:"7px 9px",border:"1px solid var(--color-border-secondary,#ddd)",borderRadius:7,fontSize:12,width:"100%",boxSizing:"border-box",background:"var(--color-background-primary,#fff)",color:"var(--color-text-primary,#333)",fontFamily:"inherit"}),
-  lbl:()=>({display:"block",fontSize:11,color:C.gray,fontWeight:500,marginBottom:3}),
-  bdg:(bg,fg)=>({display:"inline-flex",alignItems:"center",padding:"2px 8px",borderRadius:8,fontSize:10,fontWeight:500,background:bg,color:fg}),
+  card:(x={})=>({background:"#fff",border:"1px solid #E5E7EB",borderRadius:16,padding:"22px 26px",marginBottom:16,boxShadow:"0 1px 4px rgba(0,0,0,.05)",...x}),
+  kpi:(accent="#3B72F6")=>({background:"#fff",border:"1px solid #E5E7EB",borderRadius:16,padding:"20px 22px",borderLeft:`4px solid ${accent}`,cursor:"pointer",transition:"all .2s",boxShadow:"0 1px 4px rgba(0,0,0,.05)"}),
+  grid:(c,g=14)=>({display:"grid",gridTemplateColumns:`repeat(${c},1fr)`,gap:g,marginBottom:g}),
+  th:(a="left")=>({padding:"12px 16px",textAlign:a,fontSize:13,fontWeight:700,color:"#6B7280",background:"#F8FAFC",borderBottom:"1px solid #E5E7EB",whiteSpace:"nowrap",letterSpacing:"0.02em"}),
+  td:(a="right")=>({padding:"13px 16px",borderBottom:"1px solid #F3F4F6",textAlign:a,fontSize:14.5,verticalAlign:"middle",color:"#111827"}),
+  btn:(bg="#3B72F6",fg="#fff")=>({padding:"10px 18px",background:bg,color:fg,border:"none",borderRadius:10,fontSize:14,fontWeight:700,cursor:"pointer",display:"inline-flex",alignItems:"center",gap:7,transition:"opacity .15s",letterSpacing:"-0.01em"}),
+  inp:(w)=>({padding:"10px 14px",border:"1.5px solid #E5E7EB",borderRadius:10,fontSize:14.5,width:w||"100%",boxSizing:"border-box",background:"#fff",color:"#111827",fontFamily:"inherit",outline:"none",transition:"border-color .15s"}),
+  lbl:()=>({display:"block",fontSize:13,color:"#6B7280",fontWeight:700,marginBottom:5,letterSpacing:"0.01em"}),
+  bdg:(bg,fg)=>({display:"inline-flex",alignItems:"center",padding:"4px 12px",borderRadius:20,fontSize:12.5,fontWeight:700,background:bg,color:fg,letterSpacing:"0.01em"}),
 }
 
 // ════════════════════════════════════════════════════════════
@@ -491,7 +500,115 @@ export default function App() {
     XLSX.writeFile(wb,"상지서울_프로젝트입력양식.xlsx")
   },[])
 
-  // DB 로딩 중 스피너
+  // ── 실행계획서 보고서 Word(.docx) 다운로드 ──────────────────
+  const downloadReport = useCallback((proj)=>{
+    const ver = proj.versions?.[proj.versions.length-1]
+    const vendors = ver?.vendors || []
+    const toPy = m => m>0 ? `${(m/3.3058).toFixed(1)}평` : "-"
+    const fW2 = n => n>0 ? n.toLocaleString()+"원" : "-"
+    const fP2 = (n,t) => t>0 ? (n/t*100).toFixed(2)+"%" : "-"
+    const W2 = 9360
+    const NAVY2="1E3F6E", NAVYL2="D6E4F0", GRAY2="F2F2F2", WHITE2="FFFFFF"
+    const BD = {style:BorderStyle.SINGLE,size:6,color:"999999"}
+    const BDS = {top:BD,bottom:BD,left:BD,right:BD}
+    const mkCell = (text,opts={})=>new DocxTableCell({
+      borders:BDS, verticalAlign:DocxVAlign.CENTER,
+      margins:{top:80,bottom:80,left:120,right:120},
+      shading:opts.shade?{fill:opts.shade,type:ShadingType.CLEAR}:undefined,
+      width:opts.w?{size:opts.w,type:WidthType.DXA}:undefined,
+      rowSpan:opts.rs, columnSpan:opts.cs,
+      children:[new DocxParagraph({
+        alignment:opts.align||DocxAlign.CENTER,
+        children:[new TextRun({text:String(text??"-"),font:"맑은 고딕",size:opts.sz||18,bold:!!opts.bold,color:opts.color||"000000"})]
+      })]
+    })
+    const hC=(t,o={})=>mkCell(t,{shade:NAVY2,color:WHITE2,bold:true,...o})
+    const gC=(t,o={})=>mkCell(t,{shade:GRAY2,bold:true,...o})
+    const sC=(t,o={})=>mkCell(t,{shade:NAVYL2,bold:true,...o})
+    const p2=(t,o={})=>new DocxParagraph({
+      spacing:{before:o.before||0,after:o.after||120},
+      alignment:o.align||DocxAlign.LEFT,
+      children:[new TextRun({text:String(t||""),font:"맑은 고딕",size:o.sz||19,bold:!!o.bold,color:o.color||"000000"})]
+    })
+    const g1 = vendors.filter(v=>v.cat&&["구조","토목","기계","전기","견적","조경","CG","건축외주","친환경","설계"].some(k=>v.cat.includes(k)))
+    const g2 = vendors.filter(v=>!g1.includes(v))
+    const g1t = g1.reduce((s,v)=>s+(v.nego2||v.nego1||v.contract||0),0)
+    const g2t = g2.reduce((s,v)=>s+(v.nego2||v.nego1||v.contract||0),0)
+    const tot = g1t+g2t
+    const sf  = proj.serviceFee||0
+    const round = ver?.round || proj.versions?.length || 1
+    const children2 = [
+      new DocxParagraph({alignment:DocxAlign.CENTER,spacing:{before:240,after:120},children:[new TextRun({text:"실 행 계 획 서 보 고",font:"맑은 고딕",size:36,bold:true,color:NAVY2})]}),
+      new DocxParagraph({alignment:DocxAlign.CENTER,spacing:{before:0,after:360},children:[new TextRun({text:`(${round}차 변경)`,font:"맑은 고딕",size:21,color:"555555"})]}),
+      p2("■ 기본정보",{bold:true,sz:21,color:NAVY2,before:120,after:60}),
+      new DocxTable({width:{size:W2,type:WidthType.DXA},columnWidths:[2200,7160],rows:[
+        new DocxTableRow({children:[gC("프로젝트명",{w:2200}),mkCell(proj.name,{w:7160,align:DocxAlign.LEFT})]}),
+        new DocxTableRow({children:[gC("담당PM",{w:2200}),mkCell(proj.pm||"-",{w:7160})]}),
+        new DocxTableRow({children:[gC("발주처",{w:2200}),mkCell(proj.client||"-",{w:7160,align:DocxAlign.LEFT})]}),
+        new DocxTableRow({children:[gC("대지위치",{w:2200}),mkCell(proj.address||"-",{w:7160,align:DocxAlign.LEFT})]}),
+      ]}),
+      p2(""),
+      p2("1. 과업내용",{bold:true,sz:21,color:NAVY2,before:200,after:60}),
+      p2("(단위 : 원 / VAT별도)",{sz:16,color:"666666",align:DocxAlign.RIGHT}),
+      new DocxTable({width:{size:W2,type:WidthType.DXA},columnWidths:[2200,5460,1700],rows:[
+        new DocxTableRow({children:[hC("구 분",{w:2200}),hC("내 용",{w:5460}),hC("비고",{w:1700})]}),
+        new DocxTableRow({children:[gC("용역금액",{w:2200}),mkCell(`₩${sf.toLocaleString()}원 (VAT별도)`,{w:5460,align:DocxAlign.LEFT}),mkCell("",{w:1700})]}),
+        new DocxTableRow({children:[gC("실행금액",{w:2200}),mkCell(`₩${sf.toLocaleString()}원 (VAT별도)`,{w:5460,align:DocxAlign.LEFT}),mkCell("",{w:1700})]}),
+        new DocxTableRow({children:[gC("대지면적",{w:2200}),mkCell(`${(proj.siteArea||0).toLocaleString()}㎡  (${toPy(proj.siteArea||0)})`,{w:5460}),mkCell("",{w:1700})]}),
+        new DocxTableRow({children:[gC("연면적",{w:2200}),mkCell(`${(proj.floorArea||0).toLocaleString()}㎡  (${toPy(proj.floorArea||0)})`,{w:5460}),mkCell("",{w:1700})]}),
+        new DocxTableRow({children:[gC("규모 및 용도",{w:2200}),mkCell(`${proj.scale||"-"} / ${proj.usage||"-"}`,{w:5460}),mkCell("",{w:1700})]}),
+      ]}),
+      p2(""),
+      p2("2. 계약금 대비 협력업체 외주금액 및 비율",{bold:true,sz:21,color:NAVY2,before:200,after:60}),
+      new DocxTable({width:{size:W2,type:WidthType.DXA},columnWidths:[2500,4260,1600,960],rows:[
+        new DocxTableRow({children:[hC("구 분",{w:2500}),hC("금 액",{w:4260}),hC("비 율",{w:1600}),hC("비 고",{w:960})]}),
+        new DocxTableRow({children:[gC(`외주비 (변경전)`,{w:2500}),mkCell(fW2(tot),{w:4260}),mkCell(fP2(tot,sf),{w:1600}),mkCell("",{w:960})]}),
+        new DocxTableRow({children:[gC(`외주비 (${round}차변경)`,{w:2500}),mkCell(fW2(tot),{w:4260}),mkCell(fP2(tot,sf),{w:1600}),mkCell("",{w:960})]}),
+      ]}),
+      new DocxParagraph({children:[],pageBreakBefore:true}),
+      p2("【첨부 1】 협력업체 선정 및 용역비 현황",{bold:true,sz:22,color:NAVY2,before:0,after:80}),
+      p2("(단위 : 원 / VAT별도)",{sz:16,color:"666666",align:DocxAlign.RIGHT}),
+      new DocxTable({width:{size:W2,type:WidthType.DXA},columnWidths:[480,1500,2580,1500,600,1600,600,500],rows:[
+        new DocxTableRow({children:[hC("구분",{w:480}),hC("분야",{w:1500}),hC("업체명",{w:2580}),hC("변경전 금액",{w:1500}),hC("비율",{w:600}),hC(`${round}차변경 금액`,{w:1600}),hC("비율",{w:600}),hC("비고",{w:500})]}),
+        ...g1.map((v,i)=>new DocxTableRow({children:[
+          ...(i===0?[sC("외\n주\n비\n1",{w:480,rs:g1.length+1})]:[]),
+          mkCell(v.cat,{w:1500}),mkCell(v.name,{w:2580,align:DocxAlign.LEFT}),
+          mkCell(v.contract>0?v.contract.toLocaleString():"-",{w:1500}),mkCell(fP2(v.contract,sf),{w:600}),
+          mkCell((v.nego2||v.nego1||v.contract||0).toLocaleString(),{w:1600}),mkCell(fP2(v.nego2||v.nego1||v.contract||0,sf),{w:600}),
+          mkCell(v.nego2||v.nego1?v.nego2?"2차NEGO":"1차NEGO":"",{w:500}),
+        ]})),
+        new DocxTableRow({children:[gC("외주비 1 소계",{w:1500+2580,cs:2}),gC(fW2(g1t),{w:1500}),gC(fP2(g1t,sf),{w:600}),gC(fW2(g1t),{w:1600}),gC(fP2(g1t,sf),{w:600}),mkCell("",{w:500})]}),
+        ...g2.map((v,i)=>new DocxTableRow({children:[
+          ...(i===0?[sC("외\n주\n비\n2",{w:480,rs:g2.length+1})]:[]),
+          mkCell(v.cat,{w:1500}),mkCell(v.name,{w:2580,align:DocxAlign.LEFT}),
+          mkCell(v.contract>0?v.contract.toLocaleString():"-",{w:1500}),mkCell(fP2(v.contract,sf),{w:600}),
+          mkCell((v.nego2||v.nego1||v.contract||0).toLocaleString(),{w:1600}),mkCell(fP2(v.nego2||v.nego1||v.contract||0,sf),{w:600}),
+          mkCell(v.nego2||v.nego1?v.nego2?"2차NEGO":"1차NEGO":"",{w:500}),
+        ]})),
+        ...(g2.length>0?[new DocxTableRow({children:[gC("외주비 2 소계",{w:1500+2580,cs:2}),gC(fW2(g2t),{w:1500}),gC(fP2(g2t,sf),{w:600}),gC(fW2(g2t),{w:1600}),gC(fP2(g2t,sf),{w:600}),mkCell("",{w:500})]})]:[]),
+        new DocxTableRow({children:[hC("외주비 합계",{w:480+1500+2580,cs:3}),hC(fW2(tot),{w:1500}),hC(fP2(tot,sf),{w:600}),hC(fW2(tot),{w:1600}),hC(fP2(tot,sf),{w:600}),hC("",{w:500})]}),
+      ]}),
+      p2(""),
+      new DocxParagraph({alignment:DocxAlign.RIGHT,spacing:{before:360,after:0},children:[new TextRun({text:"(주)상지서울건축사사무소  대표이사",font:"맑은 고딕",size:19})]}),
+    ]
+    const doc2 = new DocxDocument({
+      styles:{default:{document:{run:{font:"맑은 고딕",size:19}}}},
+      sections:[{
+        properties:{page:{size:{width:11906,height:16838},margin:{top:1134,right:1134,bottom:1134,left:1134}}},
+        headers:{default:new DocxHeader({children:[new DocxParagraph({alignment:DocxAlign.RIGHT,border:{bottom:{style:BorderStyle.SINGLE,size:4,color:"BBBBBB",space:1}},spacing:{after:80},children:[new TextRun({text:"상지서울건축사사무소  실행계획서 보고",font:"맑은 고딕",size:15,color:"888888"})]})]}),},
+        footers:{default:new DocxFooter({children:[new DocxParagraph({alignment:DocxAlign.CENTER,border:{top:{style:BorderStyle.SINGLE,size:4,color:"BBBBBB",space:1}},children:[new TextRun({text:"- ",font:"맑은 고딕",size:15,color:"888888"}),new TextRun({children:[PageNumber.CURRENT],font:"맑은 고딕",size:15,color:"888888"}),new TextRun({text:" -",font:"맑은 고딕",size:15,color:"888888"})]})]}),},
+        children:children2,
+      }]
+    })
+    Packer.toBlob(doc2).then(blob=>{
+      const url=URL.createObjectURL(blob)
+      const a=document.createElement("a"); a.href=url
+      a.download=`실행계획서_보고서_${proj.code||proj.name}_${round}차.docx`
+      a.click(); URL.revokeObjectURL(url)
+    })
+  },[])
+
+
   if (!initDone || !dbReady) return (
     <div style={{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:"var(--color-background-tertiary,#f5f5f3)"}}>
       <div style={{textAlign:"center"}}>
@@ -523,59 +640,104 @@ export default function App() {
 
   return (
     <DeptContext.Provider value={deptCtx}>
-    <div style={{fontFamily:"var(--font-sans,'Apple SD Gothic Neo',sans-serif)",fontSize:13,color:"var(--color-text-primary,#222)",background:"var(--color-background-tertiary,#f5f5f3)",minHeight:"100vh"}}>
+    <div style={{fontFamily:"'Apple SD Gothic Neo','Pretendard','Noto Sans KR',sans-serif",fontSize:15,color:"#111827",background:"#F8FAFC",minHeight:"100vh"}}>
 
-      {/* 헤더 */}
-      <div style={{background:C.navy,padding:"11px 18px",display:"flex",alignItems:"center",justifyContent:"space-between",flexWrap:"wrap",gap:8}}>
-        <div style={{display:"flex",alignItems:"center",gap:10}}>
-          <div style={{width:34,height:34,background:C.navyM,borderRadius:8,display:"flex",alignItems:"center",justifyContent:"center",fontSize:16}}>📐</div>
-          <div>
-            <div style={{fontSize:15,fontWeight:500,color:"#fff"}}>상지서울건축사사무소 — 통합경영시스템</div>
-            <div style={{fontSize:11,color:"#85B7EB"}}>기준 2026-06-09 · 5월 누계 · 억원(수주:VAT별도 / 매출·지출:VAT포함)</div>
-          </div>
-        </div>
-        <div style={{display:"flex",gap:6,alignItems:"center",flexWrap:"wrap"}}>
-          <button onClick={()=>setShowNewProj(true)} style={S.btn(C.green)}><i className="ti ti-plus" aria-hidden="true"/> 프로젝트 개설</button>
-          <button onClick={()=>uploadRef.current?.click()} style={S.btn(C.amberL,C.amber)}><i className="ti ti-upload" aria-hidden="true"/> 프로젝트 정보 업로드</button>
-          <button onClick={downloadTemplate} style={{...S.btn("rgba(255,255,255,.12)","#fff"),border:"1px solid rgba(255,255,255,.2)"}}><i className="ti ti-file-download" aria-hidden="true"/> 프로젝트 양식 다운로드</button>
-          <input ref={uploadRef} type="file" accept=".xlsx,.xls,.csv" style={{display:"none"}} onChange={handleUpload}/>
-          {uploadMsg&&<span style={{fontSize:10,color:uploadMsg.startsWith("✓")?C.green:C.red,background:"rgba(255,255,255,.1)",padding:"3px 7px",borderRadius:6}}>{uploadMsg}</span>}
-          {/* 알람 */}
-          <div style={{position:"relative"}}>
-            <button onClick={()=>setShowAlerts(o=>!o)} style={{...S.btn("rgba(255,255,255,.12)","#fff"),border:"1px solid rgba(255,255,255,.2)",position:"relative"}}>
-              <i className="ti ti-bell" aria-label="알람" style={{fontSize:15}}/>
-              {unread>0&&<span style={{position:"absolute",top:-4,right:-4,width:16,height:16,background:C.red,borderRadius:"50%",fontSize:9,fontWeight:600,color:"#fff",display:"flex",alignItems:"center",justifyContent:"center"}}>{unread}</span>}
-            </button>
-            {showAlerts&&<AlertPanel {...{alerts,readAlert,readAll,setTab,setShowAlerts}}/>}
-          </div>
-          {/* 사용자 */}
-          <div style={{display:"flex",alignItems:"center",gap:7}}>
-            {/* DB 연결 상태 */}
-            <div title={dbStatus==="ok"?"DB 연결됨":dbStatus==="error"?"DB 연결 실패 (로컬 저장 중)":dbStatus==="local"?"로컬 저장 모드":"연결 중…"}
-              style={{fontSize:10,padding:"2px 7px",borderRadius:8,fontWeight:700,
-                background:dbStatus==="ok"?"rgba(29,158,117,.25)":dbStatus==="error"?"rgba(163,45,45,.25)":"rgba(255,255,255,.1)",
-                color:dbStatus==="ok"?"#6EE4C0":dbStatus==="error"?"#FF9999":"#85B7EB",
-                border:`1px solid ${dbStatus==="ok"?"rgba(29,158,117,.4)":dbStatus==="error"?"rgba(163,45,45,.4)":"rgba(255,255,255,.2)"}`,
-                cursor:"default",userSelect:"none"
-              }}>
-              {dbStatus==="ok"?"● DB":dbStatus==="error"?"✕ DB 오류":dbStatus==="local"?"○ 로컬":"◌ 연결 중"}
+      {/* ── 사이드바 레이아웃 ── */}
+      <div style={{display:"flex",minHeight:"100vh"}}>
+
+      {/* ── 사이드바 ── */}
+      <div style={{width:220,flexShrink:0,background:"#fff",borderRight:"1px solid #E5E7EB",display:"flex",flexDirection:"column",position:"fixed",top:0,left:0,bottom:0,zIndex:100}}>
+        {/* 로고 */}
+        <div onClick={()=>setTab("analysis")} style={{padding:"22px 20px 18px",cursor:"pointer",borderBottom:"1px solid #F3F4F6"}}>
+          <div style={{display:"flex",alignItems:"center",gap:10}}>
+            <div style={{width:38,height:38,background:"linear-gradient(135deg,#3B72F6,#1A3B6E)",borderRadius:10,display:"flex",alignItems:"center",justifyContent:"center",fontSize:18}}>📐</div>
+            <div>
+              <div style={{fontSize:13.5,fontWeight:800,color:"#111827",letterSpacing:"-0.03em",lineHeight:1.2}}>상지서울</div>
+              <div style={{fontSize:11,color:"#6B7280",fontWeight:500,lineHeight:1.2}}>통합경영시스템</div>
             </div>
-            <div style={{width:28,height:28,borderRadius:"50%",background:"#378ADD",display:"flex",alignItems:"center",justifyContent:"center",fontSize:10,fontWeight:500,color:"#fff"}}>{currentUser.avatar}</div>
-            <div><div style={{fontSize:11,color:"#fff",fontWeight:500}}>{currentUser.name}</div><div style={{fontSize:10,color:"#85B7EB"}}>{ROLE_BADGE[currentUser.role]?.label}</div></div>
-            <button onClick={doLogout} style={{...S.btn("rgba(255,255,255,.1)","#85B7EB"),padding:"4px 9px",fontSize:10,border:"1px solid rgba(255,255,255,.15)"}}>로그아웃</button>
           </div>
+        </div>
+
+        {/* 퀵액션 버튼들 */}
+        <div style={{padding:"14px 12px",borderBottom:"1px solid #F3F4F6"}}>
+          <button onClick={()=>setShowNewProj(true)} style={{...S.btn(C.navyM),width:"100%",justifyContent:"center",padding:"10px",fontSize:13.5,borderRadius:10,marginBottom:6}}>
+            <i className="ti ti-plus" aria-hidden="true"/> 프로젝트 개설
+          </button>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:5}}>
+            <button onClick={()=>uploadRef.current?.click()} style={{...S.btn(C.grayL,"#374151"),padding:"7px 6px",fontSize:12,borderRadius:8,justifyContent:"center"}}>
+              <i className="ti ti-upload" style={{fontSize:12}}/> 업로드
+            </button>
+            <button onClick={downloadTemplate} style={{...S.btn(C.grayL,"#374151"),padding:"7px 6px",fontSize:12,borderRadius:8,justifyContent:"center"}}>
+              <i className="ti ti-file-download" style={{fontSize:12}}/> 양식
+            </button>
+          </div>
+          <input ref={uploadRef} type="file" accept=".xlsx,.xls,.csv" style={{display:"none"}} onChange={handleUpload}/>
+          {uploadMsg&&<div style={{marginTop:6,fontSize:11.5,color:uploadMsg.startsWith("✓")?"#0EA86E":C.red,padding:"5px 8px",background:uploadMsg.startsWith("✓")?"#E6F9F2":"#FEE2E2",borderRadius:7}}>{uploadMsg}</div>}
+        </div>
+
+        {/* 네비게이션 */}
+        <nav style={{flex:1,padding:"10px 10px",overflowY:"auto"}}>
+          {TABS.filter(t=>t.id!=="auth_mgmt"||currentUser.role==="admin").map(t=>{
+            const active = tab===t.id
+            const isHot = t.id==="datahub"
+            return (
+              <button key={t.id} onClick={()=>setTab(t.id)} style={{
+                width:"100%",textAlign:"left",padding:"10px 14px",border:"none",borderRadius:10,
+                marginBottom:2,cursor:"pointer",fontSize:14,fontWeight:active?700:500,
+                background:active?"#EEF3FF":"transparent",
+                color:active?C.navyM:isHot?C.amber:"#374151",
+                display:"flex",alignItems:"center",gap:8,transition:"all .15s"
+              }}>
+                {t.label}
+                {isHot&&!active&&<span style={{marginLeft:"auto",fontSize:10,background:C.amberL,color:C.amber,padding:"1px 6px",borderRadius:10,fontWeight:700}}>HOT</span>}
+              </button>
+            )
+          })}
+        </nav>
+
+        {/* 하단 사용자 영역 */}
+        <div style={{padding:"14px 12px",borderTop:"1px solid #F3F4F6"}}>
+          {/* DB 상태 */}
+          <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:10,padding:"6px 10px",background:"#F8FAFC",borderRadius:8,border:"1px solid #E5E7EB"}}>
+            <div style={{width:7,height:7,borderRadius:"50%",background:dbStatus==="ok"?"#0EA86E":dbStatus==="error"?"#EF4444":"#F59E0B",flexShrink:0}}/>
+            <span style={{fontSize:12,color:"#6B7280",fontWeight:600}}>
+              {dbStatus==="ok"?"DB 연결됨":dbStatus==="error"?"DB 오류":dbStatus==="local"?"로컬 저장":"연결 중…"}
+            </span>
+          </div>
+          <div style={{display:"flex",alignItems:"center",gap:8}}>
+            <div style={{width:34,height:34,borderRadius:"50%",background:"linear-gradient(135deg,#3B72F6,#1A3B6E)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:13,fontWeight:700,color:"#fff",flexShrink:0}}>
+              {currentUser.avatar}
+            </div>
+            <div style={{flex:1,minWidth:0}}>
+              <div style={{fontSize:13,color:"#111827",fontWeight:700,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{currentUser.name}</div>
+              <div style={{fontSize:11,color:"#6B7280"}}>{ROLE_BADGE[currentUser.role]?.label}</div>
+            </div>
+          </div>
+          <div style={{display:"flex",gap:6,marginTop:10}}>
+            <button onClick={()=>setShowAlerts(o=>!o)} style={{...S.btn(C.grayL,"#374151"),flex:1,justifyContent:"center",padding:"7px",position:"relative",borderRadius:8}}>
+              <i className="ti ti-bell" aria-label="알람" style={{fontSize:15}}/>
+              {unread>0&&<span style={{position:"absolute",top:2,right:8,minWidth:16,height:16,background:C.red,borderRadius:8,fontSize:10,fontWeight:700,color:"#fff",display:"flex",alignItems:"center",justifyContent:"center",padding:"0 3px"}}>{unread}</span>}
+            </button>
+            <button onClick={doLogout} style={{...S.btn(C.grayL,"#374151"),flex:1,justifyContent:"center",padding:"7px",borderRadius:8,fontSize:12}}>로그아웃</button>
+          </div>
+          {showAlerts&&<AlertPanel {...{alerts,readAlert,readAll,setTab,setShowAlerts}}/>}
         </div>
       </div>
 
-      {/* 탭 바 */}
-      <div style={{background:"var(--color-background-primary,#fff)",borderBottom:"0.5px solid var(--color-border-tertiary,#e0e0e0)",display:"flex",overflowX:"auto",padding:"0 15px"}}>
-        {TABS.filter(t=>t.id!=="auth_mgmt"||currentUser.role==="admin").map(t=>(
-          <button key={t.id} onClick={()=>setTab(t.id)} style={{padding:"10px 15px",border:"none",background:"none",fontSize:13,fontWeight:tab===t.id?500:(t.id==="datahub"?700:400),cursor:"pointer",whiteSpace:"nowrap",color:tab===t.id?C.navyM:(t.id==="datahub"?C.amber:"var(--color-text-secondary,#888)"),borderBottom:tab===t.id?`2px solid ${C.navyM}`:"2px solid transparent"}}>{t.label}</button>
-        ))}
-      </div>
+      {/* ── 메인 콘텐츠 ── */}
+      <div style={{marginLeft:220,flex:1,minWidth:0}}>
+        {/* 탑바 */}
+        <div style={{background:"#fff",borderBottom:"1px solid #E5E7EB",padding:"14px 24px",display:"flex",alignItems:"center",justifyContent:"space-between",position:"sticky",top:0,zIndex:90}}>
+          <div>
+            <div style={{fontSize:20,fontWeight:800,color:"#111827",letterSpacing:"-0.03em"}}>
+              {TABS.find(t=>t.id===tab)?.label || "대시보드"}
+            </div>
+            <div style={{fontSize:12,color:"#6B7280",marginTop:1}}>기준 2026-06-09 · 5월 누계 · 억원(수주:VAT별도 / 매출·지출:VAT포함)</div>
+          </div>
+        </div>
 
-      {/* 바디 */}
-      <div style={{padding:"15px 18px",maxWidth:1440,margin:"0 auto"}}>
+        {/* 바디 */}
+        <div style={{padding:"20px 24px",maxWidth:1440}}>
         {tab==="analysis" && <AnalysisTab deptStaff={deptStaff} setDeptStaff={setDeptStaff} years={years} setYears={setYears} canWrite={canWrite} cashflow={effectiveCashflow}/>}
         {tab==="datahub" && <DataHubTab currentUser={currentUser} deptStaff={deptStaff} setDeptStaff={setDeptStaff} staffTarget={staffTarget} setStaffTarget={setStaffTarget} staffMonthly={staffMonthly} setStaffMonthly={setStaffMonthly} pnlData={pnlData} setPnlData={setPnlData} cashflow={cashflow} setCashflow={setCashflow} years={years} setYears={setYears} projects={projects} setProjects={setProjects} setTab={setTab} setSelProjId={setSelProjId} setSelVerIdx={setSelVerIdx} setShowNewProj={setShowNewProj} versions={versions} saveVersion={saveVersion} restoreVersion={restoreVersion} deleteVersion={deleteVersion} contractTypes={contractTypes} setContractTypes={setContractTypes} projTypes={projTypes} setProjTypes={setProjTypes} bidTypes={bidTypes} setBidTypes={setBidTypes} allData={null} restoreAllData={(entries)=>dbSetAll(entries, userEmail.current)} dbStatus={dbStatus}/>}
         {tab==="cashflow" && <CashflowTab cashflow={effectiveCashflow} setCashflow={setCashflow} currentUser={currentUser} projects={projects} projectCashflowByDept={projectCashflowByDept}/>}
@@ -585,6 +747,8 @@ export default function App() {
         {tab==="optimize" && <OptimizeTab projects={projects} deptStaff={deptStaff} pnlData={pnlData}/>}
         {tab==="archive"   && <ArchiveTab currentUser={currentUser} projects={projects}/>}
         {tab==="auth_mgmt"&& currentUser.role==="admin" && <AuthTab users={users} saveUsers={saveUsers} currentUser={currentUser} hashPw={hashPw}/>}
+        </div>
+      </div>
       </div>
 
       {showNewProj&&<NewProjModal onClose={()=>setShowNewProj(false)} onSave={p=>{setProjects(prev=>[...prev,normalizeProject({...p,id:`P${Date.now()}`,versions:[]})]);setShowNewProj(false)}}/>}
@@ -1278,7 +1442,8 @@ function ProjectsTab({projects,setProjects,selProjId,setSelProjId,selVerIdx,setS
                             ["","합계",ver.vendors.reduce((s,v)=>s+v.contract,0)]
                           ]),"협력업체비용")
                           XLSX.writeFile(wb,`실행계획서_${p.code}_${ver.ver}.xlsx`)
-                        }} style={{...S.btn(C.navyL,C.navyM),padding:"3px 8px",fontSize:10}}>↓xlsx</button>
+                        }} style={{...S.btn(C.navyL,C.navyM),padding:"5px 11px",fontSize:12}}>↓ Excel</button>
+                        <button onClick={()=>downloadReport({...p,versions:[ver]})} style={{...S.btn(C.amberL,C.amber),padding:"5px 11px",fontSize:12}}>↓ Word</button>
                       </td>
                     </tr>
                   })}
@@ -1322,7 +1487,10 @@ function ProjectsTab({projects,setProjects,selProjId,setSelProjId,selVerIdx,setS
 
               {detailTab==="info" && <>
               {/* 기본정보 카드 */}
-              <Card title={`📐 ${selProj.name}`} note={selProj.code} actions={canWrite&&<button onClick={()=>setEditProj(true)} style={{...S.btn(C.navyL,C.navyM),padding:"5px 11px",fontSize:11}}><i className="ti ti-edit" aria-hidden="true"/> 정보 수정</button>}>
+              <Card title={`📐 ${selProj.name}`} note={selProj.code} actions={<div style={{display:"flex",gap:6}}>
+                <button onClick={()=>downloadReport(selProj)} style={{...S.btn(C.navyL,C.navyM),padding:"5px 11px",fontSize:11}}><i className="ti ti-file-word" aria-hidden="true"/> 보고서 다운로드</button>
+                {canWrite&&<button onClick={()=>setEditProj(true)} style={{...S.btn(C.navyL,C.navyM),padding:"5px 11px",fontSize:11}}><i className="ti ti-edit" aria-hidden="true"/> 정보 수정</button>}
+              </div>}>
                 {/* 계약·수주 배너 */}
                 <div style={{display:"flex",gap:8,marginBottom:14,flexWrap:"wrap"}}>
                   {[
@@ -1381,18 +1549,15 @@ function ProjectsTab({projects,setProjects,selProjId,setSelProjId,selVerIdx,setS
               <ProjectCashflowCard proj={selProj} setProjects={setProjects} canWrite={canWrite}/>
 
               {/* 버전 선택 */}
-              <div style={{display:"flex",gap:5,marginBottom:12,flexWrap:"wrap",alignItems:"center"}}>
-                <span style={{fontSize:11,color:C.gray}}>버전:</span>
-                {selProj.versions.map((v,i)=>(
-                  <button key={i} onClick={()=>setSelVerIdx(i)} style={{...S.btn(i===selVerIdx?C.navyM:C.navyL,i===selVerIdx?"#fff":C.navy),padding:"5px 11px",fontSize:11}}>
-                    {v.round&&<span style={{background:i===selVerIdx?"rgba(255,255,255,.25)":"rgba(24,95,165,.15)",borderRadius:5,padding:"1px 5px",marginRight:4,fontSize:10,fontWeight:700}}>{v.round}차</span>}{v.ver} <span style={{fontSize:9,opacity:.7}}>({v.date})</span>
-                  </button>
-                ))}
-                {canWrite&&<button onClick={()=>setShowNewVer(true)} style={{...S.btn(C.green),padding:"5px 11px",fontSize:11}}>+ 버전 추가</button>}
-              {canWrite&&<label style={{...S.btn(C.amberL,C.amber),padding:"5px 11px",fontSize:11,cursor:"pointer"}}>
-                <i className="ti ti-upload" aria-hidden="true"/> 실행계획서 업로드
-                <input type="file" accept=".xlsx,.xls" style={{display:"none"}} onChange={e=>{
-                  const file=e.target.files?.[0]; if(!file||!selProj) return
+              <div style={{background:"#fff",borderRadius:14,border:"1px solid #E5E7EB",padding:"16px 20px",marginBottom:16,boxShadow:"0 1px 4px rgba(0,0,0,.05)"}}>
+                <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:12,flexWrap:"wrap",gap:8}}>
+                  <div style={{fontSize:15,fontWeight:700,color:"#111827"}}>📋 실행계획서 회차</div>
+                  <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+                    {canWrite&&<button onClick={()=>setShowNewVer(true)} style={{...S.btn(C.navyM),padding:"7px 14px",fontSize:13}}>+ 회차 추가</button>}
+                    {canWrite&&<label style={{...S.btn(C.amberL,C.amber),padding:"7px 14px",fontSize:13,cursor:"pointer"}}>
+                      <i className="ti ti-upload" aria-hidden="true"/> 엑셀 업로드
+                      <input type="file" accept=".xlsx,.xls" style={{display:"none"}} onChange={e=>{
+                        const file=e.target.files?.[0]; if(!file||!selProj) return
                   const reader=new FileReader()
                   reader.onload=ev=>{
                     try{
@@ -1465,6 +1630,36 @@ function ProjectsTab({projects,setProjects,selProjId,setSelProjId,selVerIdx,setS
                   reader.readAsArrayBuffer(file)
                 }}/>
               </label>}
+                </div>
+                </div>
+
+                {/* 회차 카드 목록 */}
+                <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+                  {selProj.versions.length===0
+                    ? <div style={{width:"100%",padding:"20px",textAlign:"center",color:"#6B7280",fontSize:14,background:"#F8FAFC",borderRadius:10}}>아직 등록된 실행계획서가 없습니다.</div>
+                    : selProj.versions.map((v,i)=>{
+                        const active = i===selVerIdx
+                        const [editRound, setEditRound] = [null, ()=>{}]  // placeholder — real edit below
+                        return (
+                          <div key={i} onClick={()=>setSelVerIdx(i)} style={{
+                            padding:"12px 16px",borderRadius:12,cursor:"pointer",minWidth:160,
+                            border:`2px solid ${active?C.navyM:"#E5E7EB"}`,
+                            background:active?"#EEF3FF":"#fff",
+                            boxShadow:active?"0 2px 8px rgba(59,114,246,.15)":"0 1px 3px rgba(0,0,0,.04)",
+                            transition:"all .15s",position:"relative"
+                          }}>
+                            <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:4}}>
+                              <span style={{fontSize:20,fontWeight:800,color:active?C.navyM:"#374151"}}>{v.round||i+1}차</span>
+                              {canWrite&&<button onClick={e=>{e.stopPropagation();const nr=window.prompt(`"${v.ver}" 의 회차 번호를 수정하세요:`,v.round||i+1);if(nr!==null){const n=parseInt(nr)||v.round||i+1;setProjects(prev=>prev.map(p=>p.id===selProj.id?{...p,versions:p.versions.map((vv,vi)=>vi===i?{...vv,round:n,ver:`${n}차 실행계획서`}:vv)}:p))}}} style={{background:"none",border:"none",cursor:"pointer",fontSize:12,color:"#9CA3AF",padding:"2px 4px"}} title="회차 수정">✏</button>}
+                            </div>
+                            <div style={{fontSize:12,color:"#6B7280",fontWeight:500}}>{v.ver}</div>
+                            <div style={{fontSize:11,color:"#9CA3AF",marginTop:2}}>{v.date}</div>
+                            {active&&<div style={{position:"absolute",top:8,right:10,width:8,height:8,borderRadius:"50%",background:C.navyM}}/>}
+                          </div>
+                        )
+                      })
+                  }
+                </div>
               </div>
 
               {selVer && (
@@ -2592,46 +2787,214 @@ function NewProjModal({onClose,onSave,initial=null}) {
 }
 
 function NewVerModal({proj,onClose,onSave}) {
-  const last=proj.versions[proj.versions.length-1]
-  // 회차: 기존 버전들 중 최대 회차+1 기본값
+  const last = proj.versions[proj.versions.length-1]
   const nextRound = (proj.versions.reduce((mx,v)=>Math.max(mx,v.round||0),0)||0)+1
-  const [f,setF]=useState({
-    ver:`${nextRound}차 실행계획서`,
-    round:nextRound,
-    date:new Date().toISOString().slice(0,10),
-    reason:"",
-    laborCost:last?.laborCost||0,
-    directExp:last?.directExp||0,
-    subContract:last?.subContract||0,
-    indirect:null,profit:null,
-    vendors:(last?.vendors||[]).map(v=>({...v}))
-  })
-  const u=(k,v)=>setF(p=>({...p,[k]:v}))
-  const pnl = calcPnlTotals(f)
+
+  // 기본 필드
+  const [round,setRound]   = useState(nextRound)
+  const [ver,setVer]       = useState(`${nextRound}차 실행계획서`)
+  const [date,setDate]     = useState(new Date().toISOString().slice(0,10))
+  const [reason,setReason] = useState("")
+  const [laborCost,setLaborCost] = useState(last?.laborCost||0)
+  const [directExp,setDirectExp] = useState(last?.directExp||0)
+  const [indirect,setIndirect]   = useState(last?.indirect||null)
+  const [profit,setProfit]       = useState(last?.profit||null)
+
+  // 협력업체 목록 (추가/수정/삭제 가능)
+  const [vendors,setVendors] = useState((last?.vendors||[]).map(v=>({...v})))
+  const [editVi,setEditVi]   = useState(null)  // 편집 중인 행 index
+  const [newV,setNewV]       = useState({cat:"",name:"",contract:0,nego1:0,nego2:0})
+  const [showAddV,setShowAddV] = useState(false)
+  const [tab,setTab2] = useState("basic")  // basic | vendors
+
+  const pnl = calcPnlTotals({laborCost,directExp,subContract:vendors.reduce((s,v)=>s+Math.max(v.nego2||0,v.nego1||0,v.contract||0),0),indirect,profit})
+  const subTotal = vendors.reduce((s,v)=>s+Math.max(v.nego2||0,v.nego1||0,v.contract||0),0)
+
+  const addVendor = () => {
+    if(!newV.cat.trim()&&!newV.name.trim()) return
+    setVendors(p=>[...p,{...newV,contract:Number(newV.contract)||0,nego1:Number(newV.nego1)||0,nego2:Number(newV.nego2)||0}])
+    setNewV({cat:"",name:"",contract:0,nego1:0,nego2:0}); setShowAddV(false)
+  }
+  const updateV = (i,k,v) => setVendors(p=>p.map((x,xi)=>xi===i?{...x,[k]:typeof v==="string"&&k!=="cat"&&k!=="name"?Number(v)||0:v}:x))
+  const removeV = i => setVendors(p=>p.filter((_,xi)=>xi!==i))
+  const moveV   = (i,d) => setVendors(p=>{ const a=[...p]; [a[i],a[i+d]]=[a[i+d],a[i]]; return a })
+
+  const save = () => onSave({ver,round,date,reason,laborCost,directExp,subContract:subTotal,indirect,profit,vendors})
+
   return (
-    <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.4)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:400,padding:20}}>
-      <div style={S.card({width:"100%",maxWidth:520})}>
-        <div style={{fontSize:14,fontWeight:500,marginBottom:14}}>실행계획서 회차 추가</div>
-        <div style={S.grid(3,9)}>
-          <F label="회차" val={f.round} onChange={v=>u("round",parseInt(v)||1)} type="number" ph="예: 1"/>
-          <div style={{gridColumn:"span 2"}}><F label="버전명 (자동생성됨)" val={f.ver} onChange={v=>u("ver",v)}/></div>
-          <F label="작성일" val={f.date} onChange={v=>u("date",v)} type="date"/>
-          <div style={{gridColumn:"span 2"}}><F label="변경사유" val={f.reason} onChange={v=>u("reason",v)} ph="예: 협력업체 재선정"/></div>
+    <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.45)",display:"flex",alignItems:"flex-start",justifyContent:"center",zIndex:400,padding:20,overflowY:"auto"}}>
+      <div style={{...S.card(),width:"100%",maxWidth:820,marginTop:20}}>
+        {/* 헤더 */}
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:18}}>
+          <div style={{fontSize:18,fontWeight:700,color:C.navy}}>📋 실행계획서 작성</div>
+          <button onClick={onClose} style={{background:"none",border:"none",cursor:"pointer",fontSize:20,color:C.gray}}>✕</button>
         </div>
-        <div style={{fontSize:11,color:C.navyM,fontWeight:600,margin:"10px 0 6px",borderBottom:`1px solid ${C.navyL}`,paddingBottom:4}}>비용 구성</div>
-        <div style={S.grid(3,9)}>
-          <F label="직접인건비(원)" val={f.laborCost} onChange={v=>u("laborCost",parseInt(v)||0)} type="number"/>
-          <F label="직접경비(원)" val={f.directExp} onChange={v=>u("directExp",parseInt(v)||0)} type="number"/>
-          <F label="외주용역비(원)" val={f.subContract} onChange={v=>u("subContract",parseInt(v)||0)} type="number"/>
+
+        {/* 탭 */}
+        <div style={{display:"flex",gap:4,marginBottom:18,borderBottom:`2px solid var(--color-border-tertiary,#eee)`}}>
+          {[["basic","📌 기본정보·비용"],["vendors","🤝 협력업체 외주비"]].map(([id,lbl])=>(
+            <button key={id} onClick={()=>setTab2(id)} style={{padding:"9px 20px",border:"none",background:"none",fontSize:14,fontWeight:700,cursor:"pointer",color:tab===id?C.navyM:"var(--color-text-secondary,#888)",borderBottom:tab===id?`3px solid ${C.navyM}`:"3px solid transparent",marginBottom:-2}}>
+              {lbl}
+            </button>
+          ))}
+          {/* 요약 뱃지 */}
+          <div style={{marginLeft:"auto",display:"flex",gap:10,alignItems:"center",fontSize:13,color:C.navyM,fontWeight:600}}>
+            <span style={{...S.bdg(C.navyL,C.navyM)}}>이윤 {fE(pnl.profit)}</span>
+            <span style={{...S.bdg(C.greenL||"#EAF3DE",C.green)}}>합계 {fE(pnl.total)}</span>
+          </div>
         </div>
-        <div style={{background:C.navyL,borderRadius:7,padding:"7px 11px",fontSize:11,color:C.navyM,marginBottom:12,display:"flex",gap:16,flexWrap:"wrap"}}>
-          <span>직접비 합계: <b>{fE(pnl.direct)}</b></span>
-          <span>간접비(자동): <b>{fE(pnl.indirect)}</b></span>
-          <span>이윤(자동): <b>{fE(pnl.profit)}</b></span>
-          <span style={{color:C.navy}}>예상합계: <b>{fE(pnl.total)}</b></span>
+
+        {/* 기본정보·비용 탭 */}
+        {tab==="basic" && <>
+          <div style={S.grid(4,12)}>
+            <div><label style={S.lbl()}>회차</label><input type="number" value={round} onChange={e=>setRound(parseInt(e.target.value)||1)} style={S.inp()}/></div>
+            <div style={{gridColumn:"span 2"}}><label style={S.lbl()}>버전명</label><input value={ver} onChange={e=>setVer(e.target.value)} style={S.inp()}/></div>
+            <div><label style={S.lbl()}>작성일</label><input type="date" value={date} onChange={e=>setDate(e.target.value)} style={S.inp()}/></div>
+            <div style={{gridColumn:"span 4"}}><label style={S.lbl()}>변경사유</label><input value={reason} onChange={e=>setReason(e.target.value)} placeholder="예: 협력업체 재선정, 설계변경 등" style={S.inp()}/></div>
+          </div>
+
+          <div style={{fontSize:14,fontWeight:700,color:C.navyM,margin:"16px 0 10px",paddingBottom:4,borderBottom:`2px solid ${C.navyL}`}}>💰 비용 구성</div>
+          <div style={S.grid(3,12)}>
+            <div>
+              <label style={S.lbl()}>직접인건비 (원)</label>
+              <input type="number" value={laborCost} onChange={e=>setLaborCost(parseInt(e.target.value)||0)} style={S.inp()}/>
+              <div style={{fontSize:12,color:C.navyM,marginTop:4}}>{fE(laborCost)} 억</div>
+            </div>
+            <div>
+              <label style={S.lbl()}>직접경비 (원)</label>
+              <input type="number" value={directExp} onChange={e=>setDirectExp(parseInt(e.target.value)||0)} style={S.inp()}/>
+              <div style={{fontSize:12,color:C.navyM,marginTop:4}}>{fE(directExp)} 억</div>
+            </div>
+            <div>
+              <label style={S.lbl()}>외주용역비 (자동합산)</label>
+              <div style={{...S.inp(),background:"var(--color-background-secondary,#f5f5f3)",color:C.navyM,fontWeight:700,cursor:"default"}}>{subTotal.toLocaleString()}</div>
+              <div style={{fontSize:12,color:C.navyM,marginTop:4}}>{fE(subTotal)} 억 ({vendors.length}개 업체)</div>
+            </div>
+            <div>
+              <label style={S.lbl()}>간접비 (0이면 자동: 인건비×110%)</label>
+              <input type="number" value={indirect||""} onChange={e=>setIndirect(parseInt(e.target.value)||null)} placeholder="0이면 자동" style={S.inp()}/>
+              <div style={{fontSize:12,color:C.gray,marginTop:4}}>자동: {fE(Math.round((laborCost||0)*1.1))}</div>
+            </div>
+            <div>
+              <label style={S.lbl()}>이윤 (0이면 자동: 직접비×8.3%)</label>
+              <input type="number" value={profit||""} onChange={e=>setProfit(parseInt(e.target.value)||null)} placeholder="0이면 자동" style={S.inp()}/>
+              <div style={{fontSize:12,color:C.gray,marginTop:4}}>자동: {fE(Math.round(pnl.direct*0.083))}</div>
+            </div>
+            <div style={{display:"flex",flexDirection:"column",justifyContent:"flex-end"}}>
+              <div style={{background:C.navyL,borderRadius:10,padding:"12px 16px"}}>
+                <div style={{fontSize:12,color:C.navyM,marginBottom:4}}>예상 합계</div>
+                <div style={{fontSize:22,fontWeight:800,color:C.navy}}>{fE(pnl.total)}</div>
+                <div style={{fontSize:12,color:C.gray,marginTop:2}}>
+                  직접{fE(pnl.direct)} + 간접{fE(pnl.indirect)} + 이윤{fE(pnl.profit)}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {proj.serviceFee>0 && (
+            <div style={{marginTop:10,padding:"10px 14px",borderRadius:9,background:C.greenL||"#EAF3DE",fontSize:13}}>
+              💡 용역비 대비 이윤율: <b style={{color:C.green,fontSize:15}}>{(pnl.profit/proj.serviceFee*100).toFixed(1)}%</b>
+              <span style={{color:C.gray,marginLeft:8}}>(용역비 {fE(proj.serviceFee)})</span>
+            </div>
+          )}
+        </>}
+
+        {/* 협력업체 탭 */}
+        {tab==="vendors" && <>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
+            <div style={{fontSize:14,fontWeight:700,color:C.navyM}}>협력업체 목록 — 총 {fE(subTotal)} ({vendors.length}개)</div>
+            <button onClick={()=>setShowAddV(v=>!v)} style={{...S.btn(C.green),padding:"7px 14px"}}>+ 협력업체 추가</button>
+          </div>
+
+          {/* 추가 폼 */}
+          {showAddV && (
+            <div style={{background:C.navyL,borderRadius:10,padding:"14px 16px",marginBottom:14}}>
+              <div style={{fontSize:14,fontWeight:700,color:C.navyM,marginBottom:10}}>새 협력업체 추가</div>
+              <div style={S.grid(5,10)}>
+                <div><label style={S.lbl()}>분야</label><input value={newV.cat} onChange={e=>setNewV(p=>({...p,cat:e.target.value}))} placeholder="예: 구조" style={S.inp()}/></div>
+                <div style={{gridColumn:"span 2"}}><label style={S.lbl()}>업체명</label><input value={newV.name} onChange={e=>setNewV(p=>({...p,name:e.target.value}))} placeholder="업체명" style={S.inp()}/></div>
+                <div><label style={S.lbl()}>원가견적(원)</label><input type="number" value={newV.contract||""} onChange={e=>setNewV(p=>({...p,contract:e.target.value}))} style={S.inp()}/></div>
+                <div><label style={S.lbl()}>1차NEGO(원)</label><input type="number" value={newV.nego1||""} onChange={e=>setNewV(p=>({...p,nego1:e.target.value}))} style={S.inp()}/></div>
+              </div>
+              <div style={{display:"flex",gap:8,marginTop:10}}>
+                <button onClick={addVendor} style={S.btn(C.navyM)}>추가</button>
+                <button onClick={()=>setShowAddV(false)} style={S.btn(C.grayL,C.gray)}>취소</button>
+              </div>
+            </div>
+          )}
+
+          {/* 협력업체 목록 테이블 */}
+          {vendors.length===0
+            ? <div style={{padding:"30px",textAlign:"center",color:C.gray,fontSize:14,background:"var(--color-background-secondary,#f8f8f6)",borderRadius:10}}>
+                아직 협력업체가 없습니다. "+ 협력업체 추가"로 등록하세요.
+              </div>
+            : <div style={{overflowX:"auto"}}>
+                <table style={{width:"100%",borderCollapse:"collapse",minWidth:700}}>
+                  <thead>
+                    <tr>
+                      {["순서","분야","업체명","원가견적(원)","1차NEGO","2차NEGO","적용금액",""].map((h,i)=>(
+                        <th key={i} style={{...S.th(i<2?"left":"right"),fontSize:13}}>{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {vendors.map((v,i)=>{
+                      const applied = v.nego2||v.nego1||v.contract||0
+                      return editVi===i
+                        ? <tr key={i} style={{background:C.navyL}}>
+                            <td style={S.td()} colSpan={8}>
+                              <div style={S.grid(6,8)}>
+                                <div><label style={S.lbl()}>분야</label><input value={v.cat} onChange={e=>updateV(i,"cat",e.target.value)} style={S.inp()}/></div>
+                                <div style={{gridColumn:"span 2"}}><label style={S.lbl()}>업체명</label><input value={v.name} onChange={e=>updateV(i,"name",e.target.value)} style={S.inp()}/></div>
+                                <div><label style={S.lbl()}>원가견적</label><input type="number" value={v.contract||""} onChange={e=>updateV(i,"contract",e.target.value)} style={S.inp()}/></div>
+                                <div><label style={S.lbl()}>1차NEGO</label><input type="number" value={v.nego1||""} onChange={e=>updateV(i,"nego1",e.target.value)} style={S.inp()}/></div>
+                                <div><label style={S.lbl()}>2차NEGO</label><input type="number" value={v.nego2||""} onChange={e=>updateV(i,"nego2",e.target.value)} style={S.inp()}/></div>
+                              </div>
+                              <div style={{display:"flex",gap:8,marginTop:8}}>
+                                <button onClick={()=>setEditVi(null)} style={S.btn(C.navyM)}>✓ 완료</button>
+                                <button onClick={()=>removeV(i)} style={S.btn(C.redL,C.red)}>삭제</button>
+                              </div>
+                            </td>
+                          </tr>
+                        : <tr key={i} style={{background:i%2===0?"var(--color-background-primary,#fff)":"var(--color-background-secondary,#f8f8f6)"}}>
+                            <td style={S.td("center")}>
+                              <div style={{display:"flex",gap:3}}>
+                                <button onClick={()=>i>0&&moveV(i,-1)} style={{background:"none",border:"none",cursor:"pointer",color:C.gray,fontSize:13}}>▲</button>
+                                <button onClick={()=>i<vendors.length-1&&moveV(i,1)} style={{background:"none",border:"none",cursor:"pointer",color:C.gray,fontSize:13}}>▼</button>
+                              </div>
+                            </td>
+                            <td style={{...S.td("left"),fontWeight:600}}>{v.cat||"-"}</td>
+                            <td style={{...S.td("left")}}>{v.name||"-"}</td>
+                            <td style={S.td()}>{v.contract>0?v.contract.toLocaleString():"-"}</td>
+                            <td style={{...S.td(),color:v.nego1>0?C.amber:"var(--color-text-secondary,#aaa)"}}>{v.nego1>0?v.nego1.toLocaleString():"-"}</td>
+                            <td style={{...S.td(),color:v.nego2>0?C.red:"var(--color-text-secondary,#aaa)"}}>{v.nego2>0?v.nego2.toLocaleString():"-"}</td>
+                            <td style={{...S.td(),fontWeight:800,color:C.navyM}}>{applied.toLocaleString()}</td>
+                            <td style={S.td("center")}>
+                              <button onClick={()=>setEditVi(i)} style={{...S.btn(C.navyL,C.navyM),padding:"4px 10px",fontSize:12}}>수정</button>
+                            </td>
+                          </tr>
+                    })}
+                    <tr style={{background:"var(--color-background-secondary,#f0f0ee)",fontWeight:800}}>
+                      <td colSpan={6} style={{...S.td("left"),color:C.navyM}}>합계 ({vendors.length}개 업체)</td>
+                      <td style={{...S.td(),color:C.navyM,fontSize:16}}>{subTotal.toLocaleString()}</td>
+                      <td/>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+          }
+          <div style={{marginTop:12,padding:"10px 14px",borderRadius:9,background:C.amberL||"#FAEEDA",fontSize:13,color:C.amber}}>
+            💡 협력업체 탭에서 NEGO 금액을 입력하면 적용금액(2차NEGO→1차NEGO→원가견적 순)이 자동으로 외주용역비 합계에 반영됩니다.
+          </div>
+        </>}
+
+        <div style={{display:"flex",gap:8,marginTop:20,paddingTop:16,borderTop:`1px solid var(--color-border-tertiary,#eee)`}}>
+          <button onClick={save} style={{...S.btn(C.navyM),padding:"11px 24px",fontSize:15}}>✓ 저장</button>
+          <button onClick={onClose} style={{...S.btn(C.grayL,C.gray),padding:"11px 24px",fontSize:15}}>취소</button>
+          <div style={{marginLeft:"auto",fontSize:13,color:C.gray,alignSelf:"center"}}>
+            회차 {round}차 · 직접{fE(pnl.direct)} · 간접{fE(pnl.indirect)} · 이윤{fE(pnl.profit)} · <b style={{color:C.navy}}>합계 {fE(pnl.total)}</b>
+          </div>
         </div>
-        <div style={{fontSize:11,color:C.gray,marginBottom:10}}>※ 간접비·이윤은 0이면 자동계산 (직접인건비×1.1, 직접비×8.3%)</div>
-        <div style={{display:"flex",gap:7}}><button onClick={()=>onSave(f)} style={S.btn(C.navyM)}>저장</button><button onClick={onClose} style={S.btn(C.grayL,C.gray)}>취소</button></div>
       </div>
     </div>
   )
@@ -2640,10 +3003,10 @@ function NewVerModal({proj,onClose,onSave}) {
 // ── 공통 컴포넌트 ────────────────────────────────────────────
 function Card({title,note,actions,children,style={}}) {
   return <div style={{...S.card(),...style}}>
-    {title&&<div style={{fontSize:14,fontWeight:500,marginBottom:11,display:"flex",alignItems:"baseline",justifyContent:"space-between",gap:6,flexWrap:"wrap"}}>
+    {title&&<div style={{fontSize:16,fontWeight:700,marginBottom:13,display:"flex",alignItems:"baseline",justifyContent:"space-between",gap:6,flexWrap:"wrap"}}>
       <span>{title}</span>
       <div style={{display:"flex",alignItems:"center",gap:8}}>
-        {note&&<span style={{fontSize:11,color:"var(--color-text-tertiary,#aaa)",fontWeight:400}}>{note}</span>}
+        {note&&<span style={{fontSize:13,color:"var(--color-text-tertiary,#aaa)",fontWeight:400}}>{note}</span>}
         {actions}
       </div>
     </div>}
