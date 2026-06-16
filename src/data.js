@@ -101,6 +101,8 @@ export const DEPT_STAFF_EMPTY = {total:0,pm:0,designer:0,admin:0}
 export const VENDOR_EMPTY = {ceoName:"",ceoPhone:"",ceoEmail:"",contactName:"",contactPhone:"",contactEmail:"",note:""}
 export const BID_TYPES = ["민간수의","제안공모","경쟁설계","기타"]
 export const CONTRACT_TYPES_DEFAULT = ["턴키","BTL","공공","민간","감리","해외","기타"]
+export const PROJ_TYPES_DEFAULT = ["공동주택","주상복합","업무시설","공공청사","의료시설","교육시설","물류창고","제약공장","기타"]
+export const BID_TYPES_DEFAULT  = ["민간수의","제안공모","경쟁설계","기타"]
 
 
 export const DEPT_STAFF_INIT = {

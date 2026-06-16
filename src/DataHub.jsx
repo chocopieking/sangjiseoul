@@ -44,6 +44,8 @@ export function DataHubTab({
   projects, setProjects, setTab, setSelProjId, setSelVerIdx, setShowNewProj,
   versions, saveVersion, restoreVersion, deleteVersion,
   contractTypes, setContractTypes,
+  projTypes, setProjTypes,
+  bidTypes, setBidTypes,
   allData, restoreAllData,
 }) {
   const {STAFF_DEPTS,DEPTS,DEPT_COLORS,departments,addDept,renameDept,deleteDept,setDeptColor,setDeptFinance,deptUsage} = useDepts()
@@ -60,6 +62,8 @@ export function DataHubTab({
     {id:"projects",  label:"🏗 프로젝트·협력업체"},
     {id:"depts",     label:"🏢 본부 관리"},
     {id:"ctypes",    label:"🏷 수주유형 관리"},
+    {id:"ptypes",    label:"🏢 건물유형 관리"},
+    {id:"btypes",    label:"📋 수주형태 관리"},
     {id:"backup",    label:"💾 데이터 백업·복구", accent:true},
     {id:"history",   label:"📜 버전 기록", accent:true},
   ]
@@ -103,6 +107,8 @@ export function DataHubTab({
       {section==="projects"  && <ProjectsShortcut projects={projects} currentUser={currentUser} isAdmin={isAdmin} setTab={setTab} setSelProjId={setSelProjId} setSelVerIdx={setSelVerIdx} setShowNewProj={setShowNewProj}/>}
       {section==="depts"     && <DeptManageSection departments={departments} addDept={addDept} renameDept={renameDept} deleteDept={deleteDept} setDeptColor={setDeptColor} setDeptFinance={setDeptFinance} deptUsage={deptUsage} isAdmin={isAdmin}/>}
       {section==="ctypes"    && <ContractTypeSection contractTypes={contractTypes||[]} setContractTypes={setContractTypes} canManage={canManage}/>}
+      {section==="ptypes"    && <SimpleListSection title="🏢 건물유형 관리" description="프로젝트 개설 시 선택하는 건물 유형 목록입니다." list={projTypes||[]} setList={setProjTypes} canManage={canManage}/>}
+      {section==="btypes"    && <SimpleListSection title="📋 수주형태 관리" description="프로젝트 수주형태(외주비 비교 기준) 목록입니다." list={bidTypes||[]} setList={setBidTypes} canManage={canManage}/>}
       {section==="backup"    && <BackupSection allData={allData} restoreAllData={restoreAllData} isAdmin={isAdmin}/>}
       {section==="history"   && <VersionHistorySection versions={versions} restoreVersion={restoreVersion} deleteVersion={deleteVersion} saveVersion={saveVersion}
                                     currentUser={currentUser} canManage={canManage} STAFF_DEPTS={STAFF_DEPTS} DEPTS={DEPTS} DEPT_COLORS={DEPT_COLORS}
@@ -1181,6 +1187,84 @@ function BackupSection({allData, restoreAllData, isAdmin}) {
           {msg.text}
         </div>
       )}
+    </div>
+  )
+}
+
+// ── 범용 목록 관리 (건물유형·수주형태용) ────────────────────────
+function SimpleListSection({title, description, list, setList, canManage}) {
+  const [newVal, setNewVal] = useState("")
+  const [editIdx, setEditIdx] = useState(null)
+  const [editVal, setEditVal] = useState("")
+  const [msg, setMsg]         = useState("")
+
+  const C2 = {navy:"#0C447C",navyM:"#185FA5",navyL:"#E6F1FB",green:"#1D9E75",red:"#A32D2D",redL:"#FCEBEB",gray:"#888780",grayL:"#F1EFE8",amber:"#BA7517"}
+  const card2 = {background:"var(--color-background-primary,#fff)",border:"0.5px solid var(--color-border-tertiary,#e4e4e0)",borderRadius:14,padding:"20px 24px",marginBottom:16}
+  const inp2  = (w="100%")=>({width:w,padding:"7px 9px",border:"1px solid var(--color-border-secondary,#ccc)",borderRadius:8,fontSize:13,fontFamily:"inherit",background:"#fff",color:"#222",boxSizing:"border-box"})
+  const btn2  = (bg=C2.navyM,fg="#fff")=>({padding:"7px 14px",background:bg,color:fg,border:"none",borderRadius:9,fontSize:13,fontWeight:600,cursor:"pointer"})
+
+  const flash = m => { setMsg(m); setTimeout(()=>setMsg(""),2000) }
+
+  const add = () => {
+    const t=newVal.trim(); if(!t) return flash("값을 입력하세요.")
+    if(list.includes(t)) return flash("이미 존재합니다.")
+    setList([...list, t]); setNewVal(""); flash(`"${t}" 추가됨`)
+  }
+  const startEdit = i => { setEditIdx(i); setEditVal(list[i]) }
+  const saveEdit  = () => {
+    const t=editVal.trim(); if(!t) return flash("값을 입력하세요.")
+    if(list.some((x,i)=>x===t&&i!==editIdx)) return flash("이미 존재합니다.")
+    setList(list.map((x,i)=>i===editIdx?t:x))
+    setEditIdx(null); flash("수정됨")
+  }
+  const remove = i => {
+    if(!window.confirm(`"${list[i]}"을(를) 삭제하시겠습니까?`)) return
+    setList(list.filter((_,ri)=>ri!==i)); flash("삭제됨")
+  }
+  const moveUp   = i => { if(i===0) return; const a=[...list]; [a[i-1],a[i]]=[a[i],a[i-1]]; setList(a) }
+  const moveDown = i => { if(i===list.length-1) return; const a=[...list]; [a[i],a[i+1]]=[a[i+1],a[i]]; setList(a) }
+
+  return (
+    <div style={card2}>
+      <div style={{fontSize:15,fontWeight:700,marginBottom:4}}>{title}</div>
+      <div style={{fontSize:12,color:C2.gray,marginBottom:14}}>{description}</div>
+      {msg && <div style={{background:C2.navyL,borderRadius:8,padding:"7px 12px",fontSize:12,color:C2.navyM,fontWeight:600,marginBottom:10}}>{msg}</div>}
+      {canManage && (
+        <div style={{display:"flex",gap:8,marginBottom:14}}>
+          <input value={newVal} onChange={e=>setNewVal(e.target.value)} onKeyDown={e=>e.key==="Enter"&&add()}
+            placeholder="새 항목 추가" style={{...inp2(),maxWidth:240}}/>
+          <button onClick={add} style={btn2(C2.navyM)}>+ 추가</button>
+        </div>
+      )}
+      <div style={{display:"flex",flexDirection:"column",gap:6}}>
+        {list.length===0 && <div style={{color:C2.gray,fontSize:13}}>등록된 항목이 없습니다.</div>}
+        {list.map((t,i)=>(
+          <div key={i} style={{display:"flex",alignItems:"center",gap:8,padding:"8px 12px",background:"var(--color-background-secondary,#f8f8f6)",borderRadius:10,border:"0.5px solid var(--color-border-tertiary,#eee)"}}>
+            {canManage && (
+              <div style={{display:"flex",flexDirection:"column",gap:2}}>
+                <button onClick={()=>moveUp(i)}   style={{...btn2(C2.navyL,C2.navyM),padding:"2px 6px",fontSize:10}}>▲</button>
+                <button onClick={()=>moveDown(i)} style={{...btn2(C2.navyL,C2.navyM),padding:"2px 6px",fontSize:10}}>▼</button>
+              </div>
+            )}
+            <span style={{width:22,height:22,borderRadius:6,background:C2.navyM,color:"#fff",fontSize:11,fontWeight:700,display:"inline-flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>{i+1}</span>
+            {editIdx===i
+              ? <>
+                  <input value={editVal} onChange={e=>setEditVal(e.target.value)} onKeyDown={e=>{if(e.key==="Enter")saveEdit();if(e.key==="Escape"){setEditIdx(null)}}} style={{...inp2(),flex:1,maxWidth:240}} autoFocus/>
+                  <button onClick={saveEdit} style={{...btn2(C2.green),padding:"5px 11px"}}>저장</button>
+                  <button onClick={()=>setEditIdx(null)} style={{...btn2(C2.grayL,C2.gray),padding:"5px 11px"}}>취소</button>
+                </>
+              : <>
+                  <span style={{flex:1,fontSize:14,fontWeight:600}}>{t}</span>
+                  {canManage && <>
+                    <button onClick={()=>startEdit(i)} style={{...btn2(C2.navyL,C2.navyM),padding:"5px 11px",fontSize:12}}>수정</button>
+                    <button onClick={()=>remove(i)}    style={{...btn2(C2.redL,C2.red),padding:"5px 11px",fontSize:12}}>삭제</button>
+                  </>}
+                </>
+            }
+          </div>
+        ))}
+      </div>
+      <div style={{marginTop:12,fontSize:11,color:C2.gray}}>※ 삭제해도 기존 프로젝트에 저장된 값에는 영향을 주지 않습니다.</div>
     </div>
   )
 }

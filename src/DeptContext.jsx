@@ -11,8 +11,12 @@ export const DeptContext = createContext({
   DEPT_COLORS: {},     // {본부명: color}
   DEPT_BIZ: {},        // {본부명: {orderTarget,...}}
   isAdmin: false,
-  contractTypes: [],   // 수주 유형 목록 (추가/수정/삭제 가능)
+  contractTypes: [],
   setContractTypes: ()=>{},
+  projTypes: [],
+  setProjTypes: ()=>{},
+  bidTypes: [],
+  setBidTypes: ()=>{},
   addDept: ()=>({ok:false,msg:"unavailable"}),
   renameDept: ()=>({ok:false,msg:"unavailable"}),
   deleteDept: ()=>({ok:false,msg:"unavailable"}),

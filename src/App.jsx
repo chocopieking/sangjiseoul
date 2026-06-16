@@ -20,7 +20,7 @@ import {
   BIZ_2026, DEPT_STAFF_INIT, DEPT_BIZ, CF_2026, PNL_INIT, YEARS_DB_INIT,
   STAFF_TARGET_INIT, STAFF_MONTHLY_INIT,
   DEPARTMENTS_INIT, DEPT_COLOR_POOL, DEPT_BIZ_EMPTY, DEPT_STAFF_EMPTY,
-  PROJECTS_INIT, ALERTS_INIT, normalizeProject, getDeptShares, BID_TYPES, CONTRACT_TYPES_DEFAULT
+  PROJECTS_INIT, ALERTS_INIT, normalizeProject, getDeptShares, BID_TYPES, CONTRACT_TYPES_DEFAULT, PROJ_TYPES_DEFAULT, BID_TYPES_DEFAULT
 } from "./data.js"
 import { isConfigured, dbGet, dbSet, dbGetAll, dbSetAll, subscribeChanges } from "./supabase.js"
 
@@ -231,6 +231,14 @@ export default function App() {
     setContractTypesRaw(list)
   }
 
+  const [projTypesRaw, setProjTypesRaw] = useState(()=>lsGet("sjs_proj_types", PROJ_TYPES_DEFAULT))
+  const setProjTypes = mkPersist(setProjTypesRaw, "sjs_proj_types")
+  const projTypes = projTypesRaw
+
+  const [bidTypesRaw, setBidTypesRaw] = useState(()=>lsGet("sjs_bid_types", BID_TYPES_DEFAULT))
+  const setBidTypes = mkPersist(setBidTypesRaw, "sjs_bid_types")
+  const bidTypes = bidTypesRaw
+
   // ── Supabase: 앱 시작 시 전체 로드 (state 선언 후에 위치해야 함) ──
   useEffect(() => {
     if (!USE_DB) return
@@ -256,6 +264,8 @@ export default function App() {
       setVendorsDBRaw(g("sjs_vendors", {}))
       setVendorPaymentsRaw(g("sjs_vendor_payments", []))
       setContractTypesRaw(g("sjs_contract_types", CONTRACT_TYPES_DEFAULT))
+      setProjTypesRaw(g("sjs_proj_types", PROJ_TYPES_DEFAULT))
+      setBidTypesRaw(g("sjs_bid_types", BID_TYPES_DEFAULT))
       setDbStatus("ok"); setDbReady(true)
     }).catch(() => { setDbStatus("error"); setDbReady(true) })
   }, []) // eslint-disable-line
@@ -276,6 +286,8 @@ export default function App() {
       else if (key==="sjs_vendors")          setVendorsDBRaw(value)
       else if (key==="sjs_vendor_payments")  setVendorPaymentsRaw(value)
       else if (key==="sjs_contract_types")   setContractTypesRaw(value)
+      else if (key==="sjs_proj_types")       setProjTypesRaw(value)
+      else if (key==="sjs_bid_types")        setBidTypesRaw(value)
     })
     return unsub
   }, []) // eslint-disable-line
@@ -360,7 +372,10 @@ export default function App() {
 
   const deptCtx = {departments,DEPTS,STAFF_DEPTS,DEPT_COLORS,DEPT_BIZ:safeDeptBiz,
     isAdmin:currentUser?.role==="admin",addDept,renameDept,deleteDept,setDeptColor,setDeptFinance,deptUsage,
-    contractTypes, setContractTypes}
+    contractTypes, setContractTypes,
+    projTypes, setProjTypes,
+    bidTypes, setBidTypes,
+  }
 
   // ── 프로젝트별 월수금계획(cashflowPlan) → 본부별/연도별 합산 ──
   // cashflowPlan: [{year,month(1-12),plan,actual}] (단위 억원), 지분율(deptShares)로 본부에 배분
@@ -562,7 +577,7 @@ export default function App() {
       {/* 바디 */}
       <div style={{padding:"15px 18px",maxWidth:1440,margin:"0 auto"}}>
         {tab==="analysis" && <AnalysisTab deptStaff={deptStaff} setDeptStaff={setDeptStaff} years={years} setYears={setYears} canWrite={canWrite} cashflow={effectiveCashflow}/>}
-        {tab==="datahub" && <DataHubTab currentUser={currentUser} deptStaff={deptStaff} setDeptStaff={setDeptStaff} staffTarget={staffTarget} setStaffTarget={setStaffTarget} staffMonthly={staffMonthly} setStaffMonthly={setStaffMonthly} pnlData={pnlData} setPnlData={setPnlData} cashflow={cashflow} setCashflow={setCashflow} years={years} setYears={setYears} projects={projects} setProjects={setProjects} setTab={setTab} setSelProjId={setSelProjId} setSelVerIdx={setSelVerIdx} setShowNewProj={setShowNewProj} versions={versions} saveVersion={saveVersion} restoreVersion={restoreVersion} deleteVersion={deleteVersion} contractTypes={contractTypes} setContractTypes={setContractTypes} allData={null} restoreAllData={(entries)=>dbSetAll(entries, userEmail.current)} dbStatus={dbStatus}/>}
+        {tab==="datahub" && <DataHubTab currentUser={currentUser} deptStaff={deptStaff} setDeptStaff={setDeptStaff} staffTarget={staffTarget} setStaffTarget={setStaffTarget} staffMonthly={staffMonthly} setStaffMonthly={setStaffMonthly} pnlData={pnlData} setPnlData={setPnlData} cashflow={cashflow} setCashflow={setCashflow} years={years} setYears={setYears} projects={projects} setProjects={setProjects} setTab={setTab} setSelProjId={setSelProjId} setSelVerIdx={setSelVerIdx} setShowNewProj={setShowNewProj} versions={versions} saveVersion={saveVersion} restoreVersion={restoreVersion} deleteVersion={deleteVersion} contractTypes={contractTypes} setContractTypes={setContractTypes} projTypes={projTypes} setProjTypes={setProjTypes} bidTypes={bidTypes} setBidTypes={setBidTypes} allData={null} restoreAllData={(entries)=>dbSetAll(entries, userEmail.current)} dbStatus={dbStatus}/>}
         {tab==="cashflow" && <CashflowTab cashflow={effectiveCashflow} setCashflow={setCashflow} currentUser={currentUser} projects={projects} projectCashflowByDept={projectCashflowByDept}/>}
         {tab==="projects" && <ProjectsTab projects={projects} setProjects={setProjects} selProjId={selProjId} setSelProjId={setSelProjId} selVerIdx={selVerIdx} setSelVerIdx={setSelVerIdx} cmpIds={cmpIds} setCmpIds={setCmpIds} showNewVer={showNewVer} setShowNewVer={setShowNewVer} canWrite={canWrite} contractTypes={contractTypes}/>}
         {tab==="vendors" && <VendorsTab projects={projects} setProjects={setProjects} vendorsDB={vendorsDB} setVendorsDB={setVendorsDB} vendorPayments={vendorPayments} setVendorPayments={setVendorPayments} canWrite={canWrite} currentUser={currentUser} setTab={setTab} setSelProjId={setSelProjId} setSelVerIdx={setSelVerIdx}/>}
@@ -2479,7 +2494,7 @@ function AuthTab({users,saveUsers,currentUser,hashPw}) {
 const PROJ_TYPES = ["공동주택","주상복합","업무시설","공공청사","의료시설","교육시설","물류창고","제약공장","기타"]
 
 function NewProjModal({onClose,onSave,initial=null}) {
-  const {STAFF_DEPTS, contractTypes} = useDepts()
+  const {STAFF_DEPTS, contractTypes, projTypes, bidTypes} = useDepts()
   const [f,setF]=useState(()=>{
     if(initial){
       const ds = getDeptShares(initial).map(s=>({...s}))
@@ -2515,7 +2530,7 @@ function NewProjModal({onClose,onSave,initial=null}) {
           {title:"기본정보",content:<div style={S.grid(4,9)}>
             <F label="연도" val={f.year} onChange={v=>u("year",v)}/>
             <F label="코드 *" val={f.code} onChange={v=>u("code",v)}/>
-            <F label="건물 유형" val={f.projType} onChange={v=>u("projType",v)} type="select" opts={PROJ_TYPES}/>
+            <F label="건물 유형" val={f.projType} onChange={v=>u("projType",v)} type="select" opts={projTypes||[]}/>
             <F label="수주 유형" val={f.contractType||""} onChange={v=>u("contractType",v)} type="select" opts={contractTypes||[]}/>
             <div style={{gridColumn:"1/-1"}}><F label="프로젝트명 *" val={f.name} onChange={v=>u("name",v)}/></div>
           </div>},
@@ -2561,7 +2576,7 @@ function NewProjModal({onClose,onSave,initial=null}) {
               <F label="발주 구분" val={f.orderType} onChange={v=>u("orderType",v)} type="select" opts={["민간","공공"]}/>
             </div>
             <div style={S.grid(3,9)}>
-              <F label="수주 형태 (외주비 비교 기준)" val={f.bidType} onChange={v=>u("bidType",v)} type="select" opts={BID_TYPES}/>
+              <F label="수주 형태 (외주비 비교 기준)" val={f.bidType} onChange={v=>u("bidType",v)} type="select" opts={bidTypes||BID_TYPES}/>
             </div>
             <F label="주소" val={f.address} onChange={v=>u("address",v)}/><F label="비고" val={f.note} onChange={v=>u("note",v)}/>
           </>},
