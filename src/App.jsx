@@ -11,6 +11,7 @@ import { ArchiveTab } from "./Archive.jsx"
 import { OptimizeTab } from "./Optimize.jsx"
 import { DataHubTab } from "./DataHub.jsx"
 import { VendorsTab } from "./Vendors.jsx"
+import { WeeklyReportTab } from "./WeeklyReport.jsx"
 import { DeptContext, useDepts } from "./DeptContext.jsx"
 import {
   hashPw, ALL_USERS, MASTER_PW, ROLE_BADGE,
@@ -19,7 +20,7 @@ import {
   BIZ_2026, DEPT_STAFF_INIT, DEPT_BIZ, CF_2026, PNL_INIT, YEARS_DB_INIT,
   STAFF_TARGET_INIT, STAFF_MONTHLY_INIT,
   DEPARTMENTS_INIT, DEPT_COLOR_POOL, DEPT_BIZ_EMPTY, DEPT_STAFF_EMPTY,
-  PROJECTS_INIT, ALERTS_INIT, normalizeProject, getDeptShares, BID_TYPES
+  PROJECTS_INIT, ALERTS_INIT, normalizeProject, getDeptShares, BID_TYPES, CONTRACT_TYPES_DEFAULT
 } from "./data.js"
 
 // ── 색상 팔레트 ───────────────────────────────────────────────
@@ -185,6 +186,16 @@ export default function App() {
     try{ localStorage.setItem("sjs_vendor_payments", JSON.stringify(next)) }catch{}
     return next
   })
+
+  // ── 수주 유형 목록 (추가/수정/삭제 가능) ────────────────────────
+  const [contractTypes, setContractTypesRaw] = useState(()=>{
+    try{ const s=JSON.parse(localStorage.getItem("sjs_contract_types")||"null"); return Array.isArray(s)&&s.length?s:CONTRACT_TYPES_DEFAULT }catch{ return CONTRACT_TYPES_DEFAULT }
+  })
+  const setContractTypes = list => {
+    try{ localStorage.setItem("sjs_contract_types", JSON.stringify(list)) }catch{}
+    setContractTypesRaw(list)
+  }
+
   const DEPTS       = useMemo(()=>departments.filter(d=>d.finance).map(d=>d.name),[departments])
   const STAFF_DEPTS = useMemo(()=>departments.map(d=>d.name),[departments])
   const DEPT_COLORS = useMemo(()=>Object.fromEntries(departments.map(d=>[d.name,d.color])),[departments])
@@ -264,7 +275,8 @@ export default function App() {
   },[deptBiz,DEPTS])
 
   const deptCtx = {departments,DEPTS,STAFF_DEPTS,DEPT_COLORS,DEPT_BIZ:safeDeptBiz,
-    isAdmin:currentUser?.role==="admin",addDept,renameDept,deleteDept,setDeptColor,setDeptFinance,deptUsage}
+    isAdmin:currentUser?.role==="admin",addDept,renameDept,deleteDept,setDeptColor,setDeptFinance,deptUsage,
+    contractTypes, setContractTypes}
 
   // ── 프로젝트별 월수금계획(cashflowPlan) → 본부별/연도별 합산 ──
   // cashflowPlan: [{year,month(1-12),plan,actual}] (단위 억원), 지분율(deptShares)로 본부에 배분
@@ -442,9 +454,9 @@ export default function App() {
       {/* 바디 */}
       <div style={{padding:"15px 18px",maxWidth:1440,margin:"0 auto"}}>
         {tab==="analysis" && <AnalysisTab deptStaff={deptStaff} setDeptStaff={setDeptStaff} years={years} setYears={setYears} canWrite={canWrite} cashflow={effectiveCashflow}/>}
-        {tab==="datahub" && <DataHubTab currentUser={currentUser} deptStaff={deptStaff} setDeptStaff={setDeptStaff} staffTarget={staffTarget} setStaffTarget={setStaffTarget} staffMonthly={staffMonthly} setStaffMonthly={setStaffMonthly} pnlData={pnlData} setPnlData={setPnlData} cashflow={cashflow} setCashflow={setCashflow} years={years} setYears={setYears} projects={projects} setTab={setTab} setSelProjId={setSelProjId} setSelVerIdx={setSelVerIdx} setShowNewProj={setShowNewProj} versions={versions} saveVersion={saveVersion} restoreVersion={restoreVersion} deleteVersion={deleteVersion}/>}
+        {tab==="datahub" && <DataHubTab currentUser={currentUser} deptStaff={deptStaff} setDeptStaff={setDeptStaff} staffTarget={staffTarget} setStaffTarget={setStaffTarget} staffMonthly={staffMonthly} setStaffMonthly={setStaffMonthly} pnlData={pnlData} setPnlData={setPnlData} cashflow={cashflow} setCashflow={setCashflow} years={years} setYears={setYears} projects={projects} setTab={setTab} setSelProjId={setSelProjId} setSelVerIdx={setSelVerIdx} setShowNewProj={setShowNewProj} versions={versions} saveVersion={saveVersion} restoreVersion={restoreVersion} deleteVersion={deleteVersion} contractTypes={contractTypes} setContractTypes={setContractTypes}/>}
         {tab==="cashflow" && <CashflowTab cashflow={effectiveCashflow} setCashflow={setCashflow} currentUser={currentUser} projects={projects} projectCashflowByDept={projectCashflowByDept}/>}
-        {tab==="projects" && <ProjectsTab projects={projects} setProjects={setProjects} selProjId={selProjId} setSelProjId={setSelProjId} selVerIdx={selVerIdx} setSelVerIdx={setSelVerIdx} cmpIds={cmpIds} setCmpIds={setCmpIds} showNewVer={showNewVer} setShowNewVer={setShowNewVer} canWrite={canWrite}/>}
+        {tab==="projects" && <ProjectsTab projects={projects} setProjects={setProjects} selProjId={selProjId} setSelProjId={setSelProjId} selVerIdx={selVerIdx} setSelVerIdx={setSelVerIdx} cmpIds={cmpIds} setCmpIds={setCmpIds} showNewVer={showNewVer} setShowNewVer={setShowNewVer} canWrite={canWrite} contractTypes={contractTypes}/>}
         {tab==="vendors" && <VendorsTab projects={projects} setProjects={setProjects} vendorsDB={vendorsDB} setVendorsDB={setVendorsDB} vendorPayments={vendorPayments} setVendorPayments={setVendorPayments} canWrite={canWrite} currentUser={currentUser} setTab={setTab} setSelProjId={setSelProjId} setSelVerIdx={setSelVerIdx}/>}
         {tab==="pnl"      && <PnlTab pnlData={pnlData} setPnlData={setPnlData} canWrite={canWrite}/>}
         {tab==="optimize" && <OptimizeTab projects={projects} deptStaff={deptStaff} pnlData={pnlData}/>}
@@ -1050,7 +1062,7 @@ const cardNote2 = {fontSize:12.5,color:C.gray,marginBottom:8}
 // ════════════════════════════════════════════════════════════
 // 프로젝트 탭
 // ════════════════════════════════════════════════════════════
-function ProjectsTab({projects,setProjects,selProjId,setSelProjId,selVerIdx,setSelVerIdx,cmpIds,setCmpIds,showNewVer,setShowNewVer,canWrite}) {
+function ProjectsTab({projects,setProjects,selProjId,setSelProjId,selVerIdx,setSelVerIdx,cmpIds,setCmpIds,showNewVer,setShowNewVer,canWrite,contractTypes}) {
   const [view, setView] = useState("list")  // list | detail | compare | bench
   const [deptFilter, setDeptFilter] = useState("")
   const [typeFilter, setTypeFilter] = useState("")
@@ -1059,6 +1071,7 @@ function ProjectsTab({projects,setProjects,selProjId,setSelProjId,selVerIdx,setS
   const [editProj, setEditProj]     = useState(false)
   const [cfEditing, setCfEditing]   = useState(false)
   const [cfDraft, setCfDraft]       = useState(null)
+  const [detailTab, setDetailTab]   = useState("info")   // info | weekly
 
   const selProj = projects.find(p=>p.id===selProjId)
   const selVer  = selProj?.versions?.[selVerIdx]
@@ -1173,6 +1186,18 @@ function ProjectsTab({projects,setProjects,selProjId,setSelProjId,selVerIdx,setS
 
           {selProj ? (
             <>
+              {/* 서브탭 네비게이션 */}
+              <div style={{display:"flex",gap:4,marginBottom:14,borderBottom:`2px solid var(--color-border-tertiary,#eee)`,paddingBottom:0}}>
+                {[["info","📐 프로젝트 정보"],["weekly","📋 주간보고"]].map(([id,label])=>(
+                  <button key={id} onClick={()=>setDetailTab(id)} style={{padding:"9px 18px",border:"none",background:"none",fontSize:13.5,fontWeight:700,cursor:"pointer",color:detailTab===id?C.navyM:"var(--color-text-secondary,#888)",borderBottom:detailTab===id?`3px solid ${C.navyM}`:"3px solid transparent",marginBottom:-2,transition:"all .15s"}}>
+                    {label}
+                  </button>
+                ))}
+              </div>
+
+              {detailTab==="weekly" && <WeeklyReportTab proj={selProj} setProjects={setProjects} canWrite={canWrite} currentUser={null}/>}
+
+              {detailTab==="info" && <>
               {/* 기본정보 카드 */}
               <Card title={`📐 ${selProj.name}`} note={selProj.code} actions={canWrite&&<button onClick={()=>setEditProj(true)} style={{...S.btn(C.navyL,C.navyM),padding:"5px 11px",fontSize:11}}><i className="ti ti-edit" aria-hidden="true"/> 정보 수정</button>}>
                 {/* 계약·수주 배너 */}
@@ -1190,7 +1215,7 @@ function ProjectsTab({projects,setProjects,selProjId,setSelProjId,selVerIdx,setS
                 </div>
                 <div style={S.grid(4,9)}>
                   {[["연도",selProj.year],["주관본부·지분",getDeptShares(selProj).map(s=>`${s.dept} ${s.share}%`).join(" / ")],["담당PM",selProj.pm],["담당본부장",selProj.director],
-                    ["프로젝트유형",selProj.projType],["용도",selProj.usage],["규모",selProj.scale],["발주처",selProj.client],
+                    ["프로젝트유형",selProj.projType],["수주유형",selProj.contractType||"-"],["용도",selProj.usage],["규모",selProj.scale],["발주처",selProj.client],
                     ["발주처담당자",selProj.clientPm||"-"],["발주구분",selProj.orderType||"민간"],["총설계비",fW(selProj.totalFee)],["상지지분(발주처대비)",(selProj.shareRatio*100).toFixed(0)+"%"],["세대수",selProj.units?selProj.units.toLocaleString()+"세대":"-"]
                   ].map(([k,v])=>(
                     <div key={k} style={{display:"flex",justifyContent:"space-between",padding:"5px 0",borderBottom:"0.5px solid var(--color-border-tertiary,#eee)",fontSize:12}}>
@@ -1423,6 +1448,7 @@ function ProjectsTab({projects,setProjects,selProjId,setSelProjId,selVerIdx,setS
               )}
               {showNewVer&&<NewVerModal proj={selProj} onClose={()=>setShowNewVer(false)} onSave={v=>{setProjects(prev=>prev.map(p=>p.id===selProj.id?{...p,versions:[...p.versions,v]}:p));setSelVerIdx(selProj.versions.length);setShowNewVer(false)}}/>}
               {editProj&&<NewProjModal initial={selProj} onClose={()=>setEditProj(false)} onSave={f=>{setProjects(prev=>prev.map(p=>p.id===selProj.id?normalizeProject({...p,...f}):p));setEditProj(false)}}/>}
+              </>}
             </>
           ) : <div style={{padding:40,textAlign:"center",color:C.gray}}>위에서 프로젝트를 선택하거나 목록에서 행을 클릭하세요.</div>}
         </div>
@@ -2353,13 +2379,13 @@ function AuthTab({users,saveUsers,currentUser,hashPw}) {
 const PROJ_TYPES = ["공동주택","주상복합","업무시설","공공청사","의료시설","교육시설","물류창고","제약공장","기타"]
 
 function NewProjModal({onClose,onSave,initial=null}) {
-  const {STAFF_DEPTS} = useDepts()
+  const {STAFF_DEPTS, contractTypes} = useDepts()
   const [f,setF]=useState(()=>{
     if(initial){
       const ds = getDeptShares(initial).map(s=>({...s}))
-      return {...initial, shareRatio:(initial.shareRatio??1)*100, deptShares: ds.length?ds:[{dept:STAFF_DEPTS[0],share:100}], orderType: initial.orderType||"민간"}
+      return {...initial, shareRatio:(initial.shareRatio??1)*100, deptShares: ds.length?ds:[{dept:STAFF_DEPTS[0],share:100}], orderType: initial.orderType||"민간", contractType: initial.contractType||"민간"}
     }
-    return {year:new Date().getFullYear()+"",code:"",name:"",deptShares:[{dept:STAFF_DEPTS[0],share:100}],pm:"",director:"",projType:"",usage:"",scale:"",siteArea:0,buildArea:0,floorArea:0,units:0,client:"",clientPm:"",totalFee:0,shareRatio:100,serviceFee:0,address:"",contractDate:"",orderDate:"",orderType:"민간",bidType:"민간수의",note:"",type:"확정",prog:0}
+    return {year:new Date().getFullYear()+"",code:"",name:"",deptShares:[{dept:STAFF_DEPTS[0],share:100}],pm:"",director:"",projType:"",contractType:"민간",usage:"",scale:"",siteArea:0,buildArea:0,floorArea:0,units:0,client:"",clientPm:"",totalFee:0,shareRatio:100,serviceFee:0,address:"",contractDate:"",orderDate:"",orderType:"민간",bidType:"민간수의",note:"",type:"확정",prog:0}
   })
   const u=(k,v)=>setF(p=>({...p,[k]:v}))
   const pyF=toPy(f.floorArea||0), pyS=toPy(f.siteArea||0)
@@ -2386,8 +2412,11 @@ function NewProjModal({onClose,onSave,initial=null}) {
           <button onClick={onClose} style={{background:"none",border:"none",cursor:"pointer",fontSize:18,color:C.gray}}>✕</button>
         </div>
         {[
-          {title:"기본정보",content:<div style={S.grid(3,9)}>
-            {[["연도","year","text"],["코드 *","code","text"],["유형","projType","select"]].map(([l,k,t])=><F key={k} label={l} val={f[k]} onChange={v=>u(k,v)} type={t} opts={t==="select"?PROJ_TYPES:[]}/>)}
+          {title:"기본정보",content:<div style={S.grid(4,9)}>
+            <F label="연도" val={f.year} onChange={v=>u("year",v)}/>
+            <F label="코드 *" val={f.code} onChange={v=>u("code",v)}/>
+            <F label="건물 유형" val={f.projType} onChange={v=>u("projType",v)} type="select" opts={PROJ_TYPES}/>
+            <F label="수주 유형" val={f.contractType||""} onChange={v=>u("contractType",v)} type="select" opts={contractTypes||[]}/>
             <div style={{gridColumn:"1/-1"}}><F label="프로젝트명 *" val={f.name} onChange={v=>u("name",v)}/></div>
           </div>},
           {title:"조직정보 · 본부별 지분율",content:<>

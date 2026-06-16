@@ -100,6 +100,7 @@ export const DEPT_STAFF_EMPTY = {total:0,pm:0,designer:0,admin:0}
 // ── 협력업체 ────────────────────────────────────────────────
 export const VENDOR_EMPTY = {ceoName:"",ceoPhone:"",ceoEmail:"",contactName:"",contactPhone:"",contactEmail:"",note:""}
 export const BID_TYPES = ["민간수의","제안공모","경쟁설계","기타"]
+export const CONTRACT_TYPES_DEFAULT = ["턴키","BTL","공공","민간","감리","해외","기타"]
 
 
 export const DEPT_STAFF_INIT = {
@@ -211,7 +212,7 @@ export const getDeptShares = p => {
 }
 // 누락 필드 보강 (orderType/cashflowPlan/deptShares)
 export const normalizeProject = p => ({
-  orderType:"민간", bidType:"민간수의", cashflowPlan:[], cashflowOpening:{},
+  orderType:"민간", bidType:"민간수의", cashflowPlan:[], cashflowOpening:{}, contractType:"민간",
   ...p,
   deptShares: getDeptShares(p),
 })

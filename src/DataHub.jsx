@@ -43,6 +43,7 @@ export function DataHubTab({
   cashflow, setCashflow, years, setYears,
   projects, setTab, setSelProjId, setSelVerIdx, setShowNewProj,
   versions, saveVersion, restoreVersion, deleteVersion,
+  contractTypes, setContractTypes,
 }) {
   const {STAFF_DEPTS,DEPTS,DEPT_COLORS,departments,addDept,renameDept,deleteDept,setDeptColor,setDeptFinance,deptUsage} = useDepts()
   const isAdmin = currentUser.role === "admin"
@@ -57,6 +58,7 @@ export function DataHubTab({
     {id:"years",     label:"📈 3개년 실적"},
     {id:"projects",  label:"🏗 프로젝트·협력업체"},
     {id:"depts",     label:"🏢 본부 관리"},
+    {id:"ctypes",    label:"🏷 수주유형 관리"},
     {id:"history",   label:"📜 버전 기록", accent:true},
   ]
   const [section,setSection] = useState("staff")
@@ -98,6 +100,7 @@ export function DataHubTab({
       {section==="years"     && <YearsSection years={years} setYears={setYears} isAdmin={isAdmin} currentUser={currentUser} saveVersion={saveVersion}/>}
       {section==="projects"  && <ProjectsShortcut projects={projects} currentUser={currentUser} isAdmin={isAdmin} setTab={setTab} setSelProjId={setSelProjId} setSelVerIdx={setSelVerIdx} setShowNewProj={setShowNewProj}/>}
       {section==="depts"     && <DeptManageSection departments={departments} addDept={addDept} renameDept={renameDept} deleteDept={deleteDept} setDeptColor={setDeptColor} setDeptFinance={setDeptFinance} deptUsage={deptUsage} isAdmin={isAdmin}/>}
+      {section==="ctypes"    && <ContractTypeSection contractTypes={contractTypes||[]} setContractTypes={setContractTypes} canManage={canManage}/>}
       {section==="history"   && <VersionHistorySection versions={versions} restoreVersion={restoreVersion} deleteVersion={deleteVersion} saveVersion={saveVersion}
                                     currentUser={currentUser} canManage={canManage} STAFF_DEPTS={STAFF_DEPTS} DEPTS={DEPTS} DEPT_COLORS={DEPT_COLORS}
                                     deptStaff={deptStaff} staffTarget={staffTarget} staffMonthly={staffMonthly} pnlData={pnlData} cashflow={cashflow} years={years}/>}
@@ -959,3 +962,105 @@ function DeptManageSection({departments,addDept,renameDept,deleteDept,setDeptCol
   )
 }
 const DEPT_COLOR_POOL_DEFAULT = ["#185FA5","#1D9E75","#BA7517","#A32D2D","#534AB7","#0F6E56","#D85A30","#7C5295","#2E86AB","#C0392B"]
+
+// ── 수주 유형 관리 ────────────────────────────────────────────
+function ContractTypeSection({contractTypes, setContractTypes, canManage}) {
+  const [newType, setNewType] = useState("")
+  const [editIdx, setEditIdx] = useState(null)
+  const [editVal, setEditVal] = useState("")
+  const [msg, setMsg]         = useState("")
+
+  const flash = m => { setMsg(m); setTimeout(()=>setMsg(""),2000) }
+
+  const add = () => {
+    const t = newType.trim()
+    if(!t) return flash("유형명을 입력하세요.")
+    if(contractTypes.includes(t)) return flash("이미 존재하는 유형입니다.")
+    setContractTypes([...contractTypes, t])
+    setNewType("")
+    flash(`"${t}" 추가됨`)
+  }
+
+  const startEdit = (i) => { setEditIdx(i); setEditVal(contractTypes[i]) }
+  const saveEdit  = () => {
+    const t = editVal.trim()
+    if(!t) return flash("유형명을 입력하세요.")
+    if(contractTypes.some((x,i)=>x===t&&i!==editIdx)) return flash("이미 존재하는 유형입니다.")
+    const next = contractTypes.map((x,i)=>i===editIdx?t:x)
+    setContractTypes(next)
+    setEditIdx(null); setEditVal("")
+    flash(`"${t}"(으)로 수정됨`)
+  }
+  const remove = (i) => {
+    const t = contractTypes[i]
+    if(!window.confirm(`"${t}" 유형을 삭제하시겠습니까?\n이미 이 유형으로 등록된 프로젝트의 수주유형 값은 변경되지 않습니다.`)) return
+    setContractTypes(contractTypes.filter((_,ri)=>ri!==i))
+    flash(`"${t}" 삭제됨`)
+  }
+  const moveUp   = i => { if(i===0) return; const a=[...contractTypes]; [a[i-1],a[i]]=[a[i],a[i-1]]; setContractTypes(a) }
+  const moveDown = i => { if(i===contractTypes.length-1) return; const a=[...contractTypes]; [a[i],a[i+1]]=[a[i+1],a[i]]; setContractTypes(a) }
+
+  const C2 = {navy:"#0C447C",navyM:"#185FA5",navyL:"#E6F1FB",green:"#1D9E75",red:"#A32D2D",redL:"#FCEBEB",gray:"#888780",grayL:"#F1EFE8",amber:"#BA7517"}
+  const card = {background:"var(--color-background-primary,#fff)",border:"0.5px solid var(--color-border-tertiary,#e4e4e0)",borderRadius:14,padding:"19px 22px",marginBottom:16}
+  const inp  = (w=200)=>({width:w,padding:"7px 9px",border:"1px solid var(--color-border-secondary,#ccc)",borderRadius:8,fontSize:13,fontFamily:"inherit",background:"#fff",color:"#222",boxSizing:"border-box"})
+  const btn  = (bg=C2.navyM,fg="#fff")=>({padding:"7px 14px",background:bg,color:fg,border:"none",borderRadius:8,fontSize:13,fontWeight:600,cursor:"pointer"})
+
+  return (
+    <div style={card}>
+      <div style={{fontSize:15,fontWeight:700,marginBottom:4}}>🏷 수주유형 관리</div>
+      <div style={{fontSize:12,color:C2.gray,marginBottom:16}}>프로젝트 등록 시 선택할 수주 유형 목록을 관리합니다. 순서를 드래그하거나 위/아래 버튼으로 조정할 수 있습니다.</div>
+
+      {msg && <div style={{background:C2.navyL,borderRadius:8,padding:"7px 12px",fontSize:12,color:C2.navyM,fontWeight:600,marginBottom:12}}>{msg}</div>}
+
+      {/* 추가 */}
+      {canManage && (
+        <div style={{display:"flex",gap:8,alignItems:"center",marginBottom:16,flexWrap:"wrap"}}>
+          <input value={newType} onChange={e=>setNewType(e.target.value)} onKeyDown={e=>e.key==="Enter"&&add()}
+            placeholder="새 유형명 (예: 리모델링)" style={inp(200)}/>
+          <button onClick={add} style={btn(C2.navyM)}>+ 추가</button>
+        </div>
+      )}
+
+      {/* 목록 */}
+      <div style={{display:"flex",flexDirection:"column",gap:6}}>
+        {contractTypes.length===0 && <div style={{color:C2.gray,fontSize:13}}>등록된 유형이 없습니다.</div>}
+        {contractTypes.map((t,i)=>(
+          <div key={i} style={{display:"flex",alignItems:"center",gap:8,padding:"8px 12px",background:"var(--color-background-secondary,#f8f8f6)",borderRadius:10,border:"0.5px solid var(--color-border-tertiary,#eee)"}}>
+            {/* 순서 이동 */}
+            {canManage && (
+              <div style={{display:"flex",flexDirection:"column",gap:2}}>
+                <button onClick={()=>moveUp(i)} style={{...btn(C2.navyL,C2.navyM),padding:"2px 6px",fontSize:10,lineHeight:1}} title="위로">▲</button>
+                <button onClick={()=>moveDown(i)} style={{...btn(C2.navyL,C2.navyM),padding:"2px 6px",fontSize:10,lineHeight:1}} title="아래로">▼</button>
+              </div>
+            )}
+
+            {/* 번호 뱃지 */}
+            <span style={{width:22,height:22,borderRadius:6,background:C2.navyM,color:"#fff",fontSize:11,fontWeight:700,display:"inline-flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>{i+1}</span>
+
+            {/* 이름 또는 편집 입력 */}
+            {editIdx===i
+              ? <>
+                  <input value={editVal} onChange={e=>setEditVal(e.target.value)} onKeyDown={e=>{ if(e.key==="Enter") saveEdit(); if(e.key==="Escape"){setEditIdx(null);setEditVal("")} }}
+                    style={{...inp(180),flex:1}} autoFocus/>
+                  <button onClick={saveEdit} style={{...btn(C2.green),padding:"5px 11px"}}>저장</button>
+                  <button onClick={()=>{setEditIdx(null);setEditVal("")}} style={{...btn(C2.grayL,C2.gray),padding:"5px 11px"}}>취소</button>
+                </>
+              : <>
+                  <span style={{flex:1,fontSize:14,fontWeight:600}}>{t}</span>
+                  {canManage && <>
+                    <button onClick={()=>startEdit(i)} style={{...btn(C2.navyL,C2.navyM),padding:"5px 11px",fontSize:12}}>수정</button>
+                    <button onClick={()=>remove(i)} style={{...btn(C2.redL,C2.red),padding:"5px 11px",fontSize:12}}>삭제</button>
+                  </>}
+                </>
+            }
+          </div>
+        ))}
+      </div>
+
+      <div style={{marginTop:14,fontSize:11,color:C2.gray,lineHeight:1.7}}>
+        ※ 유형을 삭제해도 이미 해당 유형으로 저장된 프로젝트에는 영향을 주지 않습니다.<br/>
+        ※ 유형 이름을 수정하면 이후 신규 등록/수정 시 새 이름으로 선택됩니다.
+      </div>
+    </div>
+  )
+}
