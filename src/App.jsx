@@ -470,38 +470,101 @@ export default function App() {
     reader.readAsArrayBuffer(file)
   },[projects])
 
-  // 엑셀 양식 다운로드 (업로드 파서가 읽는 행 위치와 정확히 일치)
+  // 엑셀 양식 다운로드 — 시스템 전체 항목 포함 완전판
   const downloadTemplate = useCallback(()=>{
-    const ws1 = XLSX.utils.aoa_to_sheet([
-      ["■ 프로젝트정보 입력 양식 (상지서울건축사사무소)"],
-      ["행 번호/형식을 변경하지 마세요. 파란 음영 행에만 값을 입력한 뒤 저장하세요."],
-      ["프로젝트코드는 영문/숫자 조합, 담당본부는 정확한 본부명을 콤마(,)로 구분해 입력합니다."],
-      [],
-      ["프로젝트코드","연도","프로젝트명","유형","담당본부(콤마구분)","PM","담당임원"],
-      ["E26999-SAMPLE","2026","○○현장 신축공사 실시설계 용역","공동주택","설계1본부","홍길동","홍길동 이사"],
-      ["발주처","발주처담당자","","","세대수","주소"],
-      ["○○공사","김담당","","",500,"서울특별시 ○○구 ○○로 123"],
-      ["총용역비(원,VAT별도)","상지 지분율(%)","상지 용역비(원,VAT별도)","대지면적(㎡)","","연면적(㎡)"],
-      [500000000,100,500000000,10000,"",30000],
-      ["계약일(YYYY-MM-DD)","수주일(YYYY-MM-DD, 계약금10%수령일)"],
-      ["2026-01-01","2026-01-15"],
-    ])
-    ws1["!cols"]=[{wch:18},{wch:18},{wch:30},{wch:14},{wch:20},{wch:12},{wch:14}]
+    const hdr = {font:{bold:true,color:{argb:"FFFFFFFF"}},fill:{type:"pattern",pattern:"solid",fgColor:{argb:"FF1A3B6E"}},alignment:{horizontal:"center",wrapText:true},border:{bottom:{style:"thin"}}}
+    const sub = {fill:{type:"pattern",pattern:"solid",fgColor:{argb:"FFEEF3FF"}},font:{bold:true},border:{bottom:{style:"thin"}}}
+    const ex  = {fill:{type:"pattern",pattern:"solid",fgColor:{argb:"FFF0FDF4"}}}
+    const note= {fill:{type:"pattern",pattern:"solid",fgColor:{argb:"FFFEF9EE"}}}
 
-    const ws2 = XLSX.utils.aoa_to_sheet([
-      ["■ 협력업체 비용 입력 양식"],
-      ["프로젝트코드는 시트1의 프로젝트코드와 정확히 일치해야 합니다. 5행부터 여러 업체를 추가할 수 있습니다."],
+    // ── 시트1: 프로젝트 기본정보 ─────────────────────────────
+    const ws1 = XLSX.utils.aoa_to_sheet([
+      ["■ 상지서울 통합경영시스템 — 프로젝트 개설 양식 v2"],
+      ["※ 파란색 행(3행~)에만 데이터 입력. 열 순서·제목 변경 금지. 한 행 = 프로젝트 1건"],
       [],
-      ["프로젝트코드","공종","업체명","계약금액(원)","NEGO1(원)","NEGO2(원)"],
-      ["E26999-SAMPLE","구조","○○구조엔지니어링",30000000,"",""],
-      ["E26999-SAMPLE","기계설비","○○설비",25000000,"",""],
+      // 헤더
+      ["프로젝트코드","연도","프로젝트명","건물유형","수주유형","수주형태",
+       "담당본부","PM","담당본부장","발주처","발주처담당자","발주구분",
+       "총설계비(원,VAT별도)","상지지분율(%)","상지용역비(원,VAT별도)",
+       "대지면적(㎡)","연면적(㎡)","세대수","규모","용도",
+       "계약일(YYYY-MM-DD)","수주일(YYYY-MM-DD)",
+       "대지위치(주소)","비고","진행상태"],
+      // 예시행
+      ["E26001-PPH","2026","○○현장 공동주택 설계용역","공동주택","민간","민간수의",
+       "설계1본부","홍길동","홍길동 이사","○○건설(주)","김담당 차장","민간",
+       1200000000,100,1200000000,
+       12500,45000,450,"지하2층/지상25층","공동주택",
+       "2026-01-15","2026-01-20",
+       "서울특별시 강남구 ○○로 123","초안","진행중"],
+      ["E26002-OFC","2026","○○업무시설 리모델링 설계","업무시설","공공","경쟁설계",
+       "설계2본부,설계1본부","이설계","이부장 이사","○○공사","박담당 과장","공공",
+       850000000,70,595000000,
+       5200,28000,0,"지하1층/지상15층","업무시설",
+       "2026-02-01","2026-02-10",
+       "경기도 성남시 ○○구 ○○로 456","","진행중"],
     ])
-    ws2["!cols"]=[{wch:18},{wch:14},{wch:22},{wch:14},{wch:14},{wch:14}]
+    ws1["!cols"]=[{wch:18},{wch:7},{wch:30},{wch:12},{wch:12},{wch:12},
+                  {wch:18},{wch:10},{wch:14},{wch:18},{wch:14},{wch:10},
+                  {wch:16},{wch:10},{wch:16},
+                  {wch:12},{wch:12},{wch:8},{wch:16},{wch:12},
+                  {wch:16},{wch:16},{wch:30},{wch:20},{wch:10}]
+
+    // ── 시트2: 협력업체 외주비 ────────────────────────────────
+    const ws2 = XLSX.utils.aoa_to_sheet([
+      ["■ 협력업체 외주비 입력 (프로젝트코드는 시트1과 정확히 일치)"],
+      ["※ 한 프로젝트에 여러 협력업체는 같은 코드로 여러 행 입력"],
+      [],
+      ["프로젝트코드","공종(분야)","협력업체명","원가견적(원)","1차NEGO(원)","2차NEGO(원)","메모"],
+      ["E26001-PPH","구조","(주)○○구조엔지니어링",72000000,"","",""],
+      ["E26001-PPH","토목","(주)○○기술단",55000000,50000000,"","2차협의중"],
+      ["E26001-PPH","조경","○○조경(주)",38000000,"","",""],
+      ["E26001-PPH","기계설비","(주)○○엔지니어링",42000000,"","",""],
+      ["E26001-PPH","전기통신","○○전기(주)",35000000,"","",""],
+      ["E26002-OFC","구조","(주)○○구조",48000000,45000000,"",""],
+    ])
+    ws2["!cols"]=[{wch:18},{wch:14},{wch:22},{wch:14},{wch:14},{wch:14},{wch:20}]
+
+    // ── 시트3: 월수금계획 ────────────────────────────────────
+    const ws3 = XLSX.utils.aoa_to_sheet([
+      ["■ 월수금계획 입력 (프로젝트코드는 시트1과 정확히 일치)"],
+      ["※ 계획기성: 해당 월에 받을 예정 금액(억원), 입금실적: 실제 받은 금액(억원)"],
+      [],
+      ["프로젝트코드","연도","구분","1월","2월","3월","4월","5월","6월","7월","8월","9월","10월","11월","12월"],
+      ["E26001-PPH","2026","계획기성(억원)","","","1.2","","","1.5","","","2.0","","","1.3"],
+      ["E26001-PPH","2026","입금실적(억원)","","","1.2","","","","","","","","",""],
+      ["E26002-OFC","2026","계획기성(억원)","","0.8","","","0.8","","","0.8","","","",""],
+    ])
+    ws3["!cols"]=[{wch:18},{wch:7},{wch:14},...Array(12).fill({wch:8})]
+
+    // ── 시트4: 실행계획서 비용 ───────────────────────────────
+    const ws4 = XLSX.utils.aoa_to_sheet([
+      ["■ 실행계획서 비용 입력"],
+      ["※ 외주용역비는 시트2의 협력업체 금액 합계와 일치 권장"],
+      [],
+      ["프로젝트코드","회차","작성일(YYYY-MM-DD)","변경사유","직접인건비(원)","직접경비(원)","외주용역비(원)","간접비(원,0=자동)","이윤(원,0=자동)"],
+      ["E26001-PPH",1,"2026-01-20","최초 작성",237000000,45000000,242000000,0,0],
+      ["E26001-PPH",2,"2026-03-15","협력업체 변경",237000000,45000000,285000000,0,0],
+    ])
+    ws4["!cols"]=[{wch:18},{wch:7},{wch:16},{wch:20},{wch:14},{wch:14},{wch:14},{wch:16},{wch:16}]
+
+    // ── 시트5: 주요일정 ──────────────────────────────────────
+    const ws5 = XLSX.utils.aoa_to_sheet([
+      ["■ 프로젝트 주요일정 입력"],
+      [],
+      ["프로젝트코드","날짜(YYYY-MM-DD)","구분","주요내용","메모"],
+      ["E26001-PPH","2026-01-20","계약","설계용역 계약 체결","계약금 10% 입금 확인"],
+      ["E26001-PPH","2026-03-10","심의","건축위원회 심의 접수","서류 일체 제출"],
+      ["E26001-PPH","2026-05-15","인허가","건축허가 신청","예상 허가기간 60일"],
+    ])
+    ws5["!cols"]=[{wch:18},{wch:16},{wch:12},{wch:35},{wch:30}]
 
     const wb = XLSX.utils.book_new()
-    XLSX.utils.book_append_sheet(wb,ws1,"프로젝트정보")
-    XLSX.utils.book_append_sheet(wb,ws2,"협력업체비용")
-    XLSX.writeFile(wb,"상지서울_프로젝트입력양식.xlsx")
+    XLSX.utils.book_append_sheet(wb,ws1,"①프로젝트기본정보")
+    XLSX.utils.book_append_sheet(wb,ws2,"②협력업체외주비")
+    XLSX.utils.book_append_sheet(wb,ws3,"③월수금계획")
+    XLSX.utils.book_append_sheet(wb,ws4,"④실행계획서비용")
+    XLSX.utils.book_append_sheet(wb,ws5,"⑤주요일정")
+    XLSX.writeFile(wb,"상지서울_프로젝트개설양식_v2.xlsx")
   },[])
 
   // ── 실행계획서 보고서 Word(.docx) 다운로드 ──────────────────
@@ -632,6 +695,7 @@ export default function App() {
 
   const TABS = [
     {id:"analysis",  label:"📊 경영분석"},
+    {id:"deptdash",  label:"🏢 본부별 현황"},
     {id:"datahub",   label:"🗄️ 데이터관리"},
     {id:"cashflow",  label:"💧 월수금계획"},
     {id:"projects",  label:"🏗 프로젝트"},
@@ -673,10 +737,10 @@ export default function App() {
           </button>
           <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:5}}>
             <button onClick={()=>uploadRef.current?.click()} style={{...S.btn(C.grayL,"#374151"),padding:"7px 6px",fontSize:12,borderRadius:8,justifyContent:"center"}}>
-              <i className="ti ti-upload" style={{fontSize:12}}/> 업로드
+              <i className="ti ti-upload" style={{fontSize:12}}/> 정보 업로드
             </button>
             <button onClick={downloadTemplate} style={{...S.btn(C.grayL,"#374151"),padding:"7px 6px",fontSize:12,borderRadius:8,justifyContent:"center"}}>
-              <i className="ti ti-file-download" style={{fontSize:12}}/> 양식
+              <i className="ti ti-file-download" style={{fontSize:12}}/> 개설양식 다운로드
             </button>
           </div>
           <input ref={uploadRef} type="file" accept=".xlsx,.xls,.csv" style={{display:"none"}} onChange={handleUpload}/>
@@ -3564,131 +3628,200 @@ function ProjectHistoryPage({projects, currentUser}) {
 // ── 프로젝트 일정 캘린더 (전체 프로젝트 통합) ───────────────────
 function ProjectCalendarPage({projects}) {
   const [viewYear,  setViewYear]  = useState(new Date().getFullYear())
-  const [viewMonth, setViewMonth] = useState(new Date().getMonth())  // 0-indexed
+  const [viewMonth, setViewMonth] = useState(new Date().getMonth())
+  const [viewMode,  setViewMode]  = useState("calendar")   // calendar | list
   const [selDate,   setSelDate]   = useState(null)
+  const [filterType,setFilterType]= useState("")   // 사안 유형 필터
 
-  // 모든 프로젝트의 날짜 이벤트 수집
+  // 전체 이벤트 수집 + 구분(type) 목록 추출
   const allEvents = useMemo(()=>{
     const evts = []
     projects.forEach(p=>{
-      // 계약일
-      if(p.contractDate) evts.push({date:p.contractDate, proj:p.name, type:"계약일", color:"#3B72F6"})
-      // 주요일정
+      if(p.contractDate) evts.push({date:p.contractDate, proj:p.name, projId:p.id, type:"계약일", color:"#3B72F6", title:"계약 체결"})
       ;(p.weeklyReport?.scheduleLog||[]).forEach(e=>{
-        evts.push({date:e.date, proj:p.name, type:e.category, title:e.content, color:{
-          계약:"#3B72F6",심의:"#F59E0B",인허가:"#0EA86E",착공:"#534AB7",준공:"#EF4444",변경:"#6B7280",기타:"#9CA3AF"
-        }[e.category]||"#6B7280"})
+        const clr = {계약:"#3B72F6",심의:"#F59E0B",인허가:"#0EA86E",착공:"#534AB7",준공:"#EF4444",변경:"#6B7280",기타:"#9CA3AF"}[e.category]||"#9CA3AF"
+        evts.push({date:e.date, proj:p.name, projId:p.id, type:e.category, title:e.content, memo:e.memo, color:clr})
       })
-      // cashflowPlan의 기성 예정
       ;(p.cashflowPlan||[]).filter(e=>e.plan>0).forEach(e=>{
         const d=`${e.year}-${String(e.month).padStart(2,"0")}-01`
-        evts.push({date:d, proj:p.name, type:"계획기성", title:`${e.plan}억 계획기성`, color:"#0EA86E"})
+        evts.push({date:d, proj:p.name, projId:p.id, type:"계획기성", title:`계획기성 ${e.plan}억`, color:"#0EA86E"})
       })
     })
-    return evts.filter(e=>e.date)
+    return evts.filter(e=>e.date).sort((a,b)=>a.date.localeCompare(b.date))
   },[projects])
 
-  // 월별 날짜 계산
-  const firstDay = new Date(viewYear, viewMonth, 1).getDay()  // 0=일
+  const allTypes = useMemo(()=>["전체",...new Set(allEvents.map(e=>e.type))],[allEvents])
+
+  const filtered = useMemo(()=>
+    filterType&&filterType!=="전체" ? allEvents.filter(e=>e.type===filterType) : allEvents
+  ,[allEvents, filterType])
+
+  // 캘린더 계산
+  const firstDay    = new Date(viewYear, viewMonth, 1).getDay()
   const daysInMonth = new Date(viewYear, viewMonth+1, 0).getDate()
-  const today = new Date().toISOString().slice(0,10)
+  const today       = new Date().toISOString().slice(0,10)
+  const getStr = d => `${viewYear}-${String(viewMonth+1).padStart(2,"0")}-${String(d).padStart(2,"0")}`
+  const dayEvts= d => filtered.filter(e=>e.date===getStr(d))
 
-  const getDateStr = (d) => `${viewYear}-${String(viewMonth+1).padStart(2,"0")}-${String(d).padStart(2,"0")}`
-  const getEventsForDate = (d) => allEvents.filter(e=>e.date===getDateStr(d))
+  // 리스트 뷰 — 월별 그룹
+  const listByMonth = useMemo(()=>{
+    const grp = {}
+    filtered.forEach(e=>{
+      const ym = e.date.slice(0,7)
+      if(!grp[ym]) grp[ym]=[]
+      grp[ym].push(e)
+    })
+    return Object.entries(grp).sort(([a],[b])=>a.localeCompare(b))
+  },[filtered])
 
-  const selEvents = selDate ? allEvents.filter(e=>e.date===selDate) : []
+  const prevM=()=>{ if(viewMonth===0){setViewYear(y=>y-1);setViewMonth(11)}else setViewMonth(m=>m-1) }
+  const nextM=()=>{ if(viewMonth===11){setViewYear(y=>y+1);setViewMonth(0)}else setViewMonth(m=>m+1) }
 
   return (
     <div>
       {/* 헤더 */}
-      <div style={{background:"#fff",borderRadius:16,border:"1px solid #E5E7EB",padding:"16px 22px",marginBottom:16,display:"flex",alignItems:"center",gap:14}}>
-        <div style={{fontSize:18,fontWeight:800,color:"#111827"}}>📅 전체 프로젝트 일정</div>
-        <div style={{display:"flex",alignItems:"center",gap:8,marginLeft:"auto"}}>
-          <button onClick={()=>{ if(viewMonth===0){setViewYear(y=>y-1);setViewMonth(11)}else setViewMonth(m=>m-1) }}
-            style={{padding:"7px 12px",border:"1.5px solid #E5E7EB",borderRadius:9,background:"#fff",cursor:"pointer",fontSize:16}}>‹</button>
-          <div style={{fontSize:16,fontWeight:700,color:"#111827",minWidth:120,textAlign:"center"}}>
-            {viewYear}년 {viewMonth+1}월
+      <div style={{background:"#fff",borderRadius:16,border:"1px solid #E5E7EB",padding:"16px 22px",marginBottom:14,boxShadow:"0 1px 4px rgba(0,0,0,.04)"}}>
+        <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:14,flexWrap:"wrap"}}>
+          <div style={{fontSize:18,fontWeight:800,color:"#111827"}}>📅 전체 프로젝트 일정</div>
+          {/* 뷰 전환 */}
+          <div style={{display:"flex",gap:2,border:"1.5px solid #E5E7EB",borderRadius:10,overflow:"hidden",marginLeft:"auto"}}>
+            {[["calendar","📆 캘린더"],["list","📋 리스트"]].map(([v,l])=>(
+              <button key={v} onClick={()=>setViewMode(v)}
+                style={{padding:"7px 14px",border:"none",background:viewMode===v?"#3B72F6":"#fff",color:viewMode===v?"#fff":"#6B7280",cursor:"pointer",fontSize:13.5,fontWeight:700}}>
+                {l}
+              </button>
+            ))}
           </div>
-          <button onClick={()=>{ if(viewMonth===11){setViewYear(y=>y+1);setViewMonth(0)}else setViewMonth(m=>m+1) }}
-            style={{padding:"7px 12px",border:"1.5px solid #E5E7EB",borderRadius:9,background:"#fff",cursor:"pointer",fontSize:16}}>›</button>
-          <button onClick={()=>{setViewYear(new Date().getFullYear());setViewMonth(new Date().getMonth())}}
-            style={{padding:"7px 14px",border:"1.5px solid #E5E7EB",borderRadius:9,background:"#EEF3FF",color:"#3B72F6",cursor:"pointer",fontSize:13,fontWeight:700}}>오늘</button>
+          {viewMode==="calendar"&&<>
+            <button onClick={prevM} style={{padding:"7px 12px",border:"1.5px solid #E5E7EB",borderRadius:9,background:"#fff",cursor:"pointer",fontSize:16}}>‹</button>
+            <div style={{fontSize:16,fontWeight:700,minWidth:110,textAlign:"center"}}>{viewYear}년 {viewMonth+1}월</div>
+            <button onClick={nextM} style={{padding:"7px 12px",border:"1.5px solid #E5E7EB",borderRadius:9,background:"#fff",cursor:"pointer",fontSize:16}}>›</button>
+            <button onClick={()=>{setViewYear(new Date().getFullYear());setViewMonth(new Date().getMonth())}}
+              style={{padding:"7px 14px",border:"1.5px solid #E5E7EB",borderRadius:9,background:"#EEF3FF",color:"#3B72F6",cursor:"pointer",fontSize:13,fontWeight:700}}>오늘</button>
+          </>}
+        </div>
+
+        {/* 사안별 필터 */}
+        <div style={{display:"flex",gap:6,flexWrap:"wrap",alignItems:"center"}}>
+          <span style={{fontSize:13,fontWeight:700,color:"#6B7280",marginRight:2}}>사안 필터:</span>
+          {allTypes.map(t=>{
+            const evtColor = t==="전체"?"#3B72F6":allEvents.find(e=>e.type===t)?.color||"#6B7280"
+            const active   = (filterType||"전체")===t
+            return (
+              <button key={t} onClick={()=>setFilterType(t==="전체"?"":t)}
+                style={{padding:"5px 13px",borderRadius:20,border:`1.5px solid ${active?evtColor:"#E5E7EB"}`,
+                  background:active?evtColor+"18":"#F8FAFC",color:active?evtColor:"#6B7280",
+                  fontSize:13,fontWeight:active?700:500,cursor:"pointer",transition:"all .12s"}}>
+                {t} {t!=="전체"&&<span style={{fontSize:11,opacity:.7}}>({allEvents.filter(e=>e.type===t).length})</span>}
+              </button>
+            )
+          })}
         </div>
       </div>
 
-      <div style={{display:"grid",gridTemplateColumns:selDate?"1fr 320px":"1fr",gap:14,alignItems:"start"}}>
-        {/* 캘린더 */}
-        <div style={{background:"#fff",borderRadius:16,border:"1px solid #E5E7EB",overflow:"hidden",boxShadow:"0 1px 4px rgba(0,0,0,.05)"}}>
-          {/* 요일 헤더 */}
-          <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",background:"#F8FAFC",borderBottom:"1px solid #E5E7EB"}}>
-            {["일","월","화","수","목","금","토"].map((d,i)=>(
-              <div key={d} style={{padding:"11px 0",textAlign:"center",fontSize:13,fontWeight:700,color:i===0?"#EF4444":i===6?"#3B72F6":"#6B7280"}}>
-                {d}
-              </div>
-            ))}
-          </div>
-          {/* 날짜 그리드 */}
-          <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)"}}>
-            {/* 빈 칸 */}
-            {Array(firstDay).fill(null).map((_,i)=>(
-              <div key={`e${i}`} style={{minHeight:90,borderRight:"1px solid #F3F4F6",borderBottom:"1px solid #F3F4F6",background:"#FAFAFA"}}/>
-            ))}
-            {/* 날짜 */}
-            {Array.from({length:daysInMonth},(_,i)=>i+1).map(d=>{
-              const dateStr = getDateStr(d)
-              const dayEvts = getEventsForDate(d)
-              const isToday = dateStr===today
-              const isSel   = dateStr===selDate
-              const dayOfWeek = (firstDay+d-1)%7
-              return (
-                <div key={d} onClick={()=>setSelDate(s=>s===dateStr?null:dateStr)}
-                  style={{minHeight:90,borderRight:"1px solid #F3F4F6",borderBottom:"1px solid #F3F4F6",padding:"6px 8px",cursor:"pointer",
-                    background:isSel?"#EEF3FF":isToday?"#FEF9EE":"#fff",
-                    transition:"background .1s"}}
-                  onMouseEnter={e=>{if(!isSel&&!isToday)e.currentTarget.style.background="#F8FAFC"}}
-                  onMouseLeave={e=>{if(!isSel&&!isToday)e.currentTarget.style.background="#fff"}}
-                >
-                  <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:4}}>
-                    <span style={{fontSize:13,fontWeight:isToday?800:500,
-                      color:isToday?"#3B72F6":dayOfWeek===0?"#EF4444":dayOfWeek===6?"#3B72F6":"#374151",
-                      width:24,height:24,borderRadius:"50%",display:"inline-flex",alignItems:"center",justifyContent:"center",
-                      background:isToday?"#3B72F6":"transparent",
-                      color2:"#fff"
-                    }}
-                    style2={{color:isToday?"#fff":"inherit"}}>
-                      {d}
-                    </span>
-                    {dayEvts.length>0&&<span style={{fontSize:10,background:"#3B72F6",color:"#fff",borderRadius:10,padding:"1px 6px",fontWeight:700}}>{dayEvts.length}</span>}
-                  </div>
-                  {dayEvts.slice(0,3).map((e,ei)=>(
-                    <div key={ei} style={{fontSize:10.5,fontWeight:600,color:e.color||"#6B7280",background:(e.color||"#6B7280")+"18",borderRadius:4,padding:"2px 5px",marginBottom:2,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
-                      {e.title||e.type} · {e.proj?.slice(0,8)}
+      {/* ── 캘린더 뷰 ── */}
+      {viewMode==="calendar"&&(
+        <div style={{display:"grid",gridTemplateColumns:selDate?"1fr 320px":"1fr",gap:14,alignItems:"start"}}>
+          <div style={{background:"#fff",borderRadius:16,border:"1px solid #E5E7EB",overflow:"hidden",boxShadow:"0 1px 4px rgba(0,0,0,.04)"}}>
+            <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",background:"#F8FAFC",borderBottom:"1px solid #E5E7EB"}}>
+              {["일","월","화","수","목","금","토"].map((d,i)=>(
+                <div key={d} style={{padding:"11px 0",textAlign:"center",fontSize:13,fontWeight:700,color:i===0?"#EF4444":i===6?"#3B72F6":"#6B7280"}}>{d}</div>
+              ))}
+            </div>
+            <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)"}}>
+              {Array(firstDay).fill(null).map((_,i)=><div key={`e${i}`} style={{minHeight:96,borderRight:"1px solid #F3F4F6",borderBottom:"1px solid #F3F4F6",background:"#FAFAFA"}}/>)}
+              {Array.from({length:daysInMonth},(_,i)=>i+1).map(d=>{
+                const dateStr  = getStr(d)
+                const evts     = dayEvts(d)
+                const isToday  = dateStr===today
+                const isSel    = dateStr===selDate
+                const dow      = (firstDay+d-1)%7
+                return (
+                  <div key={d} onClick={()=>setSelDate(s=>s===dateStr?null:dateStr)}
+                    style={{minHeight:96,borderRight:"1px solid #F3F4F6",borderBottom:"1px solid #F3F4F6",padding:"6px 7px",cursor:"pointer",
+                      background:isSel?"#EEF3FF":isToday?"#FEF9EE":"#fff",transition:"background .1s"}}
+                    onMouseEnter={e=>{if(!isSel&&!isToday)e.currentTarget.style.background="#F8FAFC"}}
+                    onMouseLeave={e=>{if(!isSel&&!isToday)e.currentTarget.style.background=isSel?"#EEF3FF":isToday?"#FEF9EE":"#fff"}}>
+                    <div style={{display:"flex",justifyContent:"space-between",marginBottom:4}}>
+                      <span style={{width:24,height:24,borderRadius:"50%",display:"inline-flex",alignItems:"center",justifyContent:"center",
+                        fontSize:13,fontWeight:isToday?800:500,
+                        background:isToday?"#3B72F6":"transparent",
+                        color:isToday?"#fff":dow===0?"#EF4444":dow===6?"#3B72F6":"#374151"}}>
+                        {d}
+                      </span>
+                      {evts.length>0&&<span style={{fontSize:11,background:"#3B72F6",color:"#fff",borderRadius:8,padding:"1px 6px",fontWeight:700}}>{evts.length}</span>}
                     </div>
-                  ))}
-                  {dayEvts.length>3&&<div style={{fontSize:10,color:"#9CA3AF"}}>+{dayEvts.length-3}건</div>}
-                </div>
-              )
-            })}
+                    {evts.slice(0,3).map((e,ei)=>(
+                      <div key={ei} style={{fontSize:11,fontWeight:600,color:e.color,background:e.color+"15",borderRadius:4,padding:"2px 5px",marginBottom:2,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
+                        {e.type} · {e.proj?.slice(0,8)}
+                      </div>
+                    ))}
+                    {evts.length>3&&<div style={{fontSize:10,color:"#9CA3AF"}}>+{evts.length-3}건</div>}
+                  </div>
+                )
+              })}
+            </div>
           </div>
+          {/* 선택일 상세 */}
+          {selDate&&(
+            <div style={{background:"#fff",borderRadius:16,border:"1px solid #E5E7EB",padding:"18px 20px",boxShadow:"0 1px 4px rgba(0,0,0,.04)"}}>
+              <div style={{fontSize:15,fontWeight:800,color:"#111827",marginBottom:12}}>{selDate}</div>
+              {filtered.filter(e=>e.date===selDate).length===0
+                ?<div style={{color:"#6B7280",fontSize:13}}>이 날짜에 일정이 없습니다.</div>
+                :filtered.filter(e=>e.date===selDate).map((e,i)=>(
+                  <div key={i} style={{padding:"10px 13px",borderRadius:10,border:`1.5px solid ${e.color}33`,marginBottom:8,background:e.color+"09"}}>
+                    <div style={{fontSize:12,fontWeight:700,color:e.color,marginBottom:3}}>{e.type}</div>
+                    <div style={{fontSize:13.5,fontWeight:700,color:"#111827",marginBottom:2}}>{e.title||e.type}</div>
+                    {e.memo&&<div style={{fontSize:12,color:"#6B7280",marginBottom:2}}>📝 {e.memo}</div>}
+                    <div style={{fontSize:12,color:"#6B7280"}}>🏗 {e.proj}</div>
+                  </div>
+                ))
+              }
+            </div>
+          )}
         </div>
+      )}
 
-        {/* 선택일 상세 */}
-        {selDate&&(
-          <div style={{background:"#fff",borderRadius:16,border:"1px solid #E5E7EB",padding:"18px 20px",boxShadow:"0 1px 4px rgba(0,0,0,.05)"}}>
-            <div style={{fontSize:15,fontWeight:800,color:"#111827",marginBottom:12}}>{selDate}</div>
-            {selEvents.length===0
-              ? <div style={{color:"#6B7280",fontSize:13}}>이 날짜에 등록된 일정이 없습니다.</div>
-              : selEvents.map((e,i)=>(
-                <div key={i} style={{padding:"10px 13px",borderRadius:10,border:`1.5px solid ${e.color||"#E5E7EB"}33`,marginBottom:8,background:(e.color||"#6B7280")+"0A"}}>
-                  <div style={{fontSize:12,fontWeight:700,color:e.color||"#6B7280",marginBottom:3}}>{e.type}</div>
-                  <div style={{fontSize:13.5,fontWeight:700,color:"#111827",marginBottom:2}}>{e.title||e.type}</div>
-                  <div style={{fontSize:12,color:"#6B7280"}}>🏗 {e.proj}</div>
+      {/* ── 리스트 뷰 ── */}
+      {viewMode==="list"&&(
+        <div style={{background:"#fff",borderRadius:16,border:"1px solid #E5E7EB",overflow:"hidden",boxShadow:"0 1px 4px rgba(0,0,0,.04)"}}>
+          {filtered.length===0
+            ?<div style={{padding:"48px",textAlign:"center",color:"#6B7280",fontSize:14}}>선택한 사안의 일정이 없습니다.</div>
+            :listByMonth.map(([ym, evts])=>(
+              <div key={ym}>
+                <div style={{padding:"10px 20px",background:"#F8FAFC",borderBottom:"1px solid #E5E7EB",fontSize:14,fontWeight:800,color:"#374151",display:"flex",alignItems:"center",gap:8}}>
+                  📆 {ym.slice(0,4)}년 {parseInt(ym.slice(5))}월
+                  <span style={{fontSize:12,color:"#9CA3AF",fontWeight:500}}>{evts.length}건</span>
                 </div>
-              ))
-            }
-          </div>
-        )}
-      </div>
+                {evts.map((e,i)=>(
+                  <div key={i} style={{display:"flex",gap:0,borderBottom:"1px solid #F3F4F6"}}
+                    onMouseEnter={ev=>ev.currentTarget.style.background="#F8FAFC"}
+                    onMouseLeave={ev=>ev.currentTarget.style.background="transparent"}>
+                    {/* 날짜 */}
+                    <div style={{width:100,padding:"13px 16px",flexShrink:0,borderRight:"1px solid #F3F4F6"}}>
+                      <div style={{fontSize:14,fontWeight:800,color:"#111827"}}>{e.date.slice(5)}</div>
+                      <div style={{fontSize:11,color:"#9CA3AF"}}>{["일","월","화","수","목","금","토"][new Date(e.date).getDay()]}</div>
+                    </div>
+                    {/* 사안 뱃지 */}
+                    <div style={{width:90,padding:"13px 12px",flexShrink:0,borderRight:"1px solid #F3F4F6",display:"flex",alignItems:"center",justifyContent:"center"}}>
+                      <span style={{fontSize:12,padding:"4px 10px",borderRadius:20,background:e.color+"18",color:e.color,fontWeight:700,textAlign:"center"}}>{e.type}</span>
+                    </div>
+                    {/* 내용 */}
+                    <div style={{flex:1,padding:"13px 16px"}}>
+                      <div style={{fontSize:14,fontWeight:700,color:"#111827",marginBottom:2}}>{e.title||e.type}</div>
+                      {e.memo&&<div style={{fontSize:12.5,color:"#6B7280"}}>📝 {e.memo}</div>}
+                    </div>
+                    {/* 프로젝트 */}
+                    <div style={{width:180,padding:"13px 14px",flexShrink:0,borderLeft:"1px solid #F3F4F6",display:"flex",alignItems:"center"}}>
+                      <span style={{fontSize:12.5,color:"#374151",fontWeight:500}}>{e.proj}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ))
+          }
+        </div>
+      )}
     </div>
   )
 }

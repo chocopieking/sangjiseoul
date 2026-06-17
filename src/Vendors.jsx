@@ -1,7 +1,7 @@
 // ══════════════════════════════════════════════════════════════
 // 협력업체 탭 — 업체정보 · 수행 프로젝트/지급내역 · 외주비 비교 · 실행초안
 // ══════════════════════════════════════════════════════════════
-import { useState, useMemo } from "react"
+import { useState, useMemo, useRef } from "react"
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, LabelList } from "recharts"
 import { fW, fE, fPy, getAreaBasis, calcUP, VENDOR_EMPTY, BID_TYPES } from "./data.js"
 
@@ -144,163 +144,319 @@ function VendorList({directory,search,setSearch,vendorsDB,onSelect}) {
 function VendorDetail({entry,vendorsDB,setVendorsDB,vendorPayments,setVendorPayments,canWrite,currentUser,onBack}) {
   const info = vendorsDB?.[entry.name]||VENDOR_EMPTY
   const [editing,setEditing] = useState(false)
-  const [draft,setDraft]     = useState(info)
-  const start = ()=>{ setDraft({...VENDOR_EMPTY,...info}); setEditing(true) }
-  const save  = ()=>{ setVendorsDB(prev=>({...prev,[entry.name]:draft})); setEditing(false) }
-  const cancel = ()=>{ setEditing(false); setDraft(info) }
+  const [draft,setDraft]     = useState({...VENDOR_EMPTY,...info})
+  const [subTab,setSubTab]   = useState("info")  // info | docs | history | payments
+
+  const start  = ()=>{ setDraft({...VENDOR_EMPTY,...info}); setEditing(true) }
+  const save   = ()=>{ setVendorsDB(prev=>({...prev,[entry.name]:draft})); setEditing(false) }
+  const cancel = ()=>{ setEditing(false); setDraft({...VENDOR_EMPTY,...info}) }
 
   const myPayments = (vendorPayments||[]).filter(p=>p.vendor===entry.name)
-  const paidByProj = {}
-  myPayments.forEach(p=>{ paidByProj[p.projId]=(paidByProj[p.projId]||0)+num(p.amount) })
 
-  // 지급 추가 폼
-  const [pProj,setPProj]   = useState(entry.items[0]?.projId||"")
-  const [pCat,setPCat]     = useState(entry.items[0]?.cat||"")
-  const [pAmt,setPAmt]     = useState(0)
-  const [pDate,setPDate]   = useState(new Date().toISOString().slice(0,10))
-  const [pNote,setPNote]   = useState("")
-  const projItems = entry.items.filter(it=>it.projId===pProj)
-  const catOpts = [...new Set(entry.items.filter(it=>it.projId===pProj).map(it=>it.cat))]
+  // ── 문서 관리 ─────────────────────────────────────────────
+  const docs = info.docs || []
+  const DOC_CATS = ["사업자등록증","통장사본","계약서","견적서","기타서류"]
+  const addDoc = (docObj) => {
+    setVendorsDB(prev=>({...prev,[entry.name]:{...info,docs:[...docs,docObj]}}))
+  }
+  const removeDoc = (id) => {
+    setVendorsDB(prev=>({...prev,[entry.name]:{...info,docs:docs.filter(d=>d.id!==id)}}))
+  }
 
+  // ── 히스토리 (날짜별 사안 기록) ──────────────────────────
+  const history = info.history || []
+  const HIST_CATS = ["계약","변경계약","대금지급","서류수취","미팅","기타"]
+  const [hDate,setHDate] = useState(new Date().toISOString().slice(0,10))
+  const [hCat, setHCat]  = useState("기타")
+  const [hText,setHText] = useState("")
+  const [hMemo,setHMemo] = useState("")
+  const [editHId,setEditHId] = useState(null)
+  const [editHDraft,setEHD] = useState({})
+
+  const addHistory = () => {
+    if(!hText.trim()) return
+    const h = {id:`H${Date.now()}`,date:hDate,category:hCat,content:hText.trim(),memo:hMemo.trim(),
+      createdAt:new Date().toISOString(),createdBy:currentUser?.name||""}
+    setVendorsDB(prev=>({...prev,[entry.name]:{...(vendorsDB?.[entry.name]||VENDOR_EMPTY),history:[...history,h].sort((a,b)=>a.date.localeCompare(b.date))}}))
+    setHText(""); setHMemo("")
+  }
+  const saveHEdit = () => {
+    const updated = history.map(h=>h.id===editHId?{...h,...editHDraft,updatedAt:new Date().toISOString(),updatedBy:currentUser?.name}:h)
+    setVendorsDB(prev=>({...prev,[entry.name]:{...(vendorsDB?.[entry.name]||VENDOR_EMPTY),history:updated}}))
+    setEditHId(null)
+  }
+  const removeHistory = id => {
+    if(!window.confirm("이 기록을 삭제하시겠습니까?")) return
+    setVendorsDB(prev=>({...prev,[entry.name]:{...(vendorsDB?.[entry.name]||VENDOR_EMPTY),history:history.filter(h=>h.id!==id)}}))
+  }
+
+  // 지급 추가
+  const [pProj,setPProj] = useState(entry.items[0]?.projId||"")
+  const [pCat,setPCat]   = useState("")
+  const [pAmt,setPAmt]   = useState(0)
+  const [pDate,setPDate] = useState(new Date().toISOString().slice(0,10))
+  const [pNote,setPNote] = useState("")
   const addPayment = ()=>{
     if(!pProj||!pAmt) return
     const projName = entry.items.find(it=>it.projId===pProj)?.projName||""
     setVendorPayments(prev=>[...(prev||[]),{id:`PAY${Date.now()}`,vendor:entry.name,projectId:pProj,projName,cat:pCat,amount:num(pAmt),date:pDate,note:pNote,by:currentUser?.name}])
     setPAmt(0); setPNote("")
   }
-  const removePayment = id => setVendorPayments(prev=>(prev||[]).filter(p=>p.id!==id))
 
-  const FIELDS = [["ceoName","대표자명"],["ceoPhone","대표자 연락처"],["ceoEmail","대표자 이메일"],["contactName","담당자명"],["contactPhone","담당자 연락처"],["contactEmail","담당자 이메일"]]
+  const FIELDS=[["ceoName","대표자명"],["ceoPhone","대표자 연락처"],["ceoEmail","대표자 이메일"],["contactName","담당자명"],["contactPhone","담당자 연락처"],["contactEmail","담당자 이메일"]]
+  const catColor={계약:"#3B72F6",변경계약:"#F59E0B",대금지급:"#0EA86E",서류수취:"#534AB7",미팅:"#9CA3AF",기타:"#6B7280"}
+  const fmtDT = iso => iso?new Date(iso).toLocaleString("ko-KR",{month:"short",day:"numeric",hour:"2-digit",minute:"2-digit"}):""
 
   return (
     <div>
       <button onClick={onBack} style={{...S.btn(C.grayL,"#555"),marginBottom:12,padding:"7px 14px",fontSize:12}}>← 목록으로</button>
 
+      {/* 헤더 */}
       <SCard title={`🏢 ${entry.name}`} note={`참여 프로젝트 ${entry.items.length}건 · 누적 계약액 ${fE(entry.total/1e8)}`}
         actions={canWrite&&(!editing
-          ? <button onClick={start} style={{...S.btn(C.navyL,C.navyM),padding:"6px 13px",fontSize:12}}><i className="ti ti-edit" aria-hidden="true"/> 정보 수정</button>
-          : <div style={{display:"flex",gap:8}}>
-              <button onClick={save} style={{...S.btn(C.green),padding:"6px 13px",fontSize:12}}>저장</button>
-              <button onClick={cancel} style={{...S.btn(C.grayL,C.gray),padding:"6px 13px",fontSize:12}}>취소</button>
-            </div>)}>
+          ?<button onClick={start} style={{...S.btn(C.navyL,C.navyM),padding:"6px 13px",fontSize:12}}>✏ 정보 수정</button>
+          :<div style={{display:"flex",gap:8}}>
+            <button onClick={save} style={{...S.btn(C.green),padding:"6px 13px",fontSize:12}}>저장</button>
+            <button onClick={cancel} style={{...S.btn(C.grayL,C.gray),padding:"6px 13px",fontSize:12}}>취소</button>
+          </div>)}>
         <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:14}}>
           {FIELDS.map(([k,l])=>(
             <div key={k}>
               <label style={S.lbl()}>{l}</label>
               {editing
-                ? <input value={draft[k]||""} onChange={e=>setDraft(p=>({...p,[k]:e.target.value}))} style={{...S.inp(),width:"100%"}}/>
-                : <div style={{fontSize:14,fontWeight:info[k]?600:400,color:info[k]?undefined:C.gray,padding:"7px 0"}}>{info[k]||"미입력"}</div>}
+                ?<input value={draft[k]||""} onChange={e=>setDraft(p=>({...p,[k]:e.target.value}))} style={{...S.inp(),width:"100%"}}/>
+                :<div style={{fontSize:14,fontWeight:info[k]?600:400,color:info[k]?undefined:C.gray,padding:"7px 0"}}>{info[k]||"미입력"}</div>}
             </div>
           ))}
           <div style={{gridColumn:"1/-1"}}>
             <label style={S.lbl()}>비고</label>
             {editing
-              ? <input value={draft.note||""} onChange={e=>setDraft(p=>({...p,note:e.target.value}))} style={{...S.inp(),width:"100%"}}/>
-              : <div style={{fontSize:13,color:info.note?undefined:C.gray}}>{info.note||"-"}</div>}
+              ?<input value={draft.note||""} onChange={e=>setDraft(p=>({...p,note:e.target.value}))} style={{...S.inp(),width:"100%"}}/>
+              :<div style={{fontSize:13,color:info.note?undefined:C.gray}}>{info.note||"-"}</div>}
           </div>
         </div>
       </SCard>
 
-      <SCard title="🏗 수행 프로젝트" note="최신 버전 기준 계약액 · 지급내역과의 차액(잔여)">
-        <div style={{overflowX:"auto"}}>
-          <table style={{width:"100%",borderCollapse:"collapse",minWidth:760}}>
-            <thead><tr>
-              <th style={S.th()}>프로젝트</th><th style={S.th()}>분야</th><th style={S.th()}>수주형태</th>
-              <th style={S.th("right")}>계약액(원)</th><th style={S.th("right")}>1차/2차 NEGO</th>
-              <th style={S.th("right")}>지급액 합계</th><th style={S.th("right")}>잔여</th>
-            </tr></thead>
-            <tbody>
-              {entry.items.map((it,i)=>{
-                const final = it.nego2||it.nego1||it.contract||0
-                const paid = paidByProj[it.projId]||0
-                const remain = final-paid
-                return (
-                  <tr key={i} style={{background:i%2===0?"var(--color-background-primary,#fff)":"var(--color-background-secondary,#f8f8f6)"}}>
-                    <td style={{...S.td("left"),fontWeight:600}}>{it.projName}<div style={{fontSize:10,color:C.gray}}>{it.projCode} · {it.ver}</div></td>
-                    <td style={S.td("left")}>{it.cat}</td>
-                    <td style={S.td("left")}><span style={S.bdg(C.navyL,C.navyM)}>{it.bidType}</span></td>
-                    <td style={S.td()}>{(it.contract||0).toLocaleString()}</td>
-                    <td style={{...S.td(),fontSize:12,color:C.gray}}>{it.nego1?it.nego1.toLocaleString():"-"} / {it.nego2?it.nego2.toLocaleString():"-"}</td>
-                    <td style={{...S.td(),color:C.green,fontWeight:700}}>{paid.toLocaleString()}</td>
-                    <td style={{...S.td(),fontWeight:700,color:remain>0?C.amber:C.green}}>{remain.toLocaleString()}</td>
-                  </tr>
-                )
-              })}
-            </tbody>
-          </table>
-        </div>
-      </SCard>
+      {/* 서브탭 */}
+      <div style={{display:"flex",gap:4,marginBottom:14,borderBottom:"2px solid #E5E7EB"}}>
+        {[["info","🏗 프로젝트·지급"],["docs","📎 문서보관"],["history","📅 사안기록"],["payments","💰 지급내역"]].map(([id,lbl])=>(
+          <button key={id} onClick={()=>setSubTab(id)} style={{padding:"9px 18px",border:"none",background:"none",fontSize:13.5,fontWeight:700,cursor:"pointer",
+            color:subTab===id?C.navyM:"#6B7280",borderBottom:subTab===id?`3px solid ${C.navyM}`:"3px solid transparent",marginBottom:-2}}>
+            {lbl}
+          </button>
+        ))}
+      </div>
 
-      <SCard title="💵 계약단위별 지급내역" note="프로젝트·분야(계약단위) 기준으로 지급 금액과 날짜를 기록합니다.">
-        {canWrite && (
-          <div style={{display:"flex",gap:8,flexWrap:"wrap",alignItems:"flex-end",marginBottom:14,padding:"12px 14px",background:C.grayL,borderRadius:10}}>
-            <div>
-              <label style={S.lbl()}>프로젝트</label>
-              <select value={pProj} onChange={e=>{setPProj(e.target.value);setPCat("")}} style={{...S.inp(220)}}>
-                {[...new Set(entry.items.map(it=>it.projId))].map(pid=>{
-                  const it=entry.items.find(x=>x.projId===pid)
-                  return <option key={pid} value={pid}>{it.projName}</option>
+      {/* ── 프로젝트·지급 탭 ── */}
+      {subTab==="info"&&(
+        <SCard title="🏗 수행 프로젝트">
+          <div style={{overflowX:"auto"}}>
+            <table style={{width:"100%",borderCollapse:"collapse"}}>
+              <thead><tr>
+                <th style={S.th()}>프로젝트</th><th style={S.th()}>분야</th>
+                <th style={S.th("right")}>계약액(원)</th><th style={S.th("right")}>적용금액</th>
+                <th style={S.th("right")}>지급액</th><th style={S.th("right")}>잔여</th>
+              </tr></thead>
+              <tbody>
+                {entry.items.map((it,i)=>{
+                  const paid = (vendorPayments||[]).filter(p=>p.vendor===entry.name&&p.projectId===it.projId).reduce((s,p)=>s+num(p.amount),0)
+                  const applied = it.nego2||it.nego1||it.contract||0
+                  return (
+                    <tr key={i} style={{background:i%2===0?"#fff":"#FAFAFA"}}>
+                      <td style={S.td("left")}><div style={{fontWeight:600}}>{it.projName}</div><div style={{fontSize:11,color:"#9CA3AF"}}>{it.projId}</div></td>
+                      <td style={S.td("left")}><span style={{...S.bdg(C.navyL,C.navyM),fontSize:11}}>{it.cat}</span></td>
+                      <td style={S.td()}>{it.contract>0?it.contract.toLocaleString():"-"}</td>
+                      <td style={{...S.td(),fontWeight:700,color:C.navyM}}>{applied>0?applied.toLocaleString():"-"}</td>
+                      <td style={{...S.td(),color:"#0EA86E",fontWeight:600}}>{paid>0?paid.toLocaleString():"-"}</td>
+                      <td style={{...S.td(),color:applied-paid>0?"#EF4444":"#0EA86E",fontWeight:700}}>{applied>0?(applied-paid).toLocaleString():"-"}</td>
+                    </tr>
+                  )
                 })}
-              </select>
-            </div>
-            <div>
-              <label style={S.lbl()}>계약단위(분야)</label>
-              <select value={pCat} onChange={e=>setPCat(e.target.value)} style={{...S.inp(140)}}>
-                <option value="">선택</option>
-                {catOpts.map(c=><option key={c} value={c}>{c}</option>)}
-              </select>
-            </div>
-            <div>
-              <label style={S.lbl()}>지급금액(원)</label>
-              <input type="number" value={pAmt} onChange={e=>setPAmt(e.target.value)} style={{...S.inp(150)}}/>
-            </div>
-            <div>
-              <label style={S.lbl()}>지급일</label>
-              <input type="date" value={pDate} onChange={e=>setPDate(e.target.value)} style={{...S.inp(140)}}/>
-            </div>
-            <div style={{flex:1,minWidth:160}}>
-              <label style={S.lbl()}>비고</label>
-              <input value={pNote} onChange={e=>setPNote(e.target.value)} placeholder="예: 1차 기성, 계약금 등" style={{...S.inp(),width:"100%"}}/>
-            </div>
-            <button onClick={addPayment} style={S.btn(C.green)}><i className="ti ti-plus" aria-hidden="true"/> 지급 추가</button>
+              </tbody>
+            </table>
           </div>
-        )}
-        <div style={{overflowX:"auto"}}>
-          <table style={{width:"100%",borderCollapse:"collapse",minWidth:680}}>
-            <thead><tr>
-              <th style={S.th()}>프로젝트</th><th style={S.th()}>계약단위</th><th style={S.th("right")}>금액(원)</th>
-              <th style={S.th()}>지급일</th><th style={S.th()}>비고</th>{canWrite&&<th style={S.th("center")}>관리</th>}
-            </tr></thead>
-            <tbody>
-              {myPayments.length===0 && <tr><td colSpan={canWrite?6:5} style={{...S.td("left"),color:C.gray}}>등록된 지급내역이 없습니다.</td></tr>}
-              {myPayments.slice().sort((a,b)=>(b.date||"").localeCompare(a.date||"")).map(p=>(
-                <tr key={p.id}>
-                  <td style={S.td("left")}>{p.projName}</td>
-                  <td style={S.td("left")}>{p.cat||"-"}</td>
-                  <td style={{...S.td(),fontWeight:700,color:C.green}}>{num(p.amount).toLocaleString()}</td>
-                  <td style={S.td()}>{p.date}</td>
-                  <td style={{...S.td("left"),fontSize:12,color:C.gray}}>{p.note||"-"}</td>
-                  {canWrite&&<td style={S.td("center")}><button onClick={()=>removePayment(p.id)} style={{background:"none",border:"none",cursor:"pointer",color:C.red,fontSize:12}}>삭제</button></td>}
-                </tr>
+        </SCard>
+      )}
+
+      {/* ── 문서 보관 탭 ── */}
+      {subTab==="docs"&&(
+        <SCard title="📎 문서 보관" note="사업자등록증·통장사본·계약서 등 협력업체 관련 문서를 보관합니다">
+          {canWrite&&(
+            <DocUploadForm onAdd={addDoc} cats={DOC_CATS}/>
+          )}
+          {docs.length===0
+            ?<div style={{padding:"30px",textAlign:"center",color:"#9CA3AF",fontSize:13}}>등록된 문서가 없습니다. 위에서 문서를 추가하세요.</div>
+            :<div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(240px,1fr))",gap:10,marginTop:12}}>
+              {docs.map(doc=>(
+                <div key={doc.id} style={{background:"#F8FAFC",borderRadius:12,border:"1px solid #E5E7EB",padding:"12px 14px"}}>
+                  <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:6}}>
+                    <span style={{fontSize:20}}>{doc.category==="사업자등록증"?"🏢":doc.category==="통장사본"?"💳":doc.category==="계약서"?"📄":"📎"}</span>
+                    <div style={{flex:1}}>
+                      <div style={{fontSize:13.5,fontWeight:700,color:"#111827"}}>{doc.title}</div>
+                      <div style={{fontSize:11,color:"#9CA3AF"}}>{doc.category} · {doc.date}</div>
+                    </div>
+                    {canWrite&&<button onClick={()=>removeDoc(doc.id)} style={{background:"none",border:"none",cursor:"pointer",color:"#EF4444",fontSize:14}}>✕</button>}
+                  </div>
+                  {doc.memo&&<div style={{fontSize:12,color:"#6B7280",marginBottom:6}}>{doc.memo}</div>}
+                  {doc.fileData
+                    ?<a href={doc.fileData} download={doc.fileName} style={{display:"inline-flex",alignItems:"center",gap:5,padding:"5px 11px",background:"#EEF3FF",color:"#3B72F6",borderRadius:8,fontSize:12.5,fontWeight:700,textDecoration:"none"}}>⬇ 다운로드</a>
+                    :<span style={{fontSize:12,color:"#9CA3AF"}}>파일 없음</span>}
+                  <div style={{fontSize:10.5,color:"#9CA3AF",marginTop:5}}>{doc.createdBy} · {fmtDT(doc.createdAt)}</div>
+                </div>
               ))}
-              {myPayments.length>0 && (
-                <tr style={{background:"var(--color-background-secondary,#f0f0ee)",fontWeight:700}}>
-                  <td style={S.td("left")} colSpan={2}>지급 합계</td>
-                  <td style={{...S.td(),color:C.green}}>{myPayments.reduce((s,p)=>s+num(p.amount),0).toLocaleString()}</td>
-                  <td colSpan={canWrite?3:2}/>
+            </div>
+          }
+        </SCard>
+      )}
+
+      {/* ── 사안 기록 탭 ── */}
+      {subTab==="history"&&(
+        <SCard title="📅 사안별 날짜 기록" note="계약·변경·대금지급 등 주요 사안을 날짜별로 기록합니다">
+          {canWrite&&(
+            <div style={{background:"#F8FAFC",borderRadius:12,padding:"14px 16px",marginBottom:14,border:"1px solid #E5E7EB",display:"flex",gap:8,flexWrap:"wrap",alignItems:"flex-end"}}>
+              <div><label style={S.lbl()}>날짜</label><input type="date" value={hDate} onChange={e=>setHDate(e.target.value)} style={{...S.inp(140)}}/></div>
+              <div><label style={S.lbl()}>구분</label><select value={hCat} onChange={e=>setHCat(e.target.value)} style={{...S.inp(110)}}>{HIST_CATS.map(c=><option key={c}>{c}</option>)}</select></div>
+              <div style={{flex:1,minWidth:200}}><label style={S.lbl()}>내용 *</label><input value={hText} onChange={e=>setHText(e.target.value)} onKeyDown={e=>e.key==="Enter"&&addHistory()} placeholder="예: 2차 계약 변경 체결" style={{...S.inp(),width:"100%"}}/></div>
+              <div style={{flex:1,minWidth:160}}><label style={S.lbl()}>메모</label><input value={hMemo} onChange={e=>setHMemo(e.target.value)} placeholder="추가 메모" style={{...S.inp(),width:"100%"}}/></div>
+              <button onClick={addHistory} style={{...S.btn(C.navyM),padding:"9px 16px"}}>+ 추가</button>
+            </div>
+          )}
+          {/* 타임라인 */}
+          {history.length===0
+            ?<div style={{padding:"24px",textAlign:"center",color:"#9CA3AF",fontSize:13}}>등록된 기록이 없습니다.</div>
+            :<div style={{position:"relative",paddingLeft:8}}>
+              <div style={{position:"absolute",left:120,top:0,bottom:0,width:2,background:"#E5E7EB"}}/>
+              {[...history].reverse().map(h=>(
+                <div key={h.id} style={{display:"flex",gap:14,marginBottom:10,alignItems:"flex-start"}}>
+                  <div style={{width:112,flexShrink:0,textAlign:"right",paddingTop:3,fontSize:12.5,fontWeight:700,color:"#374151"}}>{h.date}</div>
+                  <div style={{width:10,height:10,borderRadius:"50%",background:catColor[h.category]||"#9CA3AF",flexShrink:0,marginTop:5,zIndex:1,border:"2px solid #fff",boxShadow:`0 0 0 2px ${catColor[h.category]||"#9CA3AF"}`}}/>
+                  <div style={{flex:1,background:"#fff",borderRadius:10,border:"1px solid #E5E7EB",padding:"10px 14px"}}>
+                    {editHId===h.id
+                      ?<div style={{display:"flex",flexDirection:"column",gap:7}}>
+                        <div style={{display:"flex",gap:7,flexWrap:"wrap"}}>
+                          <input type="date" value={editHDraft.date} onChange={e=>setEHD(p=>({...p,date:e.target.value}))} style={S.inp(140)}/>
+                          <select value={editHDraft.category} onChange={e=>setEHD(p=>({...p,category:e.target.value}))} style={S.inp(110)}>{HIST_CATS.map(c=><option key={c}>{c}</option>)}</select>
+                        </div>
+                        <input value={editHDraft.content} onChange={e=>setEHD(p=>({...p,content:e.target.value}))} style={{...S.inp(),width:"100%"}}/>
+                        <input value={editHDraft.memo||""} onChange={e=>setEHD(p=>({...p,memo:e.target.value}))} placeholder="메모" style={{...S.inp(),width:"100%"}}/>
+                        <div style={{display:"flex",gap:6}}>
+                          <button onClick={saveHEdit} style={{...S.btn(C.green),padding:"5px 12px",fontSize:12}}>저장</button>
+                          <button onClick={()=>setEditHId(null)} style={{...S.btn(C.grayL,C.gray),padding:"5px 12px",fontSize:12}}>취소</button>
+                        </div>
+                      </div>
+                      :<>
+                        <div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}>
+                          <span style={{fontSize:11.5,padding:"2px 8px",borderRadius:10,background:(catColor[h.category]||"#9CA3AF")+"22",color:catColor[h.category]||"#9CA3AF",fontWeight:700}}>{h.category}</span>
+                          <span style={{fontSize:14,fontWeight:700,color:"#111827",flex:1}}>{h.content}</span>
+                          {canWrite&&<div style={{display:"flex",gap:4,marginLeft:"auto"}}>
+                            <button onClick={()=>{setEditHId(h.id);setEHD({date:h.date,category:h.category,content:h.content,memo:h.memo||""})}} style={{...S.btn(C.navyL,C.navyM),padding:"3px 9px",fontSize:11}}>수정</button>
+                            <button onClick={()=>removeHistory(h.id)} style={{...S.btn(C.redL,C.red),padding:"3px 9px",fontSize:11}}>삭제</button>
+                          </div>}
+                        </div>
+                        {h.memo&&<div style={{fontSize:12.5,color:"#6B7280",background:"#F8FAFC",borderRadius:7,padding:"5px 9px",marginTop:4}}>📝 {h.memo}</div>}
+                        <div style={{fontSize:10.5,color:"#9CA3AF",marginTop:4}}>
+                          {h.createdBy&&`${h.createdBy} · `}{fmtDT(h.createdAt)}
+                          {h.updatedAt&&` · 수정: ${h.updatedBy||""} ${fmtDT(h.updatedAt)}`}
+                        </div>
+                      </>}
+                  </div>
+                </div>
+              ))}
+            </div>
+          }
+        </SCard>
+      )}
+
+      {/* ── 지급내역 탭 ── */}
+      {subTab==="payments"&&(
+        <SCard title="💰 지급내역">
+          {canWrite&&entry.items.length>0&&(
+            <div style={{background:"#F8FAFC",borderRadius:10,padding:"12px 14px",marginBottom:12,border:"1px solid #E5E7EB",display:"flex",gap:7,flexWrap:"wrap",alignItems:"flex-end"}}>
+              <div><label style={S.lbl()}>프로젝트</label><select value={pProj} onChange={e=>setPProj(e.target.value)} style={S.inp(160)}>{entry.items.map(it=><option key={it.projId} value={it.projId}>{it.projName?.slice(0,14)}</option>)}</select></div>
+              <div><label style={S.lbl()}>공종</label><input value={pCat} onChange={e=>setPCat(e.target.value)} style={S.inp(90)} placeholder="구조"/></div>
+              <div><label style={S.lbl()}>금액(원)</label><input type="number" value={pAmt} onChange={e=>setPAmt(e.target.value)} style={S.inp(130)}/></div>
+              <div><label style={S.lbl()}>지급일</label><input type="date" value={pDate} onChange={e=>setPDate(e.target.value)} style={S.inp(140)}/></div>
+              <div style={{flex:1}}><label style={S.lbl()}>메모</label><input value={pNote} onChange={e=>setPNote(e.target.value)} style={{...S.inp(),width:"100%"}} placeholder="세금계산서 수취 등"/></div>
+              <button onClick={addPayment} style={{...S.btn(C.green),padding:"9px 14px"}}>+ 지급 등록</button>
+            </div>
+          )}
+          {myPayments.length===0
+            ?<div style={{padding:"24px",textAlign:"center",color:"#9CA3AF",fontSize:13}}>지급 기록이 없습니다.</div>
+            :<table style={{width:"100%",borderCollapse:"collapse"}}>
+              <thead><tr>
+                <th style={S.th()}>날짜</th><th style={S.th()}>프로젝트</th><th style={S.th()}>공종</th>
+                <th style={S.th("right")}>금액(원)</th><th style={S.th()}>메모</th><th style={S.th()}>등록자</th><th style={S.th()}></th>
+              </tr></thead>
+              <tbody>{myPayments.map((p,i)=>(
+                <tr key={p.id} style={{background:i%2===0?"#fff":"#FAFAFA"}}>
+                  <td style={S.td("left")}>{p.date}</td>
+                  <td style={S.td("left")}>{p.projName?.slice(0,14)||"-"}</td>
+                  <td style={S.td("left")}>{p.cat||"-"}</td>
+                  <td style={{...S.td(),fontWeight:700,color:"#0EA86E"}}>{num(p.amount).toLocaleString()}</td>
+                  <td style={S.td("left")}>{p.note||"-"}</td>
+                  <td style={S.td("left")}>{p.by||"-"}</td>
+                  <td style={S.td("center")}>{canWrite&&<button onClick={()=>setVendorPayments(prev=>(prev||[]).filter(x=>x.id!==p.id))} style={{background:"none",border:"none",cursor:"pointer",color:"#EF4444",fontSize:14}}>✕</button>}</td>
                 </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-      </SCard>
+              ))}</tbody>
+            </table>
+          }
+        </SCard>
+      )}
     </div>
   )
 }
 
-// ════════════════════════════════════════════════════════════
-// 3) 외주비 비교 — 프로젝트 유형(수주형태)별
-// ════════════════════════════════════════════════════════════
+// ── 문서 업로드 폼 ───────────────────────────────────────────
+function DocUploadForm({onAdd,cats}) {
+  const [title,setTitle] = useState("")
+  const [cat,  setCat  ] = useState(cats[0]||"기타")
+  const [date, setDate ] = useState(new Date().toISOString().slice(0,10))
+  const [memo, setMemo ] = useState("")
+  const [file, setFile ] = useState(null)
+  const [preview,setPreview] = useState(null)
+  const fileRef = useRef(null)
+  const fmtSize = b => b>1024*1024?`${(b/1024/1024).toFixed(1)}MB`:`${Math.round(b/1024)}KB`
+
+  const pick = async(e) => {
+    const f=e.target.files?.[0]; if(!f) return
+    if(f.size>15*1024*1024){alert("15MB 이하 파일만 가능합니다.");return}
+    setFile(f)
+    const reader=new FileReader()
+    reader.onload=ev=>setPreview(ev.target.result)
+    reader.readAsDataURL(f)
+  }
+
+  const add = () => {
+    if(!title.trim()) { alert("문서명을 입력하세요."); return }
+    onAdd({id:`D${Date.now()}`,title:title.trim(),category:cat,date,memo:memo.trim(),
+      fileData:preview,fileName:file?.name||null,fileSize:file?.size||null,
+      createdAt:new Date().toISOString(),createdBy:""})
+    setTitle("");setMemo("");setFile(null);setPreview(null)
+    if(fileRef.current)fileRef.current.value=""
+  }
+
+  const S2={inp:{padding:"8px 11px",border:"1.5px solid #E5E7EB",borderRadius:9,fontSize:13.5,fontFamily:"inherit",outline:"none",boxSizing:"border-box",width:"100%"}}
+  return(
+    <div style={{background:"#EEF3FF",borderRadius:12,padding:"14px 16px",marginBottom:14,border:"1px solid #3B72F633"}}>
+      <div style={{fontSize:13.5,fontWeight:700,color:"#3B72F6",marginBottom:10}}>📎 문서 추가</div>
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10,marginBottom:10}}>
+        <div><label style={{fontSize:12,fontWeight:700,color:"#6B7280",display:"block",marginBottom:4}}>문서명 *</label><input value={title} onChange={e=>setTitle(e.target.value)} placeholder="예: 사업자등록증 2026" style={S2.inp}/></div>
+        <div><label style={{fontSize:12,fontWeight:700,color:"#6B7280",display:"block",marginBottom:4}}>분류</label><select value={cat} onChange={e=>setCat(e.target.value)} style={S2.inp}>{cats.map(c=><option key={c}>{c}</option>)}</select></div>
+        <div><label style={{fontSize:12,fontWeight:700,color:"#6B7280",display:"block",marginBottom:4}}>날짜</label><input type="date" value={date} onChange={e=>setDate(e.target.value)} style={S2.inp}/></div>
+        <div style={{gridColumn:"span 2"}}><label style={{fontSize:12,fontWeight:700,color:"#6B7280",display:"block",marginBottom:4}}>메모</label><input value={memo} onChange={e=>setMemo(e.target.value)} placeholder="추가 메모" style={S2.inp}/></div>
+        <div><label style={{fontSize:12,fontWeight:700,color:"#6B7280",display:"block",marginBottom:4}}>파일 첨부</label>
+          <div onClick={()=>fileRef.current?.click()} style={{border:"1.5px dashed #3B72F6",borderRadius:9,padding:"8px 12px",cursor:"pointer",textAlign:"center",background:"#fff",fontSize:13}}>
+            {file?<span style={{color:"#0EA86E",fontWeight:700}}>✓ {file.name} ({fmtSize(file.size)})</span>:<span style={{color:"#9CA3AF"}}>클릭하여 파일 선택</span>}
+          </div>
+          <input ref={fileRef} type="file" style={{display:"none"}} accept=".pdf,.jpg,.jpeg,.png,.docx,.xlsx,.hwp" onChange={pick}/>
+        </div>
+      </div>
+      <button onClick={add} style={{padding:"9px 20px",background:"#3B72F6",color:"#fff",border:"none",borderRadius:10,fontSize:13.5,fontWeight:700,cursor:"pointer"}}>+ 문서 추가</button>
+    </div>
+  )
+}
+
+
 function VendorCompare({directory}) {
   const allCats = useMemo(()=>[...new Set(directory.flatMap(d=>d.cats))].sort(),[directory])
   const [cat,setCat] = useState(allCats[0]||"")
