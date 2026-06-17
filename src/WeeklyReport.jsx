@@ -39,7 +39,8 @@ const STAGE_COLORS = [C.navyM, C.amber, C.green, "#534AB7", C.red, "#D85A30", "#
 // 빈 WeeklyReport 초기값
 export const WEEKLY_REPORT_EMPTY = {
   scheduleLog:  [],
-  stagesDef:    null,  // null이면 DEFAULT_DESIGN_STAGES 사용
+  schedCats:    null,  // null이면 DEFAULT_SCHED_CATS 사용
+  stagesDef:    null,
   stages:       {},
   agendas:      [],
   contacts:     [],
@@ -87,103 +88,225 @@ export function WeeklyReportTab({proj, setProjects, canWrite}) {
 }
 
 // ══════════════════════════════════════════════════════════════
-// 1) 주요일정 로그
+// 1) 주요일정 로그 — 날짜/구분/주요내용/메모 + 구분 커스텀 + 수정자 기록
 // ══════════════════════════════════════════════════════════════
-const SCHED_CATS = ["계약","심의","인허가","착공","준공","변경","기타"]
 
-function ScheduleLogSection({wr, save, canWrite, proj}) {
-  const logs = wr.scheduleLog || []
-  const [date,  setDate]    = useState(fDate(new Date().toISOString()))
-  const [cat,   setCat]     = useState("기타")
-  const [text,  setText]    = useState("")
-  const [editId,setEditId]  = useState(null)
-  const [editDraft,setED]   = useState({})
-  const [filter,setFilter]  = useState("")
+function ScheduleLogSection({wr, save, canWrite, proj, currentUser}) {
+  const logs      = wr.scheduleLog || []
+  const schedCats = wr.schedCats   || DEFAULT_SCHED_CATS
 
-  const add = ()=>{
+  // 입력 폼
+  const [date,  setDate]  = useState(fDate(new Date().toISOString()))
+  const [cat,   setCat]   = useState(schedCats[0]||"기타")
+  const [text,  setText]  = useState("")
+  const [memo,  setMemo]  = useState("")
+  const [editId,setEditId]= useState(null)
+  const [editDraft,setED] = useState({})
+  const [filter,setFilter]= useState("")
+
+  // 구분 관리
+  const [showCatMgr, setShowCatMgr] = useState(false)
+  const [newCat, setNewCat]         = useState("")
+  const [editCatIdx, setEditCatIdx] = useState(null)
+  const [editCatVal, setEditCatVal] = useState("")
+
+  const byName = currentUser?.name || "알 수 없음"
+
+  const add = () => {
     if(!text.trim()) return
-    const entry={id:`SL${Date.now()}`,date,category:cat,content:text.trim(),createdAt:now(),updatedAt:now()}
+    const entry = {
+      id:`SL${Date.now()}`, date, category:cat,
+      content: text.trim(), memo: memo.trim(),
+      createdAt:now(), updatedAt:now(),
+      createdBy: byName,
+    }
     save({scheduleLog:[...logs,entry].sort((a,b)=>a.date.localeCompare(b.date))})
-    setText("")
+    setText(""); setMemo("")
   }
-  const startEdit = e=>{ setEditId(e.id); setED({date:e.date,cat:e.category,text:e.content}) }
-  const saveEdit  = ()=>{
-    save({scheduleLog:logs.map(e=>e.id===editId?{...e,date:editDraft.date,category:editDraft.cat,content:editDraft.text,updatedAt:now()}:e)})
+
+  const startEdit = e => { setEditId(e.id); setED({date:e.date, cat:e.category, text:e.content, memo:e.memo||""}) }
+  const saveEdit  = () => {
+    save({scheduleLog:logs.map(e=>e.id===editId?{...e,
+      date:editDraft.date, category:editDraft.cat,
+      content:editDraft.text, memo:editDraft.memo,
+      updatedAt:now(), updatedBy:byName
+    }:e)})
     setEditId(null)
   }
-  const del = id=>{ if(window.confirm("이 일정 기록을 삭제하시겠습니까?")) save({scheduleLog:logs.filter(e=>e.id!==id)}) }
+  const del = id => { if(window.confirm("이 일정 기록을 삭제하시겠습니까?")) save({scheduleLog:logs.filter(e=>e.id!==id)}) }
 
-  const filtered = logs.filter(e=>!filter||e.category===filter||e.content.includes(filter))
-  const catColor = {계약:C.navyM,심의:C.amber,인허가:C.green,착공:"#534AB7",준공:C.green,변경:C.red,기타:C.gray}
+  // 구분 CRUD
+  const addCat    = () => {
+    const t=newCat.trim(); if(!t||schedCats.includes(t)) return
+    save({schedCats:[...schedCats, t]}); setNewCat("")
+  }
+  const saveCat   = i => {
+    const t=editCatVal.trim(); if(!t) return
+    const next=[...schedCats]; next[i]=t
+    save({schedCats:next}); setEditCatIdx(null)
+  }
+  const removeCat = i => {
+    if(!window.confirm(`"${schedCats[i]}" 구분을 삭제하시겠습니까?`)) return
+    save({schedCats:schedCats.filter((_,ri)=>ri!==i)})
+  }
+  const moveCat   = (i,d) => {
+    const a=[...schedCats]; [a[i],a[i+d]]=[a[i+d],a[i]]; save({schedCats:a})
+  }
+
+  const filtered  = logs.filter(e=>!filter||e.category===filter||e.content?.includes(filter)||e.memo?.includes(filter))
+  const catColor  = {계약:C.navyM,심의:C.amber,인허가:C.green,착공:"#534AB7",준공:C.green,변경:C.red,기타:C.gray}
+  const getColor  = c => catColor[c] || C.navyM
 
   return (
     <div style={card()}>
-      <div style={{fontSize:15,fontWeight:700,marginBottom:4}}>📅 주요일정 기록</div>
-      <div style={{fontSize:12,color:C.gray,marginBottom:14}}>날짜별 주요 사안을 기록합니다. 수정 시 수정일시가 자동 기록됩니다.</div>
+      <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:4}}>
+        <div style={{fontSize:15,fontWeight:700}}>📅 주요일정 기록</div>
+        {canWrite&&<button onClick={()=>setShowCatMgr(v=>!v)} style={{...btn(C.grayL,C.gray),padding:"5px 12px",fontSize:12}}>
+          ⚙ 구분 관리
+        </button>}
+      </div>
+      <div style={{fontSize:12,color:C.gray,marginBottom:14}}>
+        날짜별 주요 사안을 기록합니다. 수정 시 수정자와 일시가 자동 기록됩니다.
+      </div>
+
+      {/* 구분 관리 패널 */}
+      {showCatMgr && (
+        <div style={{background:C.navyL,borderRadius:12,padding:"14px 16px",marginBottom:14,border:`1px solid ${C.navyM}22`}}>
+          <div style={{fontSize:14,fontWeight:700,color:C.navyM,marginBottom:10}}>⚙ 구분 항목 관리</div>
+          <div style={{display:"flex",flexDirection:"column",gap:6,marginBottom:10}}>
+            {schedCats.map((c,i)=>(
+              <div key={i} style={{display:"flex",gap:6,alignItems:"center"}}>
+                <div style={{display:"flex",flexDirection:"column",gap:2}}>
+                  <button onClick={()=>i>0&&moveCat(i,-1)} style={{...btn(C.navyL,C.navyM),padding:"1px 6px",fontSize:10,opacity:i===0?.3:1}}>▲</button>
+                  <button onClick={()=>i<schedCats.length-1&&moveCat(i,1)} style={{...btn(C.navyL,C.navyM),padding:"1px 6px",fontSize:10,opacity:i===schedCats.length-1?.3:1}}>▼</button>
+                </div>
+                <div style={{width:10,height:10,borderRadius:"50%",background:getColor(c),flexShrink:0}}/>
+                {editCatIdx===i
+                  ? <>
+                      <input value={editCatVal} onChange={e=>setEditCatVal(e.target.value)}
+                        onKeyDown={e=>{if(e.key==="Enter")saveCat(i);if(e.key==="Escape")setEditCatIdx(null)}}
+                        style={{...inp(),flex:1,padding:"5px 9px",fontSize:13}} autoFocus/>
+                      <button onClick={()=>saveCat(i)} style={{...btn(C.green),padding:"5px 10px",fontSize:12}}>저장</button>
+                      <button onClick={()=>setEditCatIdx(null)} style={{...btn(C.grayL,C.gray),padding:"5px 10px",fontSize:12}}>취소</button>
+                    </>
+                  : <>
+                      <span style={{flex:1,fontSize:14,fontWeight:600}}>{c}</span>
+                      <button onClick={()=>{setEditCatIdx(i);setEditCatVal(c)}} style={{...btn(C.navyL,C.navyM),padding:"4px 9px",fontSize:12}}>수정</button>
+                      <button onClick={()=>removeCat(i)} style={{...btn(C.redL,C.red),padding:"4px 9px",fontSize:12}}>삭제</button>
+                    </>
+                }
+              </div>
+            ))}
+          </div>
+          <div style={{display:"flex",gap:7}}>
+            <input value={newCat} onChange={e=>setNewCat(e.target.value)}
+              onKeyDown={e=>e.key==="Enter"&&addCat()}
+              placeholder="새 구분 추가 (Enter)" style={{...inp(),flex:1,padding:"7px 10px",fontSize:13}}/>
+            <button onClick={addCat} style={{...btn(C.navyM),padding:"7px 14px"}}>+ 추가</button>
+          </div>
+        </div>
+      )}
 
       {/* 입력 폼 */}
       {canWrite && (
-        <div style={{display:"flex",gap:8,flexWrap:"wrap",alignItems:"flex-end",padding:"12px 14px",background:C.navyL,borderRadius:10,marginBottom:14}}>
-          <div><label style={lbl()}>날짜</label><input type="date" value={date} onChange={e=>setDate(e.target.value)} style={inp(140)}/></div>
-          <div>
-            <label style={lbl()}>구분</label>
-            <select value={cat} onChange={e=>setCat(e.target.value)} style={inp(110)}>
-              {SCHED_CATS.map(c=><option key={c} value={c}>{c}</option>)}
-            </select>
+        <div style={{background:"#F8FAFC",borderRadius:12,padding:"14px 16px",marginBottom:14,border:"1px solid #E5E7EB"}}>
+          <div style={{display:"flex",gap:8,flexWrap:"wrap",alignItems:"flex-start",marginBottom:8}}>
+            <div style={{flexShrink:0}}>
+              <label style={lbl()}>날짜</label>
+              <input type="date" value={date} onChange={e=>setDate(e.target.value)} style={{...inp(),width:148}}/>
+            </div>
+            <div style={{flexShrink:0}}>
+              <label style={lbl()}>구분</label>
+              <select value={cat} onChange={e=>setCat(e.target.value)} style={{...inp(),width:120}}>
+                {schedCats.map(c=><option key={c} value={c}>{c}</option>)}
+              </select>
+            </div>
+            <div style={{flex:1,minWidth:200}}>
+              <label style={lbl()}>주요내용 *</label>
+              <input value={text} onChange={e=>setText(e.target.value)}
+                onKeyDown={e=>e.key==="Enter"&&e.ctrlKey&&add()}
+                placeholder="예: 변경계약 4차 완료" style={inp()}/>
+            </div>
           </div>
-          <div style={{flex:1,minWidth:240}}>
-            <label style={lbl()}>내용</label>
-            <input value={text} onChange={e=>setText(e.target.value)} onKeyDown={e=>e.key==="Enter"&&add()} placeholder="예: 변경계약 4차 완료" style={inp()}/>
+          <div style={{display:"flex",gap:8,alignItems:"flex-end"}}>
+            <div style={{flex:1}}>
+              <label style={lbl()}>메모 (선택)</label>
+              <input value={memo} onChange={e=>setMemo(e.target.value)}
+                placeholder="추가 메모, 참고사항 등" style={inp()}/>
+            </div>
+            <button onClick={add} style={{...btn(C.navyM),padding:"10px 18px",flexShrink:0}}>+ 추가</button>
           </div>
-          <button onClick={add} style={btn(C.navyM)}>+ 추가</button>
+          <div style={{fontSize:11,color:C.gray,marginTop:6}}>Ctrl+Enter로도 추가 가능</div>
         </div>
       )}
 
       {/* 필터 */}
-      <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:10}}>
-        <button onClick={()=>setFilter("")} style={{...btn(filter?"var(--color-background-secondary)":""+C.navyM,filter?"var(--color-text-secondary,#777)":"#fff"),padding:"4px 11px",fontSize:11}}>전체</button>
-        {SCHED_CATS.map(c=><button key={c} onClick={()=>setFilter(f=>f===c?"":c)} style={{...btn(filter===c?catColor[c]:C.grayL,filter===c?"#fff":C.gray),padding:"4px 11px",fontSize:11}}>{c}</button>)}
+      <div style={{display:"flex",gap:5,flexWrap:"wrap",marginBottom:14}}>
+        <button onClick={()=>setFilter("")} style={{...btn(filter?"#F3F4F6":""+C.navyM,filter?"#374151":"#fff"),padding:"5px 12px",fontSize:12,borderRadius:20}}>전체</button>
+        {schedCats.map(c=>(
+          <button key={c} onClick={()=>setFilter(f=>f===c?"":c)}
+            style={{...btn(filter===c?getColor(c):C.grayL,filter===c?"#fff":C.gray),padding:"5px 12px",fontSize:12,borderRadius:20}}>
+            {c}
+          </button>
+        ))}
       </div>
 
       {/* 타임라인 */}
       {filtered.length===0
-        ? <div style={{padding:"20px",textAlign:"center",color:C.gray,fontSize:13}}>등록된 일정이 없습니다.</div>
+        ? <div style={{padding:"24px",textAlign:"center",color:C.gray,fontSize:13}}>등록된 일정이 없습니다.</div>
         : <div style={{position:"relative"}}>
-            {/* 세로선 */}
-            <div style={{position:"absolute",left:116,top:0,bottom:0,width:2,background:"var(--color-border-tertiary,#eee)"}}/>
+            <div style={{position:"absolute",left:120,top:0,bottom:0,width:2,background:"#E5E7EB"}}/>
             {filtered.slice().reverse().map(e=>(
-              <div key={e.id} style={{display:"flex",gap:14,marginBottom:10,alignItems:"flex-start"}}>
+              <div key={e.id} style={{display:"flex",gap:14,marginBottom:12,alignItems:"flex-start"}}>
                 {/* 날짜 */}
-                <div style={{width:108,flexShrink:0,textAlign:"right",paddingTop:2}}>
-                  <div style={{fontSize:12.5,fontWeight:700,color:"var(--color-text-primary)"}}>{e.date}</div>
+                <div style={{width:112,flexShrink:0,textAlign:"right",paddingTop:4}}>
+                  <div style={{fontSize:13,fontWeight:700,color:"#111827"}}>{e.date}</div>
                 </div>
                 {/* 도트 */}
-                <div style={{width:12,height:12,borderRadius:"50%",background:catColor[e.category]||C.gray,flexShrink:0,marginTop:3,zIndex:1,border:"2px solid #fff",boxShadow:`0 0 0 2px ${catColor[e.category]||C.gray}`}}/>
-                {/* 내용 */}
-                <div style={{flex:1,background:"var(--color-background-secondary,#f8f8f6)",borderRadius:9,padding:"9px 13px",border:"0.5px solid var(--color-border-tertiary,#eee)"}}>
+                <div style={{width:12,height:12,borderRadius:"50%",background:getColor(e.category),flexShrink:0,marginTop:4,zIndex:1,border:"2px solid #fff",boxShadow:`0 0 0 2px ${getColor(e.category)}`}}/>
+                {/* 카드 */}
+                <div style={{flex:1,background:"#fff",borderRadius:12,border:"1px solid #E5E7EB",padding:"11px 14px",boxShadow:"0 1px 3px rgba(0,0,0,.05)"}}>
                   {editId===e.id
-                    ? <div style={{display:"flex",gap:7,flexWrap:"wrap",alignItems:"flex-end"}}>
-                        <input type="date" value={editDraft.date} onChange={ev=>setED(p=>({...p,date:ev.target.value}))} style={inp(130)}/>
-                        <select value={editDraft.cat} onChange={ev=>setED(p=>({...p,cat:ev.target.value}))} style={inp(100)}>
-                          {SCHED_CATS.map(c=><option key={c} value={c}>{c}</option>)}
-                        </select>
-                        <input value={editDraft.text} onChange={ev=>setED(p=>({...p,text:ev.target.value}))} style={{...inp(),flex:1,minWidth:160}}/>
-                        <button onClick={saveEdit} style={{...btn(C.green),padding:"5px 11px",fontSize:12}}>저장</button>
-                        <button onClick={()=>setEditId(null)} style={{...btn(C.grayL,C.gray),padding:"5px 11px",fontSize:12}}>취소</button>
-                      </div>
-                    : <>
-                        <div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}>
-                          <span style={badge(catColor[e.category]+"22",catColor[e.category])}>{e.category}</span>
-                          <span style={{fontSize:13.5,fontWeight:600}}>{e.content}</span>
-                          <div style={{marginLeft:"auto",display:"flex",gap:5}}>
-                            {canWrite&&<button onClick={()=>startEdit(e)} style={{...btn(C.navyL,C.navyM),padding:"3px 9px",fontSize:11}}>수정</button>}
-                            {canWrite&&<button onClick={()=>del(e.id)} style={{...btn(C.redL,C.red),padding:"3px 9px",fontSize:11}}>삭제</button>}
+                    ? <div>
+                        <div style={{display:"flex",gap:7,flexWrap:"wrap",marginBottom:8}}>
+                          <input type="date" value={editDraft.date} onChange={ev=>setED(p=>({...p,date:ev.target.value}))} style={{...inp(),width:148}}/>
+                          <select value={editDraft.cat} onChange={ev=>setED(p=>({...p,cat:ev.target.value}))} style={{...inp(),width:120}}>
+                            {schedCats.map(c=><option key={c} value={c}>{c}</option>)}
+                          </select>
+                        </div>
+                        <div style={{display:"flex",flexDirection:"column",gap:7,marginBottom:8}}>
+                          <div>
+                            <label style={lbl()}>주요내용</label>
+                            <input value={editDraft.text} onChange={ev=>setED(p=>({...p,text:ev.target.value}))} style={inp()}/>
+                          </div>
+                          <div>
+                            <label style={lbl()}>메모</label>
+                            <input value={editDraft.memo||""} onChange={ev=>setED(p=>({...p,memo:ev.target.value}))} placeholder="메모" style={inp()}/>
                           </div>
                         </div>
-                        <div style={{fontSize:10.5,color:C.gray,marginTop:4}}>
-                          등록: {fDT(e.createdAt)}{e.updatedAt!==e.createdAt?` · 수정: ${fDT(e.updatedAt)}`:""}
+                        <div style={{display:"flex",gap:6}}>
+                          <button onClick={saveEdit} style={{...btn(C.green),padding:"5px 12px",fontSize:12}}>저장</button>
+                          <button onClick={()=>setEditId(null)} style={{...btn(C.grayL,C.gray),padding:"5px 12px",fontSize:12}}>취소</button>
                         </div>
-                      </>}
+                      </div>
+                    : <>
+                        <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:e.memo?6:0,flexWrap:"wrap"}}>
+                          <span style={{...badge(getColor(e.category)+"22",getColor(e.category)),fontSize:11}}>{e.category}</span>
+                          <span style={{fontSize:14,fontWeight:700,color:"#111827",flex:1}}>{e.content}</span>
+                          <div style={{display:"flex",gap:5,marginLeft:"auto"}}>
+                            {canWrite&&<button onClick={()=>startEdit(e)} style={{...btn(C.navyL,C.navyM),padding:"3px 9px",fontSize:12}}>수정</button>}
+                            {canWrite&&<button onClick={()=>del(e.id)} style={{...btn(C.redL,C.red),padding:"3px 9px",fontSize:12}}>삭제</button>}
+                          </div>
+                        </div>
+                        {e.memo&&<div style={{fontSize:13,color:"#6B7280",background:"#F8FAFC",borderRadius:8,padding:"6px 10px",marginBottom:4}}>
+                          📝 {e.memo}
+                        </div>}
+                        <div style={{fontSize:11,color:"#9CA3AF",marginTop:4}}>
+                          {e.createdBy&&`등록: ${e.createdBy} `}{fDT(e.createdAt)}
+                          {e.updatedAt!==e.createdAt&&` · 수정: ${e.updatedBy||""} ${fDT(e.updatedAt)}`}
+                        </div>
+                      </>
+                  }
                 </div>
               </div>
             ))}

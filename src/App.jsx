@@ -21,7 +21,7 @@ import { VendorsTab } from "./Vendors.jsx"
 import { WeeklyReportTab } from "./WeeklyReport.jsx"
 // AI 기능 — 추후 ANTHROPIC_API_KEY 설정 시 활성화 가능
 // import { SmartSearch, AIAssistant, AIFloatButton, WeeklyBriefing } from "./AIAssistant.jsx"
-// import { ManualTab } from "./ManualTab.jsx"
+import { ManualTab } from "./ManualTab.jsx"
 import { DeptContext, useDepts } from "./DeptContext.jsx"
 import {
   hashPw, ALL_USERS, MASTER_PW, ROLE_BADGE,
@@ -637,11 +637,12 @@ export default function App() {
     {id:"projects",  label:"🏗 프로젝트"},
     {id:"vendors",   label:"🤝 협력업체"},
     {id:"contract",  label:"📄 계약서"},
-    {id:"manual",    label:"📚 업무매뉴얼"},
+    {id:"history",   label:"📜 프로젝트 히스토리"},
+    {id:"calendar",  label:"📅 일정 캘린더"},
     {id:"pnl",       label:"📉 손익분석"},
     {id:"optimize",  label:"⚙️ 경영최적화"},
     {id:"archive",   label:"📁 아카이브"},
-    {id:"manual",    label:"📚 업무매뉴얼"},  // AI 연동 시 AI 기반 검색으로 업그레이드 가능
+    {id:"manual",    label:"📚 업무매뉴얼"},
     {id:"auth_mgmt", label:"🔐 권한관리"},
   ]
 
@@ -755,7 +756,9 @@ export default function App() {
         {tab==="optimize" && <OptimizeTab projects={projects} deptStaff={deptStaff} pnlData={pnlData}/>}
         {tab==="archive"   && <ArchiveTab currentUser={currentUser} projects={projects}/>}
         {tab==="contract"  && <ContractTab projects={projects} currentUser={currentUser}/>}
-        {tab==="manual"    && <ManualPlaceholder/>}
+        {tab==="history"   && <ProjectHistoryPage projects={projects} currentUser={currentUser}/>}
+        {tab==="calendar"  && <ProjectCalendarPage projects={projects}/>}
+        {tab==="manual"    && <ManualTab currentUser={currentUser}/>}
         {tab==="auth_mgmt"&& currentUser.role==="admin" && <AuthTab users={users} saveUsers={saveUsers} currentUser={currentUser} hashPw={hashPw}/>}
         </div>
       </div>
@@ -1495,7 +1498,7 @@ function ProjectsTab({projects,setProjects,selProjId,setSelProjId,selVerIdx,setS
                 ))}
               </div>
 
-              {detailTab==="weekly" && <WeeklyReportTab proj={selProj} setProjects={setProjects} canWrite={canWrite} currentUser={null}/>}
+              {detailTab==="weekly" && <WeeklyReportTab proj={selProj} setProjects={setProjects} canWrite={canWrite} currentUser={currentUser}/>}
 
               {detailTab==="info" && <>
               {/* 기본정보 카드 */}
@@ -3443,6 +3446,248 @@ function ContractTab({projects, currentUser}) {
           생성된 파일을 한글(HWP)에서 열어 HWP로 저장하거나, Word에서 바로 사용하세요.<br/>
           기안 첨부, 이메일 발송, 인트라넷 업로드 등에 활용 가능합니다.
         </div>
+      </div>
+    </div>
+  )
+}
+
+// ── 프로젝트 히스토리 페이지 (나무위키식 타임라인) ───────────────
+function ProjectHistoryPage({projects, currentUser}) {
+  const [selId, setSelId] = useState(projects[0]?.id||"")
+  const proj = projects.find(p=>p.id===selId)
+  const wr   = proj?.weeklyReport || {}
+
+  // 모든 이벤트를 날짜순으로 통합
+  const events = useMemo(()=>{
+    if(!proj) return []
+    const evts = []
+    // 주요일정 로그
+    ;(wr.scheduleLog||[]).forEach(e=>evts.push({
+      date:e.date, type:"schedule", cat:e.category,
+      title:e.content, memo:e.memo,
+      by:e.createdBy, updatedBy:e.updatedBy,
+      createdAt:e.createdAt, updatedAt:e.updatedAt
+    }))
+    // 실행계획서 버전
+    ;(proj.versions||[]).forEach(v=>evts.push({
+      date:v.date, type:"version", cat:`${v.round||""}차 실행계획서`,
+      title:`${v.ver} 작성 (${v.reason||"업로드"})`,
+      memo:`직접비 ${fE((v.laborCost||0)/1e8)} · 외주비 ${fE((v.subContract||0)/1e8)}`,
+      by:null, createdAt:v.date+"T00:00:00"
+    }))
+    // AGENDA
+    ;(wr.agendas||[]).forEach(ag=>(ag.items||[]).forEach(item=>evts.push({
+      date:ag.week, type:"agenda", cat:"AGENDA",
+      title:item.text?.split("\n")[0]?.slice(0,60),
+      memo:item.done?"✅ 완료":null,
+      by:null, createdAt:item.createdAt, updatedAt:item.updatedAt, updatedBy:null
+    })))
+    return evts.filter(e=>e.date).sort((a,b)=>a.date.localeCompare(b.date))
+  },[proj,wr])
+
+  const typeColor = {schedule:C.navyM, version:"#534AB7", agenda:C.amber}
+  const typeIcon  = {schedule:"📅", version:"📋", agenda:"📌"}
+
+  if(!proj) return <div style={{padding:40,textAlign:"center",color:"#6B7280"}}>프로젝트를 선택하세요.</div>
+
+  return (
+    <div style={{maxWidth:900,margin:"0 auto"}}>
+      {/* 프로젝트 선택 */}
+      <div style={{background:"#fff",borderRadius:16,border:"1px solid #E5E7EB",padding:"16px 22px",marginBottom:16,boxShadow:"0 1px 4px rgba(0,0,0,.05)"}}>
+        <div style={{display:"flex",gap:12,alignItems:"center",flexWrap:"wrap"}}>
+          <div style={{fontSize:16,fontWeight:800,color:"#111827"}}>📜 프로젝트 히스토리</div>
+          <select value={selId} onChange={e=>setSelId(e.target.value)}
+            style={{flex:1,maxWidth:400,padding:"9px 12px",border:"1.5px solid #E5E7EB",borderRadius:10,fontSize:14,fontFamily:"inherit"}}>
+            {projects.map(p=><option key={p.id} value={p.id}>{p.name}</option>)}
+          </select>
+          <span style={{fontSize:13,color:"#6B7280"}}>총 {events.length}건</span>
+        </div>
+      </div>
+
+      {/* 프로젝트 기본정보 뱃지 */}
+      {proj && (
+        <div style={{background:"linear-gradient(135deg,#1A3B6E,#3B72F6)",borderRadius:16,padding:"18px 24px",marginBottom:16,color:"#fff"}}>
+          <div style={{fontSize:18,fontWeight:800,marginBottom:6}}>{proj.name}</div>
+          <div style={{display:"flex",gap:16,flexWrap:"wrap",fontSize:13,opacity:.85}}>
+            <span>📍 {proj.address||"-"}</span>
+            <span>👤 PM: {proj.pm||"-"}</span>
+            <span>🏢 {proj.depts?.join(", ")||"-"}</span>
+            <span>💰 용역비: {fE((proj.serviceFee||0)/1e8)}억</span>
+          </div>
+        </div>
+      )}
+
+      {/* 타임라인 */}
+      {events.length===0
+        ? <div style={{background:"#fff",borderRadius:16,border:"1px solid #E5E7EB",padding:"48px",textAlign:"center",color:"#6B7280",fontSize:14}}>
+            아직 기록된 이력이 없습니다.<br/>
+            📋 주간보고 → 주요일정에서 날짜별 이벤트를 등록하면 여기에 표시됩니다.
+          </div>
+        : <div style={{background:"#fff",borderRadius:16,border:"1px solid #E5E7EB",padding:"24px 28px",boxShadow:"0 1px 4px rgba(0,0,0,.05)"}}>
+            <div style={{position:"relative",paddingLeft:20}}>
+              {/* 세로선 */}
+              <div style={{position:"absolute",left:6,top:0,bottom:0,width:2,background:"#E5E7EB",borderRadius:1}}/>
+              {events.map((e,i)=>(
+                <div key={i} style={{display:"flex",gap:14,marginBottom:14,position:"relative"}}>
+                  {/* 도트 */}
+                  <div style={{position:"absolute",left:-16,top:4,width:10,height:10,borderRadius:"50%",background:typeColor[e.type]||"#6B7280",border:"2px solid #fff",boxShadow:`0 0 0 2px ${typeColor[e.type]||"#6B7280"}`}}/>
+                  {/* 내용 */}
+                  <div style={{flex:1,borderLeft:`3px solid ${typeColor[e.type]||"#E5E7EB"}22`,paddingLeft:14}}>
+                    <div style={{display:"flex",alignItems:"flex-start",gap:8,flexWrap:"wrap"}}>
+                      <div style={{width:90,fontSize:12.5,fontWeight:700,color:"#6B7280",flexShrink:0,paddingTop:2}}>
+                        ▷ {e.date}
+                      </div>
+                      <div style={{flex:1}}>
+                        <div style={{display:"flex",alignItems:"center",gap:7,marginBottom:e.memo?4:0}}>
+                          <span style={{fontSize:11,padding:"2px 8px",borderRadius:10,background:(typeColor[e.type]||"#6B7280")+"22",color:typeColor[e.type]||"#6B7280",fontWeight:700,flexShrink:0}}>
+                            {typeIcon[e.type]} {e.cat}
+                          </span>
+                          <span style={{fontSize:14,fontWeight:600,color:"#111827"}}>{e.title}</span>
+                        </div>
+                        {e.memo&&<div style={{fontSize:12.5,color:"#6B7280",marginLeft:2}}>└ {e.memo}</div>}
+                        <div style={{fontSize:11,color:"#9CA3AF",marginTop:3}}>
+                          {e.by&&`${e.by} · `}{e.createdAt?new Date(e.createdAt).toLocaleString("ko-KR",{year:"numeric",month:"long",day:"numeric",hour:"2-digit",minute:"2-digit"}):""}
+                          {e.updatedAt&&e.updatedAt!==e.createdAt&&` · 수정: ${e.updatedBy||""} ${new Date(e.updatedAt).toLocaleString("ko-KR",{month:"long",day:"numeric",hour:"2-digit",minute:"2-digit"})}`}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+      }
+    </div>
+  )
+}
+
+// ── 프로젝트 일정 캘린더 (전체 프로젝트 통합) ───────────────────
+function ProjectCalendarPage({projects}) {
+  const [viewYear,  setViewYear]  = useState(new Date().getFullYear())
+  const [viewMonth, setViewMonth] = useState(new Date().getMonth())  // 0-indexed
+  const [selDate,   setSelDate]   = useState(null)
+
+  // 모든 프로젝트의 날짜 이벤트 수집
+  const allEvents = useMemo(()=>{
+    const evts = []
+    projects.forEach(p=>{
+      // 계약일
+      if(p.contractDate) evts.push({date:p.contractDate, proj:p.name, type:"계약일", color:"#3B72F6"})
+      // 주요일정
+      ;(p.weeklyReport?.scheduleLog||[]).forEach(e=>{
+        evts.push({date:e.date, proj:p.name, type:e.category, title:e.content, color:{
+          계약:"#3B72F6",심의:"#F59E0B",인허가:"#0EA86E",착공:"#534AB7",준공:"#EF4444",변경:"#6B7280",기타:"#9CA3AF"
+        }[e.category]||"#6B7280"})
+      })
+      // cashflowPlan의 기성 예정
+      ;(p.cashflowPlan||[]).filter(e=>e.plan>0).forEach(e=>{
+        const d=`${e.year}-${String(e.month).padStart(2,"0")}-01`
+        evts.push({date:d, proj:p.name, type:"계획기성", title:`${e.plan}억 계획기성`, color:"#0EA86E"})
+      })
+    })
+    return evts.filter(e=>e.date)
+  },[projects])
+
+  // 월별 날짜 계산
+  const firstDay = new Date(viewYear, viewMonth, 1).getDay()  // 0=일
+  const daysInMonth = new Date(viewYear, viewMonth+1, 0).getDate()
+  const today = new Date().toISOString().slice(0,10)
+
+  const getDateStr = (d) => `${viewYear}-${String(viewMonth+1).padStart(2,"0")}-${String(d).padStart(2,"0")}`
+  const getEventsForDate = (d) => allEvents.filter(e=>e.date===getDateStr(d))
+
+  const selEvents = selDate ? allEvents.filter(e=>e.date===selDate) : []
+
+  return (
+    <div>
+      {/* 헤더 */}
+      <div style={{background:"#fff",borderRadius:16,border:"1px solid #E5E7EB",padding:"16px 22px",marginBottom:16,display:"flex",alignItems:"center",gap:14}}>
+        <div style={{fontSize:18,fontWeight:800,color:"#111827"}}>📅 전체 프로젝트 일정</div>
+        <div style={{display:"flex",alignItems:"center",gap:8,marginLeft:"auto"}}>
+          <button onClick={()=>{ if(viewMonth===0){setViewYear(y=>y-1);setViewMonth(11)}else setViewMonth(m=>m-1) }}
+            style={{padding:"7px 12px",border:"1.5px solid #E5E7EB",borderRadius:9,background:"#fff",cursor:"pointer",fontSize:16}}>‹</button>
+          <div style={{fontSize:16,fontWeight:700,color:"#111827",minWidth:120,textAlign:"center"}}>
+            {viewYear}년 {viewMonth+1}월
+          </div>
+          <button onClick={()=>{ if(viewMonth===11){setViewYear(y=>y+1);setViewMonth(0)}else setViewMonth(m=>m+1) }}
+            style={{padding:"7px 12px",border:"1.5px solid #E5E7EB",borderRadius:9,background:"#fff",cursor:"pointer",fontSize:16}}>›</button>
+          <button onClick={()=>{setViewYear(new Date().getFullYear());setViewMonth(new Date().getMonth())}}
+            style={{padding:"7px 14px",border:"1.5px solid #E5E7EB",borderRadius:9,background:"#EEF3FF",color:"#3B72F6",cursor:"pointer",fontSize:13,fontWeight:700}}>오늘</button>
+        </div>
+      </div>
+
+      <div style={{display:"grid",gridTemplateColumns:selDate?"1fr 320px":"1fr",gap:14,alignItems:"start"}}>
+        {/* 캘린더 */}
+        <div style={{background:"#fff",borderRadius:16,border:"1px solid #E5E7EB",overflow:"hidden",boxShadow:"0 1px 4px rgba(0,0,0,.05)"}}>
+          {/* 요일 헤더 */}
+          <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",background:"#F8FAFC",borderBottom:"1px solid #E5E7EB"}}>
+            {["일","월","화","수","목","금","토"].map((d,i)=>(
+              <div key={d} style={{padding:"11px 0",textAlign:"center",fontSize:13,fontWeight:700,color:i===0?"#EF4444":i===6?"#3B72F6":"#6B7280"}}>
+                {d}
+              </div>
+            ))}
+          </div>
+          {/* 날짜 그리드 */}
+          <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)"}}>
+            {/* 빈 칸 */}
+            {Array(firstDay).fill(null).map((_,i)=>(
+              <div key={`e${i}`} style={{minHeight:90,borderRight:"1px solid #F3F4F6",borderBottom:"1px solid #F3F4F6",background:"#FAFAFA"}}/>
+            ))}
+            {/* 날짜 */}
+            {Array.from({length:daysInMonth},(_,i)=>i+1).map(d=>{
+              const dateStr = getDateStr(d)
+              const dayEvts = getEventsForDate(d)
+              const isToday = dateStr===today
+              const isSel   = dateStr===selDate
+              const dayOfWeek = (firstDay+d-1)%7
+              return (
+                <div key={d} onClick={()=>setSelDate(s=>s===dateStr?null:dateStr)}
+                  style={{minHeight:90,borderRight:"1px solid #F3F4F6",borderBottom:"1px solid #F3F4F6",padding:"6px 8px",cursor:"pointer",
+                    background:isSel?"#EEF3FF":isToday?"#FEF9EE":"#fff",
+                    transition:"background .1s"}}
+                  onMouseEnter={e=>{if(!isSel&&!isToday)e.currentTarget.style.background="#F8FAFC"}}
+                  onMouseLeave={e=>{if(!isSel&&!isToday)e.currentTarget.style.background="#fff"}}
+                >
+                  <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:4}}>
+                    <span style={{fontSize:13,fontWeight:isToday?800:500,
+                      color:isToday?"#3B72F6":dayOfWeek===0?"#EF4444":dayOfWeek===6?"#3B72F6":"#374151",
+                      width:24,height:24,borderRadius:"50%",display:"inline-flex",alignItems:"center",justifyContent:"center",
+                      background:isToday?"#3B72F6":"transparent",
+                      color2:"#fff"
+                    }}
+                    style2={{color:isToday?"#fff":"inherit"}}>
+                      {d}
+                    </span>
+                    {dayEvts.length>0&&<span style={{fontSize:10,background:"#3B72F6",color:"#fff",borderRadius:10,padding:"1px 6px",fontWeight:700}}>{dayEvts.length}</span>}
+                  </div>
+                  {dayEvts.slice(0,3).map((e,ei)=>(
+                    <div key={ei} style={{fontSize:10.5,fontWeight:600,color:e.color||"#6B7280",background:(e.color||"#6B7280")+"18",borderRadius:4,padding:"2px 5px",marginBottom:2,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
+                      {e.title||e.type} · {e.proj?.slice(0,8)}
+                    </div>
+                  ))}
+                  {dayEvts.length>3&&<div style={{fontSize:10,color:"#9CA3AF"}}>+{dayEvts.length-3}건</div>}
+                </div>
+              )
+            })}
+          </div>
+        </div>
+
+        {/* 선택일 상세 */}
+        {selDate&&(
+          <div style={{background:"#fff",borderRadius:16,border:"1px solid #E5E7EB",padding:"18px 20px",boxShadow:"0 1px 4px rgba(0,0,0,.05)"}}>
+            <div style={{fontSize:15,fontWeight:800,color:"#111827",marginBottom:12}}>{selDate}</div>
+            {selEvents.length===0
+              ? <div style={{color:"#6B7280",fontSize:13}}>이 날짜에 등록된 일정이 없습니다.</div>
+              : selEvents.map((e,i)=>(
+                <div key={i} style={{padding:"10px 13px",borderRadius:10,border:`1.5px solid ${e.color||"#E5E7EB"}33`,marginBottom:8,background:(e.color||"#6B7280")+"0A"}}>
+                  <div style={{fontSize:12,fontWeight:700,color:e.color||"#6B7280",marginBottom:3}}>{e.type}</div>
+                  <div style={{fontSize:13.5,fontWeight:700,color:"#111827",marginBottom:2}}>{e.title||e.type}</div>
+                  <div style={{fontSize:12,color:"#6B7280"}}>🏗 {e.proj}</div>
+                </div>
+              ))
+            }
+          </div>
+        )}
       </div>
     </div>
   )

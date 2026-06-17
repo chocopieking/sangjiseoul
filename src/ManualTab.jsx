@@ -1,7 +1,9 @@
 // ══════════════════════════════════════════════════════════════
-// 📚 업무 매뉴얼 AI — PDF/문서 업로드 + 질의응답
+// 📚 업무매뉴얼 — 위키/노션형 페이지 기반
+// 카테고리 → 페이지 → 섹션 구조
+// 전직원 검색·열람, 관리자 편집, 절차/양식 등록
 // ══════════════════════════════════════════════════════════════
-import { useState, useRef, useEffect } from "react"
+import { useState, useMemo, useEffect } from "react"
 
 const C = {
   navyM:"#3B72F6", navyL:"#EEF3FF", navy:"#1A3B6E",
@@ -11,360 +13,411 @@ const C = {
   gray:"#6B7280",  grayL:"#F3F4F6",
 }
 
-const S = {
-  card:(x={})=>({background:"#fff",border:"1px solid #E5E7EB",borderRadius:16,padding:"22px 26px",marginBottom:16,boxShadow:"0 1px 4px rgba(0,0,0,.05)",...x}),
-  btn:(bg="#3B72F6",fg="#fff")=>({padding:"10px 18px",background:bg,color:fg,border:"none",borderRadius:10,fontSize:14,fontWeight:700,cursor:"pointer",display:"inline-flex",alignItems:"center",gap:7}),
+const now = () => new Date().toISOString()
+const fmtDT = iso => iso ? new Date(iso).toLocaleString("ko-KR",{month:"short",day:"numeric",hour:"2-digit",minute:"2-digit"}) : ""
+
+// ── 기본 매뉴얼 데이터 ────────────────────────────────────────
+const DEFAULT_MANUAL = {
+  categories: [
+    { id:"C001", name:"🏗 설계 프로세스",   order:1 },
+    { id:"C002", name:"💰 계약 및 수주",     order:2 },
+    { id:"C003", name:"📊 실행계획서",        order:3 },
+    { id:"C004", name:"🤝 협력업체 관리",     order:4 },
+    { id:"C005", name:"📋 결재 및 보고",      order:5 },
+    { id:"C006", name:"💧 수금 및 기성",      order:6 },
+    { id:"C007", name:"📁 자료관리",          order:7 },
+  ],
+  pages: [
+    {
+      id:"P001", categoryId:"C001", title:"설계 단계별 업무 흐름",
+      order:1, updatedAt: now(), updatedBy:"관리자",
+      sections: [
+        { id:"S001", type:"heading", content:"설계 단계 개요" },
+        { id:"S002", type:"text", content:"상지서울의 설계 업무는 크게 기본설계 → 실시설계 → 인허가 → 현장관리 4단계로 진행됩니다." },
+        { id:"S003", type:"steps", content:"1. 계약 체결 및 착수신고\n2. 기본설계 (기획·계획설계)\n3. 건축심의 접수 및 통과\n4. 실시설계 도서 작성\n5. 건축허가 접수\n6. 착공 지원\n7. 현장 감리 협력" },
+        { id:"S004", type:"heading", content:"주요 산출물" },
+        { id:"S005", type:"table", content:"단계|산출물|담당자\n기본설계|기획안, 기본설계도면|PM\n실시설계|실시설계도면 일체|PM+설계팀\n인허가|건축허가서류|PM\n현장관리|현장설계변경도면|PM" },
+      ]
+    },
+    {
+      id:"P002", categoryId:"C002", title:"계약 체결 프로세스",
+      order:1, updatedAt: now(), updatedBy:"관리자",
+      sections: [
+        { id:"S010", type:"heading", content:"계약 체결 절차" },
+        { id:"S011", type:"steps", content:"1. 제안서 제출 및 수주 확정\n2. 계약서 초안 작성 (표준계약서 기반)\n3. 내부 결재 (본부장 → 상무 → 대표)\n4. 발주처 계약서 검토 및 협의\n5. 계약서 서명 및 날인\n6. 계약금(10%) 수령 확인\n7. ERP 수주 등록 및 실행계획서 착수" },
+        { id:"S012", type:"warning", content:"⚠ 계약서 서명 전 법무검토가 필요한 경우: 총 설계비 5억 이상, 해외 프로젝트, 특수 조건 포함 시" },
+        { id:"S013", type:"heading", content:"계약 관련 서류" },
+        { id:"S014", type:"text", content:"계약 시 필요 서류: 사업자등록증 사본, 건축사 자격증 사본, 직인, 건설업 면허 사본" },
+      ]
+    },
+    {
+      id:"P003", categoryId:"C003", title:"실행계획서 작성 가이드",
+      order:1, updatedAt: now(), updatedBy:"관리자",
+      sections: [
+        { id:"S020", type:"heading", content:"실행계획서 작성 목적" },
+        { id:"S021", type:"text", content:"실행계획서는 프로젝트별 비용 구조(인건비·외주비·간접비·이윤)를 사전에 계획하여 경영 목표 이윤율을 달성하기 위한 도구입니다." },
+        { id:"S022", type:"heading", content:"작성 절차" },
+        { id:"S023", type:"steps", content:"1. 시스템 접속 → 프로젝트 탭 → 해당 프로젝트 선택\n2. '+ 회차 추가' 또는 '실행계획서 업로드' 클릭\n3. 직접인건비, 직접경비 입력\n4. 협력업체 외주비 탭에서 분야별 업체·금액 입력\n5. 이윤율 확인 (목표: 용역비의 8% 이상)\n6. 저장 후 보고서 다운로드 → 결재 상신" },
+        { id:"S024", type:"warning", content:"⚠ 이윤율이 5% 미만인 경우 본부장 보고 후 진행" },
+        { id:"S025", type:"heading", content:"변경 실행계획서" },
+        { id:"S026", type:"text", content:"설계 변경, 협력업체 교체, 계약 변경 시 변경 회차를 새로 등록합니다. 회차별 비교 분석으로 이윤 변동 추이를 확인할 수 있습니다." },
+      ]
+    },
+    {
+      id:"P004", categoryId:"C006", title:"수금 관리 절차",
+      order:1, updatedAt: now(), updatedBy:"관리자",
+      sections: [
+        { id:"S030", type:"heading", content:"수금 입력 위치" },
+        { id:"S031", type:"text", content:"수금 정보는 두 곳에서 입력합니다. ① 프로젝트별 상세 정보: 프로젝트 탭 → 프로젝트 선택 → '연도별 월수금계획(기성)' 카드. ② 전사 월별 수금: 월수금계획 탭 → 본부별 직접 입력." },
+        { id:"S032", type:"steps", content:"1. 기성 청구서 발행 확인\n2. 발주처 입금 확인 (은행 계좌 확인)\n3. 시스템 접속 → 해당 프로젝트 선택\n4. 연도별 월수금계획 → 해당 월 '입금(실적)' 입력\n5. 잔여기성 자동 계산 확인" },
+        { id:"S033", type:"warning", content:"⚠ 입금실적은 실제 입금된 날짜 기준 월에 입력 (청구일 기준 아님)" },
+      ]
+    },
+  ]
 }
 
-// PDF를 base64로 변환
-const pdfToBase64 = (file) => new Promise((resolve, reject) => {
-  const reader = new FileReader()
-  reader.onload = () => resolve(reader.result.split(",")[1])
-  reader.onerror = reject
-  reader.readAsDataURL(file)
-})
+const STORE_KEY = "sjs_manual_data"
+const load = () => { try{ const d=localStorage.getItem(STORE_KEY); return d?JSON.parse(d):null }catch{ return null } }
+const save = data => { try{ localStorage.setItem(STORE_KEY,JSON.stringify(data)) }catch{} }
 
-export function ManualTab() {
-  const [manuals, setManuals]   = useState(() => {
-    try{ return JSON.parse(localStorage.getItem("sjs_manuals")||"[]") }catch{ return [] }
-  })
-  const [selIdx, setSelIdx]     = useState(0)
-  const [messages, setMessages] = useState([])
-  const [input, setInput]       = useState("")
-  const [loading, setLoading]   = useState(false)
-  const [uploading, setUploading]= useState(false)
-  const [tab, setTab]           = useState("chat")  // chat | files | search
-  const [searchQ, setSearchQ]   = useState("")
-  const [searchRes, setSearchRes]= useState(null)
-  const [searchLoading, setSearchLoading] = useState(false)
-  const fileRef = useRef(null)
-  const scrollRef = useRef(null)
+const SECTION_TYPES = [
+  {type:"heading", label:"📌 소제목", desc:"섹션 제목"},
+  {type:"text",    label:"📝 본문",   desc:"일반 텍스트"},
+  {type:"steps",   label:"🔢 절차",   desc:"번호 매긴 단계 (줄바꿈으로 구분)"},
+  {type:"warning", label:"⚠ 주의",   desc:"노란색 주의사항 박스"},
+  {type:"table",   label:"📊 표",     desc:"| 구분자 CSV (첫 줄=헤더)"},
+  {type:"link",    label:"🔗 링크",   desc:"양식·외부 링크"},
+]
 
-  const saveManuals = (list) => {
-    // base64 데이터는 크므로 이름/크기만 저장 (실제 데이터는 세션메모리)
-    const meta = list.map(m=>({...m, data:undefined, preview: m.preview}))
-    try{ localStorage.setItem("sjs_manuals_meta", JSON.stringify(meta)) }catch{}
-    setManuals(list)
-  }
+export function ManualTab({ currentUser }) {
+  const [data, setDataRaw] = useState(()=>load()||DEFAULT_MANUAL)
+  const setData = d => { const next=typeof d==="function"?d(data):d; save(next); setDataRaw(next) }
 
-  useEffect(()=>{ scrollRef.current?.scrollTo({top:9999,behavior:"smooth"}) },[messages])
+  const [selCat,    setSelCat]    = useState(data.categories[0]?.id||"")
+  const [selPage,   setSelPage]   = useState(null)
+  const [editMode,  setEditMode]  = useState(false)
+  const [search,    setSearch]    = useState("")
+  const [showCatMgr,setShowCatMgr]=useState(false)
 
-  // 선택된 매뉴얼의 초기 메시지
-  useEffect(()=>{
-    const m = manuals[selIdx]
-    if(m) setMessages([{role:"assistant",text:`📖 **${m.name}** 매뉴얼이 로드되었습니다.\n\n궁금한 업무 절차나 양식에 대해 자유롭게 질문하세요.\n\n예시 질문:\n• "계약 프로세스를 단계별로 설명해줘"\n• "실행계획서 작성 절차는?"\n• "결재 양식은 어디서 다운받아?"\n• "외주비 정산 방법 알려줘"`}])
-    else setMessages([{role:"assistant",text:"왼쪽에서 업무 매뉴얼 PDF를 업로드하거나 선택하면 해당 내용을 기반으로 질문에 답변해 드립니다."}])
-  },[selIdx, manuals.length])
+  const canEdit = currentUser?.role==="admin" || currentUser?.write===true
 
-  const uploadFile = async (file) => {
-    if(!file) return
-    const allowed = ["application/pdf","text/plain","application/vnd.openxmlformats-officedocument.wordprocessingml.document"]
-    const isPdf = file.type==="application/pdf"
-    const isTxt = file.type==="text/plain"
-
-    setUploading(true)
-    try {
-      if(isPdf) {
-        const base64 = await pdfToBase64(file)
-        const newManual = {
-          id: `M${Date.now()}`,
-          name: file.name.replace(/\.[^.]+$/,""),
-          fileName: file.name,
-          type: "pdf",
-          size: file.size,
-          uploadedAt: new Date().toISOString(),
-          data: base64,
-          preview: null,
+  // 검색 결과
+  const searchResults = useMemo(()=>{
+    if(!search.trim()) return []
+    const q = search.toLowerCase()
+    const results = []
+    data.pages.forEach(page=>{
+      const cat = data.categories.find(c=>c.id===page.categoryId)
+      const matches = []
+      if(page.title.toLowerCase().includes(q)) matches.push({type:"title",text:page.title})
+      page.sections.forEach(s=>{
+        if(s.content?.toLowerCase().includes(q)) {
+          const idx = s.content.toLowerCase().indexOf(q)
+          const excerpt = s.content.slice(Math.max(0,idx-30),idx+80)
+          matches.push({type:s.type,text:"..."+excerpt+"..."})
         }
-        const updated = [...manuals, newManual]
-        saveManuals(updated)
-        setSelIdx(updated.length-1)
-      } else if(isTxt) {
-        const text = await file.text()
-        const newManual = {
-          id: `M${Date.now()}`,
-          name: file.name.replace(/\.[^.]+$/,""),
-          fileName: file.name,
-          type: "text",
-          size: file.size,
-          uploadedAt: new Date().toISOString(),
-          text: text.slice(0, 50000),  // 5만자 제한
-          preview: text.slice(0, 200),
-        }
-        const updated = [...manuals, newManual]
-        saveManuals(updated)
-        setSelIdx(updated.length-1)
-      }
-    } catch(e) {
-      alert("파일 업로드 오류: "+e.message)
-    }
-    setUploading(false)
-    fileRef.current && (fileRef.current.value="")
-  }
-
-  const deleteManual = (i) => {
-    if(!window.confirm("이 매뉴얼을 삭제하시겠습니까?")) return
-    const updated = manuals.filter((_,ri)=>ri!==i)
-    saveManuals(updated)
-    setSelIdx(Math.min(selIdx, updated.length-1))
-  }
-
-  const buildMessages = (q, manual, history) => {
-    const msgs = []
-    if(manual?.type==="pdf"&&manual.data) {
-      msgs.push({
-        role:"user",
-        content:[
-          { type:"document", source:{ type:"base64", media_type:"application/pdf", data:manual.data } },
-          { type:"text", text:`위 문서는 "${manual.name}" 업무 매뉴얼입니다. 이 문서를 기반으로 다음 질문에 한국어로 답변해주세요. 관련 양식이나 절차가 있으면 구체적으로 알려주세요.\n\n${q}` }
-        ]
       })
-    } else if(manual?.type==="text"&&manual.text) {
-      msgs.push(...history.slice(-4).map(m=>({role:m.role==="user"?"user":"assistant",content:m.text})))
-      msgs.push({role:"user",content:`[업무 매뉴얼: ${manual.name}]\n\n${manual.text}\n\n---\n위 매뉴얼 내용을 기반으로 질문에 답변해주세요.\n\n${q}`})
-    } else {
-      msgs.push(...history.slice(-4).map(m=>({role:m.role==="user"?"user":"assistant",content:m.text})))
-      msgs.push({role:"user",content:q})
-    }
-    return msgs
+      if(matches.length) results.push({page, cat, matches})
+    })
+    return results
+  },[search,data])
+
+  const catPages = useMemo(()=>
+    data.pages.filter(p=>p.categoryId===selCat).sort((a,b)=>a.order-b.order)
+  ,[data.pages, selCat])
+
+  const currentPage = selPage ? data.pages.find(p=>p.id===selPage) : catPages[0]
+
+  // 페이지 저장
+  const savePage = (updatedPage) => {
+    setData(prev=>({
+      ...prev,
+      pages: prev.pages.map(p=>p.id===updatedPage.id
+        ? {...updatedPage, updatedAt:now(), updatedBy:currentUser?.name||"관리자"}
+        : p
+      )
+    }))
+    setEditMode(false)
   }
 
-  const send = async (text) => {
-    const q = (text||input).trim()
-    if(!q||loading) return
-    setInput("")
-    setMessages(prev=>[...prev,{role:"user",text:q}])
-    setLoading(true)
-
-    const manual = manuals[selIdx]
-
-    try {
-      const res = await fetch("/api/chat",{
-        method:"POST",
-        headers:{"Content-Type":"application/json"},
-        body: JSON.stringify({
-          model:"claude-sonnet-4-6",
-          max_tokens:2000,
-          system:`당신은 상지서울건축사사무소의 업무 매뉴얼 전문 AI 어시스턴트입니다.
-업무 절차, 양식, 규정 등을 명확하고 단계별로 안내해주세요.
-직원들이 이해하기 쉽게 핵심을 짚어주고, 필요한 경우 단계 번호를 붙여 설명하세요.
-매뉴얼에 없는 내용이면 "매뉴얼에서 찾을 수 없습니다"라고 솔직하게 말하세요.`,
-          messages: buildMessages(q, manual, messages)
-        })
-      })
-      const json = await res.json()
-      if(json.error) throw new Error(json.error)
-      const reply = json.content?.[0]?.text || "응답을 가져오지 못했습니다."
-      setMessages(prev=>[...prev,{role:"assistant",text:reply}])
-    } catch(e) {
-      setMessages(prev=>[...prev,{role:"assistant",text:`⚠ 오류: ${e.message}\n\nVercel에 ANTHROPIC_API_KEY 환경변수가 설정되어 있는지 확인하세요.`}])
-    }
-    setLoading(false)
+  // 새 페이지 추가
+  const addPage = () => {
+    const id = `P${Date.now()}`
+    const newPage = {id, categoryId:selCat, title:"새 페이지", order:catPages.length+1,
+      updatedAt:now(), updatedBy:currentUser?.name, sections:[
+        {id:`S${Date.now()}`,type:"heading",content:"제목"},
+        {id:`S${Date.now()+1}`,type:"text",content:"내용을 입력하세요."},
+      ]}
+    setData(prev=>({...prev, pages:[...prev.pages, newPage]}))
+    setSelPage(id)
+    setEditMode(true)
   }
 
-  // 전체 매뉴얼 검색
-  const searchAll = async () => {
-    const q = searchQ.trim()
-    if(!q||searchLoading) return
-    setSearchLoading(true)
-    setSearchRes(null)
-
-    const pdfs = manuals.filter(m=>m.type==="pdf"&&m.data)
-    const texts = manuals.filter(m=>m.type==="text"&&m.text)
-
-    if(pdfs.length===0&&texts.length===0) {
-      setSearchRes("업로드된 매뉴얼이 없습니다.")
-      setSearchLoading(false)
-      return
-    }
-
-    try {
-      // 텍스트 매뉴얼만 묶어서 한 번에 검색 (PDF는 첫 번째 것만)
-      const firstPdf = pdfs[0]
-      const textContent = texts.map(m=>`[${m.name}]\n${m.text}`).join("\n\n---\n\n")
-      const msgs = []
-
-      if(firstPdf) {
-        msgs.push({
-          role:"user",
-          content:[
-            {type:"document", source:{type:"base64",media_type:"application/pdf",data:firstPdf.data}},
-            ...(textContent?[{type:"text",text:`추가 매뉴얼:\n${textContent}`}]:[]),
-            {type:"text",text:`위 업무 매뉴얼에서 다음을 검색해주세요: "${q}"\n\n관련 내용을 찾아서 어느 섹션에 있는지, 핵심 내용은 무엇인지 알려주세요.`}
-          ]
-        })
-      } else {
-        msgs.push({
-          role:"user",
-          content:`다음 업무 매뉴얼에서 "${q}"를 검색해주세요:\n\n${textContent}\n\n관련 내용의 위치(섹션명)와 핵심 내용을 알려주세요.`
-        })
-      }
-
-      const res = await fetch("/api/chat",{
-        method:"POST",
-        headers:{"Content-Type":"application/json"},
-        body:JSON.stringify({model:"claude-sonnet-4-6",max_tokens:1500,messages:msgs})
-      })
-      const json = await res.json()
-      setSearchRes(json.content?.[0]?.text||"결과 없음")
-    } catch(e) {
-      setSearchRes("⚠ 검색 오류: "+e.message)
-    }
-    setSearchLoading(false)
+  const deletePage = id => {
+    if(!window.confirm("이 페이지를 삭제하시겠습니까?")) return
+    setData(prev=>({...prev, pages:prev.pages.filter(p=>p.id!==id)}))
+    setSelPage(null)
   }
-
-  const formatBytes = b => b>1024*1024?`${(b/1024/1024).toFixed(1)}MB`:`${(b/1024).toFixed(0)}KB`
-  const fmtDate = iso => new Date(iso).toLocaleDateString("ko-KR",{month:"short",day:"numeric"})
-
-  const QUICK = [
-    "계약 체결 프로세스를 단계별로 알려줘",
-    "실행계획서 작성 및 결재 방법은?",
-    "외주용역비 정산 절차를 설명해줘",
-    "사내 결재 양식은 어디서 받아?",
-    "프로젝트 수행 단계별 주요 업무는?",
-  ]
 
   return (
-    <div style={{display:"grid",gridTemplateColumns:"280px 1fr",gap:0,height:"calc(100vh - 120px)",minHeight:600}}>
+    <div style={{display:"grid",gridTemplateColumns:"220px 1fr",gap:0,minHeight:"calc(100vh - 140px)"}}>
 
-      {/* ── 왼쪽: 매뉴얼 목록 ── */}
-      <div style={{background:"#fff",borderRight:"1px solid #E5E7EB",display:"flex",flexDirection:"column"}}>
-        <div style={{padding:"16px",borderBottom:"1px solid #F3F4F6"}}>
-          <div style={{fontSize:16,fontWeight:800,color:"#111827",marginBottom:12}}>📚 업무 매뉴얼</div>
-          <label style={{...S.btn(C.navyM),width:"100%",justifyContent:"center",cursor:"pointer",borderRadius:10}}>
-            {uploading?"업로드 중...":"📎 PDF / TXT 업로드"}
-            <input ref={fileRef} type="file" accept=".pdf,.txt,.md" style={{display:"none"}} onChange={e=>uploadFile(e.target.files?.[0])} disabled={uploading}/>
-          </label>
-          <div style={{fontSize:11.5,color:C.gray,marginTop:6,textAlign:"center"}}>PDF, TXT 파일 지원</div>
+      {/* ── 왼쪽 사이드바 ── */}
+      <div style={{background:"#fff",borderRight:"1px solid #E5E7EB",display:"flex",flexDirection:"column",borderRadius:"14px 0 0 14px",overflow:"hidden"}}>
+
+        {/* 검색 */}
+        <div style={{padding:"14px 12px",borderBottom:"1px solid #F3F4F6"}}>
+          <div style={{position:"relative"}}>
+            <span style={{position:"absolute",left:10,top:"50%",transform:"translateY(-50%)",fontSize:14}}>🔍</span>
+            <input value={search} onChange={e=>setSearch(e.target.value)}
+              placeholder="검색..." style={{width:"100%",padding:"8px 10px 8px 32px",border:"1.5px solid #E5E7EB",borderRadius:9,fontSize:13,boxSizing:"border-box",fontFamily:"inherit"}}/>
+          </div>
         </div>
 
-        <div style={{flex:1,overflowY:"auto",padding:"8px"}}>
-          {manuals.length===0
-            ? <div style={{padding:"24px 16px",textAlign:"center",color:C.gray,fontSize:13,lineHeight:1.7}}>
-                아직 업로드된 매뉴얼이 없습니다.<br/>
-                <b>PDF 또는 TXT</b> 형식의<br/>
-                업무 매뉴얼을 업로드하면<br/>
-                AI가 내용을 분석하여<br/>
-                질의응답을 도와드립니다.
-              </div>
-            : manuals.map((m,i)=>(
-              <div key={m.id} onClick={()=>setSelIdx(i)}
-                style={{padding:"11px 13px",borderRadius:10,cursor:"pointer",marginBottom:4,border:`1.5px solid ${i===selIdx?C.navyM:"transparent"}`,background:i===selIdx?C.navyL:"transparent",transition:"all .15s"}}
-                onMouseEnter={e=>{if(i!==selIdx)e.currentTarget.style.background="#F8FAFC"}}
-                onMouseLeave={e=>{if(i!==selIdx)e.currentTarget.style.background="transparent"}}
-              >
-                <div style={{display:"flex",alignItems:"flex-start",justifyContent:"space-between",gap:6}}>
-                  <div style={{flex:1,minWidth:0}}>
-                    <div style={{fontSize:13.5,fontWeight:700,color:i===selIdx?C.navyM:"#111827",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{m.name}</div>
-                    <div style={{fontSize:11,color:C.gray,marginTop:2}}>{m.type.toUpperCase()} · {formatBytes(m.size)} · {fmtDate(m.uploadedAt)}</div>
-                  </div>
-                  <button onClick={e=>{e.stopPropagation();deleteManual(i)}} style={{background:"none",border:"none",cursor:"pointer",color:"#D1D5DB",fontSize:14,flexShrink:0,padding:"2px 4px"}} title="삭제">✕</button>
-                </div>
-              </div>
-            ))
-          }
-        </div>
-      </div>
-
-      {/* ── 오른쪽: 탭 콘텐츠 ── */}
-      <div style={{display:"flex",flexDirection:"column",background:"#F8FAFC"}}>
-        {/* 탭 */}
-        <div style={{background:"#fff",borderBottom:"1px solid #E5E7EB",display:"flex",gap:0,padding:"0 20px"}}>
-          {[["chat","💬 AI 질의응답"],["search","🔍 전체 검색"]].map(([id,lbl])=>(
-            <button key={id} onClick={()=>setTab(id)} style={{padding:"12px 18px",border:"none",background:"none",fontSize:14,fontWeight:700,cursor:"pointer",color:tab===id?C.navyM:"#6B7280",borderBottom:tab===id?`3px solid ${C.navyM}`:"3px solid transparent",marginBottom:-1}}>
-              {lbl}
-            </button>
-          ))}
-        </div>
-
-        {/* ── 질의응답 탭 ── */}
-        {tab==="chat" && <>
-          {manuals[selIdx] && (
-            <div style={{padding:"10px 20px",background:C.navyL,borderBottom:"1px solid #C7D2FE",display:"flex",alignItems:"center",gap:8}}>
-              <span style={{fontSize:18}}>📖</span>
-              <div>
-                <span style={{fontSize:13.5,fontWeight:700,color:C.navyM}}>{manuals[selIdx].name}</span>
-                <span style={{fontSize:12,color:C.gray,marginLeft:8}}>기반 응답</span>
-              </div>
-            </div>
-          )}
-
-          <div ref={scrollRef} style={{flex:1,overflowY:"auto",padding:"16px 20px",display:"flex",flexDirection:"column",gap:12}}>
-            {messages.map((m,i)=>(
-              <div key={i} style={{display:"flex",gap:10,flexDirection:m.role==="user"?"row-reverse":"row",alignItems:"flex-start"}}>
-                <div style={{width:34,height:34,borderRadius:10,background:m.role==="user"?C.navyM:"#E5E7EB",display:"flex",alignItems:"center",justifyContent:"center",fontSize:16,flexShrink:0}}>
-                  {m.role==="user"?"👤":"🤖"}
-                </div>
-                <div style={{maxWidth:"80%",padding:"12px 16px",borderRadius:m.role==="user"?"14px 4px 14px 14px":"4px 14px 14px 14px",background:m.role==="user"?C.navyM:"#fff",color:m.role==="user"?"#fff":"#111827",fontSize:14,lineHeight:1.7,whiteSpace:"pre-wrap",border:m.role==="assistant"?"1px solid #E5E7EB":"none",boxShadow:m.role==="assistant"?"0 1px 3px rgba(0,0,0,.05)":"none"}}>
-                  {m.text}
-                </div>
+        {/* 카테고리 목록 */}
+        {!search.trim() && (
+          <div style={{flex:1,overflowY:"auto",padding:"8px"}}>
+            {data.categories.sort((a,b)=>a.order-b.order).map(cat=>(
+              <div key={cat.id}>
+                <button onClick={()=>{setSelCat(cat.id);setSelPage(null);setSearch("")}}
+                  style={{width:"100%",textAlign:"left",padding:"9px 12px",border:"none",borderRadius:10,marginBottom:2,cursor:"pointer",fontSize:13.5,fontWeight:700,
+                    background:selCat===cat.id?"#EEF3FF":"transparent",color:selCat===cat.id?C.navyM:"#374151",transition:"all .12s"}}
+                  onMouseEnter={e=>{if(selCat!==cat.id)e.currentTarget.style.background="#F8FAFC"}}
+                  onMouseLeave={e=>{if(selCat!==cat.id)e.currentTarget.style.background="transparent"}}>
+                  {cat.name}
+                </button>
+                {selCat===cat.id&&catPages.map(page=>(
+                  <button key={page.id} onClick={()=>setSelPage(page.id)}
+                    style={{width:"100%",textAlign:"left",padding:"7px 12px 7px 24px",border:"none",borderRadius:8,marginBottom:1,cursor:"pointer",fontSize:13,
+                      background:currentPage?.id===page.id?"#EEF3FF":"transparent",color:currentPage?.id===page.id?C.navyM:"#6B7280",fontWeight:currentPage?.id===page.id?700:400}}
+                    onMouseEnter={e=>e.currentTarget.style.background="#F8FAFC"}
+                    onMouseLeave={e=>e.currentTarget.style.background=currentPage?.id===page.id?"#EEF3FF":"transparent"}>
+                    └ {page.title}
+                  </button>
+                ))}
+                {selCat===cat.id&&canEdit&&(
+                  <button onClick={addPage}
+                    style={{width:"100%",textAlign:"left",padding:"6px 12px 6px 24px",border:"none",borderRadius:8,marginBottom:4,cursor:"pointer",fontSize:12.5,color:"#9CA3AF",background:"transparent"}}
+                    onMouseEnter={e=>e.currentTarget.style.color=C.navyM}
+                    onMouseLeave={e=>e.currentTarget.style.color="#9CA3AF"}>
+                    + 페이지 추가
+                  </button>
+                )}
               </div>
             ))}
-            {loading&&(
-              <div style={{display:"flex",gap:10,alignItems:"flex-start"}}>
-                <div style={{width:34,height:34,borderRadius:10,background:"#E5E7EB",display:"flex",alignItems:"center",justifyContent:"center"}}>🤖</div>
-                <div style={{padding:"14px 18px",borderRadius:"4px 14px 14px 14px",background:"#fff",border:"1px solid #E5E7EB",display:"flex",gap:5,alignItems:"center"}}>
-                  {[0,1,2].map(j=><div key={j} style={{width:8,height:8,borderRadius:"50%",background:C.navyM,animation:`bounce 1.2s ${j*0.2}s infinite`}}/>)}
-                </div>
-              </div>
-            )}
           </div>
+        )}
 
-          {/* 퀵 질문 */}
-          {messages.length<=1&&(
-            <div style={{padding:"0 20px 12px",display:"flex",flexWrap:"wrap",gap:7}}>
-              {QUICK.map((q,i)=>(
-                <button key={i} onClick={()=>send(q)} style={{padding:"7px 13px",background:"#fff",color:C.navyM,border:`1.5px solid ${C.navyM}44`,borderRadius:20,fontSize:13,fontWeight:600,cursor:"pointer",transition:"all .15s"}}
-                  onMouseEnter={e=>{e.currentTarget.style.background=C.navyL}}
-                  onMouseLeave={e=>{e.currentTarget.style.background="#fff"}}>
-                  {q}
+        {/* 검색 결과 목록 */}
+        {search.trim()&&(
+          <div style={{flex:1,overflowY:"auto",padding:"8px"}}>
+            {searchResults.length===0
+              ? <div style={{padding:"20px 12px",textAlign:"center",color:"#6B7280",fontSize:13}}>검색 결과 없음</div>
+              : searchResults.map(r=>(
+                <button key={r.page.id} onClick={()=>{setSelCat(r.page.categoryId);setSelPage(r.page.id);setSearch("")}}
+                  style={{width:"100%",textAlign:"left",padding:"9px 12px",border:"none",borderRadius:10,marginBottom:4,cursor:"pointer",background:"#F8FAFC",color:"#111827"}}>
+                  <div style={{fontSize:12,color:C.navyM,fontWeight:700,marginBottom:2}}>{r.cat?.name}</div>
+                  <div style={{fontSize:13.5,fontWeight:700,marginBottom:4}}>{r.page.title}</div>
+                  {r.matches.slice(0,2).map((m,i)=>(
+                    <div key={i} style={{fontSize:11.5,color:"#6B7280",marginTop:2,lineHeight:1.5}}>{m.text.slice(0,80)}</div>
+                  ))}
                 </button>
-              ))}
-            </div>
-          )}
-
-          <div style={{padding:"12px 20px",borderTop:"1px solid #E5E7EB",background:"#fff",display:"flex",gap:8}}>
-            <textarea value={input} onChange={e=>setInput(e.target.value)}
-              onKeyDown={e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();send()}}}
-              placeholder={manuals[selIdx]?"업무 매뉴얼 관련 질문... (Enter 전송)":"먼저 왼쪽에서 매뉴얼을 업로드하거나 선택하세요."}
-              rows={2} disabled={!manuals[selIdx]}
-              style={{flex:1,padding:"10px 14px",border:"1.5px solid #E5E7EB",borderRadius:10,fontSize:14,fontFamily:"inherit",resize:"none",outline:"none",lineHeight:1.5,color:"#111827",background:manuals[selIdx]?"#fff":"#F8FAFC"}}/>
-            <button onClick={()=>send()} disabled={!input.trim()||loading||!manuals[selIdx]}
-              style={{width:44,background:input.trim()&&!loading&&manuals[selIdx]?C.navyM:"#E5E7EB",color:"#fff",border:"none",borderRadius:10,cursor:"pointer",fontSize:20,transition:"background .15s"}}>↑</button>
-          </div>
-        </>}
-
-        {/* ── 전체 검색 탭 ── */}
-        {tab==="search" && (
-          <div style={{flex:1,overflowY:"auto",padding:"20px"}}>
-            <div style={S.card()}>
-              <div style={{fontSize:16,fontWeight:800,color:"#111827",marginBottom:6}}>🔍 업무 매뉴얼 전체 검색</div>
-              <div style={{fontSize:13.5,color:C.gray,marginBottom:16}}>업로드된 모든 매뉴얼에서 키워드를 검색합니다.</div>
-              <div style={{display:"flex",gap:8,marginBottom:16}}>
-                <input value={searchQ} onChange={e=>setSearchQ(e.target.value)} onKeyDown={e=>e.key==="Enter"&&searchAll()}
-                  placeholder="검색어를 입력하세요... (예: 결재 절차, 외주비 정산)"
-                  style={{flex:1,padding:"11px 14px",border:"1.5px solid #E5E7EB",borderRadius:10,fontSize:14,fontFamily:"inherit",outline:"none"}}/>
-                <button onClick={searchAll} disabled={!searchQ.trim()||searchLoading} style={{...S.btn(),padding:"11px 20px",opacity:!searchQ.trim()||searchLoading?.6:1}}>
-                  {searchLoading?"검색 중...":"검색"}
-                </button>
-              </div>
-              <div style={{display:"flex",flexWrap:"wrap",gap:6,marginBottom:searchRes?16:0}}>
-                {["결재 프로세스","계약 체결","외주비 정산","실행계획서","업무 분장","양식 다운로드"].map(kw=>(
-                  <button key={kw} onClick={()=>{setSearchQ(kw);}} style={{padding:"5px 12px",background:"#F3F4F6",color:"#374151",border:"none",borderRadius:20,fontSize:13,cursor:"pointer"}}>{kw}</button>
-                ))}
-              </div>
-            </div>
-            {searchLoading&&<div style={{textAlign:"center",padding:"30px",color:C.gray}}>🤖 매뉴얼 분석 중...</div>}
-            {searchRes&&(
-              <div style={S.card()}>
-                <div style={{fontSize:15,fontWeight:700,marginBottom:12,color:"#111827"}}>검색 결과</div>
-                <div style={{fontSize:14,lineHeight:1.8,color:"#374151",whiteSpace:"pre-wrap"}}>{searchRes}</div>
-              </div>
-            )}
+              ))
+            }
           </div>
         )}
       </div>
-      <style>{`@keyframes bounce{0%,80%,100%{transform:translateY(0)}40%{transform:translateY(-6px)}}`}</style>
+
+      {/* ── 메인 콘텐츠 ── */}
+      <div style={{background:"#fff",borderRadius:"0 14px 14px 0",border:"1px solid #E5E7EB",borderLeft:"none",display:"flex",flexDirection:"column",overflow:"hidden"}}>
+        {!currentPage
+          ? <div style={{padding:"60px 40px",textAlign:"center",color:"#6B7280"}}>
+              <div style={{fontSize:48,marginBottom:12}}>📚</div>
+              <div style={{fontSize:18,fontWeight:700,marginBottom:6}}>업무매뉴얼</div>
+              <div style={{fontSize:14}}>왼쪽에서 카테고리와 페이지를 선택하세요.</div>
+            </div>
+          : editMode
+            ? <PageEditor page={currentPage} onSave={savePage} onCancel={()=>setEditMode(false)} currentUser={currentUser}/>
+            : <PageViewer page={currentPage} canEdit={canEdit}
+                onEdit={()=>setEditMode(true)}
+                onDelete={canEdit?()=>deletePage(currentPage.id):null}/>
+        }
+      </div>
     </div>
   )
 }
+
+// ── 페이지 뷰어 ──────────────────────────────────────────────
+function PageViewer({ page, canEdit, onEdit, onDelete }) {
+  return (
+    <div style={{flex:1,overflowY:"auto"}}>
+      {/* 헤더 */}
+      <div style={{padding:"22px 32px",borderBottom:"1px solid #F3F4F6",display:"flex",alignItems:"flex-start",justifyContent:"space-between",gap:12}}>
+        <div>
+          <h1 style={{fontSize:24,fontWeight:800,color:"#111827",margin:0,lineHeight:1.3}}>{page.title}</h1>
+          {page.updatedAt&&<div style={{fontSize:12,color:"#9CA3AF",marginTop:6}}>
+            최종 수정: {page.updatedBy} · {fmtDT(page.updatedAt)}
+          </div>}
+        </div>
+        {canEdit&&(
+          <div style={{display:"flex",gap:7,flexShrink:0}}>
+            <button onClick={onEdit} style={{padding:"9px 16px",background:"#EEF3FF",color:C.navyM,border:"none",borderRadius:10,fontSize:14,fontWeight:700,cursor:"pointer"}}>✏ 편집</button>
+            {onDelete&&<button onClick={onDelete} style={{padding:"9px 16px",background:"#FEE2E2",color:"#EF4444",border:"none",borderRadius:10,fontSize:14,fontWeight:700,cursor:"pointer"}}>삭제</button>}
+          </div>
+        )}
+      </div>
+
+      {/* 섹션 렌더링 */}
+      <div style={{padding:"24px 32px",maxWidth:800}}>
+        {page.sections.map(sec=><SectionRenderer key={sec.id} section={sec}/>)}
+      </div>
+    </div>
+  )
+}
+
+function SectionRenderer({ section }) {
+  switch(section.type) {
+    case "heading":
+      return <h2 style={{fontSize:18,fontWeight:800,color:"#1A3B6E",margin:"28px 0 10px",paddingBottom:6,borderBottom:"2px solid #EEF3FF"}}>{section.content}</h2>
+    case "text":
+      return <p style={{fontSize:15,lineHeight:1.85,color:"#374151",margin:"0 0 14px",whiteSpace:"pre-wrap"}}>{section.content}</p>
+    case "steps": {
+      const lines = section.content.split("\n").filter(l=>l.trim())
+      return (
+        <div style={{margin:"0 0 18px"}}>
+          {lines.map((line,i)=>(
+            <div key={i} style={{display:"flex",gap:12,alignItems:"flex-start",marginBottom:10}}>
+              <div style={{width:28,height:28,borderRadius:8,background:"#3B72F6",color:"#fff",fontSize:14,fontWeight:800,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
+                {i+1}
+              </div>
+              <div style={{fontSize:15,lineHeight:1.6,color:"#374151",paddingTop:3,flex:1}}>
+                {line.replace(/^\d+\.\s*/,"")}
+              </div>
+            </div>
+          ))}
+        </div>
+      )
+    }
+    case "warning":
+      return <div style={{background:"#FEF3C7",border:"1px solid #F59E0B",borderRadius:12,padding:"14px 18px",margin:"0 0 16px",fontSize:14.5,color:"#92400E",lineHeight:1.7,whiteSpace:"pre-wrap"}}>{section.content}</div>
+    case "table": {
+      const rows = section.content.split("\n").map(r=>r.split("|"))
+      if(!rows.length) return null
+      return (
+        <div style={{overflowX:"auto",margin:"0 0 18px"}}>
+          <table style={{width:"100%",borderCollapse:"collapse",fontSize:14}}>
+            <thead>
+              <tr>{rows[0].map((h,i)=><th key={i} style={{padding:"10px 14px",background:"#F8FAFC",borderBottom:"2px solid #E5E7EB",textAlign:"left",fontWeight:700,color:"#374151",whiteSpace:"nowrap"}}>{h}</th>)}</tr>
+            </thead>
+            <tbody>
+              {rows.slice(1).map((row,i)=>(
+                <tr key={i} style={{borderBottom:"1px solid #F3F4F6"}}>
+                  {row.map((cell,j)=><td key={j} style={{padding:"10px 14px",color:"#374151",lineHeight:1.6}}>{cell}</td>)}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )
+    }
+    case "link":
+      return (
+        <div style={{margin:"0 0 14px"}}>
+          {section.content.split("\n").map((line,i)=>{
+            const [label,url] = line.split("|")
+            return url
+              ? <a key={i} href={url} target="_blank" rel="noopener noreferrer"
+                  style={{display:"inline-flex",alignItems:"center",gap:7,padding:"9px 16px",background:"#EEF3FF",color:"#3B72F6",borderRadius:10,fontSize:14,fontWeight:700,textDecoration:"none",marginRight:8,marginBottom:6}}>
+                  🔗 {label}
+                </a>
+              : <div key={i} style={{fontSize:14,color:"#374151",marginBottom:4}}>{line}</div>
+          })}
+        </div>
+      )
+    default:
+      return null
+  }
+}
+
+// ── 페이지 에디터 ─────────────────────────────────────────────
+function PageEditor({ page, onSave, onCancel, currentUser }) {
+  const [title,    setTitle]    = useState(page.title)
+  const [sections, setSections] = useState(page.sections.map(s=>({...s})))
+
+  const addSection = type => {
+    const defaults = {heading:"새 소제목",text:"내용을 입력하세요.",steps:"1. 첫 번째 단계\n2. 두 번째 단계",warning:"⚠ 주의사항을 입력하세요.",table:"항목|설명|비고\n내용1|설명1|비고1",link:"링크 제목|https://"}
+    setSections(prev=>[...prev,{id:`S${Date.now()}`,type,content:defaults[type]||""}])
+  }
+  const updateSec = (id,k,v) => setSections(prev=>prev.map(s=>s.id===id?{...s,[k]:v}:s))
+  const deleteSec = id => setSections(prev=>prev.filter(s=>s.id!==id))
+  const moveSec   = (i,d) => setSections(prev=>{const a=[...prev];[a[i],a[i+d]]=[a[i+d],a[i]];return a})
+
+  const inp = {width:"100%",padding:"9px 12px",border:"1.5px solid #E5E7EB",borderRadius:8,fontSize:14,boxSizing:"border-box",fontFamily:"inherit",outline:"none"}
+
+  return (
+    <div style={{flex:1,overflowY:"auto"}}>
+      {/* 편집 헤더 */}
+      <div style={{padding:"18px 24px",borderBottom:"1px solid #E5E7EB",background:"#FEF9EE",display:"flex",gap:10,alignItems:"center",flexWrap:"wrap"}}>
+        <span style={{fontSize:13,fontWeight:700,color:"#F59E0B"}}>✏ 편집 모드</span>
+        <input value={title} onChange={e=>setTitle(e.target.value)} placeholder="페이지 제목"
+          style={{...inp,fontSize:18,fontWeight:800,flex:1,minWidth:200,border:"none",background:"transparent",padding:"4px 0"}}/>
+        <div style={{display:"flex",gap:8}}>
+          <button onClick={()=>onSave({...page,title,sections})}
+            style={{padding:"9px 20px",background:"#3B72F6",color:"#fff",border:"none",borderRadius:10,fontSize:14,fontWeight:700,cursor:"pointer"}}>✓ 저장</button>
+          <button onClick={onCancel}
+            style={{padding:"9px 16px",background:"#F3F4F6",color:"#374151",border:"none",borderRadius:10,fontSize:14,fontWeight:700,cursor:"pointer"}}>취소</button>
+        </div>
+      </div>
+
+      <div style={{padding:"20px 24px",maxWidth:800}}>
+        {/* 섹션 목록 */}
+        {sections.map((sec,i)=>(
+          <div key={sec.id} style={{marginBottom:12,border:"1.5px solid #E5E7EB",borderRadius:12,overflow:"hidden",background:"#fff"}}>
+            <div style={{display:"flex",alignItems:"center",gap:7,padding:"8px 12px",background:"#F8FAFC",borderBottom:"1px solid #E5E7EB"}}>
+              <div style={{display:"flex",flexDirection:"column",gap:1}}>
+                <button onClick={()=>i>0&&moveSec(i,-1)} style={{background:"none",border:"none",cursor:"pointer",color:"#9CA3AF",fontSize:11,padding:"0 4px",lineHeight:1}} disabled={i===0}>▲</button>
+                <button onClick={()=>i<sections.length-1&&moveSec(i,1)} style={{background:"none",border:"none",cursor:"pointer",color:"#9CA3AF",fontSize:11,padding:"0 4px",lineHeight:1}} disabled={i===sections.length-1}>▼</button>
+              </div>
+              <span style={{fontSize:12.5,fontWeight:700,color:"#6B7280",flex:1}}>
+                {SECTION_TYPES.find(t=>t.type===sec.type)?.label||sec.type}
+              </span>
+              <select value={sec.type} onChange={e=>updateSec(sec.id,"type",e.target.value)}
+                style={{padding:"4px 8px",border:"1px solid #E5E7EB",borderRadius:7,fontSize:12,background:"#fff"}}>
+                {SECTION_TYPES.map(t=><option key={t.type} value={t.type}>{t.label}</option>)}
+              </select>
+              <button onClick={()=>deleteSec(sec.id)} style={{background:"none",border:"none",cursor:"pointer",color:"#EF4444",fontSize:16,padding:"0 4px"}}>✕</button>
+            </div>
+            <div style={{padding:"10px 12px"}}>
+              <textarea value={sec.content} onChange={e=>updateSec(sec.id,"content",e.target.value)}
+                rows={sec.type==="table"?5:sec.type==="steps"?5:3}
+                style={{...inp,resize:"vertical",lineHeight:1.7,minHeight:60}}/>
+              <div style={{fontSize:11.5,color:"#9CA3AF",marginTop:4}}>
+                {SECTION_TYPES.find(t=>t.type===sec.type)?.desc}
+                {sec.type==="table"&&" — 예: 항목|설명|비고 (각 행을 줄바꿈으로 구분)"}
+                {sec.type==="steps"&&" — 각 단계를 줄바꿈으로 구분"}
+                {sec.type==="link"&&" — 형식: 링크제목|https://... (줄바꿈으로 여러 개 추가)"}
+              </div>
+            </div>
+          </div>
+        ))}
+
+        {/* 섹션 추가 버튼 */}
+        <div style={{background:"#F8FAFC",borderRadius:12,padding:"14px 16px",border:"1.5px dashed #E5E7EB"}}>
+          <div style={{fontSize:13,fontWeight:700,color:"#6B7280",marginBottom:8}}>+ 섹션 추가</div>
+          <div style={{display:"flex",flexWrap:"wrap",gap:7}}>
+            {SECTION_TYPES.map(t=>(
+              <button key={t.type} onClick={()=>addSection(t.type)}
+                style={{padding:"7px 13px",background:"#fff",color:"#374151",border:"1.5px solid #E5E7EB",borderRadius:9,fontSize:13,fontWeight:600,cursor:"pointer"}}
+                onMouseEnter={e=>{e.currentTarget.style.background="#EEF3FF";e.currentTarget.style.color=C.navyM;e.currentTarget.style.borderColor=C.navyM}}
+                onMouseLeave={e=>{e.currentTarget.style.background="#fff";e.currentTarget.style.color="#374151";e.currentTarget.style.borderColor="#E5E7EB"}}>
+                {t.label}
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+export default ManualTab
