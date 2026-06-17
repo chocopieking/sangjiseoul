@@ -693,22 +693,32 @@ export default function App() {
 
   if (auth==="login") return <LoginScreen {...{loginId,setLoginId,loginPw,setLoginPw,loginError,doLogin,pwVisible,setPwVisible}}/>
 
-  const TABS = [
-    {id:"analysis",  label:"📊 경영분석"},
-    {id:"deptdash",  label:"🏢 본부별 현황"},
-    {id:"datahub",   label:"🗄️ 데이터관리"},
-    {id:"cashflow",  label:"💧 월수금계획"},
-    {id:"projects",  label:"🏗 프로젝트"},
-    {id:"vendors",   label:"🤝 협력업체"},
-    {id:"contract",  label:"📄 계약서"},
-    {id:"history",   label:"📜 프로젝트 히스토리"},
-    {id:"calendar",  label:"📅 일정 캘린더"},
-    {id:"pnl",       label:"📉 손익분석"},
-    {id:"optimize",  label:"⚙️ 경영최적화"},
-    {id:"archive",   label:"📁 아카이브"},
-    {id:"manual",    label:"📚 업무매뉴얼"},
-    {id:"auth_mgmt", label:"🔐 권한관리"},
+  // ── 메뉴 그룹·순서 (localStorage 영속) ──────────────────────
+  const TAB_DEFAULTS = [
+    {id:"analysis",  label:"📊 경영분석",    group:"경영"},
+    {id:"notice",    label:"📢 공지사항",      group:"경영"},
+    {id:"stats",     label:"📈 사용 통계",     group:"경영"},
+    {id:"gamify",    label:"🎮 포인트·랭킹",   group:"경영"},
+    {id:"deptdash",  label:"🏢 본부별 현황",  group:"경영"},
+    {id:"cashflow",  label:"💧 월수금계획",   group:"경영"},
+    {id:"projects",  label:"🏗 프로젝트",     group:"프로젝트"},
+    {id:"history",   label:"📜 히스토리",     group:"프로젝트"},
+    {id:"calendar",  label:"📅 일정 캘린더",  group:"프로젝트"},
+    {id:"vendors",   label:"🤝 협력업체",     group:"관리"},
+    {id:"contract",  label:"📄 계약서",       group:"관리"},
+    {id:"archive",   label:"📁 아카이브",     group:"관리"},
+    {id:"pnl",       label:"📉 손익분석",     group:"분석"},
+    {id:"optimize",  label:"⚙️ 경영최적화",  group:"분석"},
+    {id:"datahub",   label:"🗄️ 데이터관리",  group:"설정"},
+    {id:"manual",    label:"📚 업무매뉴얼",   group:"설정"},
+    {id:"auth_mgmt", label:"🔐 권한관리",     group:"설정"},
   ]
+  const [tabOrder,  setTabOrderRaw]  = useState(()=>{ try{ const s=JSON.parse(localStorage.getItem("sjs_tab_order")||"null"); return Array.isArray(s)&&s.length===TAB_DEFAULTS.length?s:TAB_DEFAULTS }catch{ return TAB_DEFAULTS } })
+  const [tabGroups, setTabGroupsRaw] = useState(()=>{ try{ const s=JSON.parse(localStorage.getItem("sjs_tab_groups")||"null"); return Array.isArray(s)&&s.length?s:["경영","프로젝트","관리","분석","설정"] }catch{ return ["경영","프로젝트","관리","분석","설정"] } })
+  const [showMenuEdit, setShowMenuEdit] = useState(false)
+  const setTabOrder  = v=>{ const n=typeof v==="function"?v(tabOrder):v; try{localStorage.setItem("sjs_tab_order",JSON.stringify(n))}catch{}; setTabOrderRaw(n) }
+  const setTabGroups = v=>{ const n=typeof v==="function"?v(tabGroups):v; try{localStorage.setItem("sjs_tab_groups",JSON.stringify(n))}catch{}; setTabGroupsRaw(n) }
+  const TABS = tabOrder
 
   return (
     <DeptContext.Provider value={deptCtx}>
@@ -730,39 +740,90 @@ export default function App() {
           </div>
         </div>
 
-        {/* 퀵액션 버튼들 */}
-        <div style={{padding:"14px 12px",borderBottom:"1px solid #F3F4F6"}}>
-          <button onClick={()=>setShowNewProj(true)} style={{...S.btn(C.navyM),width:"100%",justifyContent:"center",padding:"10px",fontSize:13.5,borderRadius:10,marginBottom:6}}>
-            <i className="ti ti-plus" aria-hidden="true"/> 프로젝트 개설
-          </button>
-          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:5}}>
-            <button onClick={()=>uploadRef.current?.click()} style={{...S.btn(C.grayL,"#374151"),padding:"7px 6px",fontSize:12,borderRadius:8,justifyContent:"center"}}>
-              <i className="ti ti-upload" style={{fontSize:12}}/> 정보 업로드
+        {/* 퀵액션 — 프로젝트 관련 3개 버튼 묶음 */}
+        <div style={{padding:"12px 10px",borderBottom:"1px solid #F3F4F6"}}>
+          <div style={{background:"#EEF3FF",borderRadius:12,padding:"8px",border:"1px solid #3B72F622"}}>
+            <div style={{fontSize:10.5,fontWeight:800,color:"#3B72F6",letterSpacing:".06em",marginBottom:7,paddingLeft:2}}>프로젝트</div>
+            <button onClick={()=>setShowNewProj(true)}
+              style={{width:"100%",padding:"9px 10px",background:"#3B72F6",color:"#fff",border:"none",borderRadius:9,fontSize:13,fontWeight:800,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:6,marginBottom:5,boxShadow:"0 2px 8px rgba(59,114,246,.3)"}}>
+              <i className="ti ti-plus" style={{fontSize:13}}/> 프로젝트 개설
             </button>
-            <button onClick={downloadTemplate} style={{...S.btn(C.grayL,"#374151"),padding:"7px 6px",fontSize:12,borderRadius:8,justifyContent:"center"}}>
-              <i className="ti ti-file-download" style={{fontSize:12}}/> 개설양식 다운로드
-            </button>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:4}}>
+              <button onClick={()=>uploadRef.current?.click()}
+                style={{padding:"7px 4px",background:"#fff",color:"#374151",border:"1px solid #E5E7EB",borderRadius:8,fontSize:11.5,fontWeight:700,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:4}}>
+                <i className="ti ti-upload" style={{fontSize:11}}/> 업로드
+              </button>
+              <button onClick={downloadTemplate}
+                style={{padding:"7px 4px",background:"#fff",color:"#374151",border:"1px solid #E5E7EB",borderRadius:8,fontSize:11.5,fontWeight:700,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:4}}>
+                <i className="ti ti-file-download" style={{fontSize:11}}/> 양식 다운로드
+              </button>
+            </div>
           </div>
           <input ref={uploadRef} type="file" accept=".xlsx,.xls,.csv" style={{display:"none"}} onChange={handleUpload}/>
-          {uploadMsg&&<div style={{marginTop:6,fontSize:11.5,color:uploadMsg.startsWith("✓")?"#0EA86E":C.red,padding:"5px 8px",background:uploadMsg.startsWith("✓")?"#E6F9F2":"#FEE2E2",borderRadius:7}}>{uploadMsg}</div>}
+          {uploadMsg&&<div style={{marginTop:6,fontSize:11,color:uploadMsg.startsWith("✓")?"#0EA86E":C.red,padding:"4px 8px",background:uploadMsg.startsWith("✓")?"#E6F9F2":"#FEE2E2",borderRadius:7}}>{uploadMsg}</div>}
         </div>
 
-        {/* 네비게이션 */}
-        <nav style={{flex:1,padding:"10px 10px",overflowY:"auto"}}>
-          {TABS.filter(t=>t.id!=="auth_mgmt"||currentUser.role==="admin").map(t=>{
-            const active = tab===t.id
-            const isHot = t.id==="datahub"
-            return (
-              <button key={t.id} onClick={()=>setTab(t.id)} style={{
-                width:"100%",textAlign:"left",padding:"10px 14px",border:"none",borderRadius:10,
-                marginBottom:2,cursor:"pointer",fontSize:14,fontWeight:active?700:500,
-                background:active?"#EEF3FF":"transparent",
-                color:active?C.navyM:isHot?C.amber:"#374151",
-                display:"flex",alignItems:"center",gap:8,transition:"all .15s"
-              }}>
-                {t.label}
-                {isHot&&!active&&<span style={{marginLeft:"auto",fontSize:10,background:C.amberL,color:C.amber,padding:"1px 6px",borderRadius:10,fontWeight:700}}>HOT</span>}
+        {/* 네비게이션 — 그룹별 */}
+        <nav style={{flex:1,padding:"8px 8px",overflowY:"auto"}}>
+          {/* 메뉴 편집 버튼 */}
+          <div style={{display:"flex",justifyContent:"flex-end",marginBottom:4}}>
+            <button onClick={()=>setShowMenuEdit(v=>!v)}
+              style={{padding:"3px 8px",background:"none",border:"1px solid #E5E7EB",borderRadius:6,fontSize:11,color:"#9CA3AF",cursor:"pointer",display:"flex",alignItems:"center",gap:3}}
+              title="메뉴 순서·그룹 편집">
+              ⚙ 메뉴편집
+            </button>
+          </div>
+
+          {/* 메뉴 편집 패널 */}
+          {showMenuEdit && (
+            <div style={{background:"#FEF9EE",borderRadius:10,padding:"10px",marginBottom:8,border:"1px solid #F59E0B33"}}>
+              <div style={{fontSize:11.5,fontWeight:800,color:"#F59E0B",marginBottom:8}}>⚙ 메뉴 순서 편집</div>
+              <div style={{display:"flex",flexDirection:"column",gap:3,maxHeight:300,overflowY:"auto"}}>
+                {tabOrder.filter(t=>t.id!=="auth_mgmt"||currentUser.role==="admin").map((t,i,arr)=>(
+                  <div key={t.id} style={{display:"flex",gap:4,alignItems:"center",background:"#fff",borderRadius:7,padding:"4px 6px",border:"1px solid #E5E7EB"}}>
+                    <div style={{display:"flex",flexDirection:"column",gap:1}}>
+                      <button onClick={()=>{if(i>0){const a=[...tabOrder];[a[i-1],a[i]]=[a[i],a[i-1]];setTabOrder(a)}}} disabled={i===0}
+                        style={{background:"none",border:"none",cursor:"pointer",color:"#9CA3AF",fontSize:9,lineHeight:1,opacity:i===0?.3:1}}>▲</button>
+                      <button onClick={()=>{if(i<arr.length-1){const a=[...tabOrder];[a[i],a[i+1]]=[a[i+1],a[i]];setTabOrder(a)}}} disabled={i===arr.length-1}
+                        style={{background:"none",border:"none",cursor:"pointer",color:"#9CA3AF",fontSize:9,lineHeight:1,opacity:i===arr.length-1?.3:1}}>▼</button>
+                    </div>
+                    <span style={{flex:1,fontSize:11.5,color:"#374151",fontWeight:500}}>{t.label}</span>
+                    <select value={t.group||""} onChange={e=>{const a=[...tabOrder];a[i]={...a[i],group:e.target.value};setTabOrder(a)}}
+                      style={{padding:"2px 4px",border:"1px solid #E5E7EB",borderRadius:5,fontSize:10,background:"#F8FAFC"}}>
+                      {tabGroups.map(g=><option key={g} value={g}>{g}</option>)}
+                    </select>
+                  </div>
+                ))}
+              </div>
+              <button onClick={()=>setTabOrder(TAB_DEFAULTS)} style={{marginTop:6,width:"100%",padding:"5px",background:"#F3F4F6",color:"#6B7280",border:"none",borderRadius:7,fontSize:11,cursor:"pointer"}}>
+                기본값 복원
               </button>
+            </div>
+          )}
+
+          {/* 그룹별 메뉴 렌더링 */}
+          {tabGroups.map(grp=>{
+            const grpTabs = tabOrder.filter(t=>(t.group||"기타")===grp&&(t.id!=="auth_mgmt"||currentUser.role==="admin"))
+            if(!grpTabs.length) return null
+            return (
+              <div key={grp} style={{marginBottom:6}}>
+                <div style={{fontSize:10.5,fontWeight:800,color:"#9CA3AF",letterSpacing:".08em",padding:"4px 12px 2px",textTransform:"uppercase"}}>{grp}</div>
+                {grpTabs.map(t=>{
+                  const active=tab===t.id
+                  return (
+                    <button key={t.id} onClick={()=>setTab(t.id)} style={{
+                      width:"100%",textAlign:"left",padding:"9px 12px",border:"none",borderRadius:9,
+                      marginBottom:1,cursor:"pointer",fontSize:13.5,fontWeight:active?700:500,
+                      background:active?"#EEF3FF":"transparent",color:active?"#3B72F6":"#374151",
+                      display:"flex",alignItems:"center",gap:7,transition:"all .12s"
+                    }}
+                    onMouseEnter={e=>{if(!active)e.currentTarget.style.background="#F8FAFC"}}
+                    onMouseLeave={e=>{if(!active)e.currentTarget.style.background="transparent"}}>
+                      {t.label}
+                    </button>
+                  )
+                })}
+              </div>
             )
           })}
         </nav>
@@ -811,7 +872,10 @@ export default function App() {
         {/* 바디 */}
         <div style={{padding:"20px 24px",maxWidth:1440}}>
 
-        {tab==="analysis" && <AnalysisTab deptStaff={deptStaff} setDeptStaff={setDeptStaff} years={years} setYears={setYears} canWrite={canWrite} cashflow={effectiveCashflow}/>}
+        {tab==="notice"    && <NoticeBoardTab currentUser={currentUser} canWrite={canWrite}/>}
+        {tab==="stats"     && <StatsTab projects={projects}/>}
+        {tab==="gamify"    && <GamifyTab projects={projects} currentUser={currentUser}/>}
+        {tab==="analysis"  && <AnalysisTab deptStaff={deptStaff} setDeptStaff={setDeptStaff} years={years} setYears={setYears} canWrite={canWrite} cashflow={effectiveCashflow}/>}
         {tab==="datahub" && <DataHubTab currentUser={currentUser} deptStaff={deptStaff} setDeptStaff={setDeptStaff} staffTarget={staffTarget} setStaffTarget={setStaffTarget} staffMonthly={staffMonthly} setStaffMonthly={setStaffMonthly} pnlData={pnlData} setPnlData={setPnlData} cashflow={cashflow} setCashflow={setCashflow} years={years} setYears={setYears} projects={projects} setProjects={setProjects} setTab={setTab} setSelProjId={setSelProjId} setSelVerIdx={setSelVerIdx} setShowNewProj={setShowNewProj} versions={versions} saveVersion={saveVersion} restoreVersion={restoreVersion} deleteVersion={deleteVersion} contractTypes={contractTypes} setContractTypes={setContractTypes} projTypes={projTypes} setProjTypes={setProjTypes} bidTypes={bidTypes} setBidTypes={setBidTypes} allData={null} restoreAllData={(entries)=>dbSetAll(entries, userEmail.current)} dbStatus={dbStatus}/>}
         {tab==="cashflow" && <CashflowTab cashflow={effectiveCashflow} setCashflow={setCashflow} currentUser={currentUser} projects={projects} projectCashflowByDept={projectCashflowByDept}/>}
         {tab==="projects" && <ProjectsTab projects={projects} setProjects={setProjects} selProjId={selProjId} setSelProjId={setSelProjId} selVerIdx={selVerIdx} setSelVerIdx={setSelVerIdx} cmpIds={cmpIds} setCmpIds={setCmpIds} showNewVer={showNewVer} setShowNewVer={setShowNewVer} canWrite={canWrite} contractTypes={contractTypes}/>}
@@ -821,7 +885,7 @@ export default function App() {
         {tab==="archive"   && <ArchiveTab currentUser={currentUser} projects={projects}/>}
         {tab==="contract"  && <ContractTab projects={projects} currentUser={currentUser}/>}
         {tab==="history"   && <ProjectHistoryPage projects={projects} currentUser={currentUser}/>}
-        {tab==="calendar"  && <ProjectCalendarPage projects={projects}/>}
+        {tab==="calendar"  && <ProjectCalendarPage projects={projects} setTab={setTab} setSelProjId={setSelProjId}/>}
         {tab==="manual"    && <ManualTab currentUser={currentUser}/>}
         {tab==="auth_mgmt"&& currentUser.role==="admin" && <AuthTab users={users} saveUsers={saveUsers} currentUser={currentUser} hashPw={hashPw}/>}
         </div>
@@ -944,6 +1008,7 @@ function AnalysisTab({deptStaff,setDeptStaff,years,setYears,canWrite,cashflow}) 
 
   return (
     <div>
+      <AnalysisNoticeBar/>
       {/* 뷰 전환 */}
       <div style={{display:"flex",gap:6,marginBottom:14,alignItems:"center",flexWrap:"wrap"}}>
         <div style={{display:"flex",gap:2,background:"var(--color-background-secondary,#f0f0ee)",borderRadius:8,padding:3}}>
@@ -1481,7 +1546,7 @@ function ProjectsTab({projects,setProjects,selProjId,setSelProjId,selVerIdx,setS
               <table style={{width:"100%",borderCollapse:"collapse"}}>
                 <thead><tr>
                   <th style={S.th("center")}>비교</th>
-                  {["구분","코드","프로젝트명","본부","PM","용역비(억)","지분%","연면적㎡","대지㎡","세대","진행%","계약일","수주일","다운"].map((h,i)=><th key={h+i} style={S.th(i>=5&&i<=12?"right":"left")}>{h}</th>)}
+                  {["구분","코드","프로젝트명","본부","PM","용역비(억)","평당단가","지분%","연면적㎡","진행%","계약일","다운"].map((h,i)=><th key={h+i} style={S.th(i>=5&&i<=10?"right":"left")}>{h}</th>)}
                 </tr></thead>
                 <tbody>
                   {filtered.map((p,i)=>{
@@ -1498,13 +1563,11 @@ function ProjectsTab({projects,setProjects,selProjId,setSelProjId,selVerIdx,setS
                       <td style={{...S.td("left"),fontSize:11}}>{p.depts.join(", ")}</td>
                       <td style={{...S.td("left"),fontSize:11}}>{p.pm}</td>
                       <td style={{...S.td("right"),fontWeight:500}}>{fE((p.serviceFee||0)/1e8)}</td>
+                      <td style={{...S.td("right"),fontSize:12,color:"#3B72F6",fontWeight:600}}>{p.floorArea>0&&p.serviceFee>0?`${Math.round(p.serviceFee/toPy(p.floorArea)).toLocaleString()}원`:"-"}</td>
                       <td style={{...S.td("right"),fontSize:11}}>{(p.shareRatio*100).toFixed(0)}%</td>
                       <td style={{...S.td("right"),fontSize:11}}>{p.floorArea?.toLocaleString()}</td>
-                      <td style={{...S.td("right"),fontSize:11}}>{p.siteArea?.toLocaleString()}</td>
-                      <td style={{...S.td("right"),fontSize:11}}>{p.units||"-"}</td>
                       <td style={S.td("right")}><div style={{display:"flex",alignItems:"center",gap:5,justifyContent:"flex-end"}}><div style={{width:44,height:6,background:"var(--color-background-secondary,#f0f0ee)",borderRadius:3,overflow:"hidden"}}><div style={{width:`${p.prog}%`,height:6,background:bc,borderRadius:3}}/></div><span style={{fontSize:11,fontWeight:500,color:bc}}>{p.prog}%</span></div></td>
                       <td style={{...S.td("right"),fontSize:11}}>{p.contractDate||"-"}</td>
-                      <td style={{...S.td("right"),fontSize:11,color:p.orderDate?C.green:C.gray,fontWeight:p.orderDate?500:400}}>{p.orderDate||"미수주"}</td>
                       <td style={S.td("center")} onClick={e=>e.stopPropagation()}>
                         <button onClick={()=>{
                           const ver=p.versions[p.versions.length-1]; if(!ver) return
@@ -2817,7 +2880,10 @@ function NewProjModal({onClose,onSave,initial=null}) {
       const ds = getDeptShares(initial).map(s=>({...s}))
       return {...initial, shareRatio:(initial.shareRatio??1)*100, deptShares: ds.length?ds:[{dept:STAFF_DEPTS[0],share:100}], orderType: initial.orderType||"민간", contractType: initial.contractType||"민간"}
     }
-    return {year:new Date().getFullYear()+"",code:"",name:"",deptShares:[{dept:STAFF_DEPTS[0],share:100}],pm:"",director:"",projType:"",contractType:"민간",usage:"",scale:"",siteArea:0,buildArea:0,floorArea:0,units:0,client:"",clientPm:"",totalFee:0,shareRatio:100,serviceFee:0,address:"",contractDate:"",orderDate:"",orderType:"민간",bidType:"민간수의",note:"",type:"확정",prog:0}
+    return {year:new Date().getFullYear()+"",code:"",name:"",deptShares:[{dept:STAFF_DEPTS[0],share:100}],pm:"",director:"",projType:"",contractType:"민간",usage:"",scale:"",siteArea:0,buildArea:0,floorArea:0,units:0,client:"",clientPm:"",totalFee:0,shareRatio:100,serviceFee:0,address:"",contractDate:"",orderDate:"",orderType:"민간",bidType:"민간수의",note:"",type:"확정",prog:0,
+      jvType:"단독이행",   // 단독이행 | 공동이행 | 분담이행
+      jvMembers:[],        // [{name,ratio,amount,role}]
+    }
   })
   const u=(k,v)=>setF(p=>({...p,[k]:v}))
   const pyF=toPy(f.floorArea||0), pyS=toPy(f.siteArea||0)
@@ -2896,6 +2962,51 @@ function NewProjModal({onClose,onSave,initial=null}) {
               <F label="수주 형태 (외주비 비교 기준)" val={f.bidType} onChange={v=>u("bidType",v)} type="select" opts={bidTypes||BID_TYPES}/>
             </div>
             <F label="주소" val={f.address} onChange={v=>u("address",v)}/><F label="비고" val={f.note} onChange={v=>u("note",v)}/>
+          </>},
+          {title:"공동이행체 / 분담이행체",content:<>
+            <div style={{display:"flex",gap:8,marginBottom:12,alignItems:"center"}}>
+              <label style={S.lbl()}>수급 형태</label>
+              {["단독이행","공동이행","분담이행"].map(t=>(
+                <button key={t} onClick={()=>u("jvType",t)}
+                  style={{padding:"6px 14px",border:`1.5px solid ${f.jvType===t?"#3B72F6":"#E5E7EB"}`,borderRadius:20,background:f.jvType===t?"#EEF3FF":"#fff",color:f.jvType===t?"#3B72F6":"#374151",fontSize:13,fontWeight:f.jvType===t?700:500,cursor:"pointer"}}>
+                  {t}
+                </button>
+              ))}
+            </div>
+            {f.jvType!=="단독이행"&&<>
+              <div style={{marginBottom:8}}>
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6}}>
+                  <span style={{fontSize:12,fontWeight:700,color:"#6B7280"}}>{f.jvType} 구성원 (상지서울 포함)</span>
+                  <button onClick={()=>u("jvMembers",[...(f.jvMembers||[]),{name:"",ratio:0,amount:0,role:"구성원"}])}
+                    style={{padding:"4px 10px",background:"#EEF3FF",color:"#3B72F6",border:"none",borderRadius:7,fontSize:12,fontWeight:700,cursor:"pointer"}}>+ 업체 추가</button>
+                </div>
+                {(f.jvMembers||[]).map((m,i)=>(
+                  <div key={i} style={{display:"flex",gap:7,alignItems:"center",marginBottom:6,background:"#F8FAFC",borderRadius:9,padding:"8px 10px",border:"1px solid #E5E7EB"}}>
+                    <div style={{flex:2}}><label style={{...S.lbl(),marginBottom:2}}>업체명</label>
+                      <input value={m.name} onChange={e=>{const a=[...f.jvMembers];a[i]={...a[i],name:e.target.value};u("jvMembers",a)}} placeholder="(주)○○건축사사무소" style={{...S.inp(),padding:"6px 9px",fontSize:13}}/>
+                    </div>
+                    <div style={{flex:1}}><label style={{...S.lbl(),marginBottom:2}}>지분율(%)</label>
+                      <input type="number" value={m.ratio} onChange={e=>{const a=[...f.jvMembers];a[i]={...a[i],ratio:parseFloat(e.target.value)||0,amount:Math.round((f.totalFee||0)*(parseFloat(e.target.value)||0)/100)};u("jvMembers",a)}} style={{...S.inp(),padding:"6px 9px",fontSize:13}}/>
+                    </div>
+                    <div style={{flex:1}}><label style={{...S.lbl(),marginBottom:2}}>금액(원)</label>
+                      <div style={{padding:"6px 9px",border:"1.5px solid #E5E7EB",borderRadius:9,fontSize:13,background:"#EEF3FF",color:"#3B72F6",fontWeight:700}}>{m.amount>0?m.amount.toLocaleString():"-"}</div>
+                    </div>
+                    <div style={{flex:1}}><label style={{...S.lbl(),marginBottom:2}}>역할</label>
+                      <select value={m.role} onChange={e=>{const a=[...f.jvMembers];a[i]={...a[i],role:e.target.value};u("jvMembers",a)}} style={{...S.inp(),padding:"6px 9px",fontSize:13}}>
+                        {["주간사","구성원","간사사"].map(r=><option key={r}>{r}</option>)}
+                      </select>
+                    </div>
+                    <button onClick={()=>u("jvMembers",f.jvMembers.filter((_,ri)=>ri!==i))} style={{background:"none",border:"none",cursor:"pointer",color:"#EF4444",fontSize:16,flexShrink:0,alignSelf:"flex-end",paddingBottom:4}}>✕</button>
+                  </div>
+                ))}
+                {(f.jvMembers||[]).length>0&&(
+                  <div style={{display:"flex",gap:12,padding:"8px 12px",background:"#EEF3FF",borderRadius:9,fontSize:13}}>
+                    <span style={{fontWeight:700,color:"#1A3B6E"}}>총 지분율: {(f.jvMembers||[]).reduce((s,m)=>s+m.ratio,0).toFixed(1)}%</span>
+                    <span style={{color:"#6B7280"}}>총 금액: ₩{(f.jvMembers||[]).reduce((s,m)=>s+m.amount,0).toLocaleString()}</span>
+                  </div>
+                )}
+              </div>
+            </>}
           </>},
         ].map(({title,content})=><div key={title} style={{marginBottom:16}}><div style={{fontSize:11,fontWeight:500,color:C.navyM,marginBottom:8,paddingBottom:3,borderBottom:`1px solid ${C.navyL}`}}>{title}</div>{content}</div>)}
         <div style={{display:"flex",gap:7,marginTop:14,alignItems:"center"}}>
@@ -3626,7 +3737,7 @@ function ProjectHistoryPage({projects, currentUser}) {
 }
 
 // ── 프로젝트 일정 캘린더 (전체 프로젝트 통합) ───────────────────
-function ProjectCalendarPage({projects}) {
+function ProjectCalendarPage({projects, setTab, setSelProjId}) {
   const [viewYear,  setViewYear]  = useState(new Date().getFullYear())
   const [viewMonth, setViewMonth] = useState(new Date().getMonth())
   const [viewMode,  setViewMode]  = useState("calendar")   // calendar | list
@@ -3769,11 +3880,14 @@ function ProjectCalendarPage({projects}) {
               {filtered.filter(e=>e.date===selDate).length===0
                 ?<div style={{color:"#6B7280",fontSize:13}}>이 날짜에 일정이 없습니다.</div>
                 :filtered.filter(e=>e.date===selDate).map((e,i)=>(
-                  <div key={i} style={{padding:"10px 13px",borderRadius:10,border:`1.5px solid ${e.color}33`,marginBottom:8,background:e.color+"09"}}>
+                  <div key={i} style={{padding:"10px 13px",borderRadius:10,border:`1.5px solid ${e.color}33`,marginBottom:8,background:e.color+"09",cursor:e.projId?"pointer":"default"}}
+                    onClick={()=>e.projId&&setTab&&(setSelProjId(e.projId),setTab("projects"))}>
                     <div style={{fontSize:12,fontWeight:700,color:e.color,marginBottom:3}}>{e.type}</div>
                     <div style={{fontSize:13.5,fontWeight:700,color:"#111827",marginBottom:2}}>{e.title||e.type}</div>
                     {e.memo&&<div style={{fontSize:12,color:"#6B7280",marginBottom:2}}>📝 {e.memo}</div>}
-                    <div style={{fontSize:12,color:"#6B7280"}}>🏗 {e.proj}</div>
+                    <div style={{fontSize:12,color:e.projId?"#3B72F6":"#6B7280",fontWeight:e.projId?700:400}}>
+                      🏗 {e.proj} {e.projId&&"→ 프로젝트 보기"}
+                    </div>
                   </div>
                 ))
               }
@@ -3822,6 +3936,351 @@ function ProjectCalendarPage({projects}) {
           }
         </div>
       )}
+    </div>
+  )
+}
+
+// ══════════════════════════════════════════════════════════════
+// 📢 공지사항 게시판
+// ══════════════════════════════════════════════════════════════
+const NOTICE_KEY = "sjs_notices"
+const loadNotices = ()=>{ try{ return JSON.parse(localStorage.getItem(NOTICE_KEY)||"[]") }catch{ return [] } }
+
+function NoticeBoardTab({currentUser, canWrite}) {
+  const [notices, setNoticesRaw] = useState(loadNotices)
+  const [form, setForm] = useState({title:"",content:"",important:false})
+  const [showForm, setShowForm] = useState(false)
+  const [selId, setSelId] = useState(null)
+
+  const setNotices = n => { localStorage.setItem(NOTICE_KEY,JSON.stringify(n)); setNoticesRaw(n) }
+
+  const post = () => {
+    if(!form.title.trim()) return
+    const n = {id:`N${Date.now()}`,title:form.title,content:form.content,important:form.important,
+      author:currentUser?.name||"",createdAt:new Date().toISOString(),views:0}
+    setNotices([n,...notices])
+    setForm({title:"",content:"",important:false}); setShowForm(false)
+  }
+  const del = id => { if(window.confirm("삭제하시겠습니까?")) setNotices(notices.filter(n=>n.id!==id)) }
+  const view = n => {
+    setNotices(notices.map(x=>x.id===n.id?{...x,views:(x.views||0)+1}:x))
+    setSelId(n.id)
+  }
+
+  const selNotice = notices.find(n=>n.id===selId)
+  const inp = {width:"100%",padding:"10px 14px",border:"1.5px solid #E5E7EB",borderRadius:10,fontSize:14,boxSizing:"border-box",fontFamily:"inherit",outline:"none"}
+
+  return (
+    <div style={{maxWidth:900,margin:"0 auto"}}>
+      <div style={{background:"linear-gradient(135deg,#1A3B6E,#3B72F6)",borderRadius:16,padding:"20px 26px",marginBottom:16,color:"#fff",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+        <div>
+          <div style={{fontSize:22,fontWeight:800,marginBottom:4}}>📢 공지사항</div>
+          <div style={{fontSize:13,opacity:.8}}>전체 {notices.length}건 · 중요공지 {notices.filter(n=>n.important).length}건</div>
+        </div>
+        {canWrite&&<button onClick={()=>setShowForm(v=>!v)} style={{padding:"10px 20px",background:"rgba(255,255,255,.2)",color:"#fff",border:"1.5px solid rgba(255,255,255,.4)",borderRadius:10,fontSize:14,fontWeight:700,cursor:"pointer"}}>+ 공지 작성</button>}
+      </div>
+
+      {showForm&&canWrite&&(
+        <div style={{background:"#fff",borderRadius:14,border:"1px solid #E5E7EB",padding:"20px 24px",marginBottom:14}}>
+          <div style={{fontSize:15,fontWeight:800,marginBottom:14,color:"#111827"}}>새 공지 작성</div>
+          <div style={{display:"flex",gap:10,marginBottom:10,alignItems:"center"}}>
+            <input value={form.title} onChange={e=>setForm(p=>({...p,title:e.target.value}))} placeholder="제목 *" style={{...inp,flex:1}}/>
+            <label style={{display:"flex",alignItems:"center",gap:6,fontSize:14,fontWeight:600,flexShrink:0,cursor:"pointer"}}>
+              <input type="checkbox" checked={form.important} onChange={e=>setForm(p=>({...p,important:e.target.checked}))} style={{accentColor:"#EF4444"}}/>
+              <span style={{color:"#EF4444"}}>🔴 중요공지</span>
+            </label>
+          </div>
+          <textarea value={form.content} onChange={e=>setForm(p=>({...p,content:e.target.value}))} rows={5} placeholder="내용" style={{...inp,resize:"vertical",lineHeight:1.7,marginBottom:10}}/>
+          <div style={{display:"flex",gap:8}}>
+            <button onClick={post} style={{padding:"10px 20px",background:"#3B72F6",color:"#fff",border:"none",borderRadius:10,fontSize:14,fontWeight:700,cursor:"pointer"}}>등록</button>
+            <button onClick={()=>setShowForm(false)} style={{padding:"10px 16px",background:"#F3F4F6",color:"#374151",border:"none",borderRadius:10,fontSize:14,fontWeight:700,cursor:"pointer"}}>취소</button>
+          </div>
+        </div>
+      )}
+
+      {/* 목록 */}
+      <div style={{background:"#fff",borderRadius:14,border:"1px solid #E5E7EB",overflow:"hidden"}}>
+        {notices.length===0
+          ?<div style={{padding:"48px",textAlign:"center",color:"#6B7280",fontSize:14}}>등록된 공지가 없습니다.</div>
+          :notices.map((n,i)=>(
+            <div key={n.id}>
+              <div onClick={()=>view(n)} style={{display:"flex",alignItems:"center",gap:12,padding:"14px 20px",borderBottom:i<notices.length-1?"1px solid #F3F4F6":"none",cursor:"pointer",background:selId===n.id?"#EEF3FF":"#fff",transition:"background .1s"}}
+                onMouseEnter={e=>{if(selId!==n.id)e.currentTarget.style.background="#F8FAFC"}}
+                onMouseLeave={e=>{if(selId!==n.id)e.currentTarget.style.background="#fff"}}>
+                {n.important&&<span style={{fontSize:12,fontWeight:800,color:"#EF4444",background:"#FEE2E2",padding:"2px 8px",borderRadius:20,flexShrink:0}}>중요</span>}
+                <span style={{flex:1,fontSize:14.5,fontWeight:n.important?700:500,color:"#111827"}}>{n.title}</span>
+                <span style={{fontSize:12,color:"#9CA3AF",flexShrink:0}}>{n.author} · {n.createdAt?.slice(0,10)}</span>
+                <span style={{fontSize:12,color:"#9CA3AF",flexShrink:0}}>👁 {n.views||0}</span>
+                {canWrite&&<button onClick={e=>{e.stopPropagation();del(n.id)}} style={{background:"none",border:"none",cursor:"pointer",color:"#EF4444",fontSize:14,flexShrink:0}}>✕</button>}
+              </div>
+              {selId===n.id&&n.content&&(
+                <div style={{padding:"16px 20px 20px",background:"#F8FAFC",borderTop:"1px solid #E5E7EB"}}>
+                  <div style={{fontSize:14.5,lineHeight:1.85,color:"#374151",whiteSpace:"pre-wrap"}}>{n.content}</div>
+                </div>
+              )}
+            </div>
+          ))
+        }
+      </div>
+    </div>
+  )
+}
+
+// ── 경영분석 탭 상단에 공지 5개 미리보기 삽입 (AnalysisNoticeBar) ──
+export function AnalysisNoticeBar() {
+  const notices = loadNotices().slice(0,5)
+  if(!notices.length) return null
+  return (
+    <div style={{background:"#fff",borderRadius:12,border:"1px solid #E5E7EB",padding:"12px 18px",marginBottom:14,boxShadow:"0 1px 3px rgba(0,0,0,.04)"}}>
+      <div style={{fontSize:13,fontWeight:800,color:"#EF4444",marginBottom:8}}>📢 최신 공지</div>
+      {notices.map(n=>(
+        <div key={n.id} style={{display:"flex",gap:8,alignItems:"center",padding:"5px 0",borderBottom:"1px solid #F3F4F6"}}>
+          {n.important&&<span style={{fontSize:11,fontWeight:700,color:"#EF4444",flexShrink:0}}>●</span>}
+          <span style={{flex:1,fontSize:13.5,color:"#374151",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{n.title}</span>
+          <span style={{fontSize:11,color:"#9CA3AF",flexShrink:0}}>{n.createdAt?.slice(0,10)}</span>
+          <span style={{fontSize:11,color:"#9CA3AF",flexShrink:0}}>👁{n.views||0}</span>
+        </div>
+      ))}
+    </div>
+  )
+}
+
+// ══════════════════════════════════════════════════════════════
+// 📈 사용 통계 시각화
+// ══════════════════════════════════════════════════════════════
+const STAT_KEY = "sjs_usage_stats"
+export function trackUsage(tabId, action="view") {
+  try {
+    const stats = JSON.parse(localStorage.getItem(STAT_KEY)||"{}")
+    const key = `${tabId}:${action}`
+    const today = new Date().toISOString().slice(0,10)
+    if(!stats[key]) stats[key]={total:0,daily:{}}
+    stats[key].total = (stats[key].total||0)+1
+    stats[key].daily[today] = (stats[key].daily[today]||0)+1
+    localStorage.setItem(STAT_KEY, JSON.stringify(stats))
+  } catch{}
+}
+
+function StatsTab({projects}) {
+  const [stats] = useState(()=>{ try{ return JSON.parse(localStorage.getItem(STAT_KEY)||"{}") }catch{return{}} })
+
+  // 탭별 조회수 집계
+  const tabStats = useMemo(()=>{
+    const TAB_LABELS = {analysis:"경영분석",deptdash:"본부별현황",projects:"프로젝트",vendors:"협력업체",cashflow:"월수금",contract:"계약서",history:"히스토리",calendar:"캘린더",archive:"아카이브",manual:"업무매뉴얼",datahub:"데이터관리",notice:"공지사항",pnl:"손익분석",stats:"통계",gamify:"게이미피케이션"}
+    return Object.entries(TAB_LABELS).map(([id,label])=>{
+      const v = stats[`${id}:view`]?.total||0
+      const e = stats[`${id}:edit`]?.total||0
+      return {id,label,view:v,edit:e,total:v+e}
+    }).sort((a,b)=>b.total-a.total)
+  },[stats])
+
+  const maxTotal = Math.max(...tabStats.map(t=>t.total),1)
+
+  // 최근 7일 일별 접속
+  const last7 = useMemo(()=>{
+    const days = Array.from({length:7},(_,i)=>{
+      const d=new Date(); d.setDate(d.getDate()-6+i)
+      return d.toISOString().slice(0,10)
+    })
+    return days.map(date=>{
+      let cnt=0
+      Object.values(stats).forEach(s=>{ cnt+=(s.daily?.[date]||0) })
+      return {date:date.slice(5),cnt}
+    })
+  },[stats])
+
+  const maxDay = Math.max(...last7.map(d=>d.cnt),1)
+
+  return (
+    <div style={{maxWidth:960,margin:"0 auto"}}>
+      <div style={{background:"linear-gradient(135deg,#1A3B6E,#3B72F6)",borderRadius:16,padding:"20px 26px",marginBottom:16,color:"#fff"}}>
+        <div style={{fontSize:22,fontWeight:800,marginBottom:4}}>📈 시스템 사용 통계</div>
+        <div style={{fontSize:13,opacity:.8}}>메뉴별 조회·수정 횟수 · 일별 접속 추이 · 시스템 개선 기초 데이터</div>
+      </div>
+
+      {/* 최근 7일 접속 */}
+      <div style={{background:"#fff",borderRadius:14,border:"1px solid #E5E7EB",padding:"20px 24px",marginBottom:14}}>
+        <div style={{fontSize:16,fontWeight:800,color:"#111827",marginBottom:16}}>📅 최근 7일 사용량</div>
+        <div style={{display:"flex",gap:8,alignItems:"flex-end",height:100}}>
+          {last7.map(d=>(
+            <div key={d.date} style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",gap:4}}>
+              <div style={{fontSize:11,fontWeight:700,color:"#3B72F6"}}>{d.cnt||""}</div>
+              <div style={{width:"100%",background:d.cnt>0?"#3B72F6":"#E5E7EB",borderRadius:"4px 4px 0 0",height:`${Math.max((d.cnt/maxDay)*80,d.cnt>0?4:2)}px`,transition:"height .3s"}}/>
+              <div style={{fontSize:11,color:"#6B7280"}}>{d.date}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* 메뉴별 사용 통계 */}
+      <div style={{background:"#fff",borderRadius:14,border:"1px solid #E5E7EB",padding:"20px 24px",marginBottom:14}}>
+        <div style={{fontSize:16,fontWeight:800,color:"#111827",marginBottom:16}}>🏆 메뉴별 사용 순위</div>
+        {tabStats.map((t,i)=>(
+          <div key={t.id} style={{display:"flex",gap:12,alignItems:"center",marginBottom:10}}>
+            <div style={{width:22,fontSize:13,fontWeight:800,color:i<3?["#F59E0B","#9CA3AF","#D85A30"][i]:"#9CA3AF",textAlign:"center"}}>{i+1}</div>
+            <div style={{width:90,fontSize:13.5,fontWeight:600,color:"#374151",flexShrink:0}}>{t.label}</div>
+            <div style={{flex:1,height:20,background:"#F3F4F6",borderRadius:10,overflow:"hidden",position:"relative"}}>
+              <div style={{position:"absolute",left:0,top:0,bottom:0,background:"#3B72F6",borderRadius:10,width:`${(t.view/maxTotal)*100}%`,opacity:.7}}/>
+              <div style={{position:"absolute",left:`${(t.view/maxTotal)*100}%`,top:0,bottom:0,background:"#0EA86E",borderRadius:10,width:`${(t.edit/maxTotal)*100}%`,opacity:.8}}/>
+            </div>
+            <div style={{fontSize:12,color:"#6B7280",width:80,textAlign:"right",flexShrink:0}}>
+              조회 <b style={{color:"#3B72F6"}}>{t.view}</b> · 수정 <b style={{color:"#0EA86E"}}>{t.edit}</b>
+            </div>
+          </div>
+        ))}
+        <div style={{display:"flex",gap:12,marginTop:8,fontSize:12,color:"#6B7280"}}>
+          <span>■ <span style={{color:"#3B72F6"}}>파란색</span> = 조회수</span>
+          <span>■ <span style={{color:"#0EA86E"}}>초록색</span> = 수정수</span>
+        </div>
+      </div>
+
+      {/* 프로젝트 통계 */}
+      <div style={{background:"#fff",borderRadius:14,border:"1px solid #E5E7EB",padding:"20px 24px"}}>
+        <div style={{fontSize:16,fontWeight:800,color:"#111827",marginBottom:14}}>🏗 프로젝트 현황 요약</div>
+        <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:12}}>
+          {[
+            ["전체 프로젝트",projects.length+"건","#3B72F6"],
+            ["진행중",projects.filter(p=>p.type==="계약"||p.type==="확정").length+"건","#0EA86E"],
+            ["등록 협력업체",new Set(projects.flatMap(p=>(p.versions[p.versions.length-1]?.vendors||[]).map(v=>v.name))).size+"개","#F59E0B"],
+            ["총 용역비합",`${(projects.reduce((s,p)=>s+(p.serviceFee||0),0)/1e8).toFixed(1)}억`,"#534AB7"],
+          ].map(([label,val,color])=>(
+            <div key={label} style={{background:color+"12",borderRadius:12,padding:"16px",border:`1px solid ${color}33`,textAlign:"center"}}>
+              <div style={{fontSize:24,fontWeight:800,color,marginBottom:4}}>{val}</div>
+              <div style={{fontSize:13,color:"#6B7280"}}>{label}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ══════════════════════════════════════════════════════════════
+// 🎮 게이미피케이션 — 직원별 포인트·랭킹
+// ══════════════════════════════════════════════════════════════
+const GAMIFY_KEY = "sjs_gamify"
+const loadGamify = ()=>{ try{ return JSON.parse(localStorage.getItem(GAMIFY_KEY)||"{}") }catch{return{}} }
+
+// 포인트 규칙
+const POINT_RULES = [
+  {action:"project_created",   label:"프로젝트 개설",       pts:50,  icon:"🏗"},
+  {action:"version_uploaded",  label:"실행계획서 등록",      pts:30,  icon:"📋"},
+  {action:"schedule_added",    label:"주요일정 기록",        pts:10,  icon:"📅"},
+  {action:"doc_archived",      label:"문서 아카이브",        pts:20,  icon:"📁"},
+  {action:"vendor_doc_added",  label:"협력업체 문서 등록",   pts:15,  icon:"🤝"},
+  {action:"cashflow_updated",  label:"수금실적 입력",        pts:10,  icon:"💧"},
+  {action:"manual_edited",     label:"업무매뉴얼 편집",      pts:25,  icon:"📚"},
+  {action:"notice_posted",     label:"공지사항 등록",        pts:20,  icon:"📢"},
+]
+
+export function addGamifyPoint(userName, action) {
+  try {
+    const rule = POINT_RULES.find(r=>r.action===action)
+    if(!rule||!userName) return
+    const data = loadGamify()
+    if(!data[userName]) data[userName]={name:userName,total:0,history:[],badge:""}
+    data[userName].total = (data[userName].total||0)+rule.pts
+    data[userName].history = [{action,pts:rule.pts,label:rule.label,at:new Date().toISOString()},...(data[userName].history||[])].slice(0,50)
+    // 뱃지 부여
+    const t=data[userName].total
+    data[userName].badge = t>=1000?"🏆 마스터":t>=500?"🥇 골드":t>=200?"🥈 실버":t>=50?"🥉 브론즈":"🌱 신입"
+    localStorage.setItem(GAMIFY_KEY, JSON.stringify(data))
+  } catch{}
+}
+
+function GamifyTab({projects, currentUser}) {
+  const [data]    = useState(loadGamify)
+  const [selUser, setSelUser] = useState(null)
+
+  const ranking = useMemo(()=>
+    Object.values(data).sort((a,b)=>(b.total||0)-(a.total||0))
+  ,[data])
+
+  const me = data[currentUser?.name]
+
+  return (
+    <div style={{maxWidth:960,margin:"0 auto"}}>
+      {/* 헤더 */}
+      <div style={{background:"linear-gradient(135deg,#534AB7,#3B72F6)",borderRadius:16,padding:"22px 28px",marginBottom:16,color:"#fff"}}>
+        <div style={{fontSize:22,fontWeight:800,marginBottom:4}}>🎮 포인트 & 랭킹</div>
+        <div style={{fontSize:13.5,opacity:.85}}>기록할수록, 협업할수록 포인트 상승 · 아카이빙 우수 직원 시각화</div>
+        {me&&(
+          <div style={{marginTop:14,display:"flex",alignItems:"center",gap:16,background:"rgba(255,255,255,.15)",borderRadius:12,padding:"12px 18px"}}>
+            <div style={{fontSize:36}}>{me.badge?.split(" ")[0]||"🌱"}</div>
+            <div>
+              <div style={{fontSize:16,fontWeight:800}}>{currentUser.name} — {me.badge}</div>
+              <div style={{fontSize:14,opacity:.85}}>총 {me.total||0} 포인트</div>
+            </div>
+          </div>
+        )}
+      </div>
+
+      <div style={{display:"grid",gridTemplateColumns:"1fr 320px",gap:14}}>
+        {/* 랭킹 */}
+        <div style={{background:"#fff",borderRadius:14,border:"1px solid #E5E7EB",overflow:"hidden"}}>
+          <div style={{padding:"16px 20px",borderBottom:"1px solid #F3F4F6",fontSize:16,fontWeight:800}}>🏆 전체 랭킹</div>
+          {ranking.length===0
+            ?<div style={{padding:"40px",textAlign:"center",color:"#6B7280",fontSize:14}}>
+                <div style={{fontSize:40,marginBottom:10}}>🌱</div>
+                아직 포인트 기록이 없습니다.<br/>
+                문서 등록·실행계획서 업로드 등 활동하면 포인트가 쌓입니다!
+              </div>
+            :ranking.map((u,i)=>(
+              <div key={u.name} onClick={()=>setSelUser(selUser===u.name?null:u.name)}
+                style={{display:"flex",alignItems:"center",gap:12,padding:"13px 20px",borderBottom:"1px solid #F3F4F6",cursor:"pointer",background:selUser===u.name?"#EEF3FF":"#fff",transition:"background .12s"}}
+                onMouseEnter={e=>{if(selUser!==u.name)e.currentTarget.style.background="#F8FAFC"}}
+                onMouseLeave={e=>{if(selUser!==u.name)e.currentTarget.style.background="#fff"}}>
+                <div style={{width:32,fontSize:18,fontWeight:800,color:i===0?"#F59E0B":i===1?"#9CA3AF":i===2?"#D85A30":"#6B7280",textAlign:"center"}}>{i+1}</div>
+                <div style={{width:36,height:36,borderRadius:"50%",background:`hsl(${i*47},60%,55%)`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:16,fontWeight:700,color:"#fff",flexShrink:0}}>
+                  {u.name?.charAt(0)||"?"}
+                </div>
+                <div style={{flex:1}}>
+                  <div style={{fontSize:14.5,fontWeight:700,color:"#111827"}}>{u.name} {u.badge}</div>
+                  <div style={{fontSize:12,color:"#6B7280",marginTop:2}}>최근: {u.history?.[0]?.label||"-"}</div>
+                </div>
+                {/* 포인트 바 */}
+                <div style={{width:120}}>
+                  <div style={{display:"flex",justifyContent:"space-between",fontSize:12,marginBottom:3}}>
+                    <span style={{fontWeight:700,color:"#534AB7"}}>{u.total||0}pt</span>
+                  </div>
+                  <div style={{height:6,background:"#F3F4F6",borderRadius:3}}>
+                    <div style={{height:"100%",background:"linear-gradient(90deg,#534AB7,#3B72F6)",borderRadius:3,width:`${Math.min((u.total||0)/10,100)}%`}}/>
+                  </div>
+                </div>
+              </div>
+            ))
+          }
+        </div>
+
+        {/* 우측: 규칙 + 선택 유저 이력 */}
+        <div style={{display:"flex",flexDirection:"column",gap:12}}>
+          {/* 포인트 규칙 */}
+          <div style={{background:"#fff",borderRadius:14,border:"1px solid #E5E7EB",padding:"16px 18px"}}>
+            <div style={{fontSize:14,fontWeight:800,color:"#111827",marginBottom:12}}>🎯 포인트 획득 방법</div>
+            {POINT_RULES.map(r=>(
+              <div key={r.action} style={{display:"flex",alignItems:"center",gap:8,marginBottom:7}}>
+                <span style={{fontSize:16,flexShrink:0}}>{r.icon}</span>
+                <span style={{flex:1,fontSize:13,color:"#374151"}}>{r.label}</span>
+                <span style={{fontSize:13,fontWeight:800,color:"#534AB7"}}>+{r.pts}pt</span>
+              </div>
+            ))}
+          </div>
+
+          {/* 선택 유저 이력 */}
+          {selUser&&data[selUser]&&(
+            <div style={{background:"#fff",borderRadius:14,border:"1px solid #E5E7EB",padding:"16px 18px"}}>
+              <div style={{fontSize:14,fontWeight:800,marginBottom:10}}>{selUser} 활동 이력</div>
+              {(data[selUser].history||[]).slice(0,10).map((h,i)=>(
+                <div key={i} style={{display:"flex",gap:8,alignItems:"center",fontSize:12.5,marginBottom:6,color:"#374151"}}>
+                  <span style={{color:"#9CA3AF",flexShrink:0}}>{h.at?.slice(5,10)}</span>
+                  <span style={{flex:1}}>{h.label}</span>
+                  <span style={{fontWeight:700,color:"#534AB7"}}>+{h.pts}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
     </div>
   )
 }
