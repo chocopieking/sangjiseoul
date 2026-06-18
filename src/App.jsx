@@ -1006,9 +1006,25 @@ function AnalysisTab({deptStaff,setDeptStaff,years,setYears,canWrite,cashflow}) 
 
   const yearLine = years.map(y=>({name:y.yr, 수주:y.실행수주, 매출:y.실행매출, 인원:y.인원}))
 
+  // 공지 데이터 (Hook 없이 직접 로드)
+  const noticePreview = (() => { try{ return JSON.parse(localStorage.getItem("sjs_notices")||"[]").slice(0,5) }catch{ return [] } })()
+
   return (
     <div>
-      <AnalysisNoticeBar/>
+      {/* 공지 미리보기 */}
+      {noticePreview.length>0&&(
+        <div style={{background:"#fff",borderRadius:12,border:"1px solid #E5E7EB",padding:"12px 18px",marginBottom:14,boxShadow:"0 1px 3px rgba(0,0,0,.04)"}}>
+          <div style={{fontSize:13,fontWeight:800,color:"#EF4444",marginBottom:8}}>📢 최신 공지</div>
+          {noticePreview.map(n=>(
+            <div key={n.id} style={{display:"flex",gap:8,alignItems:"center",padding:"5px 0",borderBottom:"1px solid #F3F4F6"}}>
+              {n.important&&<span style={{fontSize:11,fontWeight:700,color:"#EF4444",flexShrink:0}}>●</span>}
+              <span style={{flex:1,fontSize:13.5,color:"#374151",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{n.title}</span>
+              <span style={{fontSize:11,color:"#9CA3AF",flexShrink:0}}>{n.createdAt?.slice(0,10)}</span>
+              <span style={{fontSize:11,color:"#9CA3AF",flexShrink:0}}>👁{n.views||0}</span>
+            </div>
+          ))}
+        </div>
+      )}
       {/* 뷰 전환 */}
       <div style={{display:"flex",gap:6,marginBottom:14,alignItems:"center",flexWrap:"wrap"}}>
         <div style={{display:"flex",gap:2,background:"var(--color-background-secondary,#f0f0ee)",borderRadius:8,padding:3}}>
@@ -1442,24 +1458,24 @@ function CashflowTab({cashflow,setCashflow,currentUser,projects,projectCashflowB
 
 // 전사 연도별 기성 현황 — 프로젝트별 월수금계획(cashflowPlan) 합산
 function ProjectCashflowSummaryCard({projects,projectCashflowByDept,DEPTS,DEPT_COLORS}) {
-  const years = useMemo(()=>Object.keys(projectCashflowByDept||{}).sort(),[projectCashflowByDept])
-  const emptyMsg = years.length===0
+  const allYears = useMemo(()=>Object.keys(projectCashflowByDept||{}).sort(),[projectCashflowByDept])
+  const rows = useMemo(()=>{
+    let carry=0
+    return allYears.map(y=>{
+      const planTotal = DEPTS.reduce((s,d)=>s+(projectCashflowByDept[y]?.plan?.[d]?.reduce((a,v)=>a+v,0)||0),0)
+      const actualTotal = DEPTS.reduce((s,d)=>s+(projectCashflowByDept[y]?.actual?.[d]?.reduce((a,v)=>a+v,0)||0),0)
+      const row={year:y,plan:planTotal,actual:actualTotal,carryIn:carry}
+      carry += (planTotal-actualTotal)
+      return row
+    })
+  },[allYears,projectCashflowByDept,DEPTS])
+  const lastYear = allYears[allYears.length-1]
 
-  let carry=0
-  const rows = years.map(y=>{
-    const planTotal = DEPTS.reduce((s,d)=>s+(projectCashflowByDept[y]?.plan?.[d]?.reduce((a,v)=>a+v,0)||0),0)
-    const actualTotal = DEPTS.reduce((s,d)=>s+(projectCashflowByDept[y]?.actual?.[d]?.reduce((a,v)=>a+v,0)||0),0)
-    const row={year:y,plan:planTotal,actual:actualTotal,carryIn:carry}
-    carry += (planTotal-actualTotal)
-    return row
-  })
-  const lastYear = years[years.length-1]
-  if(emptyMsg) return (
+  return allYears.length===0 ? (
     <div style={{...S.card(),background:C.grayL,color:C.gray,fontSize:13}}>
       📅 연도별 기성 현황(프로젝트 합산) — 아직 입력된 프로젝트별 월수금계획이 없습니다.
     </div>
-  )
-  return (
+  ) : (
     <Card title="📅 연도별 기성 현황 (전사, 프로젝트 합산)" note="프로젝트별 월수금계획(cashflowPlan) × 본부 지분율로 산출 — 단위 억원">
       <div style={{overflowX:"auto",marginBottom:14}}>
         <table style={{width:"100%",borderCollapse:"collapse",minWidth:520}}>
@@ -1942,15 +1958,15 @@ function VersionCompareCard({proj,selVerIdx}) {
     {key:"_total",    label:"예상합계",   color:C.navy,  bold:true},
   ]
 
-  // 회차 부족 시 빠른 반환 (Hook 이후 최대한 빠른 위치)
-  if(tooFew) return (
+  // 회차 부족 시: Hook 규칙 준수를 위해 ternary 사용
+  const tooFewMsg = tooFew ? (
     <Card title="📊 회차별 비교 분석" note="실행계획서 2회차 이상부터 회차간 이윤 추이를 비교합니다.">
       <div style={{padding:"12px 14px",borderRadius:10,background:C.grayL,color:C.gray,fontSize:13}}>
         회차가 2개 이상이면 회차간 금액 증감·이윤율 변화를 자동으로 비교합니다.<br/>
         위에서 "+ 회차 추가" 또는 실행계획서 업로드로 회차를 추가해주세요.
       </div>
     </Card>
-  )
+  ) : null
 
   const pnls = versions.map(v=>{
     const p=calcPnlTotals(v)
@@ -1979,7 +1995,9 @@ function VersionCompareCard({proj,selVerIdx}) {
   // 전체 변화 요약 (1차 → 최신)
   const profitChange = lastPnl._profit - firstPnl._profit
   const profitPctChange = firstPnl._profit!==0 ? (profitChange/firstPnl._profit*100) : 0
-  const isGood = profitChange >= 0
+  const isGood = tooFew ? true : profitChange >= 0
+
+  if(tooFewMsg) return tooFewMsg
 
   return (
     <Card title="📊 회차별 실행계획서 비교 분석" note="회차 순서대로 각 항목의 금액 변화·이윤율 추이를 모니터링합니다.">
@@ -3283,8 +3301,7 @@ function ManualPlaceholder() {
 function ContractTab({projects, currentUser}) {
   const [selProjId, setSelProjId] = useState(projects[0]?.id||"")
   const proj = projects.find(p=>p.id===selProjId)
-
-  // 계약서 변수 (프로젝트에서 자동 채우기 + 수동 수정 가능)
+  const noProj = !proj
   const [form, setForm] = useState({
     contractDate:"",
     contractTitle:"",
@@ -3639,7 +3656,7 @@ function ProjectHistoryPage({projects, currentUser}) {
 
   // 모든 이벤트를 날짜순으로 통합
   const events = useMemo(()=>{
-    if(!proj) return []
+    if(!proj) return []  // useMemo 안에서는 OK
     const evts = []
     // 주요일정 로그
     ;(wr.scheduleLog||[]).forEach(e=>evts.push({
@@ -3668,7 +3685,7 @@ function ProjectHistoryPage({projects, currentUser}) {
   const typeColor = {schedule:C.navyM, version:"#534AB7", agenda:C.amber}
   const typeIcon  = {schedule:"📅", version:"📋", agenda:"📌"}
 
-  if(!proj) return <div style={{padding:40,textAlign:"center",color:"#6B7280"}}>프로젝트를 선택하세요.</div>
+  if(!proj) return <div style={{padding:40,textAlign:'center',color:'#6B7280'}}>위에서 프로젝트를 선택하세요.</div>
 
   return (
     <div style={{maxWidth:900,margin:"0 auto"}}>
