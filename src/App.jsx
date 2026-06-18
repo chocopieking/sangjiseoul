@@ -1443,11 +1443,8 @@ function CashflowTab({cashflow,setCashflow,currentUser,projects,projectCashflowB
 // 전사 연도별 기성 현황 — 프로젝트별 월수금계획(cashflowPlan) 합산
 function ProjectCashflowSummaryCard({projects,projectCashflowByDept,DEPTS,DEPT_COLORS}) {
   const years = useMemo(()=>Object.keys(projectCashflowByDept||{}).sort(),[projectCashflowByDept])
-  if(years.length===0) return (
-    <div style={{...S.card(),background:C.grayL,color:C.gray,fontSize:13}}>
-      📅 연도별 기성 현황(프로젝트 합산) — 아직 입력된 프로젝트별 월수금계획이 없습니다. 프로젝트 상세 화면의 "연도별 월수금계획(기성)"에서 입력하면 본부별 합계와 함께 여기에 표시됩니다.
-    </div>
-  )
+  const emptyMsg = years.length===0
+
   let carry=0
   const rows = years.map(y=>{
     const planTotal = DEPTS.reduce((s,d)=>s+(projectCashflowByDept[y]?.plan?.[d]?.reduce((a,v)=>a+v,0)||0),0)
@@ -1457,6 +1454,11 @@ function ProjectCashflowSummaryCard({projects,projectCashflowByDept,DEPTS,DEPT_C
     return row
   })
   const lastYear = years[years.length-1]
+  if(emptyMsg) return (
+    <div style={{...S.card(),background:C.grayL,color:C.gray,fontSize:13}}>
+      📅 연도별 기성 현황(프로젝트 합산) — 아직 입력된 프로젝트별 월수금계획이 없습니다.
+    </div>
+  )
   return (
     <Card title="📅 연도별 기성 현황 (전사, 프로젝트 합산)" note="프로젝트별 월수금계획(cashflowPlan) × 본부 지분율로 산출 — 단위 억원">
       <div style={{overflowX:"auto",marginBottom:14}}>
@@ -1928,14 +1930,7 @@ function VersionCompareCard({proj,selVerIdx}) {
       .sort((a,b)=>(a.round||a._origIdx+1)-(b.round||b._origIdx+1))
   },[proj.versions])
 
-  if(versions.length<2) return (
-    <Card title="📊 회차별 비교 분석" note="실행계획서 2회차 이상부터 회차간 이윤 추이를 비교합니다.">
-      <div style={{padding:"12px 14px",borderRadius:10,background:C.grayL,color:C.gray,fontSize:13}}>
-        회차가 2개 이상이면 회차간 금액 증감·이윤율 변화를 자동으로 비교합니다.<br/>
-        위에서 "버전 추가" 또는 엑셀 업로드로 회차를 추가해주세요.
-      </div>
-    </Card>
-  )
+  const tooFew = versions.length < 2
 
   const ITEMS = [
     {key:"laborCost", label:"직접인건비", color:C.navyM},
@@ -1946,6 +1941,16 @@ function VersionCompareCard({proj,selVerIdx}) {
     {key:"_profit",   label:"이윤",       color:C.green, bold:true},
     {key:"_total",    label:"예상합계",   color:C.navy,  bold:true},
   ]
+
+  // 회차 부족 시 빠른 반환 (Hook 이후 최대한 빠른 위치)
+  if(tooFew) return (
+    <Card title="📊 회차별 비교 분석" note="실행계획서 2회차 이상부터 회차간 이윤 추이를 비교합니다.">
+      <div style={{padding:"12px 14px",borderRadius:10,background:C.grayL,color:C.gray,fontSize:13}}>
+        회차가 2개 이상이면 회차간 금액 증감·이윤율 변화를 자동으로 비교합니다.<br/>
+        위에서 "+ 회차 추가" 또는 실행계획서 업로드로 회차를 추가해주세요.
+      </div>
+    </Card>
+  )
 
   const pnls = versions.map(v=>{
     const p=calcPnlTotals(v)
