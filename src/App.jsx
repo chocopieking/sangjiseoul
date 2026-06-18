@@ -13,7 +13,7 @@ import {
   XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid,
   ComposedChart, Area, ReferenceLine, RadarChart, Radar,
   PolarGrid, PolarAngleAxis, Legend, LabelList
-} from "recharts"
+} from "./ReChartsFallback.jsx"
 import { ArchiveTab } from "./Archive.jsx"
 import { OptimizeTab } from "./Optimize.jsx"
 import { DataHubTab } from "./DataHub.jsx"
