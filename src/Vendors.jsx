@@ -2,7 +2,7 @@
 // 협력업체 탭 — 업체정보 · 수행 프로젝트/지급내역 · 외주비 비교 · 실행초안
 // ══════════════════════════════════════════════════════════════
 import { useState, useMemo, useRef } from "react"
-import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, LabelList } from "recharts"
+import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, LabelList } from "./ReChartsFallback.jsx"
 import { fW, fE, fPy, getAreaBasis, calcUP, VENDOR_EMPTY, BID_TYPES } from "./data.js"
 
 const C = {

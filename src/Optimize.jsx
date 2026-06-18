@@ -6,7 +6,7 @@ import {
   BarChart, Bar, ComposedChart, Line, Cell,
   XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid,
   ReferenceLine, Legend, LabelList
-} from "recharts"
+} from "./ReChartsFallback.jsx"
 import { fE, fW, fPct, BIZ_2026 } from "./data.js"
 import { useDepts } from "./DeptContext.jsx"
 

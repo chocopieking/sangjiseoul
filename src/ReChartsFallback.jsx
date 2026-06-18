@@ -379,3 +379,9 @@ export function RadarChart({data=[], cx, cy, outerRadius, children}) {
     </svg>
   )
 }
+
+// ── Pie (PieChart 내부용 데이터 컨테이너) ─────────────────────
+export function Pie({data=[], dataKey="value", nameKey="name", cx, cy, innerRadius, outerRadius, children}) {
+  // PieChart가 처리하므로 여기선 props만 전달
+  return null
+}
