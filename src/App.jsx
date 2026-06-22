@@ -985,7 +985,21 @@ function AlertPanel({alerts,readAlert,readAll,setTab,setShowAlerts}) {
 // ════════════════════════════════════════════════════════════
 function AnalysisTab({deptStaff,setDeptStaff,years,setYears,canWrite,cashflow,cashItems=[],saleItems=[],projects=[]}) {
   const {DEPTS,DEPT_COLORS,DEPT_BIZ} = useDepts()
-  const [aView, setAView] = useState("dashboard")
+  const [aView,       setAView]       = useState("dashboard")
+  const [view,        setView]         = useState("total")
+  const [selDept,     setSelDept]      = useState(()=>DEPTS[0]||"")
+  const [editStaff,   setEditStaff]    = useState(false)
+  const [staffDraft,  setStaffDraft]   = useState({})
+  const [showAddYear, setShowAddYear]  = useState(false)
+  const [newYearForm, setNewYearForm]  = useState({yr:"",목표수주:0,실행수주:0,목표매출:0,실행매출:0,인원:0})
+
+  const CF_2026 = cashflow
+  const totalCash = CF_2026.reduce((s,d)=>s+(d.cash||0),0)
+  const totalNote = CF_2026.reduce((s,d)=>s+(d.note||0),0)
+  const totalBlue = CF_2026.reduce((s,d)=>s+(d.blue||0),0)
+  const q = [[0,1,2],[3,4,5],[6,7,8],[9,10,11]].map(idx=>idx.reduce((s,i)=>s+(CF_2026[i]?.cash||0)+(CF_2026[i]?.note||0),0))
+  const yearLine = years.map(y=>({name:y.yr, 수주:y.실행수주, 매출:y.실행매출, 인원:y.인원}))
+
   const noticePreview = (() => { try{ return JSON.parse(localStorage.getItem("sjs_notices")||"[]").slice(0,5) }catch{ return [] } })()
 
   return (
@@ -4910,10 +4924,28 @@ function uploadCashExcel(e, type, cashItems, setCashItems, saleItems, setSaleIte
 
       if(newItems.length===0){alert("입력된 데이터가 없습니다.\n4행부터 프로젝트명을 입력하세요.");return}
 
-      if(window.confirm(`${newItems.length}건을 ${isSale?"매출":"월수금"} 내역에 추가하시겠습니까?`)){
-        if(isSale) setSaleItems(prev=>[...prev,...newItems])
-        else setCashItems(prev=>[...prev,...newItems])
-        alert(`✓ ${newItems.length}건 업로드 완료`)
+      // 중복 감지: 같은 본부+프로젝트명+기성단계+금액 조합
+      const makeKey = item => `${item.dept}|${item.projectName}|${item.stage}|${item.amount}`
+      const existingKeys = new Set((isSale?saleItems:cashItems).map(makeKey))
+      const dupItems   = newItems.filter(x=>existingKeys.has(makeKey(x)))
+      const freshItems = newItems.filter(x=>!existingKeys.has(makeKey(x)))
+
+      let msg = `총 ${newItems.length}건 업로드 예정\n✅ 신규: ${freshItems.length}건`
+      if(dupItems.length>0) msg += `\n🔄 중복(덮어쓰기): ${dupItems.length}건\n\n중복 항목:\n${dupItems.slice(0,5).map(x=>`· ${x.projectName} (${x.stage||"-"})`).join("\n")}`
+
+      if(window.confirm(msg)){
+        if(isSale){
+          setSaleItems(prev=>{
+            const filtered = prev.filter(x=>!dupItems.some(d=>makeKey(d)===makeKey(x)))
+            return [...filtered, ...newItems]
+          })
+        } else {
+          setCashItems(prev=>{
+            const filtered = prev.filter(x=>!dupItems.some(d=>makeKey(d)===makeKey(x)))
+            return [...filtered, ...newItems]
+          })
+        }
+        alert(`✓ 완료: 신규 ${freshItems.length}건 추가, 중복 ${dupItems.length}건 덮어쓰기`)
       }
     } catch(err){ alert("업로드 오류: "+err.message) }
     e.target.value=""
