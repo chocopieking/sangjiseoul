@@ -132,7 +132,18 @@ export default function App() {
   }
   const doLogout = ()=>{ setCurrentUser(null); setAuth("login"); setLoginId(""); setLoginPw("") }
   const saveUsers = (updated)=>{ const nm={}; updated.forEach(u=>{if(u._pwHash)nm[u.id]=u._pwHash}); savePwMap(nm) }
-  const canWrite = currentUser?.write===true
+  // ── 권한 헬퍼 ────────────────────────────────────────────
+  const getTabPerm = (tabId) => {
+    // admin은 항상 rw
+    if(currentUser?.role==="admin") return "rw"
+    const perms = currentUser?.tabPerms || {}
+    // 탭별 설정이 있으면 그것 사용, 없으면 전역 write 기반
+    if(perms[tabId]) return perms[tabId]
+    return currentUser?.write ? "rw" : "r"
+  }
+  const canReadTab  = (tabId) => getTabPerm(tabId) !== "hidden"
+  const canWriteTab = (tabId) => getTabPerm(tabId) === "rw"
+  const canWrite = currentUser?.role==="admin" || currentUser?.write===true
 
   // ── 헬퍼 ──────────────────────────────────────────────────────
   const USE_DB = isConfigured()
@@ -821,7 +832,13 @@ export default function App() {
 
           {/* 그룹별 메뉴 렌더링 */}
           {tabGroups.map(grp=>{
-            const grpTabs = tabOrder.filter(t=>(t.group||"기타")===grp&&(t.id!=="auth_mgmt"||currentUser.role==="admin"))
+            const grpTabs = tabOrder.filter(t=>{
+            if((t.group||"기타")!==grp) return false
+            if(t.id==="auth_mgmt" && currentUser.role!=="admin") return false
+            // hidden 권한이면 메뉴에서 숨김 (admin은 항상 표시)
+            if(currentUser.role!=="admin" && currentUser?.tabPerms?.[t.id]==="hidden") return false
+            return true
+          })
             if(!grpTabs.length) return null
             return (
               <div key={grp} style={{marginBottom:6}}>
@@ -894,12 +911,12 @@ export default function App() {
         {tab==="stats"     && <StatsTab projects={projects}/>}
         {tab==="gamify"    && <GamifyTab projects={projects} currentUser={currentUser}/>}
         {tab==="deptdash"  && <DeptDashTab projects={projects} vendorPayments={vendorPayments} years={years}/>}
-        {tab==="analysis"  && <AnalysisTab deptStaff={deptStaff} setDeptStaff={setDeptStaff} years={years} setYears={setYears} canWrite={canWrite} cashflow={effectiveCashflow} cashItems={cashItems} saleItems={saleItems} projects={projects}/>}
-        {tab==="datahub" && <DataHubTab currentUser={currentUser} deptStaff={deptStaff} setDeptStaff={setDeptStaff} staffTarget={staffTarget} setStaffTarget={setStaffTarget} staffMonthly={staffMonthly} setStaffMonthly={setStaffMonthly} pnlData={pnlData} setPnlData={setPnlData} cashflow={cashflow} setCashflow={setCashflow} years={years} setYears={setYears} projects={projects} setProjects={setProjects} setTab={setTab} setSelProjId={setSelProjId} setSelVerIdx={setSelVerIdx} setShowNewProj={setShowNewProj} versions={versions} saveVersion={saveVersion} restoreVersion={restoreVersion} deleteVersion={deleteVersion} contractTypes={contractTypes} setContractTypes={setContractTypes} projTypes={projTypes} setProjTypes={setProjTypes} bidTypes={bidTypes} setBidTypes={setBidTypes} allData={null} restoreAllData={(entries)=>dbSetAll(entries, userEmail.current)} dbStatus={dbStatus}/>}
-        {tab==="cashflow" && <CashflowTab cashflow={effectiveCashflow} setCashflow={setCashflow} currentUser={currentUser} projects={projects} projectCashflowByDept={projectCashflowByDept} cashItems={cashItems} setCashItems={setCashItems} saleItems={saleItems} setSaleItems={setSaleItems}/>}
-        {tab==="projects" && <ProjectsTab projects={projects} setProjects={setProjects} selProjId={selProjId} setSelProjId={setSelProjId} selVerIdx={selVerIdx} setSelVerIdx={setSelVerIdx} cmpIds={cmpIds} setCmpIds={setCmpIds} showNewVer={showNewVer} setShowNewVer={setShowNewVer} canWrite={canWrite} contractTypes={contractTypes} currentUser={currentUser}/>}
-        {tab==="vendors" && <VendorsTab projects={projects} setProjects={setProjects} vendorsDB={vendorsDB} setVendorsDB={setVendorsDB} vendorPayments={vendorPayments} setVendorPayments={setVendorPayments} canWrite={canWrite} currentUser={currentUser} setTab={setTab} setSelProjId={setSelProjId} setSelVerIdx={setSelVerIdx}/>}
-        {tab==="pnl"      && <PnlTab pnlData={pnlData} setPnlData={setPnlData} canWrite={canWrite}/>}
+        {tab==="analysis"  && canReadTab("analysis")  && <AnalysisTab deptStaff={deptStaff} setDeptStaff={setDeptStaff} years={years} setYears={setYears} canWrite={canWrite&&canWriteTab("analysis")} cashflow={effectiveCashflow} cashItems={cashItems} saleItems={saleItems} projects={projects}/>}
+        {tab==="datahub" && canReadTab("datahub") && <DataHubTab currentUser={currentUser} deptStaff={deptStaff} setDeptStaff={setDeptStaff} staffTarget={staffTarget} setStaffTarget={setStaffTarget} staffMonthly={staffMonthly} setStaffMonthly={setStaffMonthly} pnlData={pnlData} setPnlData={setPnlData} cashflow={cashflow} setCashflow={setCashflow} years={years} setYears={setYears} projects={projects} setProjects={setProjects} setTab={setTab} setSelProjId={setSelProjId} setSelVerIdx={setSelVerIdx} setShowNewProj={setShowNewProj} versions={versions} saveVersion={saveVersion} restoreVersion={restoreVersion} deleteVersion={deleteVersion} contractTypes={contractTypes} setContractTypes={setContractTypes} projTypes={projTypes} setProjTypes={setProjTypes} bidTypes={bidTypes} setBidTypes={setBidTypes} allData={null} restoreAllData={(entries)=>dbSetAll(entries, userEmail.current)} dbStatus={dbStatus}/>}
+        {tab==="cashflow" && canReadTab("cashflow") && <CashflowTab cashflow={effectiveCashflow} setCashflow={setCashflow} currentUser={currentUser} projects={projects} setProjects={setProjects} projectCashflowByDept={projectCashflowByDept} cashItems={cashItems} setCashItems={setCashItems} saleItems={saleItems} setSaleItems={setSaleItems} setTab={setTab} setSelProjId={setSelProjId}/>}
+        {tab==="projects" && canReadTab("projects") && <ProjectsTab projects={projects} setProjects={setProjects} selProjId={selProjId} setSelProjId={setSelProjId} selVerIdx={selVerIdx} setSelVerIdx={setSelVerIdx} cmpIds={cmpIds} setCmpIds={setCmpIds} showNewVer={showNewVer} setShowNewVer={setShowNewVer} canWrite={canWrite&&canWriteTab("projects")} contractTypes={contractTypes} currentUser={currentUser}/>}
+        {tab==="vendors" && canReadTab("vendors") && <VendorsTab projects={projects} setProjects={setProjects} vendorsDB={vendorsDB} setVendorsDB={setVendorsDB} vendorPayments={vendorPayments} setVendorPayments={setVendorPayments} canWrite={canWrite&&canWriteTab("vendors")} currentUser={currentUser} setTab={setTab} setSelProjId={setSelProjId} setSelVerIdx={setSelVerIdx}/>}
+        {tab==="pnl"      && canReadTab("pnl")      && <PnlTab pnlData={pnlData} setPnlData={setPnlData} canWrite={canWrite&&canWriteTab("pnl")}/>}
         {tab==="optimize" && <OptimizeTab projects={projects} deptStaff={deptStaff} pnlData={pnlData}/>}
         {tab==="archive"   && <ArchiveTab currentUser={currentUser} projects={projects}/>}
         {tab==="contract"  && <ContractTab projects={projects} currentUser={currentUser}/>}
@@ -1129,7 +1146,7 @@ function StackTotalTooltip({active,payload,label}) {
 // ════════════════════════════════════════════════════════════
 // 월수금계획 탭
 // ════════════════════════════════════════════════════════════
-function CashflowTab({cashflow,setCashflow,currentUser,projects,projectCashflowByDept,cashItems=[],setCashItems,saleItems=[],setSaleItems}) {
+function CashflowTab({cashflow,setCashflow,currentUser,projects,setProjects,projectCashflowByDept,cashItems=[],setCashItems,saleItems=[],setSaleItems,setTab,setSelProjId}) {
   const {DEPTS,DEPT_COLORS} = useDepts()
   const CF_2026 = cashflow
   const [mainTab, setMainTab] = useState("cash")  // cash | sale | legacy
@@ -1208,8 +1225,8 @@ function CashflowTab({cashflow,setCashflow,currentUser,projects,projectCashflowB
           </div>
         </div>
         <ProjectCashflowSummaryCard projects={projects} projectCashflowByDept={projectCashflowByDept} DEPTS={DEPTS} DEPT_COLORS={DEPT_COLORS}/>
-        <CashItemsView cashItems={cashItems} setCashItems={setCashItems} projects={projects} DEPTS={DEPTS} currentUser={currentUser}
-          itemTotal={itemTotal} itemPaid={itemPaid} itemExp={itemExp} viewMode={view}/>
+        <CashItemsView cashItems={cashItems} setCashItems={setCashItems} projects={projects} setProjects={setProjects} DEPTS={DEPTS} currentUser={currentUser}
+          itemTotal={itemTotal} itemPaid={itemPaid} itemExp={itemExp} viewMode={view} setTab={setTab} setSelProjId={setSelProjId}/>
       </>}
 
       {/* 매출(세금계산서) 탭 */}
@@ -2681,10 +2698,55 @@ function AuthTab({users,saveUsers,currentUser,hashPw}) {
     if(!newUser.name||!newUser.loginId||!newUser._newPw){return}
     const h=await hashPw(newUser._newPw)
     const {_newPw,...rest}=newUser
-    saveUsers([...users,{...rest,id:`U${Date.now()}`,avatar:newUser.name.slice(0,2),_pwHash:h}])
+    saveUsers([...users,{...rest,id:`U${Date.now()}`,avatar:newUser.name.slice(0,2),_pwHash:h,tabPerms:{}}])
     setShowAdd(false);setNewUser({name:"",loginId:"",role:"viewer",dept:"",read:true,write:false,canManageUsers:false,active:true,_newPw:""})
   }
   const ROLES=[{v:"admin",l:"관리자"},{v:"executive",l:"임원"},{v:"viewer",l:"열람자"}]
+  const [permUserId, setPermUserId] = useState(null)
+
+  // 탭별 권한 설정
+  const TAB_PERM_LIST = [
+    {id:"analysis",   label:"📊 경영분석"},
+    {id:"deptdash",   label:"🏢 본부별 현황"},
+    {id:"cashflow",   label:"💧 월수금계획"},
+    {id:"projects",   label:"🏗 프로젝트"},
+    {id:"history",    label:"📜 히스토리"},
+    {id:"calendar",   label:"📅 캘린더"},
+    {id:"vendors",    label:"🤝 협력업체"},
+    {id:"contract",   label:"📄 계약서"},
+    {id:"archive",    label:"📁 아카이브"},
+    {id:"pnl",        label:"📉 손익분석"},
+    {id:"optimize",   label:"⚙️ 경영최적화"},
+    {id:"datahub",    label:"🗄️ 데이터관리"},
+    {id:"manual",     label:"📚 업무매뉴얼"},
+    {id:"notice",     label:"📢 공지사항"},
+    {id:"stats",      label:"📈 사용 통계"},
+    {id:"gamify",     label:"🎮 포인트·랭킹"},
+  ]
+  const PERM_OPTS = [{v:"rw",l:"읽기+쓰기",c:"#0EA86E"},{v:"r",l:"읽기전용",c:"#3B72F6"},{v:"hidden",l:"숨김",c:"#EF4444"}]
+  const setTabPerm = (uid, tabId, perm) => {
+    saveUsers(users.map(u=>u.id===uid?{...u,tabPerms:{...(u.tabPerms||{}),[tabId]:perm}}:u))
+  }
+  const applyRoleDefaults = (uid, role) => {
+    const defaultPerms = {}
+    if(role==="viewer"){
+      // 열람자: 손익·데이터관리는 숨김, 나머지 읽기
+      TAB_PERM_LIST.forEach(t=>{
+        if(["pnl","optimize","datahub"].includes(t.id)) defaultPerms[t.id]="hidden"
+        else defaultPerms[t.id]="r"
+      })
+    } else if(role==="executive"){
+      // 임원: 데이터관리 숨김, 나머지 읽기+쓰기
+      TAB_PERM_LIST.forEach(t=>{
+        if(["datahub"].includes(t.id)) defaultPerms[t.id]="hidden"
+        else defaultPerms[t.id]="rw"
+      })
+    } else {
+      // admin: 모든 권한
+      TAB_PERM_LIST.forEach(t=>{ defaultPerms[t.id]="rw" })
+    }
+    saveUsers(users.map(u=>u.id===uid?{...u,tabPerms:defaultPerms}:u))
+  }
   return (
     <div>
       <div style={{background:C.navyL,border:`0.5px solid ${C.navyM}`,borderRadius:10,padding:"12px 16px",marginBottom:14,display:"flex",gap:9,alignItems:"flex-start"}}>
@@ -2732,9 +2794,49 @@ function AuthTab({users,saveUsers,currentUser,hashPw}) {
                     <td style={S.td("center")}>
                       <div style={{display:"flex",gap:4,justifyContent:"center",flexWrap:"wrap"}}>
                         <button onClick={()=>startEdit(u)} style={{...S.btn(C.navyL,C.navyM),padding:"4px 8px",fontSize:11}}>수정</button>
+                        <button onClick={()=>setPermUserId(permUserId===u.id?null:u.id)} style={{...S.btn(permUserId===u.id?"#534AB7":"#F3F4F6",permUserId===u.id?"#fff":"#374151"),padding:"4px 8px",fontSize:11}}>탭권한</button>
                         {u.id!==currentUser.id&&<button onClick={()=>{setPwResetId(u.id);setNewPwVal("");setPwMsg("")}} style={{...S.btn(C.amberL,C.amber),padding:"4px 8px",fontSize:11}}>비번</button>}
                         <button onClick={()=>toggleActive(u.id)} style={{...S.btn(u.active?C.redL:C.greenL,u.active?C.red:C.green),padding:"4px 8px",fontSize:11}}>{u.active?"비활":"활성"}</button>
                       </div>
+                      {/* 탭별 권한 설정 패널 */}
+                      {permUserId===u.id&&(
+                        <div style={{marginTop:8,background:"#F8F0FF",borderRadius:10,padding:"12px 14px",border:"1px solid #534AB722",minWidth:320}}>
+                          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
+                            <div style={{fontSize:12.5,fontWeight:700,color:"#534AB7"}}>🔐 탭별 접근 권한 — {u.name}</div>
+                            <div style={{display:"flex",gap:5}}>
+                              {["viewer","executive","admin"].map(role=>(
+                                <button key={role} onClick={()=>applyRoleDefaults(u.id,role)}
+                                  style={{padding:"3px 8px",background:"#EDE9FF",color:"#534AB7",border:"none",borderRadius:6,fontSize:11,fontWeight:600,cursor:"pointer"}}>
+                                  {role==="admin"?"관리자기본":role==="executive"?"임원기본":"열람자기본"}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:5}}>
+                            {TAB_PERM_LIST.map(t=>{
+                              const cur = (u.tabPerms||{})[t.id] || (u.write?"rw":"r")
+                              return (
+                                <div key={t.id} style={{display:"flex",alignItems:"center",gap:6,background:"#fff",borderRadius:8,padding:"6px 10px"}}>
+                                  <span style={{flex:1,fontSize:12.5,color:"#374151"}}>{t.label}</span>
+                                  <div style={{display:"flex",gap:3}}>
+                                    {PERM_OPTS.map(opt=>(
+                                      <button key={opt.v} onClick={()=>setTabPerm(u.id,t.id,opt.v)}
+                                        style={{padding:"3px 7px",border:`1.5px solid ${cur===opt.v?opt.c:"#E5E7EB"}`,borderRadius:6,
+                                          background:cur===opt.v?opt.c+"18":"#fff",color:cur===opt.v?opt.c:"#9CA3AF",
+                                          fontSize:11,fontWeight:cur===opt.v?700:400,cursor:"pointer",whiteSpace:"nowrap"}}>
+                                        {opt.l}
+                                      </button>
+                                    ))}
+                                  </div>
+                                </div>
+                              )
+                            })}
+                          </div>
+                          <div style={{marginTop:8,fontSize:11,color:"#9CA3AF"}}>
+                            🟢 읽기+쓰기: 조회·수정 가능 &nbsp;|&nbsp; 🔵 읽기전용: 조회만 가능 &nbsp;|&nbsp; 🔴 숨김: 메뉴에서 완전 숨김
+                          </div>
+                        </div>
+                      )}
                       {pwResetId===u.id&&<div style={{marginTop:7,background:C.amberL,borderRadius:7,padding:"8px 10px",minWidth:200}}>
                         <div style={{fontSize:11,color:C.amber,marginBottom:5,fontWeight:500}}>비밀번호 초기화</div>
                         <input type="password" value={newPwVal} onChange={e=>setNewPwVal(e.target.value)} placeholder="새 비밀번호(6자이상)" style={{...S.inp(),fontSize:11,marginBottom:5}}/>
