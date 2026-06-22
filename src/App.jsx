@@ -167,6 +167,14 @@ export default function App() {
   const setCashflow = mkPersist(setCashflowRaw, "sjs_cashflow")
   const cashflow = cashflowRaw
 
+  // ── 건별 기성 내역 (새 방식) ────────────────────────────────
+  const [cashItems, setCashItemsRaw] = useState(()=>lsGet("sjs_cash_items", []))
+  const setCashItems = (v) => {
+    const next = typeof v==="function" ? v(cashItems) : v
+    try{ localStorage.setItem("sjs_cash_items", JSON.stringify(next)) }catch{}
+    setCashItemsRaw(next)
+  }
+
   // ── 데이터 버전 기록 (스냅샷) ───────────────────────────────
   const [versions, setVersions] = useState(()=>{ try{ return JSON.parse(localStorage.getItem("sjs_versions")||"[]") }catch{ return [] } })
   const persistVersions = list => { try{ localStorage.setItem("sjs_versions", JSON.stringify(list.slice(0,80))) }catch{} ; setVersions(list.slice(0,80)) }
@@ -880,7 +888,7 @@ export default function App() {
         {tab==="deptdash"  && <DeptDashTab projects={projects} vendorPayments={vendorPayments} years={years}/>}
         {tab==="analysis"  && <AnalysisTab deptStaff={deptStaff} setDeptStaff={setDeptStaff} years={years} setYears={setYears} canWrite={canWrite} cashflow={effectiveCashflow}/>}
         {tab==="datahub" && <DataHubTab currentUser={currentUser} deptStaff={deptStaff} setDeptStaff={setDeptStaff} staffTarget={staffTarget} setStaffTarget={setStaffTarget} staffMonthly={staffMonthly} setStaffMonthly={setStaffMonthly} pnlData={pnlData} setPnlData={setPnlData} cashflow={cashflow} setCashflow={setCashflow} years={years} setYears={setYears} projects={projects} setProjects={setProjects} setTab={setTab} setSelProjId={setSelProjId} setSelVerIdx={setSelVerIdx} setShowNewProj={setShowNewProj} versions={versions} saveVersion={saveVersion} restoreVersion={restoreVersion} deleteVersion={deleteVersion} contractTypes={contractTypes} setContractTypes={setContractTypes} projTypes={projTypes} setProjTypes={setProjTypes} bidTypes={bidTypes} setBidTypes={setBidTypes} allData={null} restoreAllData={(entries)=>dbSetAll(entries, userEmail.current)} dbStatus={dbStatus}/>}
-        {tab==="cashflow" && <CashflowTab cashflow={effectiveCashflow} setCashflow={setCashflow} currentUser={currentUser} projects={projects} projectCashflowByDept={projectCashflowByDept}/>}
+        {tab==="cashflow" && <CashflowTab cashflow={effectiveCashflow} setCashflow={setCashflow} currentUser={currentUser} projects={projects} projectCashflowByDept={projectCashflowByDept} cashItems={cashItems} setCashItems={setCashItems}/>}
         {tab==="projects" && <ProjectsTab projects={projects} setProjects={setProjects} selProjId={selProjId} setSelProjId={setSelProjId} selVerIdx={selVerIdx} setSelVerIdx={setSelVerIdx} cmpIds={cmpIds} setCmpIds={setCmpIds} showNewVer={showNewVer} setShowNewVer={setShowNewVer} canWrite={canWrite} contractTypes={contractTypes} currentUser={currentUser}/>}
         {tab==="vendors" && <VendorsTab projects={projects} setProjects={setProjects} vendorsDB={vendorsDB} setVendorsDB={setVendorsDB} vendorPayments={vendorPayments} setVendorPayments={setVendorPayments} canWrite={canWrite} currentUser={currentUser} setTab={setTab} setSelProjId={setSelProjId} setSelVerIdx={setSelVerIdx}/>}
         {tab==="pnl"      && <PnlTab pnlData={pnlData} setPnlData={setPnlData} canWrite={canWrite}/>}
@@ -1326,31 +1334,61 @@ function StackTotalTooltip({active,payload,label}) {
 // ════════════════════════════════════════════════════════════
 // 월수금계획 탭
 // ════════════════════════════════════════════════════════════
-function CashflowTab({cashflow,setCashflow,currentUser,projects,projectCashflowByDept}) {
+function CashflowTab({cashflow,setCashflow,currentUser,projects,projectCashflowByDept,cashItems=[],setCashItems}) {
   const {DEPTS,DEPT_COLORS} = useDepts()
   const CF_2026 = cashflow
-  const [view, setView] = useState("total")
+  const [view, setView] = useState("items")  // items | total | dept
   const [selDept, setSelDept] = useState(()=>DEPTS[0]||"")
+
+  // ── 건별 내역 집계 → 기존 월별 구조로 변환 ─────────────────
+  const itemSummary = useMemo(()=>{
+    // 건별 입금 확정 내역을 월별로 집계
+    const byMonth = {} // "2026-01" → {cash:0, byDept:{}}
+    cashItems.forEach(item=>{
+      const dateStr = item.paidDate || item.expectedDate || ""
+      if(!dateStr) return
+      const ym = dateStr.slice(0,7)
+      if(!byMonth[ym]) byMonth[ym] = {cash:0, byDept:{}}
+      const amt = (item.amount||0)/1e8  // 원 → 억
+      byMonth[ym].cash += amt
+      if(item.dept) {
+        byMonth[ym].byDept[item.dept] = (byMonth[ym].byDept[item.dept]||0) + amt
+      }
+    })
+    return byMonth
+  },[cashItems])
+
+  const itemTotal = cashItems.reduce((s,i)=>s+(i.amount||0),0)
+  const itemPaid  = cashItems.filter(i=>i.paidDate).reduce((s,i)=>s+(i.amount||0),0)
+  const itemExp   = cashItems.filter(i=>!i.paidDate&&i.expectedDate).reduce((s,i)=>s+(i.amount||0),0)
 
   const totalCash=CF_2026.reduce((s,d)=>s+d.cash,0)
   const totalNote=CF_2026.reduce((s,d)=>s+d.note,0)
   const totalBlue=CF_2026.reduce((s,d)=>s+d.blue,0)
   const q=[[0,1,2],[3,4,5],[6,7,8],[9,10,11]].map(idx=>idx.reduce((s,i)=>s+(CF_2026[i].cash+CF_2026[i].note),0))
 
+  // 건별 내역 집계
+
   return (
     <div>
+      {/* 뷰 전환 */}
       <div style={{display:"flex",gap:6,marginBottom:14,alignItems:"center",flexWrap:"wrap"}}>
         <div style={{display:"flex",gap:2,background:"var(--color-background-secondary,#f0f0ee)",borderRadius:8,padding:3}}>
-          {[["total","전체합산"],["dept","본부별"]].map(([v,l])=>(
-            <button key={v} onClick={()=>setView(v)} style={{padding:"6px 13px",border:"none",borderRadius:6,fontSize:12,fontWeight:view===v?500:400,cursor:"pointer",background:view===v?"var(--color-background-primary,#fff)":"none",color:view===v?C.navyM:"var(--color-text-secondary,#888)",boxShadow:view===v?"0 0 0 0.5px var(--color-border-tertiary)":"none"}}>{l}</button>
+          {[["items","📋 건별 기성내역"],["total","📊 월별 합산"],["dept","🏢 본부별"]].map(([v,l])=>(
+            <button key={v} onClick={()=>setView(v)} style={{padding:"6px 13px",border:"none",borderRadius:6,fontSize:12,fontWeight:view===v?700:400,cursor:"pointer",
+              background:view===v?"#fff":"none",color:view===v?C.navyM:"var(--color-text-secondary,#888)",
+              boxShadow:view===v?"0 0 0 0.5px var(--color-border-tertiary)":"none"}}>{l}</button>
           ))}
         </div>
-        {view==="dept"&&<select value={selDept} onChange={e=>setSelDept(e.target.value)} style={{padding:"6px 10px",border:"0.5px solid var(--color-border-secondary,#ccc)",borderRadius:8,fontSize:12,background:"var(--color-background-primary,#fff)",color:"var(--color-text-primary,#333)"}}>
+        {view==="dept"&&<select value={selDept} onChange={e=>setSelDept(e.target.value)} style={{padding:"6px 10px",border:"0.5px solid var(--color-border-secondary,#ccc)",borderRadius:8,fontSize:12,background:"white",color:"#333"}}>
           {DEPTS.map(d=><option key={d} value={d}>{d}</option>)}
         </select>}
       </div>
 
       <ProjectCashflowSummaryCard projects={projects} projectCashflowByDept={projectCashflowByDept} DEPTS={DEPTS} DEPT_COLORS={DEPT_COLORS}/>
+
+      {/* ── 건별 기성내역 탭 ── */}
+      {view==="items" && <CashItemsView cashItems={cashItems} setCashItems={setCashItems} projects={projects} DEPTS={DEPTS} currentUser={currentUser} itemTotal={itemTotal} itemPaid={itemPaid} itemExp={itemExp}/>}
 
       {view==="total" && (
         <>
@@ -4515,6 +4553,382 @@ function DeptDashTab({projects, vendorPayments, years}) {
               </tbody>
             </table>
           </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ══════════════════════════════════════════════════════════════
+// 💧 건별 기성 내역 뷰
+// 본부, 발주구분, 신규/기성, 프로젝트명, 기성단계, 입금일/예상일, 금액
+// ══════════════════════════════════════════════════════════════
+function CashItemsView({cashItems, setCashItems, projects, DEPTS, currentUser, itemTotal, itemPaid, itemExp}) {
+  const EMPTY = {
+    dept:"", orderType:"민간", itemType:"기성",
+    projectName:"", stage:"", paidDate:"", expectedDate:"", amount:0, memo:""
+  }
+  const [form, setForm]       = useState(EMPTY)
+  const [showForm, setShowForm] = useState(false)
+  const [editId, setEditId]   = useState(null)
+  const [filterDept, setFilterDept] = useState("")
+  const [filterType, setFilterType] = useState("")
+  const [sortBy, setSortBy]   = useState("date")  // date | dept | amount
+  const [viewMode, setViewMode] = useState("list")  // list | monthly | dept
+
+  const u = (k,v) => setForm(p=>({...p,[k]:v}))
+
+  const save = () => {
+    if(!form.projectName.trim()||(!form.paidDate&&!form.expectedDate)) {
+      alert("프로젝트명과 입금일(또는 예상일) 중 하나는 필수입니다.")
+      return
+    }
+    if(editId) {
+      setCashItems(prev=>prev.map(x=>x.id===editId?{...form,id:editId,updatedAt:new Date().toISOString(),updatedBy:currentUser?.name}:x))
+      setEditId(null)
+    } else {
+      setCashItems(prev=>[...prev,{...form,id:`CI${Date.now()}`,createdAt:new Date().toISOString(),createdBy:currentUser?.name}])
+    }
+    setForm(EMPTY); setShowForm(false)
+  }
+
+  const del = id => { if(window.confirm("삭제하시겠습니까?")) setCashItems(prev=>prev.filter(x=>x.id!==id)) }
+
+  const startEdit = item => {
+    setForm({...EMPTY,...item}); setEditId(item.id); setShowForm(true)
+  }
+
+  // 프로젝트 자동완성
+  const projNames = [...new Set([
+    ...(projects||[]).map(p=>p.name),
+    ...cashItems.map(i=>i.projectName)
+  ])].filter(Boolean)
+
+  // 필터링 & 정렬
+  const filtered = useMemo(()=>{
+    let r = [...cashItems]
+    if(filterDept) r = r.filter(x=>x.dept===filterDept)
+    if(filterType) r = r.filter(x=>x.itemType===filterType)
+    r.sort((a,b)=>{
+      if(sortBy==="date") {
+        const da = a.paidDate||a.expectedDate||""
+        const db = b.paidDate||b.expectedDate||""
+        return db.localeCompare(da)
+      }
+      if(sortBy==="dept")   return (a.dept||"").localeCompare(b.dept||"")
+      if(sortBy==="amount") return (b.amount||0)-(a.amount||0)
+      return 0
+    })
+    return r
+  },[cashItems, filterDept, filterType, sortBy])
+
+  // 월별 그룹
+  const byMonth = useMemo(()=>{
+    const grp = {}
+    filtered.forEach(item=>{
+      const ym = (item.paidDate||item.expectedDate||"미정").slice(0,7)
+      if(!grp[ym]) grp[ym]=[]
+      grp[ym].push(item)
+    })
+    return Object.entries(grp).sort(([a],[b])=>a.localeCompare(b))
+  },[filtered])
+
+  // 본부별 그룹
+  const byDept = useMemo(()=>{
+    const grp = {}
+    filtered.forEach(item=>{
+      const d = item.dept||"미분류"
+      if(!grp[d]) grp[d]=[]
+      grp[d].push(item)
+    })
+    return Object.entries(grp).sort(([a],[b])=>a.localeCompare(b))
+  },[filtered])
+
+  const fAmt = n => n>=1e8 ? `${(n/1e8).toFixed(2)}억` : n>=1e4 ? `${(n/1e4).toFixed(0)}만` : n.toLocaleString()+"원"
+  const fmtDate = s => s ? s.replace(/-/g,".") : "-"
+
+  const ORDER_COLOR = {민간:"#3B72F6", 공공:"#0EA86E"}
+  const TYPE_COLOR  = {신규:"#F59E0B", 기성:"#6B7280", 정산:"#534AB7"}
+
+  const INP = {padding:"8px 11px",border:"1.5px solid #E5E7EB",borderRadius:9,fontSize:13.5,fontFamily:"inherit",outline:"none",width:"100%",boxSizing:"border-box"}
+
+  return (
+    <div>
+      {/* 요약 KPI */}
+      <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:10,marginBottom:14}}>
+        {[
+          ["전체 건수", cashItems.length+"건", "#3B72F6"],
+          ["총 금액",   fAmt(itemTotal), "#1A3B6E"],
+          ["입금 완료", fAmt(itemPaid),  "#0EA86E"],
+          ["입금 예정", fAmt(itemExp),   "#F59E0B"],
+        ].map(([label,val,color])=>(
+          <div key={label} style={{background:"#fff",borderRadius:12,border:"1px solid #E5E7EB",padding:"14px 16px",boxShadow:"0 1px 3px rgba(0,0,0,.04)"}}>
+            <div style={{fontSize:12,color:"#6B7280",fontWeight:600,marginBottom:4}}>{label}</div>
+            <div style={{fontSize:18,fontWeight:800,color}}>{val}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* 툴바 */}
+      <div style={{background:"#fff",borderRadius:12,border:"1px solid #E5E7EB",padding:"12px 16px",marginBottom:14,display:"flex",gap:8,flexWrap:"wrap",alignItems:"center"}}>
+        {/* 뷰 전환 */}
+        <div style={{display:"flex",gap:2,background:"#F3F4F6",borderRadius:8,padding:3}}>
+          {[["list","목록"],["monthly","월별"],["dept","본부별"]].map(([v,l])=>(
+            <button key={v} onClick={()=>setViewMode(v)}
+              style={{padding:"5px 12px",border:"none",borderRadius:6,fontSize:12.5,fontWeight:viewMode===v?700:400,cursor:"pointer",
+                background:viewMode===v?"#fff":"none",color:viewMode===v?"#3B72F6":"#6B7280"}}>
+              {l}
+            </button>
+          ))}
+        </div>
+        {/* 필터 */}
+        <select value={filterDept} onChange={e=>setFilterDept(e.target.value)}
+          style={{...INP,width:120,padding:"6px 10px",fontSize:12.5}}>
+          <option value="">전체 본부</option>
+          {DEPTS.map(d=><option key={d} value={d}>{d}</option>)}
+        </select>
+        <select value={filterType} onChange={e=>setFilterType(e.target.value)}
+          style={{...INP,width:100,padding:"6px 10px",fontSize:12.5}}>
+          <option value="">전체 구분</option>
+          {["신규","기성","정산"].map(t=><option key={t} value={t}>{t}</option>)}
+        </select>
+        {/* 정렬 */}
+        <select value={sortBy} onChange={e=>setSortBy(e.target.value)}
+          style={{...INP,width:100,padding:"6px 10px",fontSize:12.5}}>
+          <option value="date">날짜순</option>
+          <option value="dept">본부순</option>
+          <option value="amount">금액순</option>
+        </select>
+        <span style={{fontSize:12,color:"#9CA3AF"}}>{filtered.length}건</span>
+        <button onClick={()=>{setForm(EMPTY);setEditId(null);setShowForm(v=>!v)}}
+          style={{marginLeft:"auto",padding:"8px 16px",background:"#3B72F6",color:"#fff",border:"none",borderRadius:9,fontSize:13.5,fontWeight:700,cursor:"pointer"}}>
+          {showForm&&!editId?"✕ 닫기":"+ 기성내역 추가"}
+        </button>
+      </div>
+
+      {/* 입력 폼 */}
+      {showForm&&(
+        <div style={{background:"#EEF3FF",borderRadius:14,border:"1.5px solid #3B72F633",padding:"18px 20px",marginBottom:14}}>
+          <div style={{fontSize:15,fontWeight:800,color:"#3B72F6",marginBottom:14}}>
+            {editId?"✏ 기성내역 수정":"+ 기성내역 추가"}
+          </div>
+          <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:10,marginBottom:10}}>
+            <div>
+              <label style={{fontSize:12,fontWeight:700,color:"#6B7280",display:"block",marginBottom:4}}>본부 *</label>
+              <select value={form.dept} onChange={e=>u("dept",e.target.value)} style={INP}>
+                <option value="">선택</option>
+                {DEPTS.map(d=><option key={d} value={d}>{d}</option>)}
+              </select>
+            </div>
+            <div>
+              <label style={{fontSize:12,fontWeight:700,color:"#6B7280",display:"block",marginBottom:4}}>발주구분</label>
+              <select value={form.orderType} onChange={e=>u("orderType",e.target.value)} style={INP}>
+                {["민간","공공","해외"].map(t=><option key={t} value={t}>{t}</option>)}
+              </select>
+            </div>
+            <div>
+              <label style={{fontSize:12,fontWeight:700,color:"#6B7280",display:"block",marginBottom:4}}>구분</label>
+              <select value={form.itemType} onChange={e=>u("itemType",e.target.value)} style={INP}>
+                {["기성","신규","정산","선급금"].map(t=><option key={t} value={t}>{t}</option>)}
+              </select>
+            </div>
+          </div>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:10}}>
+            <div>
+              <label style={{fontSize:12,fontWeight:700,color:"#6B7280",display:"block",marginBottom:4}}>프로젝트명 *</label>
+              <input list="proj-list" value={form.projectName} onChange={e=>u("projectName",e.target.value)}
+                placeholder="프로젝트명 입력 또는 선택" style={INP}/>
+              <datalist id="proj-list">{projNames.map(n=><option key={n} value={n}/>)}</datalist>
+            </div>
+            <div>
+              <label style={{fontSize:12,fontWeight:700,color:"#6B7280",display:"block",marginBottom:4}}>기성단계</label>
+              <input value={form.stage} onChange={e=>u("stage",e.target.value)}
+                placeholder="예: 1차 기성, 준공후, DA건축 정산" style={INP}/>
+            </div>
+          </div>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10,marginBottom:10}}>
+            <div>
+              <label style={{fontSize:12,fontWeight:700,color:"#0EA86E",display:"block",marginBottom:4}}>✅ 입금완료일</label>
+              <input type="date" value={form.paidDate} onChange={e=>u("paidDate",e.target.value)} style={INP}/>
+            </div>
+            <div>
+              <label style={{fontSize:12,fontWeight:700,color:"#F59E0B",display:"block",marginBottom:4}}>📅 입금예상일</label>
+              <input type="date" value={form.expectedDate} onChange={e=>u("expectedDate",e.target.value)} style={INP}/>
+            </div>
+            <div>
+              <label style={{fontSize:12,fontWeight:700,color:"#6B7280",display:"block",marginBottom:4}}>금액 (원) *</label>
+              <input type="number" value={form.amount||""} onChange={e=>u("amount",parseInt(e.target.value)||0)}
+                placeholder="예: 3900000" style={INP}/>
+              {form.amount>0&&<div style={{fontSize:12,color:"#3B72F6",marginTop:3}}>= {fAmt(form.amount)}</div>}
+            </div>
+          </div>
+          <div style={{marginBottom:12}}>
+            <label style={{fontSize:12,fontWeight:700,color:"#6B7280",display:"block",marginBottom:4}}>메모</label>
+            <input value={form.memo} onChange={e=>u("memo",e.target.value)} placeholder="추가 메모" style={INP}/>
+          </div>
+          <div style={{display:"flex",gap:8}}>
+            <button onClick={save} style={{padding:"10px 22px",background:"#3B72F6",color:"#fff",border:"none",borderRadius:10,fontSize:14,fontWeight:700,cursor:"pointer"}}>
+              {editId?"수정 저장":"저장"}
+            </button>
+            <button onClick={()=>{setShowForm(false);setEditId(null);setForm(EMPTY)}}
+              style={{padding:"10px 16px",background:"#F3F4F6",color:"#374151",border:"none",borderRadius:10,fontSize:14,fontWeight:700,cursor:"pointer"}}>취소</button>
+          </div>
+        </div>
+      )}
+
+      {/* ── 목록 뷰 ── */}
+      {viewMode==="list"&&(
+        <div style={{background:"#fff",borderRadius:14,border:"1px solid #E5E7EB",overflow:"hidden"}}>
+          {filtered.length===0
+            ?<div style={{padding:"48px",textAlign:"center",color:"#6B7280"}}>
+                <div style={{fontSize:36,marginBottom:10}}>💧</div>
+                기성내역을 추가해보세요.<br/>
+                <span style={{fontSize:12.5,marginTop:6,display:"block",color:"#9CA3AF"}}>
+                  예시: 설계1본부 / 공공 / 기성 / 우즈베키스탄 제약클러스터 / 1차 감리단계 / 2026-01-06 / 1,000,000원
+                </span>
+              </div>
+            :<table style={{width:"100%",borderCollapse:"collapse"}}>
+              <thead>
+                <tr style={{background:"#F8FAFC"}}>
+                  {["본부","발주","구분","프로젝트명","기성단계","입금완료일","입금예상일","금액",""].map((h,i)=>(
+                    <th key={i} style={{padding:"10px 12px",textAlign:i>=7?"right":"left",fontSize:12.5,fontWeight:700,color:"#6B7280",borderBottom:"2px solid #E5E7EB",whiteSpace:"nowrap"}}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {filtered.map((item,i)=>(
+                  <tr key={item.id} style={{background:i%2===0?"#fff":"#FAFAFA",borderBottom:"1px solid #F3F4F6"}}>
+                    <td style={{padding:"10px 12px",fontSize:13,fontWeight:700,color:"#374151",whiteSpace:"nowrap"}}>{item.dept||"-"}</td>
+                    <td style={{padding:"10px 12px"}}>
+                      <span style={{fontSize:12,padding:"2px 8px",borderRadius:20,background:(ORDER_COLOR[item.orderType]||"#6B7280")+"18",color:ORDER_COLOR[item.orderType]||"#6B7280",fontWeight:700}}>{item.orderType||"-"}</span>
+                    </td>
+                    <td style={{padding:"10px 12px"}}>
+                      <span style={{fontSize:12,padding:"2px 8px",borderRadius:20,background:(TYPE_COLOR[item.itemType]||"#6B7280")+"18",color:TYPE_COLOR[item.itemType]||"#6B7280",fontWeight:700}}>{item.itemType||"-"}</span>
+                    </td>
+                    <td style={{padding:"10px 12px",fontSize:13.5,fontWeight:600,color:"#111827",maxWidth:200,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{item.projectName}</td>
+                    <td style={{padding:"10px 12px",fontSize:12.5,color:"#6B7280",maxWidth:160,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{item.stage||"-"}</td>
+                    <td style={{padding:"10px 12px",fontSize:13,color:"#0EA86E",fontWeight:item.paidDate?700:400}}>
+                      {item.paidDate?<>✅ {fmtDate(item.paidDate)}</>:"-"}
+                    </td>
+                    <td style={{padding:"10px 12px",fontSize:13,color:"#F59E0B",fontWeight:item.expectedDate?600:400}}>
+                      {item.expectedDate?<>📅 {fmtDate(item.expectedDate)}</>:"-"}
+                    </td>
+                    <td style={{padding:"10px 12px",textAlign:"right",fontSize:14,fontWeight:800,color:"#1A3B6E",whiteSpace:"nowrap"}}>{fAmt(item.amount||0)}</td>
+                    <td style={{padding:"10px 8px",whiteSpace:"nowrap"}}>
+                      <div style={{display:"flex",gap:4}}>
+                        <button onClick={()=>startEdit(item)} style={{padding:"4px 9px",background:"#EEF3FF",color:"#3B72F6",border:"none",borderRadius:6,fontSize:12,fontWeight:600,cursor:"pointer"}}>수정</button>
+                        <button onClick={()=>del(item.id)} style={{padding:"4px 9px",background:"#FEE2E2",color:"#EF4444",border:"none",borderRadius:6,fontSize:12,fontWeight:600,cursor:"pointer"}}>삭제</button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+                <tr style={{background:"#EEF3FF"}}>
+                  <td colSpan={7} style={{padding:"11px 12px",fontSize:14,fontWeight:700,color:"#1A3B6E"}}>합계 ({filtered.length}건)</td>
+                  <td style={{padding:"11px 12px",textAlign:"right",fontSize:15,fontWeight:800,color:"#1A3B6E"}}>{fAmt(filtered.reduce((s,x)=>s+(x.amount||0),0))}</td>
+                  <td/>
+                </tr>
+              </tbody>
+            </table>
+          }
+        </div>
+      )}
+
+      {/* ── 월별 뷰 ── */}
+      {viewMode==="monthly"&&(
+        <div>
+          {byMonth.length===0&&<div style={{background:"#fff",borderRadius:14,border:"1px solid #E5E7EB",padding:"48px",textAlign:"center",color:"#6B7280"}}>데이터 없음</div>}
+          {byMonth.map(([ym,items])=>{
+            const monthTotal = items.reduce((s,x)=>s+(x.amount||0),0)
+            const paidItems  = items.filter(x=>x.paidDate)
+            const expItems   = items.filter(x=>!x.paidDate&&x.expectedDate)
+            return (
+              <div key={ym} style={{background:"#fff",borderRadius:14,border:"1px solid #E5E7EB",marginBottom:12,overflow:"hidden"}}>
+                <div style={{background:"#F8FAFC",padding:"12px 18px",borderBottom:"1px solid #E5E7EB",display:"flex",alignItems:"center",gap:12}}>
+                  <div style={{fontSize:15,fontWeight:800,color:"#111827"}}>📆 {ym==="미정"?"날짜 미정":ym.slice(0,4)+"년 "+parseInt(ym.slice(5))+"월"}</div>
+                  <div style={{fontSize:13,color:"#0EA86E",fontWeight:600}}>✅ 완료 {paidItems.length}건</div>
+                  <div style={{fontSize:13,color:"#F59E0B",fontWeight:600}}>📅 예정 {expItems.length}건</div>
+                  <div style={{marginLeft:"auto",fontSize:16,fontWeight:800,color:"#1A3B6E"}}>{fAmt(monthTotal)}</div>
+                </div>
+                <table style={{width:"100%",borderCollapse:"collapse"}}>
+                  <tbody>
+                    {items.map((item,i)=>(
+                      <tr key={item.id} style={{borderBottom:"1px solid #F9FAFB",background:i%2===0?"#fff":"#FAFAFA"}}>
+                        <td style={{padding:"9px 14px",fontSize:12.5,fontWeight:700,color:"#374151",width:120}}>{item.dept||"-"}</td>
+                        <td style={{padding:"9px 10px",width:50}}>
+                          <span style={{fontSize:11,padding:"2px 6px",borderRadius:10,background:(ORDER_COLOR[item.orderType]||"#6B7280")+"18",color:ORDER_COLOR[item.orderType]||"#6B7280",fontWeight:700}}>{item.orderType}</span>
+                        </td>
+                        <td style={{padding:"9px 10px",width:50}}>
+                          <span style={{fontSize:11,padding:"2px 6px",borderRadius:10,background:(TYPE_COLOR[item.itemType]||"#6B7280")+"18",color:TYPE_COLOR[item.itemType]||"#6B7280",fontWeight:700}}>{item.itemType}</span>
+                        </td>
+                        <td style={{padding:"9px 10px",fontSize:13.5,fontWeight:600,color:"#111827"}}>{item.projectName}</td>
+                        <td style={{padding:"9px 10px",fontSize:12.5,color:"#6B7280"}}>{item.stage||""}</td>
+                        <td style={{padding:"9px 10px",fontSize:12.5,color:item.paidDate?"#0EA86E":"#F59E0B",fontWeight:600,whiteSpace:"nowrap"}}>
+                          {item.paidDate?`✅ ${fmtDate(item.paidDate)}`:item.expectedDate?`📅 ${fmtDate(item.expectedDate)}`:"-"}
+                        </td>
+                        <td style={{padding:"9px 14px",textAlign:"right",fontSize:14,fontWeight:800,color:"#1A3B6E",whiteSpace:"nowrap"}}>{fAmt(item.amount||0)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )
+          })}
+        </div>
+      )}
+
+      {/* ── 본부별 뷰 ── */}
+      {viewMode==="dept"&&(
+        <div>
+          {byDept.length===0&&<div style={{background:"#fff",borderRadius:14,border:"1px solid #E5E7EB",padding:"48px",textAlign:"center",color:"#6B7280"}}>데이터 없음</div>}
+          {byDept.map(([dept,items])=>{
+            const deptTotal = items.reduce((s,x)=>s+(x.amount||0),0)
+            const paidAmt   = items.filter(x=>x.paidDate).reduce((s,x)=>s+(x.amount||0),0)
+            const expAmt    = items.filter(x=>!x.paidDate&&x.expectedDate).reduce((s,x)=>s+(x.amount||0),0)
+            return (
+              <div key={dept} style={{background:"#fff",borderRadius:14,border:"1px solid #E5E7EB",marginBottom:12,overflow:"hidden"}}>
+                <div style={{padding:"14px 18px",borderBottom:"2px solid #E5E7EB",display:"flex",alignItems:"center",gap:12,flexWrap:"wrap"}}>
+                  <div style={{fontSize:16,fontWeight:800,color:"#111827",flex:1}}>{dept}</div>
+                  <span style={{fontSize:13,color:"#0EA86E",fontWeight:600}}>✅ {fAmt(paidAmt)}</span>
+                  <span style={{fontSize:13,color:"#F59E0B",fontWeight:600}}>📅 {fAmt(expAmt)}</span>
+                  <span style={{fontSize:16,fontWeight:800,color:"#1A3B6E"}}>합계 {fAmt(deptTotal)}</span>
+                </div>
+                <table style={{width:"100%",borderCollapse:"collapse"}}>
+                  <thead>
+                    <tr style={{background:"#F8FAFC"}}>
+                      {["발주","구분","프로젝트명","기성단계","입금완료일","입금예상일","금액"].map((h,i)=>(
+                        <th key={i} style={{padding:"8px 12px",textAlign:i===6?"right":"left",fontSize:12,fontWeight:700,color:"#6B7280",borderBottom:"1px solid #E5E7EB"}}>{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {items.map((item,i)=>(
+                      <tr key={item.id} style={{borderBottom:"1px solid #F9FAFB",background:i%2===0?"#fff":"#FAFAFA"}}>
+                        <td style={{padding:"9px 12px"}}>
+                          <span style={{fontSize:11.5,padding:"2px 7px",borderRadius:10,background:(ORDER_COLOR[item.orderType]||"#6B7280")+"18",color:ORDER_COLOR[item.orderType]||"#6B7280",fontWeight:700}}>{item.orderType}</span>
+                        </td>
+                        <td style={{padding:"9px 12px"}}>
+                          <span style={{fontSize:11.5,padding:"2px 7px",borderRadius:10,background:(TYPE_COLOR[item.itemType]||"#6B7280")+"18",color:TYPE_COLOR[item.itemType]||"#6B7280",fontWeight:700}}>{item.itemType}</span>
+                        </td>
+                        <td style={{padding:"9px 12px",fontSize:13.5,fontWeight:600,color:"#111827"}}>{item.projectName}</td>
+                        <td style={{padding:"9px 12px",fontSize:12.5,color:"#6B7280"}}>{item.stage||"-"}</td>
+                        <td style={{padding:"9px 12px",fontSize:12.5,color:"#0EA86E",fontWeight:item.paidDate?600:400}}>
+                          {item.paidDate?`✅ ${fmtDate(item.paidDate)}`:"-"}
+                        </td>
+                        <td style={{padding:"9px 12px",fontSize:12.5,color:"#F59E0B",fontWeight:item.expectedDate?600:400}}>
+                          {item.expectedDate?`📅 ${fmtDate(item.expectedDate)}`:"-"}
+                        </td>
+                        <td style={{padding:"9px 14px",textAlign:"right",fontSize:14,fontWeight:800,color:"#1A3B6E",whiteSpace:"nowrap"}}>{fAmt(item.amount||0)}</td>
+                      </tr>
+                    ))}
+                    <tr style={{background:"#EEF3FF"}}>
+                      <td colSpan={6} style={{padding:"10px 12px",fontSize:13.5,fontWeight:700,color:"#1A3B6E"}}>소계</td>
+                      <td style={{padding:"10px 14px",textAlign:"right",fontSize:15,fontWeight:800,color:"#1A3B6E"}}>{fAmt(deptTotal)}</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            )
+          })}
         </div>
       )}
     </div>
