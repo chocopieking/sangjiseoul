@@ -134,7 +134,7 @@ export function BarChart({data=[], children, margin={}, layout="horizontal", bar
           <g key={di}>
             {bars.map((b,bi)=>{
               const val = row[b.dataKey]||0
-              const bh  = Math.abs(val)/maxVal * chartH
+              const bh  = maxVal>0 ? Math.abs(val)/maxVal * chartH : 0
               const bx  = cx - (bars.length*barW)/2 + bi*barW
               const by  = padT + chartH - bh
               return (
@@ -248,7 +248,7 @@ export function ComposedChart({data=[], children, margin={}}) {
   const groupW=data.length>0?chartW/data.length:chartW
   const barW=Math.max(4,Math.min(36,groupW*0.6/Math.max(bars.length,1)))
   const xStep=data.length>1?chartW/(data.length-1):chartW
-  const toY=v=>padT+chartH*(1-Math.abs(v)/maxVal)
+  const toY=v=>padT+chartH*(maxVal>0?1-Math.abs(v)/maxVal:1)
 
   return (
     <svg viewBox={`0 0 ${W} ${H}`} style={{width:"100%",height:"100%"}} preserveAspectRatio="none">
@@ -265,7 +265,7 @@ export function ComposedChart({data=[], children, margin={}}) {
         const cx=padL+groupW*di+groupW/2
         return bars.map((b,bi)=>{
           const val=row[b.dataKey]||0
-          const bh=Math.abs(val)/maxVal*chartH
+          const bh=maxVal>0?Math.abs(val)/maxVal*chartH:0
           const bx=cx-(bars.length*barW)/2+bi*barW
           return <rect key={`${di}-${bi}`} x={bx} y={padT+chartH-bh} width={Math.max(barW-1,2)} height={Math.max(bh,1)} fill={b.fill} rx={2}/>
         })

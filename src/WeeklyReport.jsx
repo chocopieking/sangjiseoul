@@ -47,7 +47,7 @@ export const WEEKLY_REPORT_EMPTY = {
 }
 
 // ─────────────────────────────────────────────────────────────
-export function WeeklyReportTab({proj, setProjects, canWrite}) {
+export function WeeklyReportTab({proj, setProjects, canWrite, currentUser}) {
   const wr = proj.weeklyReport || WEEKLY_REPORT_EMPTY
   const [sub, setSub] = useState("schedule")   // schedule|stages|agenda|contacts
 
@@ -79,7 +79,7 @@ export function WeeklyReportTab({proj, setProjects, canWrite}) {
         ))}
       </div>
 
-      {sub==="schedule" && <ScheduleLogSection wr={wr} save={save} canWrite={canWrite} proj={proj}/>}
+      {sub==="schedule" && <ScheduleLogSection wr={wr} save={save} canWrite={canWrite} proj={proj} currentUser={currentUser}/>}
       {sub==="stages"   && <StagesSection      wr={wr} save={save} canWrite={canWrite} proj={proj}/>}
       {sub==="agenda"   && <AgendaSection      wr={wr} save={save} canWrite={canWrite}/>}
       {sub==="contacts" && <ContactsSection    wr={wr} save={save} canWrite={canWrite}/>}
