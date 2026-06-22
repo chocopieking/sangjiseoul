@@ -676,24 +676,7 @@ export default function App() {
   },[])
 
 
-  if (!initDone || !dbReady) return (
-    <div style={{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:"var(--color-background-tertiary,#f5f5f3)"}}>
-      <div style={{textAlign:"center"}}>
-        <div style={{width:40,height:40,border:`3px solid ${C.navyM}`,borderTop:"3px solid transparent",borderRadius:"50%",animation:"spin 1s linear infinite",margin:"0 auto 14px"}}/>
-        <div style={{fontSize:14,fontWeight:600,color:C.navyM,marginBottom:4}}>
-          {!initDone ? "시스템 초기화 중…" : dbStatus==="connecting" ? "데이터베이스 연결 중…" : "데이터 불러오는 중…"}
-        </div>
-        <div style={{fontSize:12,color:C.gray}}>
-          {USE_DB ? "Supabase DB에서 데이터를 불러옵니다." : "localStorage에서 데이터를 불러옵니다."}
-        </div>
-        <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
-      </div>
-    </div>
-  )
-
-  if (auth==="login") return <LoginScreen {...{loginId,setLoginId,loginPw,setLoginPw,loginError,doLogin,pwVisible,setPwVisible}}/>
-
-  // ── 메뉴 그룹·순서 (localStorage 영속) ──────────────────────
+  // ── 메뉴 그룹·순서 — Hook이므로 반드시 조건부 return 이전에 위치 ──
   const TAB_DEFAULTS = [
     {id:"analysis",  label:"📊 경영분석",    group:"경영"},
     {id:"notice",    label:"📢 공지사항",      group:"경영"},
@@ -713,11 +696,30 @@ export default function App() {
     {id:"manual",    label:"📚 업무매뉴얼",   group:"설정"},
     {id:"auth_mgmt", label:"🔐 권한관리",     group:"설정"},
   ]
-  const [tabOrder,  setTabOrderRaw]  = useState(()=>{ try{ const s=JSON.parse(localStorage.getItem("sjs_tab_order")||"null"); return Array.isArray(s)&&s.length===TAB_DEFAULTS.length?s:TAB_DEFAULTS }catch{ return TAB_DEFAULTS } })
-  const [tabGroups, setTabGroupsRaw] = useState(()=>{ try{ const s=JSON.parse(localStorage.getItem("sjs_tab_groups")||"null"); return Array.isArray(s)&&s.length?s:["경영","프로젝트","관리","분석","설정"] }catch{ return ["경영","프로젝트","관리","분석","설정"] } })
+  const [tabOrder,  setTabOrderRaw]  = useState(()=>{ try{ const s=JSON.parse(localStorage.getItem("sjs_tab_order")||"null"); return Array.isArray(s)&&s.length>0?s:TAB_DEFAULTS }catch{ return TAB_DEFAULTS } })
+  const [tabGroups, setTabGroupsRaw] = useState(()=>{ try{ const s=JSON.parse(localStorage.getItem("sjs_tab_groups")||"null"); return Array.isArray(s)&&s.length>0?s:["경영","프로젝트","관리","분석","설정"] }catch{ return ["경영","프로젝트","관리","분석","설정"] } })
   const [showMenuEdit, setShowMenuEdit] = useState(false)
   const setTabOrder  = v=>{ const n=typeof v==="function"?v(tabOrder):v; try{localStorage.setItem("sjs_tab_order",JSON.stringify(n))}catch{}; setTabOrderRaw(n) }
   const setTabGroups = v=>{ const n=typeof v==="function"?v(tabGroups):v; try{localStorage.setItem("sjs_tab_groups",JSON.stringify(n))}catch{}; setTabGroupsRaw(n) }
+
+    if (!initDone || !dbReady) return (
+    <div style={{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:"var(--color-background-tertiary,#f5f5f3)"}}>
+      <div style={{textAlign:"center"}}>
+        <div style={{width:40,height:40,border:`3px solid ${C.navyM}`,borderTop:"3px solid transparent",borderRadius:"50%",animation:"spin 1s linear infinite",margin:"0 auto 14px"}}/>
+        <div style={{fontSize:14,fontWeight:600,color:C.navyM,marginBottom:4}}>
+          {!initDone ? "시스템 초기화 중…" : dbStatus==="connecting" ? "데이터베이스 연결 중…" : "데이터 불러오는 중…"}
+        </div>
+        <div style={{fontSize:12,color:C.gray}}>
+          {USE_DB ? "Supabase DB에서 데이터를 불러옵니다." : "localStorage에서 데이터를 불러옵니다."}
+        </div>
+        <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
+      </div>
+    </div>
+  )
+
+  if (auth==="login") return <LoginScreen {...{loginId,setLoginId,loginPw,setLoginPw,loginError,doLogin,pwVisible,setPwVisible}}/>
+
+
   const TABS = tabOrder
 
   return (
