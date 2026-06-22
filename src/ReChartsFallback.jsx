@@ -141,8 +141,8 @@ export function BarChart({data=[], children, margin={}, layout="horizontal", bar
                 <g key={bi}>
                   <rect x={bx} y={by} width={Math.max(barW-1,2)} height={Math.max(bh,1)}
                     fill={b.fill} rx={2}/>
-                  {bh > 14 && b.label && (
-                    <text x={bx+(barW-1)/2} y={by-3} textAnchor="middle" fontSize={9} fill={b.fill} fontWeight="bold">
+                  {val!==0 && (
+                    <text x={bx+(barW-1)/2} y={by-3} textAnchor="middle" fontSize={14} fill={b.fill} fontWeight="800">
                       {fmt(val)}
                     </text>
                   )}
