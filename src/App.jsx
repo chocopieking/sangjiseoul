@@ -4404,6 +4404,38 @@ function DeptDashTab({projects, vendorPayments, years}) {
 // 본부, 발주구분, 신규/기성, 프로젝트명, 기성단계, 입금일/예상일, 금액
 // ══════════════════════════════════════════════════════════════
 function CashItemsView({cashItems, setCashItems, projects, DEPTS, currentUser, itemTotal, itemPaid, itemExp, viewMode:extViewMode, isSale=false}) {
+
+  // 기존 잘못 저장된 엑셀 시리얼 날짜 자동 수정
+  const fixSerial = (s) => {
+    if(!s) return s
+    const n = parseInt(String(s))
+    if(!isNaN(n) && n > 40000 && n < 60000) {
+      const d = new Date((n - 25569) * 86400 * 1000)
+      return `${d.getUTCFullYear()}-${String(d.getUTCMonth()+1).padStart(2,"0")}-${String(d.getUTCDate()).padStart(2,"0")}`
+    }
+    return s
+  }
+
+  // 시리얼 날짜가 있으면 자동 수정 (최초 1회)
+  const fixedItems = useMemo(()=>{
+    const needFix = cashItems.some(i=>
+      (i.paidDate && parseInt(i.paidDate) > 40000) ||
+      (i.expectedDate && parseInt(i.expectedDate) > 40000)
+    )
+    if(!needFix) return cashItems
+    return cashItems.map(i=>({
+      ...i,
+      paidDate: fixSerial(i.paidDate),
+      expectedDate: fixSerial(i.expectedDate),
+    }))
+  },[cashItems])
+
+  // 수정된 항목이 있으면 저장
+  if(fixedItems !== cashItems) {
+    setTimeout(()=>setCashItems(fixedItems), 0)
+  }
+
+  const items = fixedItems
   const EMPTY = {
     dept:"", orderType:"민간", itemType:isSale?"세금계산서":"기성",
     projectName:"", stage:"", paidDate:"", expectedDate:"", amount:0, memo:""
@@ -4449,7 +4481,7 @@ function CashItemsView({cashItems, setCashItems, projects, DEPTS, currentUser, i
 
   // 필터링 & 정렬
   const filtered = useMemo(()=>{
-    let r = [...cashItems]
+    let r = [...items]
     if(filterDept) r = r.filter(x=>x.dept===filterDept)
     if(filterType) r = r.filter(x=>x.itemType===filterType)
     r.sort((a,b)=>{
@@ -4469,7 +4501,14 @@ function CashItemsView({cashItems, setCashItems, projects, DEPTS, currentUser, i
   const byMonth = useMemo(()=>{
     const grp = {}
     filtered.forEach(item=>{
-      const ym = (item.paidDate||item.expectedDate||"미정").slice(0,7)
+      let dateStr = item.paidDate||item.expectedDate||"미정"
+      // 엑셀 시리얼 숫자 변환
+      const n = parseInt(dateStr)
+      if(!isNaN(n) && n > 40000 && n < 60000) {
+        const d = new Date((n - 25569) * 86400 * 1000)
+        dateStr = `${d.getUTCFullYear()}-${String(d.getUTCMonth()+1).padStart(2,"0")}-${String(d.getUTCDate()).padStart(2,"0")}`
+      }
+      const ym = dateStr.slice(0,7)
       if(!grp[ym]) grp[ym]=[]
       grp[ym].push(item)
     })
@@ -4488,7 +4527,20 @@ function CashItemsView({cashItems, setCashItems, projects, DEPTS, currentUser, i
   },[filtered])
 
   const fAmt = n => n>=1e8 ? `${(n/1e8).toFixed(2)}억` : n>=1e4 ? `${(n/1e4).toFixed(0)}만` : n.toLocaleString()+"원"
-  const fmtDate = s => s ? s.replace(/-/g,".") : "-"
+  const fmtDate = s => {
+    if(!s) return "-"
+    const str = String(s).trim()
+    // 엑셀 시리얼 숫자인 경우 변환
+    const n = parseInt(str)
+    if(!isNaN(n) && n > 40000 && n < 60000) {
+      const d = new Date((n - 25569) * 86400 * 1000)
+      const yyyy = d.getUTCFullYear()
+      const mm = String(d.getUTCMonth()+1).padStart(2,"0")
+      const dd = String(d.getUTCDate()).padStart(2,"0")
+      return `${yyyy}.${mm}.${dd}`
+    }
+    return str.replace(/-/g, ".")
+  }
 
   const ORDER_COLOR = {민간:"#3B72F6", 공공:"#0EA86E"}
   const TYPE_COLOR  = {신규:"#F59E0B", 기성:"#6B7280", 정산:"#534AB7"}
@@ -4687,7 +4739,7 @@ function CashItemsView({cashItems, setCashItems, projects, DEPTS, currentUser, i
             return (
               <div key={ym} style={{background:"#fff",borderRadius:14,border:"1px solid #E5E7EB",marginBottom:12,overflow:"hidden"}}>
                 <div style={{background:"#F8FAFC",padding:"12px 18px",borderBottom:"1px solid #E5E7EB",display:"flex",alignItems:"center",gap:12}}>
-                  <div style={{fontSize:15,fontWeight:800,color:"#111827"}}>📆 {ym==="미정"?"날짜 미정":ym.slice(0,4)+"년 "+parseInt(ym.slice(5))+"월"}</div>
+                  <div style={{fontSize:15,fontWeight:800,color:"#111827"}}>📆 {ym==="미정"?"날짜 미정":(/^\d{4}-\d{2}$/.test(ym)?ym.slice(0,4)+"년 "+parseInt(ym.slice(5))+"월":ym)}</div>
                   <div style={{fontSize:13,color:"#0EA86E",fontWeight:600}}>✅ 완료 {paidItems.length}건</div>
                   <div style={{fontSize:13,color:"#F59E0B",fontWeight:600}}>📅 예정 {expItems.length}건</div>
                   <div style={{marginLeft:"auto",fontSize:16,fontWeight:800,color:"#1A3B6E"}}>{fAmt(monthTotal)}</div>
@@ -4805,6 +4857,33 @@ function downloadCashTemplate(type="cash") {
 function uploadCashExcel(e, type, cashItems, setCashItems, saleItems, setSaleItems, DEPTS, currentUser) {
   const file = e.target.files?.[0]; if(!file) return
   const isSale = type==="sale"
+
+  // 엑셀 시리얼 날짜 → YYYY-MM-DD 변환
+  const toDateStr = (val) => {
+    if(!val && val!==0) return ""
+    const s = String(val).trim()
+    if(!s) return ""
+    // 이미 YYYY-MM-DD 형식이면 그대로
+    if(/^\d{4}-\d{2}-\d{2}$/.test(s)) return s
+    // YYYY.MM.DD 형식
+    if(/^\d{4}\.\d{2}\.\d{2}$/.test(s)) return s.replace(/\./g, "-")
+    // YYYY/MM/DD 형식
+    if(/^\d{4}\/\d{2}\/\d{2}$/.test(s)) return s.replace(/\//g, "-")
+    // 엑셀 시리얼 숫자 (40000~50000 범위)
+    const n = parseInt(s)
+    if(!isNaN(n) && n > 40000 && n < 60000) {
+      // 엑셀 시리얼: 1900-01-01 = 1 기준
+      const d = new Date((n - 25569) * 86400 * 1000)
+      const yyyy = d.getUTCFullYear()
+      const mm   = String(d.getUTCMonth()+1).padStart(2,"0")
+      const dd   = String(d.getUTCDate()).padStart(2,"0")
+      return `${yyyy}-${mm}-${dd}`
+    }
+    // YYYYMMDD (8자리 숫자)
+    if(/^\d{8}$/.test(s)) return `${s.slice(0,4)}-${s.slice(4,6)}-${s.slice(6,8)}`
+    return s
+  }
+
   const reader = new FileReader()
   reader.onload = ev => {
     try {
@@ -4820,8 +4899,8 @@ function uploadCashExcel(e, type, cashItems, setCashItems, saleItems, setSaleIte
         itemType:    String(r[2]||"기성").trim(),
         projectName: String(r[3]||"").trim(),
         stage:       String(r[4]||"").trim(),
-        paidDate:    String(r[5]||"").trim(),
-        expectedDate:String(r[6]||"").trim(),
+        paidDate:    toDateStr(r[5]),
+        expectedDate:toDateStr(r[6]),
         amount:      parseInt(String(r[7]).replace(/[^0-9]/g,""))||0,
         memo:        String(r[8]||"").trim(),
         createdAt:   new Date().toISOString(),
