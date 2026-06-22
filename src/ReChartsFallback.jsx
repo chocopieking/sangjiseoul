@@ -11,10 +11,12 @@ export const COLORS_DEFAULT = [
 
 // ── 유틸 ────────────────────────────────────────────────────
 const fmt = v => {
-  if(v===undefined||v===null) return ""
-  if(Math.abs(v)>=100) return Math.round(v).toLocaleString()
-  if(Math.abs(v)>=10)  return v.toFixed(1)
-  return v.toFixed(2)
+  if(v===undefined||v===null||v==="") return ""
+  const n = Number(v)
+  if(isNaN(n)) return String(v)
+  if(Math.abs(n)>=100) return Math.round(n).toLocaleString()
+  if(Math.abs(n)>=10)  return n.toFixed(1)
+  return n.toFixed(2)
 }
 
 // ── ResponsiveContainer (단순 width:100% div) ───────────────
@@ -133,7 +135,7 @@ export function BarChart({data=[], children, margin={}, layout="horizontal", bar
         return (
           <g key={di}>
             {bars.map((b,bi)=>{
-              const val = row[b.dataKey]||0
+              const val = Number(row[b.dataKey])||0
               const bh  = maxVal>0 ? Math.abs(val)/maxVal * chartH : 0
               const bx  = cx - (bars.length*barW)/2 + bi*barW
               const by  = padT + chartH - bh
@@ -264,7 +266,7 @@ export function ComposedChart({data=[], children, margin={}}) {
       {data.map((row,di)=>{
         const cx=padL+groupW*di+groupW/2
         return bars.map((b,bi)=>{
-          const val=row[b.dataKey]||0
+          const val=Number(row[b.dataKey])||0
           const bh=maxVal>0?Math.abs(val)/maxVal*chartH:0
           const bx=cx-(bars.length*barW)/2+bi*barW
           return <rect key={`${di}-${bi}`} x={bx} y={padT+chartH-bh} width={Math.max(barW-1,2)} height={Math.max(bh,1)} fill={b.fill} rx={2}/>
