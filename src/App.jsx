@@ -929,7 +929,7 @@ export default function App() {
         {tab==="deptdash"  && <DeptDashTab projects={projects} vendorPayments={vendorPayments} years={years}/>}
         {tab==="analysis"  && canReadTab("analysis")  && <AnalysisTab deptStaff={deptStaff} setDeptStaff={setDeptStaff} years={years} setYears={setYears} canWrite={canWrite&&canWriteTab("analysis")} cashflow={effectiveCashflow} cashItems={cashItems} saleItems={saleItems} projects={projects}/>}
         {tab==="datahub" && canReadTab("datahub") && <DataHubTab currentUser={currentUser} deptStaff={deptStaff} setDeptStaff={setDeptStaff} staffTarget={staffTarget} setStaffTarget={setStaffTarget} staffMonthly={staffMonthly} setStaffMonthly={setStaffMonthly} pnlData={pnlData} setPnlData={setPnlData} cashflow={cashflow} setCashflow={setCashflow} years={years} setYears={setYears} projects={projects} setProjects={setProjects} setTab={setTab} setSelProjId={setSelProjId} setSelVerIdx={setSelVerIdx} setShowNewProj={setShowNewProj} versions={versions} saveVersion={saveVersion} restoreVersion={restoreVersion} deleteVersion={deleteVersion} contractTypes={contractTypes} setContractTypes={setContractTypes} projTypes={projTypes} setProjTypes={setProjTypes} bidTypes={bidTypes} setBidTypes={setBidTypes} allData={null} restoreAllData={(entries)=>dbSetAll(entries, userEmail.current)} dbStatus={dbStatus}/>}
-        {tab==="cashflow" && canReadTab("cashflow") && <CashflowTab cashflow={effectiveCashflow} setCashflow={setCashflow} currentUser={currentUser} projects={projects} setProjects={setProjects} projectCashflowByDept={projectCashflowByDept} cashItems={cashItems} setCashItems={setCashItems} saleItems={saleItems} setSaleItems={setSaleItems} setTab={setTab} setSelProjId={setSelProjId} yearTargets={yearTargets} setYearTargets={setYearTargets} deptBiz={deptBiz}/>}
+        {tab==="cashflow" && canReadTab("cashflow") && <CashflowTab cashflow={effectiveCashflow} setCashflow={setCashflow} currentUser={currentUser} projects={projects} setProjects={setProjects} projectCashflowByDept={projectCashflowByDept} cashItems={cashItems} setCashItems={setCashItems} saleItems={saleItems} setSaleItems={setSaleItems} setTab={setTab} setSelProjId={setSelProjId} yearTargets={yearTargets} setYearTargets={setYearTargets} deptBiz={deptBiz} deptStaff={deptStaff}/>}
         {tab==="projects" && canReadTab("projects") && <ProjectsTab projects={projects} setProjects={setProjects} selProjId={selProjId} setSelProjId={setSelProjId} selVerIdx={selVerIdx} setSelVerIdx={setSelVerIdx} cmpIds={cmpIds} setCmpIds={setCmpIds} showNewVer={showNewVer} setShowNewVer={setShowNewVer} canWrite={canWrite&&canWriteTab("projects")} contractTypes={contractTypes} currentUser={currentUser}/>}
         {tab==="vendors" && canReadTab("vendors") && <VendorsTab projects={projects} setProjects={setProjects} vendorsDB={vendorsDB} setVendorsDB={setVendorsDB} vendorPayments={vendorPayments} setVendorPayments={setVendorPayments} canWrite={canWrite&&canWriteTab("vendors")} currentUser={currentUser} setTab={setTab} setSelProjId={setSelProjId} setSelVerIdx={setSelVerIdx}/>}
         {tab==="pnl"      && canReadTab("pnl")      && <PnlTab pnlData={pnlData} setPnlData={setPnlData} canWrite={canWrite&&canWriteTab("pnl")}/>}
@@ -1165,7 +1165,7 @@ function StackTotalTooltip({active,payload,label}) {
 // ════════════════════════════════════════════════════════════
 // 💧 월수금계획 탭 v3 — 계약현황·매출현황 통합
 // ════════════════════════════════════════════════════════════
-function CashflowTab({cashflow,setCashflow,currentUser,projects,setProjects,projectCashflowByDept,cashItems=[],setCashItems,saleItems=[],setSaleItems,setTab,setSelProjId,yearTargets={},setYearTargets,deptBiz={}}) {
+function CashflowTab({cashflow,setCashflow,currentUser,projects,setProjects,projectCashflowByDept,cashItems=[],setCashItems,saleItems=[],setSaleItems,setTab,setSelProjId,yearTargets={},setYearTargets,deptBiz={},deptStaff={}}) {
   const {DEPTS,DEPT_COLORS} = useDepts()
   const NOW   = new Date()
   const YEAR  = NOW.getFullYear()
@@ -1204,8 +1204,13 @@ function CashflowTab({cashflow,setCashflow,currentUser,projects,setProjects,proj
     const conf  = all.filter(i=>!i.paidDate&&i.expectedDate).reduce((s,i)=>s+(i.amount||0),0)
     // 추진 = itemType이 "추진"인 항목
     const push  = all.filter(i=>i.itemType==="추진").reduce((s,i)=>s+(i.amount||0),0)
-    return {dept, paid, conf, total:paid+conf, push, all, color:DEPT_COLORS[dept]||"#3B72F6"}
-  }),[cashItems,DEPTS,DEPT_COLORS])
+    const staff = (deptStaff[dept]?.total)||1
+    return {dept, paid, conf, total:paid+conf, push, all, color:DEPT_COLORS[dept]||"#3B72F6",
+      staff,
+      perCapitaPaid: paid/staff,        // 현누계 기준 인당
+      perCapitaConf: (paid+conf)/staff, // 기성+확정 기준 인당
+    }
+  }),[cashItems,DEPTS,DEPT_COLORS,deptStaff])
 
   const totalPaid = cashByDept.reduce((s,d)=>s+d.paid,0)
   const totalConf = cashByDept.reduce((s,d)=>s+d.conf,0)
@@ -1505,11 +1510,11 @@ function CashflowTab({cashflow,setCashflow,currentUser,projects,setProjects,proj
               <table style={{width:"100%",borderCollapse:"collapse"}}>
                 <thead>
                   <tr style={{background:"#EEF3FF"}}>
-                    {["구분","현누계(입금완료)","기성+확정","추진","합계(현누계+기성)","합계(추진포함)"].map((h,i)=>(
-                      <th key={i} style={{padding:"11px 14px",textAlign:i===0?"left":"right",fontSize:12.5,fontWeight:700,
-                        color:i===4?"#1A3B6E":i===1?"#0EA86E":i===2?"#3B72F6":i===3?"#F59E0B":"#6B7280",
+                    {["구분","연평균인원","현누계(입금완료)","인당(현누계)","기성+확정","인당(기성+확정)","추진","합계(현누계+기성)","합계(추진포함)"].map((h,i)=>(
+                      <th key={i} style={{padding:"11px 14px",textAlign:i===0?"left":"right",fontSize:12,fontWeight:700,
+                        color:i===2?"#0EA86E":i===3?"#0EA86E":i===4?"#3B72F6":i===5?"#3B72F6":i===6?"#F59E0B":i===7||i===8?"#1A3B6E":"#6B7280",
                         borderBottom:"2px solid #E5E7EB",
-                        background:i===4||i===5?"#DCFCE7":"#EEF3FF",
+                        background:i===7||i===8?"#DCFCE7":i===3||i===5?"#F0FFF4":"#EEF3FF",
                         whiteSpace:"nowrap"}}>{h}</th>
                     ))}
                   </tr>
@@ -1523,13 +1528,20 @@ function CashflowTab({cashflow,setCashflow,currentUser,projects,setProjects,proj
                           <span style={{fontSize:14,fontWeight:700,color:"#111827"}}>{d.dept}</span>
                         </div>
                       </td>
+                      <td style={{padding:"11px 14px",textAlign:"right",fontSize:13,color:"#6B7280",fontWeight:600}}>{d.staff}명</td>
                       <td style={{padding:"11px 14px",textAlign:"right",fontSize:13.5,fontWeight:700,color:"#0EA86E",cursor:"pointer",textDecoration:"underline"}}
                         onClick={()=>setSelDetail({type:"현누계",dept:d.dept,items:d.all.filter(i=>i.paidDate)})}>
                         {d.paid>0?fAmt(d.paid):"-"}
                       </td>
+                      <td style={{padding:"11px 14px",textAlign:"right",fontSize:12.5,fontWeight:600,color:"#0EA86E",background:"#F0FFF4"}}>
+                        {d.perCapitaPaid>=1e8?`${(d.perCapitaPaid/1e8).toFixed(2)}억`:d.perCapitaPaid>=1e4?`${(d.perCapitaPaid/1e4).toFixed(0)}만`:"-"}
+                      </td>
                       <td style={{padding:"11px 14px",textAlign:"right",fontSize:13.5,fontWeight:600,color:"#3B72F6",cursor:"pointer",textDecoration:"underline"}}
                         onClick={()=>setSelDetail({type:"기성+확정",dept:d.dept,items:d.all.filter(i=>i.paidDate||i.expectedDate)})}>
                         {d.total>0?fAmt(d.total):"-"}
+                      </td>
+                      <td style={{padding:"11px 14px",textAlign:"right",fontSize:12.5,fontWeight:600,color:"#3B72F6",background:"#F0FFF4"}}>
+                        {d.perCapitaConf>=1e8?`${(d.perCapitaConf/1e8).toFixed(2)}억`:d.perCapitaConf>=1e4?`${(d.perCapitaConf/1e4).toFixed(0)}만`:"-"}
                       </td>
                       <td style={{padding:"11px 14px",textAlign:"right",fontSize:13,color:"#F59E0B",cursor:"pointer",textDecoration:"underline"}}
                         onClick={()=>setSelDetail({type:"추진",dept:d.dept,items:d.all.filter(i=>i.itemType==="추진")})}>
@@ -1539,14 +1551,29 @@ function CashflowTab({cashflow,setCashflow,currentUser,projects,setProjects,proj
                       <td style={{padding:"11px 14px",textAlign:"right",fontSize:14,fontWeight:800,color:"#1A3B6E",background:"#F0FDF4"}}>{fAmt(d.paid+d.conf+d.push)}</td>
                     </tr>
                   ))}
-                  <tr style={{background:"#DCFCE7",fontWeight:700,borderTop:"2px solid #E5E7EB"}}>
-                    <td style={{padding:"12px 14px",fontSize:14,fontWeight:800,color:"#1A3B6E"}}>합계</td>
-                    <td style={{padding:"12px 14px",textAlign:"right",fontSize:14,fontWeight:800,color:"#0EA86E"}}>{fAmt(totalPaid)}</td>
-                    <td style={{padding:"12px 14px",textAlign:"right",fontSize:14,fontWeight:800,color:"#3B72F6"}}>{fAmt(totalCash)}</td>
-                    <td style={{padding:"12px 14px",textAlign:"right",fontSize:14,fontWeight:700,color:"#F59E0B"}}>{fAmt(totalPush)}</td>
-                    <td style={{padding:"12px 14px",textAlign:"right",fontSize:15,fontWeight:800,color:"#1A3B6E",background:"#BBFCD9"}}>{fAmt(totalPaid+totalConf)}</td>
-                    <td style={{padding:"12px 14px",textAlign:"right",fontSize:15,fontWeight:800,color:"#1A3B6E",background:"#BBFCD9"}}>{fAmt(totalPaid+totalConf+totalPush)}</td>
-                  </tr>
+                  {/* 합계 행 */}
+                  {(()=>{
+                    const totalStaff = cashByDept.reduce((s,d)=>s+d.staff,0)||1
+                    const grandPaid  = totalPaid
+                    const grandConf  = totalPaid+totalConf
+                    return (
+                      <tr style={{background:"#DCFCE7",fontWeight:700,borderTop:"2px solid #E5E7EB"}}>
+                        <td style={{padding:"12px 14px",fontSize:14,fontWeight:800,color:"#1A3B6E"}}>합계</td>
+                        <td style={{padding:"12px 14px",textAlign:"right",fontSize:13,color:"#6B7280",fontWeight:800}}>{totalStaff}명</td>
+                        <td style={{padding:"12px 14px",textAlign:"right",fontSize:14,fontWeight:800,color:"#0EA86E"}}>{fAmt(grandPaid)}</td>
+                        <td style={{padding:"12px 14px",textAlign:"right",fontSize:13,fontWeight:700,color:"#0EA86E",background:"#BBFCD9"}}>
+                          {grandPaid/totalStaff>=1e8?`${(grandPaid/totalStaff/1e8).toFixed(2)}억`:`${(grandPaid/totalStaff/1e4).toFixed(0)}만`}
+                        </td>
+                        <td style={{padding:"12px 14px",textAlign:"right",fontSize:14,fontWeight:800,color:"#3B72F6"}}>{fAmt(totalCash)}</td>
+                        <td style={{padding:"12px 14px",textAlign:"right",fontSize:13,fontWeight:700,color:"#3B72F6",background:"#BBFCD9"}}>
+                          {grandConf/totalStaff>=1e8?`${(grandConf/totalStaff/1e8).toFixed(2)}억`:`${(grandConf/totalStaff/1e4).toFixed(0)}만`}
+                        </td>
+                        <td style={{padding:"12px 14px",textAlign:"right",fontSize:14,fontWeight:700,color:"#F59E0B"}}>{fAmt(totalPush)}</td>
+                        <td style={{padding:"12px 14px",textAlign:"right",fontSize:15,fontWeight:800,color:"#1A3B6E",background:"#BBFCD9"}}>{fAmt(totalPaid+totalConf)}</td>
+                        <td style={{padding:"12px 14px",textAlign:"right",fontSize:15,fontWeight:800,color:"#1A3B6E",background:"#BBFCD9"}}>{fAmt(totalPaid+totalConf+totalPush)}</td>
+                      </tr>
+                    )
+                  })()}
                 </tbody>
               </table>
             </div>
@@ -1772,6 +1799,53 @@ function CashflowTab({cashflow,setCashflow,currentUser,projects,setProjects,proj
             월수금계획에 프로젝트명을 정확히 기재하면 연동됩니다.
           </div>
 
+          {/* 월수금 다이어그램 — 세로바차트 + 파이차트 */}
+          <div style={{display:"grid",gridTemplateColumns:"1fr 280px",gap:14,marginBottom:20}}>
+            {/* 세로 바차트 */}
+            <div style={{background:"#fff",borderRadius:14,border:"1px solid #E5E7EB",padding:"20px 24px"}}>
+              <div style={{fontSize:15,fontWeight:800,color:"#111827",marginBottom:4}}>본부별 계약 현황 (단위: 억원)</div>
+              <div style={{fontSize:12,color:"#6B7280",marginBottom:16}}>클릭 → 해당 항목 상세</div>
+              <div style={{display:"flex",gap:10,alignItems:"flex-end",height:180,borderBottom:"2px solid #E5E7EB",paddingBottom:4}}>
+                {contractByDept.filter(d=>d.won+d.conf+d.push>0).map((d,i)=>{
+                  const maxD=Math.max(...contractByDept.map(x=>x.won+x.conf+x.push),1)
+                  const wonH =Math.round((d.won/maxD)*150)
+                  const confH=Math.round((d.conf/maxD)*150)
+                  const pushH=Math.round((d.push/maxD)*150)
+                  const total=d.won+d.conf+d.push
+                  return (
+                    <div key={d.dept} style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",gap:1,minWidth:0,cursor:"pointer"}}
+                      onClick={()=>setSelDetail({type:"계약전체",dept:d.dept,items:[...d.wonProjs,...d.confProjs,...d.pushProjs].map(p=>({...p,projectName:p.name,amount:p.serviceFee,paidDate:p.contractDate}))})}>
+                      <div style={{fontSize:11,fontWeight:800,color:"#1A3B6E",textAlign:"center",marginBottom:3}}>
+                        {total>=1e8?`${(total/1e8).toFixed(1)}억`:"-"}
+                      </div>
+                      <div style={{width:"70%",display:"flex",flexDirection:"column",borderRadius:"4px 4px 0 0",overflow:"hidden"}}>
+                        {pushH>0&&<div style={{height:pushH,background:"#F59E0B88"}} title="추진"/>}
+                        {confH>0&&<div style={{height:confH,background:"#3B72F6"}} title="확정"/>}
+                        {wonH>0&&<div style={{height:wonH,background:"#0EA86E"}} title="계약(수주)"/>}
+                        {total===0&&<div style={{height:4,background:"#E5E7EB"}}/>}
+                      </div>
+                      <div style={{fontSize:10,color:"#6B7280",marginTop:5,textAlign:"center",maxWidth:"100%",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
+                        {d.dept.replace("본부","").slice(0,4)}
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+              <div style={{display:"flex",gap:14,marginTop:10,fontSize:11.5,color:"#6B7280"}}>
+                <span style={{display:"flex",alignItems:"center",gap:4}}><span style={{width:10,height:10,background:"#0EA86E",borderRadius:2,display:"inline-block"}}/> 계약(수주)</span>
+                <span style={{display:"flex",alignItems:"center",gap:4}}><span style={{width:10,height:10,background:"#3B72F6",borderRadius:2,display:"inline-block"}}/> 확정</span>
+                <span style={{display:"flex",alignItems:"center",gap:4}}><span style={{width:10,height:10,background:"#F59E0B88",borderRadius:2,display:"inline-block"}}/> 추진</span>
+              </div>
+            </div>
+            {/* 파이차트 */}
+            <div style={{background:"#fff",borderRadius:14,border:"1px solid #E5E7EB",padding:"20px 24px"}}>
+              <div style={{fontSize:15,fontWeight:800,color:"#111827",marginBottom:12}}>본부별 계약 비중</div>
+              <SimplePieChart
+                data={contractByDept.filter(d=>d.won+d.conf>0).map(d=>({name:d.dept.replace("본부","").slice(0,4),value:+((d.won+d.conf)/1e8).toFixed(2),color:d.color}))}
+                total={+(totConAll/1e8).toFixed(2)}/>
+            </div>
+          </div>
+
           {/* 본부별 계약현황 테이블 (첨부 이미지 스타일) */}
           <div style={{background:"#fff",borderRadius:14,border:"1px solid #E5E7EB",overflow:"hidden",marginBottom:20}}>
             <div style={{padding:"16px 20px",borderBottom:"1px solid #E5E7EB",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
@@ -1787,11 +1861,11 @@ function CashflowTab({cashflow,setCashflow,currentUser,projects,setProjects,proj
               <table style={{width:"100%",borderCollapse:"collapse",minWidth:800}}>
                 <thead>
                   <tr style={{background:"#F0FDF4"}}>
-                    {["구분","목표","계약(수주)","확정","추진","합계(계약+확정)","실행률","합계(추진포함)","실행률(추진포함)"].map((h,i)=>(
-                      <th key={i} style={{padding:"11px 14px",textAlign:i===0?"left":"right",fontSize:12.5,fontWeight:700,
-                        color:i===5||i===7?"#1A3B6E":i===1?"#EF4444":"#6B7280",
+                    {["구분","목표","계약(수주)","확정","추진","합계(계약+확정)","실행률","인원","인당(계약+확정)","합계(추진포함)","실행률(추진포함)"].map((h,i)=>(
+                      <th key={i} style={{padding:"11px 14px",textAlign:i===0?"left":"right",fontSize:12,fontWeight:700,
+                        color:i===5||i===9?"#1A3B6E":i===1?"#EF4444":i===7?"#6B7280":i===8?"#0EA86E":"#6B7280",
                         borderBottom:"2px solid #E5E7EB",whiteSpace:"nowrap",
-                        background:i===5||i===7?"#DCFCE7":"#F0FDF4"}}>
+                        background:i===5||i===9?"#DCFCE7":i===8?"#F0FFF4":"#F0FDF4"}}>
                         {h}
                       </th>
                     ))}
@@ -1823,6 +1897,12 @@ function CashflowTab({cashflow,setCashflow,currentUser,projects,setProjects,proj
                         <td style={{padding:"11px 14px",textAlign:"right",fontSize:13,fontWeight:700,color:rateMain>=100?"#0EA86E":rateMain>=70?"#F59E0B":"#EF4444"}}>
                           {rateMain!=null?rateMain+"%":"-"}
                         </td>
+                        <td style={{padding:"11px 14px",textAlign:"right",fontSize:12.5,color:"#6B7280",fontWeight:600}}>
+                          {(deptStaff[d.dept]?.total)||0}명
+                        </td>
+                        <td style={{padding:"11px 14px",textAlign:"right",fontSize:12.5,fontWeight:700,color:"#0EA86E",background:"#F0FFF4"}}>
+                          {(()=>{const st=(deptStaff[d.dept]?.total)||1; const v=(d.won+d.conf)/st; return v>=1e8?`${(v/1e8).toFixed(2)}억`:v>=1e4?`${(v/1e4).toFixed(0)}만`:"-"})()}
+                        </td>
                         <td style={{padding:"11px 14px",textAlign:"right",fontSize:14,fontWeight:800,color:"#1A3B6E",background:"#F0FDF4"}}>{fAmt(d.won+d.conf+d.push)}</td>
                         <td style={{padding:"11px 14px",textAlign:"right",fontSize:13,fontWeight:700,color:rateAll>=100?"#0EA86E":rateAll>=70?"#F59E0B":"#EF4444"}}>
                           {rateAll!=null?rateAll+"%":"-"}
@@ -1838,6 +1918,12 @@ function CashflowTab({cashflow,setCashflow,currentUser,projects,setProjects,proj
                     <td style={{padding:"12px 14px",textAlign:"right",fontSize:14,color:"#F59E0B"}}>{fAmt(totPush)}</td>
                     <td style={{padding:"12px 14px",textAlign:"right",fontSize:16,fontWeight:800,color:"#1A3B6E",background:"#BBFCD9"}}>{fAmt(totConAll)}</td>
                     <td style={{padding:"12px 14px",textAlign:"right",fontSize:14,fontWeight:800,color:pct(totConAll,tContract*1e8)>=100?"#0EA86E":"#F59E0B"}}>{pct(totConAll,tContract*1e8)}%</td>
+                    <td style={{padding:"12px 14px",textAlign:"right",fontSize:13,fontWeight:800,color:"#6B7280"}}>
+                      {Object.values(deptStaff).reduce((s,d)=>s+(d.total||0),0)}명
+                    </td>
+                    <td style={{padding:"12px 14px",textAlign:"right",fontSize:13,fontWeight:800,color:"#0EA86E",background:"#BBFCD9"}}>
+                      {(()=>{const ts=Object.values(deptStaff).reduce((s,d)=>s+(d.total||0),1); const v=totConAll/ts; return v>=1e8?`${(v/1e8).toFixed(2)}억`:v>=1e4?`${(v/1e4).toFixed(0)}만`:"-"})()}
+                    </td>
                     <td style={{padding:"12px 14px",textAlign:"right",fontSize:16,fontWeight:800,color:"#1A3B6E",background:"#BBFCD9"}}>{fAmt(totConAll+totPush)}</td>
                     <td style={{padding:"12px 14px",textAlign:"right",fontSize:14,fontWeight:800,color:pct(totConAll+totPush,tContract*1e8)>=100?"#0EA86E":"#F59E0B"}}>{pct(totConAll+totPush,tContract*1e8)}%</td>
                   </tr>
@@ -1902,6 +1988,73 @@ function CashflowTab({cashflow,setCashflow,currentUser,projects,setProjects,proj
               <span style={{background:"rgba(255,255,255,.15)",padding:"4px 12px",borderRadius:20}}>입금 예정 {fAmt(totalConf)}</span>
             </div>
           </div>
+
+          {/* 본부별 지출 표 — 인당 포함 */}
+          <div style={{background:"#fff",borderRadius:14,border:"1px solid #E5E7EB",overflow:"hidden",marginBottom:20}}>
+            <div style={{padding:"14px 20px",borderBottom:"1px solid #E5E7EB",fontSize:15,fontWeight:800,color:"#111827"}}>본부별 기성 지급 현황 (단위: 억원)</div>
+            <div style={{overflowX:"auto"}}>
+              <table style={{width:"100%",borderCollapse:"collapse"}}>
+                <thead>
+                  <tr style={{background:"#FEE2E2"}}>
+                    {["본부","건수","인원","입금 완료","인당(완료)","입금 예정","합계","비율"].map((h,i)=>(
+                      <th key={i} style={{padding:"10px 14px",textAlign:i===0?"left":"right",fontSize:12.5,fontWeight:700,
+                        color:i===3?"#0EA86E":i===4?"#0EA86E":i===5?"#F59E0B":"#6B7280",
+                        borderBottom:"2px solid #E5E7EB",
+                        background:i===4?"#E6F9F2":"#FEE2E2"}}>{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {cashByDept.map((d,i)=>{
+                    const pctD = totalPaid+totalConf>0?Math.round(d.total/(totalPaid+totalConf)*100):0
+                    const staff2= (deptStaff[d.dept]?.total)||1
+                    const perCap= d.paid/staff2
+                    return (
+                      <tr key={d.dept} style={{background:i%2===0?"#fff":"#FAFAFA",borderBottom:"1px solid #F3F4F6"}}>
+                        <td style={{padding:"11px 14px"}}>
+                          <div style={{display:"flex",alignItems:"center",gap:8}}>
+                            <div style={{width:10,height:10,borderRadius:"50%",background:d.color}}/>
+                            <span style={{fontSize:14,fontWeight:700,color:"#111827"}}>{d.dept}</span>
+                          </div>
+                        </td>
+                        <td style={{padding:"11px 14px",textAlign:"right",fontSize:13,color:"#6B7280"}}>{d.all.length}건</td>
+                        <td style={{padding:"11px 14px",textAlign:"right",fontSize:13,color:"#6B7280",fontWeight:600}}>{staff2}명</td>
+                        <td style={{padding:"11px 14px",textAlign:"right",fontSize:13.5,fontWeight:700,color:"#0EA86E"}}>{d.paid>0?fAmt(d.paid):"-"}</td>
+                        <td style={{padding:"11px 14px",textAlign:"right",fontSize:12.5,fontWeight:600,color:"#0EA86E",background:"#E6F9F2"}}>
+                          {perCap>=1e8?`${(perCap/1e8).toFixed(2)}억`:perCap>=1e4?`${(perCap/1e4).toFixed(0)}만`:"-"}
+                        </td>
+                        <td style={{padding:"11px 14px",textAlign:"right",fontSize:13,color:"#F59E0B"}}>{d.conf>0?fAmt(d.conf):"-"}</td>
+                        <td style={{padding:"11px 14px",textAlign:"right",fontSize:14,fontWeight:800,color:"#1A3B6E"}}>{d.total>0?fAmt(d.total):"-"}</td>
+                        <td style={{padding:"11px 14px",textAlign:"right"}}>
+                          <div style={{display:"flex",alignItems:"center",gap:8,justifyContent:"flex-end"}}>
+                            <div style={{width:60,height:8,background:"#E5E7EB",borderRadius:4,overflow:"hidden"}}>
+                              <div style={{height:"100%",background:d.color,borderRadius:4,width:`${pctD}%`}}/>
+                            </div>
+                            <span style={{fontSize:12,fontWeight:600,color:"#374151"}}>{pctD}%</span>
+                          </div>
+                        </td>
+                      </tr>
+                    )
+                  })}
+                  <tr style={{background:"#FEE2E2",fontWeight:700,borderTop:"2px solid #E5E7EB"}}>
+                    <td style={{padding:"11px 14px",fontSize:14,color:"#1A3B6E"}}>합계</td>
+                    <td style={{padding:"11px 14px",textAlign:"right",fontSize:13}}>{cashItems.length}건</td>
+                    <td style={{padding:"11px 14px",textAlign:"right",fontSize:13,fontWeight:800}}>
+                      {Object.values(deptStaff).reduce((s,d)=>s+(d.total||0),0)}명
+                    </td>
+                    <td style={{padding:"11px 14px",textAlign:"right",fontSize:14,fontWeight:800,color:"#0EA86E"}}>{fAmt(totalPaid)}</td>
+                    <td style={{padding:"11px 14px",textAlign:"right",fontSize:13,fontWeight:800,color:"#0EA86E",background:"#E6F9F2"}}>
+                      {(()=>{const ts=Object.values(deptStaff).reduce((s,d)=>s+(d.total||0),1);const v=totalPaid/ts;return v>=1e8?`${(v/1e8).toFixed(2)}억`:v>=1e4?`${(v/1e4).toFixed(0)}만`:"-"})()}
+                    </td>
+                    <td style={{padding:"11px 14px",textAlign:"right",fontSize:14,fontWeight:800,color:"#F59E0B"}}>{fAmt(totalConf)}</td>
+                    <td style={{padding:"11px 14px",textAlign:"right",fontSize:15,fontWeight:800,color:"#1A3B6E"}}>{fAmt(totalPaid+totalConf)}</td>
+                    <td style={{padding:"11px 14px",textAlign:"right",fontSize:13,color:"#374151"}}>100%</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
           <CashItemsView cashItems={cashItems} setCashItems={setCashItems} projects={projects} setProjects={setProjects}
             DEPTS={DEPTS} currentUser={currentUser} itemTotal={totalPaid} itemPaid={totalPaid} itemExp={totalConf}
             viewMode="list" setTab={setTab} setSelProjId={setSelProjId}/>
