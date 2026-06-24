@@ -737,7 +737,6 @@ export default function App() {
     {id:"stats",     label:"📈 사용 통계",     group:"경영"},
     {id:"gamify",    label:"🎮 포인트·랭킹",   group:"경영"},
     {id:"deptdash",  label:"🏢 본부별 현황",  group:"경영"},
-    {id:"cashflow",  label:"💧 월수금계획",   group:"경영"},
     {id:"projects",  label:"🏗 프로젝트",     group:"프로젝트"},
     {id:"history",   label:"📜 히스토리",     group:"프로젝트"},
     {id:"calendar",  label:"📅 일정 캘린더",  group:"프로젝트"},
@@ -3478,7 +3477,6 @@ function AuthTab({users,saveUsers,currentUser,hashPw}) {
   const TAB_PERM_LIST = [
     {id:"analysis",   label:"📊 경영분석"},
     {id:"deptdash",   label:"🏢 본부별 현황"},
-    {id:"cashflow",   label:"💧 월수금계획"},
     {id:"projects",   label:"🏗 프로젝트"},
     {id:"history",    label:"📜 히스토리"},
     {id:"calendar",   label:"📅 캘린더"},
@@ -6654,9 +6652,7 @@ function AnalysisHub({deptStaff,setDeptStaff,years,setYears,canWrite,isAdmin,cas
 
   const SUBS = [
     {id:"dashboard", label:"📊 경영 대시보드"},
-    {id:"cash",      label:"💧 월수금 현황"},
-    {id:"contract",  label:"📝 계약 현황"},
-    {id:"expense",   label:"💸 지출 현황"},
+    {id:"cash",      label:"💧 월수금현황"},
     {id:"staff",     label:"👥 인원 현황"},
   ]
 
@@ -6677,11 +6673,7 @@ function AnalysisHub({deptStaff,setDeptStaff,years,setYears,canWrite,isAdmin,cas
 
       {subTab==="cash" && <CashflowTab cashflow={cashflow} setCashflow={()=>{}} currentUser={currentUser} projects={projects} setProjects={setProjects} projectCashflowByDept={{}} cashItems={cashItems} setCashItems={()=>{}} saleItems={saleItems} setSaleItems={()=>{}} setTab={setTab} setSelProjId={setSelProjId} yearTargets={yearTargets} setYearTargets={isAdmin?setYearTargets:undefined} deptBiz={deptBiz} deptStaff={deptStaff} staffMonthly={staffMonthly} staffTarget={staffTarget}/>}
 
-      {subTab==="contract" && <CashflowTab cashflow={cashflow} setCashflow={()=>{}} currentUser={currentUser} projects={projects} setProjects={setProjects} projectCashflowByDept={{}} cashItems={cashItems} setCashItems={()=>{}} saleItems={saleItems} setSaleItems={()=>{}} setTab={setTab} setSelProjId={setSelProjId} yearTargets={yearTargets} setYearTargets={isAdmin?setYearTargets:undefined} deptBiz={deptBiz} deptStaff={deptStaff} staffMonthly={staffMonthly} staffTarget={staffTarget} initTab="contract"/>}
-
-      {subTab==="expense" && <CashflowTab cashflow={cashflow} setCashflow={()=>{}} currentUser={currentUser} projects={projects} setProjects={setProjects} projectCashflowByDept={{}} cashItems={cashItems} setCashItems={()=>{}} saleItems={saleItems} setSaleItems={()=>{}} setTab={setTab} setSelProjId={setSelProjId} yearTargets={yearTargets} setYearTargets={isAdmin?setYearTargets:undefined} deptBiz={deptBiz} deptStaff={deptStaff} staffMonthly={staffMonthly} staffTarget={staffTarget} initTab="expense"/>}
-
-      {subTab==="staff" && <StaffStatusPanel DEPTS={DEPTS} DEPT_COLORS={DEPT_COLORS} deptStaff={deptStaff} staffMonthly={staffMonthly} staffTarget={staffTarget}/>}
+      {subTab==="staff" && <StaffStatusPanel DEPT_COLORS={DEPT_COLORS} deptStaff={deptStaff} staffMonthly={staffMonthly} staffTarget={staffTarget}/>}
     </div>
   )
 }
@@ -6689,12 +6681,13 @@ function AnalysisHub({deptStaff,setDeptStaff,years,setYears,canWrite,isAdmin,cas
 // ══════════════════════════════════════════════════════════════
 // 👥 인원 현황 패널
 // ══════════════════════════════════════════════════════════════
-function StaffStatusPanel({DEPTS, DEPT_COLORS, deptStaff={}, staffMonthly={}, staffTarget={}}) {
+function StaffStatusPanel({DEPT_COLORS, deptStaff={}, staffMonthly={}, staffTarget={}}) {
+  const {STAFF_DEPTS} = useDepts()
   const NOW = new Date(); const YEAR = NOW.getFullYear(); const YR = String(YEAR)
   const MONTHS = ["1월","2월","3월","4월","5월","6월","7월","8월","9월","10월","11월","12월"]
   const num = v => Number.isFinite(+v)?+v:0
 
-  const rows = DEPTS.map(dept=>{
+  const rows = STAFF_DEPTS.map(dept=>{
     const monthly = staffMonthly?.[dept]?.[YR] || Array(12).fill(0)
     const target  = num(staffTarget?.[dept]?.[YR])||0
     const filled  = monthly.filter(v=>num(v)>0)
