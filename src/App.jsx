@@ -1188,6 +1188,8 @@ function CashflowTab({cashflow,setCashflow,currentUser,projects,setProjects,proj
   const [editTargets, setEditTargets] = useState(false)
   const [targetDraft, setTargetDraft] = useState({})
 
+  const isAdmin = currentUser?.role==="admin"
+
   const targets   = yearTargets[YEAR] || {salesTarget:145, contractTarget:170}
   const tSales    = targets.salesTarget    || 145
   const tContract = targets.contractTarget || 170
