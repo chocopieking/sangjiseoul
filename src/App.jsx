@@ -5348,6 +5348,7 @@ function CashItemsView({cashItems, setCashItems, projects, setProjects, DEPTS, c
   const [filterType, setFilterType] = useState("")
   const [sortBy, setSortBy]   = useState("date")  // date | dept | amount | project
   const [viewMode, setViewMode] = useState("list") // list | monthly | dept | annual
+  const [showBulk, setShowBulk] = useState(false)
 
   const effView = extViewMode==="monthly"?"monthly" : extViewMode==="dept"?"dept" : viewMode
 
@@ -5533,10 +5534,30 @@ function CashItemsView({cashItems, setCashItems, projects, setProjects, DEPTS, c
           style={{marginLeft:"auto",padding:"8px 16px",background:isSale?"#059669":"#6366F1",color:"#fff",border:"none",borderRadius:9,fontSize:13.5,fontWeight:700,cursor:"pointer"}}>
           {showForm&&!editId?"✕ 닫기":"+ "+(isSale?"매출내역":"기성내역")+" 추가"}
         </button>
+        {!isSale&&<button onClick={()=>setShowBulk(v=>!v)}
+          style={{padding:"8px 14px",background:showBulk?"#374151":"#1E293B",color:"#fff",border:"none",borderRadius:9,fontSize:13,fontWeight:700,cursor:"pointer"}}>
+          📋 {showBulk?"대량입력 닫기":"대량입력"}
+        </button>}
       </div>
 
-      {/* 입력 폼 */}
-      {showForm&&(
+      {/* 대량 입력 도구 */}
+      {showBulk&&!isSale&&(
+        <BulkInputTool
+          DEPTS={DEPTS}
+          projects={projects}
+          onSave={newRows=>{
+            const now = new Date().toISOString()
+            setCashItems(prev=>[...prev,...newRows.map(r=>({
+              ...r,
+              id:`CI${Date.now()}_${Math.random().toString(36).slice(2,6)}`,
+              createdAt:now,
+              createdBy:currentUser?.name||"",
+            }))])
+            setShowBulk(false)
+          }}
+          onClose={()=>setShowBulk(false)}
+        />
+      )}
         <div style={{background:"#EEF2FF",borderRadius:14,border:"1.5px solid #6366F133",padding:"18px 20px",marginBottom:14}}>
           <div style={{fontSize:15,fontWeight:800,color:"#6366F1",marginBottom:14}}>{editId?"✏ 수정":"+ 추가"}</div>
           <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:10,marginBottom:10}}>
@@ -7222,4 +7243,240 @@ function downloadCashDataExcel(cashItems=[], label="월수금계획") {
   const wb = XLSX.utils.book_new()
   XLSX.utils.book_append_sheet(wb, ws, label)
   XLSX.writeFile(wb, `상지서울_${label}_${new Date().toISOString().slice(0,10)}.xlsx`)
+}
+
+// ══════════════════════════════════════════════════════════════
+// 📋 대량 입력 도구 — 스프레드시트 형식으로 여러 행 한번에 입력
+// ══════════════════════════════════════════════════════════════
+function BulkInputTool({DEPTS, projects, onSave, onClose}) {
+  const EMPTY_ROW = () => ({dept:"", orderType:"민간", itemType:"기성", projectName:"", stage:"", paidDate:"", expectedDate:"", amount:"", memo:""})
+  const INIT_ROWS = 10
+
+  const [rows, setRows] = useState(()=>Array.from({length:INIT_ROWS}, EMPTY_ROW))
+  const [errors, setErrors] = useState({})
+  const [pasteMsg, setPasteMsg] = useState("")
+
+  const projNames = [...new Set([...(projects||[]).map(p=>p.name)])].filter(Boolean)
+  const u = (ri, key, val) => setRows(prev=>prev.map((r,i)=>i===ri?{...r,[key]:val}:r))
+
+  // 행 추가/삭제
+  const addRow  = () => setRows(p=>[...p, EMPTY_ROW()])
+  const delRow  = ri => setRows(p=>p.filter((_,i)=>i!==ri))
+  const addRows = n => setRows(p=>[...p,...Array.from({length:n},EMPTY_ROW)])
+
+  // 붙여넣기 처리 (엑셀 복사→붙여넣기)
+  const handlePaste = (e, startRow, startCol) => {
+    const text = e.clipboardData.getData('text')
+    if(!text.includes('\t') && !text.includes('\n')) return
+    e.preventDefault()
+
+    const COLS = ['dept','orderType','itemType','projectName','stage','paidDate','expectedDate','amount','memo']
+    const pastedRows = text.trim().split('\n').map(line=>line.split('\t'))
+
+    setRows(prev => {
+      const next = [...prev]
+      pastedRows.forEach((cells, ri) => {
+        const targetRow = startRow + ri
+        // 행이 부족하면 자동 추가
+        while(next.length <= targetRow) next.push(EMPTY_ROW())
+        cells.forEach((cell, ci) => {
+          const colIdx = startCol + ci
+          if(colIdx < COLS.length) {
+            const key = COLS[colIdx]
+            let val = cell.trim()
+            // 금액 컬럼: 쉼표 제거
+            if(key==='amount') val = val.replace(/[,원억만]/g,'')
+            next[targetRow] = {...next[targetRow], [key]: val}
+          }
+        })
+      })
+      return next
+    })
+    setPasteMsg(`✓ ${pastedRows.length}행 붙여넣기 완료`)
+    setTimeout(()=>setPasteMsg(""), 2000)
+  }
+
+  // 저장
+  const handleSave = () => {
+    const errs = {}
+    const valid = rows.filter((r,ri) => {
+      if(!r.projectName?.trim() && !r.dept?.trim()) return false // 완전 빈 행 제외
+      if(!r.projectName?.trim()) { errs[`${ri}_proj`] = true; return false }
+      if(!r.paidDate && !r.expectedDate) { errs[`${ri}_date`] = true; return false }
+      if(!r.amount || parseInt(r.amount)<=0) { errs[`${ri}_amt`] = true; return false }
+      return true
+    }).map(r=>({
+      ...r,
+      amount: parseInt(String(r.amount).replace(/[^0-9]/g,''))||0,
+    }))
+
+    if(Object.keys(errs).length > 0) {
+      setErrors(errs)
+      alert(`⚠ ${Object.keys(errs).length}개 필드를 확인하세요.\n• 프로젝트명 필수\n• 입금완료일 또는 입금예상일 중 1개 필수\n• 금액 필수`)
+      return
+    }
+    if(valid.length===0) { alert("입력된 데이터가 없습니다."); return }
+    if(window.confirm(`${valid.length}건을 저장하시겠습니까?`)) onSave(valid)
+  }
+
+  const INP = (err) => ({
+    padding:"5px 7px", border:`1.5px solid ${err?"#DC2626":"#E5E7EB"}`,
+    borderRadius:6, fontSize:12.5, fontFamily:"inherit", outline:"none",
+    width:"100%", boxSizing:"border-box", background: err?"#FEF2F2":"#fff"
+  })
+
+  const fPreview = n => {
+    const num = parseInt(String(n).replace(/[^0-9]/g,''))
+    if(!num) return ""
+    if(num>=1e8) return `${(num/1e8).toFixed(2)}억`
+    if(num>=1e4) return `${Math.round(num/1e4)}만`
+    return num.toLocaleString()+"원"
+  }
+
+  return (
+    <div style={{background:"#1E293B",borderRadius:14,padding:"18px 20px",marginBottom:14,color:"#fff"}}>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}>
+        <div>
+          <div style={{fontSize:16,fontWeight:800,marginBottom:4}}>📋 대량 입력 도구</div>
+          <div style={{fontSize:12,color:"#94A3B8",lineHeight:1.6}}>
+            엑셀에서 셀을 복사(Ctrl+C) 후 아래 표의 셀을 클릭하고 붙여넣기(Ctrl+V)하면 한번에 입력됩니다.
+            컬럼 순서: 본부 → 발주구분 → 구분 → 프로젝트명 → 기성단계 → 입금완료일 → 입금예상일 → 금액 → 메모
+          </div>
+        </div>
+        <button onClick={onClose} style={{padding:"6px 12px",background:"#374151",color:"#fff",border:"none",borderRadius:8,fontSize:13,cursor:"pointer"}}>✕ 닫기</button>
+      </div>
+
+      {pasteMsg&&<div style={{background:"#059669",color:"#fff",padding:"8px 14px",borderRadius:8,marginBottom:10,fontSize:13,fontWeight:700}}>{pasteMsg}</div>}
+
+      <div style={{overflowX:"auto"}}>
+        <table style={{width:"100%",borderCollapse:"collapse",minWidth:1100}}>
+          <thead>
+            <tr style={{background:"#334155"}}>
+              {[["#","32px"],["본부","100px"],["발주","70px"],["구분","70px"],["프로젝트명","220px"],["기성단계","120px"],["입금완료일","120px"],["입금예상일","120px"],["금액(원)","130px"],["미리보기","80px"],["메모","120px"],["삭제","40px"]].map(([h,w])=>(
+                <th key={h} style={{padding:"8px 6px",textAlign:"center",fontSize:11.5,fontWeight:700,color:"#94A3B8",borderBottom:"2px solid #475569",minWidth:w,width:w,whiteSpace:"nowrap"}}>{h}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((row,ri)=>(
+              <tr key={ri} style={{background:ri%2===0?"#1E293B":"#263347",borderBottom:"1px solid #334155"}}>
+                <td style={{padding:"4px 6px",textAlign:"center",fontSize:12,color:"#64748B",fontWeight:600}}>{ri+1}</td>
+
+                {/* 본부 */}
+                <td style={{padding:"3px 4px"}}>
+                  <select value={row.dept} onChange={e=>u(ri,"dept",e.target.value)}
+                    onPaste={e=>handlePaste(e,ri,0)}
+                    style={{...INP(errors[`${ri}_dept`]),fontSize:12,padding:"5px 4px"}}>
+                    <option value="">선택</option>
+                    {DEPTS.map(d=><option key={d} value={d}>{d.replace("본부","")}</option>)}
+                  </select>
+                </td>
+
+                {/* 발주구분 */}
+                <td style={{padding:"3px 4px"}}>
+                  <select value={row.orderType} onChange={e=>u(ri,"orderType",e.target.value)}
+                    style={{...INP(),fontSize:12,padding:"5px 4px"}}>
+                    {["민간","공공","해외"].map(t=><option key={t} value={t}>{t}</option>)}
+                  </select>
+                </td>
+
+                {/* 구분 */}
+                <td style={{padding:"3px 4px"}}>
+                  <select value={row.itemType} onChange={e=>u(ri,"itemType",e.target.value)}
+                    style={{...INP(),fontSize:12,padding:"5px 4px"}}>
+                    {["기성","확정","추진","미정","신규","정산"].map(t=><option key={t} value={t}>{t}</option>)}
+                  </select>
+                </td>
+
+                {/* 프로젝트명 */}
+                <td style={{padding:"3px 4px"}}>
+                  <input
+                    list={`proj-bulk-${ri}`}
+                    value={row.projectName}
+                    onChange={e=>u(ri,"projectName",e.target.value)}
+                    onPaste={e=>handlePaste(e,ri,3)}
+                    placeholder="프로젝트명"
+                    style={{...INP(errors[`${ri}_proj`]),fontSize:12}}
+                  />
+                  <datalist id={`proj-bulk-${ri}`}>{projNames.map(n=><option key={n} value={n}/>)}</datalist>
+                </td>
+
+                {/* 기성단계 */}
+                <td style={{padding:"3px 4px"}}>
+                  <input value={row.stage} onChange={e=>u(ri,"stage",e.target.value)}
+                    onPaste={e=>handlePaste(e,ri,4)}
+                    placeholder="1차기성" style={{...INP(),fontSize:12}}/>
+                </td>
+
+                {/* 입금완료일 */}
+                <td style={{padding:"3px 4px"}}>
+                  <input type="date" value={row.paidDate} onChange={e=>u(ri,"paidDate",e.target.value)}
+                    style={{...INP(errors[`${ri}_date`]&&!row.paidDate&&!row.expectedDate),fontSize:12,colorScheme:"dark"}}/>
+                </td>
+
+                {/* 입금예상일 */}
+                <td style={{padding:"3px 4px"}}>
+                  <input type="date" value={row.expectedDate} onChange={e=>u(ri,"expectedDate",e.target.value)}
+                    style={{...INP(errors[`${ri}_date`]&&!row.paidDate&&!row.expectedDate),fontSize:12,colorScheme:"dark"}}/>
+                </td>
+
+                {/* 금액 */}
+                <td style={{padding:"3px 4px"}}>
+                  <input type="text" inputMode="numeric"
+                    value={row.amount}
+                    onChange={e=>u(ri,"amount",e.target.value.replace(/[^0-9]/g,''))}
+                    onPaste={e=>handlePaste(e,ri,7)}
+                    placeholder="원 단위"
+                    style={{...INP(errors[`${ri}_amt`]),fontSize:12}}/>
+                </td>
+
+                {/* 미리보기 */}
+                <td style={{padding:"3px 6px",textAlign:"right",fontSize:12,color:"#34D399",fontWeight:600,whiteSpace:"nowrap"}}>
+                  {fPreview(row.amount)}
+                </td>
+
+                {/* 메모 */}
+                <td style={{padding:"3px 4px"}}>
+                  <input value={row.memo} onChange={e=>u(ri,"memo",e.target.value)}
+                    placeholder="메모" style={{...INP(),fontSize:12}}/>
+                </td>
+
+                {/* 삭제 */}
+                <td style={{padding:"3px 4px",textAlign:"center"}}>
+                  <button onClick={()=>delRow(ri)}
+                    style={{padding:"3px 7px",background:"#DC2626",color:"#fff",border:"none",borderRadius:5,fontSize:12,cursor:"pointer"}}>✕</button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      {/* 하단 버튼 */}
+      <div style={{display:"flex",gap:8,marginTop:12,alignItems:"center",flexWrap:"wrap"}}>
+        <button onClick={addRow} style={{padding:"7px 14px",background:"#334155",color:"#fff",border:"none",borderRadius:8,fontSize:13,cursor:"pointer"}}>+ 행 추가</button>
+        <button onClick={()=>addRows(10)} style={{padding:"7px 14px",background:"#334155",color:"#fff",border:"none",borderRadius:8,fontSize:13,cursor:"pointer"}}>+ 10행</button>
+        <button onClick={()=>setRows(Array.from({length:INIT_ROWS},EMPTY_ROW))} style={{padding:"7px 14px",background:"#475569",color:"#fff",border:"none",borderRadius:8,fontSize:13,cursor:"pointer"}}>🔄 초기화</button>
+        <div style={{marginLeft:"auto",display:"flex",gap:8}}>
+          <div style={{fontSize:12,color:"#94A3B8",alignSelf:"center"}}>
+            {rows.filter(r=>r.projectName?.trim()).length}행 입력됨
+          </div>
+          <button onClick={handleSave}
+            style={{padding:"10px 24px",background:"#6366F1",color:"#fff",border:"none",borderRadius:10,fontSize:14,fontWeight:800,cursor:"pointer"}}>
+            💾 저장
+          </button>
+        </div>
+      </div>
+
+      {/* 입력 가이드 */}
+      <div style={{marginTop:12,padding:"10px 14px",background:"#0F172A",borderRadius:10,fontSize:12,color:"#64748B",lineHeight:1.8}}>
+        <strong style={{color:"#94A3B8"}}>💡 사용 팁</strong><br/>
+        • 엑셀에서 데이터를 복사 후 <strong style={{color:"#C4B5FD"}}>첫 번째 셀 클릭 → Ctrl+V</strong> 로 한번에 붙여넣기<br/>
+        • 날짜는 <strong style={{color:"#C4B5FD"}}>YYYY-MM-DD</strong> 형식으로 입력 (또는 달력 선택)<br/>
+        • 금액은 <strong style={{color:"#34D399"}}>원 단위</strong> 숫자만 입력 (쉼표 자동 제거)<br/>
+        • 입금완료일 = 이미 받은 금액 / 입금예상일 = 앞으로 받을 금액<br/>
+        • 구분: 기성(완료됨), 확정(예정), 추진(추진중), 미정(불확실)
+      </div>
+    </div>
+  )
 }
