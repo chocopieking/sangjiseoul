@@ -5951,10 +5951,14 @@ function uploadCashExcel(e, type, cashItems, setCashItems, saleItems, setSaleIte
       if(newItems.length===0){alert("입력된 데이터가 없습니다.\n프로젝트명 컬럼이 있는 행부터 입력하세요.");return}
 
       // 중복 처리: ID가 있으면 ID 기준 업데이트, 없으면 내용 기준 중복 체크
+      // makeKey에 날짜 포함 → 같은 프로젝트도 입금예상일이 다르면 별개 항목
       const existList = isSale?saleItems:cashItems
-      const makeKey   = item => `${item.dept}|${item.projectName}|${item.stage}|${item.amount}`
-      const existById = new Set(existList.map(x=>x.id).filter(Boolean))
-      const existByKey= new Set(existList.map(makeKey))
+      const makeKey = item => {
+        const date = item.paidDate||item.expectedDate||""
+        return `${item.dept}|${item.projectName}|${item.stage}|${item.amount}|${date.slice(0,7)}`
+      }
+      const existById  = new Set(existList.map(x=>x.id).filter(Boolean))
+      const existByKey = new Set(existList.map(makeKey))
 
       const updateItems = newItems.filter(x=>existById.has(x.id))
       const dupByKey    = newItems.filter(x=>!existById.has(x.id)&&existByKey.has(makeKey(x)))
@@ -6002,12 +6006,14 @@ function uploadCashExcel(e, type, cashItems, setCashItems, saleItems, setSaleIte
 // 📊 경영 대시보드 — 계약·매출·지출 현황
 // ══════════════════════════════════════════════════════════════
 function AnalysisDashboard({projects, cashItems, saleItems, DEPTS, DEPT_COLORS, DEPT_BIZ, deptStaff, years}) {
+  const {STAFF_DEPTS} = useDepts()
   const now      = new Date()
   const thisYear = String(now.getFullYear())
   const thisMonth= now.getMonth() + 1  // 1-indexed
   const MONTHS   = ["1월","2월","3월","4월","5월","6월","7월","8월","9월","10월","11월","12월"]
 
-  const totalStaff = Object.values(deptStaff||{}).reduce((s,d)=>s+(d.total||0),0)
+  // 전체 인원 = STAFF_DEPTS 기준 (비계약 부서 포함)
+  const totalStaff = (STAFF_DEPTS||DEPTS).reduce((s,d)=>s+((deptStaff||{})[d]?.total||0), 0)
 
   // ── 계약현황 집계 (프로젝트 기반) ──────────────────────────
   const contractByDept = useMemo(()=>{
@@ -6143,7 +6149,9 @@ function AnalysisDashboard({projects, cashItems, saleItems, DEPTS, DEPT_COLORS, 
                   </tr>
                 ))}
                 <tr style={{background:"#EEF2FF",fontWeight:700}}>
-                  <td style={tblD("left",true,"#312E81")}>합계</td>
+                  <td style={tblD("left",true,"#312E81")}>
+                    합계 <span style={{fontSize:11,fontWeight:400,color:"#6B7280",marginLeft:4}}>(전체 {totalStaff}명)</span>
+                  </td>
                   <td style={tblD("right",true)}>{fA(totTarget)}</td>
                   <td style={tblD("right",true,"#6366F1")}>{fA(contractByDept.reduce((s,d)=>s+d.done,0))}</td>
                   <td style={tblD("right",true,"#059669")}>{fA(contractByDept.reduce((s,d)=>s+d.conf,0))}</td>
@@ -6202,7 +6210,7 @@ function AnalysisDashboard({projects, cashItems, saleItems, DEPTS, DEPT_COLORS, 
                   </tr>
                 ))}
                 <tr style={{background:"#EEF2FF",fontWeight:700}}>
-                  <td style={tblD("left",true,"#312E81")}>합계</td>
+                  <td style={tblD("left",true,"#312E81")}>합계 <span style={{fontSize:11,fontWeight:400,color:"#6B7280",marginLeft:4}}>(전체 {totalStaff}명)</span></td>
                   <td style={tblD("right",true)}>{fA(totSaleTarget)}</td>
                   <td style={tblD("right",true,"#059669")}>{fA(totSale)}</td>
                   <td style={tblD("right",true,"#6366F1")}>{fA(saleByDept.reduce((s,d)=>s+d.revConf,0))}</td>
@@ -6251,7 +6259,7 @@ function AnalysisDashboard({projects, cashItems, saleItems, DEPTS, DEPT_COLORS, 
                   </tr>
                 ))}
                 <tr style={{background:"#FEE2E2",fontWeight:700}}>
-                  <td style={tblD("left",true,"#312E81")}>합계</td>
+                  <td style={tblD("left",true,"#312E81")}>합계 <span style={{fontSize:11,fontWeight:400,color:"#6B7280",marginLeft:4}}>(전체 {totalStaff}명)</span></td>
                   <td style={tblD("right",true,"#DC2626")}>{fA(totExp)}</td>
                   <td style={tblD("right",true)}>{fA(expByDept.reduce((s,d)=>s+d.cost5m,0))}</td>
                   <td style={{...tblD("right",true),color:expByDept.reduce((s,d)=>s+d.pnl5m,0)>=0?"#059669":"#DC2626"}}>{fA(expByDept.reduce((s,d)=>s+d.pnl5m,0))}</td>
