@@ -5883,29 +5883,46 @@ function uploadCashExcel(e, type, cashItems, setCashItems, saleItems, setSaleIte
       }
       const headers = rows[headerRow].map(h=>String(h).trim())
 
-      // 컬럼 인덱스 찾기 (전체 데이터 내보내기 vs 빈 양식 둘 다 지원)
+      // 컬럼 인덱스 찾기 — 정확 매칭 우선, 없으면 포함 매칭
       const colIdx = (names) => {
-        for(const n of names){const i=headers.findIndex(h=>h.includes(n));if(i>=0)return i}
+        // 1순위: 정확히 일치
+        for(const n of names){ const i=headers.findIndex(h=>h===n||h===n.replace(/[\(\)]/g,"")); if(i>=0)return i }
+        // 2순위: 포함 (단, 더 짧은 이름이 더 긴 헤더에 걸리지 않도록 exact word 우선)
+        for(const n of names){ const i=headers.findIndex(h=>h.startsWith(n)||h===n); if(i>=0)return i }
+        // 3순위: 느슨한 포함
+        for(const n of names){ const i=headers.findIndex(h=>h.includes(n)); if(i>=0)return i }
         return -1
       }
       const CI = {
         dept:        colIdx(["본부"]),
-        orderType:   colIdx(["발주구분","발주"]),
-        itemType:    colIdx(["구분"]),
-        projectName: colIdx(["프로젝트명","프로젝트"]),
-        stage:       colIdx(["기성단계","단계","내역"]),
+        orderType:   colIdx(["발주구분"]),
+        itemType:    colIdx(["구분"]).toString()==="1" ? 2 : colIdx(["구분"]),  // "발주구분"(1)과 구분 필요
+        projectName: colIdx(["프로젝트명"]),
+        stage:       colIdx(["기성단계","단계/내역","기성단계/내역"]),
         paidDate:    colIdx(["입금완료일","완료일"]),
         expectedDate:colIdx(["입금예상일","예상일"]),
         amount:      colIdx(["금액"]),
         memo:        colIdx(["메모","비고"]),
-        id:          colIdx(["시스템ID","ID","id"]),
+        id:          colIdx(["시스템ID","[시스템ID"]),
+      }
+      // itemType 정확 보정: "발주구분"(index1)이 아닌 "구분"(index2) 이어야 함
+      if(CI.itemType === CI.orderType) {
+        CI.itemType = headers.findIndex((h,i)=>i!==CI.orderType&&(h==="구분"||h==="항목구분"||h.endsWith("구분")))
+        if(CI.itemType<0) CI.itemType = CI.orderType+1  // fallback
       }
 
       const get = (r,k) => CI[k]>=0 ? r[CI[k]] : ""
 
       const data = rows.slice(dataStart).filter(r => {
         const pname = get(r,"projectName")
-        return pname && String(pname).trim() && !String(pname).startsWith("※")
+        if(!pname || !String(pname).trim()) return false
+        if(String(pname).startsWith("※")) return false
+        // 헤더 중복행 필터링 (프로젝트명 컬럼에 "프로젝트명" 텍스트가 있으면 헤더행)
+        if(String(pname).includes("프로젝트명")) return false
+        // 금액이 0이고 본부도 "본부"인 경우 (헤더 중복)
+        const dept = String(get(r,"dept")||"").trim()
+        if(dept==="본부" && String(pname).trim()==="프로젝트명") return false
+        return true
       })
 
       const newItems = data.map(r => {
