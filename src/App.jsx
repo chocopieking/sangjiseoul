@@ -80,19 +80,57 @@ const S = {
 // 메인 앱
 // ════════════════════════════════════════════════════════════
 export default function App() {
-  // ── 인증 ──
-  const [auth, setAuth]       = useState("login")
-  const [currentUser, setCurrentUser] = useState(null)
+  // ── 인증 — localStorage로 세션 유지 ──
+  const [auth, setAuth] = useState(()=>{
+    try{ return localStorage.getItem("sjs_auth")||"login" }catch{ return "login" }
+  })
+  const [currentUser, setCurrentUser] = useState(()=>{
+    try{
+      const saved = localStorage.getItem("sjs_current_user")
+      return saved ? JSON.parse(saved) : null
+    }catch{ return null }
+  })
   const [loginId, setLoginId] = useState("")
   const [loginPw, setLoginPw] = useState("")
   const [loginError, setLoginError] = useState("")
   const [pwVisible, setPwVisible]   = useState(false)
   const [loginAttempts, setLoginAttempts] = useState(0)
   const [lockUntil, setLockUntil]   = useState(null)
-  const [pwMap, setPwMap]     = useState(()=>{ try{ return JSON.parse(localStorage.getItem("sjs_pw")||"{}") }catch{ return {} }})
+  const [pwMap, setPwMap] = useState(()=>{ try{ return JSON.parse(localStorage.getItem("sjs_pw")||"{}") }catch{ return {} }})
   const [initDone, setInitDone] = useState(false)
   const users = useMemo(()=>ALL_USERS.map(u=>({...u,_pwHash:pwMap[u.id]||""})),[pwMap])
   const savePwMap = m => { localStorage.setItem("sjs_pw",JSON.stringify(m)); setPwMap(m) }
+
+  // 세션 저장 헬퍼
+  const persistSession = (user) => {
+    if(user) {
+      // 비밀번호 해시 등 민감 정보 제외하고 저장
+      const {_pwHash, ...safeUser} = user
+      localStorage.setItem("sjs_auth", "app")
+      localStorage.setItem("sjs_current_user", JSON.stringify(safeUser))
+    } else {
+      localStorage.removeItem("sjs_auth")
+      localStorage.removeItem("sjs_current_user")
+    }
+  }
+
+  // 저장된 세션의 사용자 정보를 최신 users 목록과 동기화
+  useEffect(()=>{
+    if(currentUser && users.length > 0) {
+      const freshUser = users.find(u=>u.id===currentUser.id)
+      if(!freshUser || !freshUser.active) {
+        // 사용자가 비활성화됐으면 로그아웃
+        setCurrentUser(null); setAuth("login")
+        localStorage.removeItem("sjs_auth")
+        localStorage.removeItem("sjs_current_user")
+      } else if(freshUser && JSON.stringify(freshUser) !== JSON.stringify(currentUser)) {
+        // 권한 등이 변경됐으면 최신 정보로 업데이트
+        const {_pwHash, ...safeUser} = freshUser
+        setCurrentUser(safeUser)
+        localStorage.setItem("sjs_current_user", JSON.stringify(safeUser))
+      }
+    }
+  },[users])
 
   useEffect(()=>{
     const init = async ()=>{
@@ -131,8 +169,9 @@ export default function App() {
     }
     setLoginAttempts(0); setLockUntil(null); setLoginError("")
     setCurrentUser(u); setAuth("app"); setLoginId(""); setLoginPw(""); userEmail.current = u.email||u.name||"unknown"
+    persistSession(u)
   }
-  const doLogout = ()=>{ setCurrentUser(null); setAuth("login"); setLoginId(""); setLoginPw("") }
+  const doLogout = ()=>{ setCurrentUser(null); setAuth("login"); setLoginId(""); setLoginPw(""); persistSession(null) }
   const saveUsers = (updated)=>{ const nm={}; updated.forEach(u=>{if(u._pwHash)nm[u.id]=u._pwHash}); savePwMap(nm) }
   // ── 권한 헬퍼 ────────────────────────────────────────────
   const getTabPerm = (tabId) => {
@@ -2628,6 +2667,9 @@ function ProjectsTab({projects,setProjects,selProjId,setSelProjId,selVerIdx,setS
 
 // ── 회차별 실행계획서 비교 분석 ──────────────────────────────
 function VersionCompareCard({proj,selVerIdx}) {
+  // fE는 이미 억 단위 값을 받는 함수이므로, 원 단위 값은 /1e8 후 전달
+  const fMoney = n => n != null ? fE((+n/1e8).toFixed(2)*1) : "-"
+
   const versions = useMemo(()=>{
     // round가 있으면 round 기준, 없으면 index 기준 정렬
     return [...proj.versions]
@@ -2693,7 +2735,7 @@ function VersionCompareCard({proj,selVerIdx}) {
         <div style={{background:isGood?C.greenL:C.redL,borderRadius:10,padding:"10px 16px",flex:1,minWidth:180}}>
           <div style={{fontSize:11,color:isGood?C.green:C.red,fontWeight:600,marginBottom:3}}>1차 → {versions.length}차 이윤 변화</div>
           <div style={{fontSize:20,fontWeight:800,color:isGood?C.green:C.red}}>
-            {isGood?"+":""}{fE(profitChange)}
+            {isGood?"+":""}{fMoney(profitChange)}
           </div>
           <div style={{fontSize:12,color:isGood?C.green:C.red}}>({isGood?"+":""}{profitPctChange.toFixed(1)}%)</div>
         </div>
@@ -2703,7 +2745,7 @@ function VersionCompareCard({proj,selVerIdx}) {
           return (
             <div key={i} style={{background:selVerIdx===v._origIdx?"var(--color-background-primary,#fff)":C.grayL,borderRadius:10,padding:"10px 16px",flex:1,minWidth:140,border:`1px solid ${selVerIdx===v._origIdx?C.navyM:"transparent"}`}}>
               <div style={{fontSize:11,fontWeight:700,color:C.gray,marginBottom:3}}>{v.round?`${v.round}차`:v.ver}</div>
-              <div style={{fontSize:13,fontWeight:700,color:C.navy}}>{fE(p._profit)}</div>
+              <div style={{fontSize:13,fontWeight:700,color:C.navy}}>{fMoney(p._profit)}</div>
               <div style={{fontSize:11,color:rate!=null&&rate<5?C.red:C.green}}>{rate!=null?`이윤율 ${rate}%`:"-"}</div>
             </div>
           )
@@ -2761,7 +2803,7 @@ function VersionCompareCard({proj,selVerIdx}) {
                   <td style={{...S.td("left"),fontWeight:item.bold?700:400,color:item.color||"inherit"}}>{item.label}</td>
                   {vals.map((v,i)=>(
                     <td key={i} style={{...S.td("right"),fontWeight:item.bold?700:400}}>
-                      <div style={{color:item.color||"inherit"}}>{fE(v)}</div>
+                      <div style={{color:item.color||"inherit"}}>{fMoney(v)}</div>
                       {deltas[i]!=null&&deltas[i]!==0&&(
                         <div style={{fontSize:10,color:deltas[i]>0?C.red:C.green,fontWeight:600}}>
                           {deltas[i]>0?"+":""}{(deltas[i]/1e8).toFixed(2)}억
@@ -2771,7 +2813,7 @@ function VersionCompareCard({proj,selVerIdx}) {
                   ))}
                   {versions.length>=2 && <>
                     <td style={{...S.td("right"),fontWeight:700,color:diff==null?C.gray:diff>0?C.red:diff<0?C.green:C.gray}}>
-                      {diff!=null?(diff>=0?"+":"")+fE(diff):"-"}
+                      {diff!=null?(diff>=0?"+":"")+fMoney(diff):"-"}
                     </td>
                     <td style={{...S.td("right"),fontWeight:700,color:diffPct==null?C.gray:diffPct>0?C.red:diffPct<0?C.green:C.gray}}>
                       {diffPct!=null?(diffPct>=0?"+":"")+diffPct.toFixed(1)+"%":"-"}
