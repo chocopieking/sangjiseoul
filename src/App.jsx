@@ -1399,7 +1399,13 @@ function CashflowTab({cashflow,setCashflow,currentUser,projects,setProjects,proj
                   const hasMultiYear = row.carryOver>0
                   return (
                     <tr key={row.projName} style={{background:ri%2===0?"#fff":"#FAFAFA",borderBottom:"1px solid #E5E7EB"}}>
-                      <td style={{padding:"9px 12px",fontSize:13,fontWeight:600,color:"#111827",borderRight:"1px solid #E5E7EB",position:"sticky",left:0,background:ri%2===0?"#fff":"#FAFAFA",zIndex:1,maxWidth:160,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}
+                      <td style={{padding:"9px 12px",fontSize:13,fontWeight:600,color:"#6366F1",borderRight:"1px solid #E5E7EB",position:"sticky",left:0,background:ri%2===0?"#fff":"#FAFAFA",zIndex:1,minWidth:180,maxWidth:300,cursor:"pointer",textDecoration:"underline",whiteSpace:"normal",wordBreak:"keep-all",lineHeight:1.4}}
+                        onClick={()=>{
+                          const norm=s=>(s||"").replace(/[\s\-_·.\(\)【】\[\]]/g,"").toLowerCase()
+                          const an=norm(row.projName)
+                          const found=(projects||[]).find(p=>{const bn=norm(p.name);return an===bn||an.includes(bn.slice(0,Math.min(bn.length,8)))||bn.includes(an.slice(0,Math.min(an.length,8)))})
+                          if(found&&setTab&&setSelProjId){setSelProjId(found.id);setTab("projects")}
+                        }}
                         title={row.projName}>{row.projName}</td>
                       <td style={{padding:"9px 10px",textAlign:"right",fontSize:12.5,fontWeight:600,color:"#374151",borderRight:"1px solid #E5E7EB"}}>{row.totalFee>0?fC(row.totalFee):"-"}</td>
                       <td style={{padding:"9px 10px",textAlign:"right",fontSize:12.5,color:"#6B7280",borderRight:"2px solid #E5E7EB"}}>{row.prevPaid>0?fC(row.prevPaid):"-"}</td>
@@ -1884,7 +1890,7 @@ function CashflowTab({cashflow,setCashflow,currentUser,projects,setProjects,proj
             </div>
             {/* 파이차트 */}
             <div style={{background:"#fff",borderRadius:14,border:"1px solid #E5E7EB",padding:"20px 24px"}}>
-              <div style={{fontSize:15,fontWeight:800,color:"#111827",marginBottom:12}}>본부별 계약 비중</div>
+              <div style={{fontSize:15,fontWeight:800,color:"#111827",marginBottom:12}}>본부별 계약 비중(확정포함)</div>
               <SimplePieChart
                 data={contractByDept.filter(d=>d.won+d.conf>0).map(d=>({name:d.dept.replace("본부","").slice(0,4),value:+((d.won+d.conf)/1e8).toFixed(2),color:d.color}))}
                 total={+(totConAll/1e8).toFixed(2)}/>
@@ -1910,7 +1916,7 @@ function CashflowTab({cashflow,setCashflow,currentUser,projects,setProjects,proj
               <table style={{width:"100%",borderCollapse:"collapse",minWidth:800}}>
                 <thead>
                   <tr style={{background:"#ECFDF5"}}>
-                    {["구분","계약목표","목표인원","연평균인원","현재인원","계약(수주)","확정","추진","합계(계약+확정)","실행률","인당(계약+확정)","합계(추진포함)","실행률(추진포함)"].map((h,i)=>(
+                    {["구분","계약목표","목표인원","연평균인원","현재인원","계약(수주)","확정","추진","합계(확정포함)","실행률","인당(계약+확정)","합계(추진포함)","실행률(추진포함)"].map((h,i)=>(
                       <th key={i} style={{padding:"10px 11px",textAlign:i===0?"left":"right",fontSize:11,fontWeight:700,
                         color:i===8||i===11?"#312E81":i===1?"#DC2626":i===2?"#DC2626":i===3?"#6B7280":i===4?"#374151":i===10?"#059669":"#6B7280",
                         borderBottom:"2px solid #E5E7EB",whiteSpace:"nowrap",
@@ -5650,47 +5656,78 @@ function CashItemsView({cashItems, setCashItems, projects, setProjects, DEPTS, c
                 </tr>
               </thead>
               <tbody>
-                {filtered.map((item,i)=>{
-                  const matched = findMatchedProj(item.projectName)
-                  return (
-                    <tr key={item.id} style={{background:i%2===0?"#fff":"#FAFAFA",borderBottom:"1px solid #F3F4F6"}}>
-                      <td style={{padding:"10px 12px",fontSize:13,fontWeight:700,color:"#374151",whiteSpace:"nowrap"}}>{item.dept||"-"}</td>
-                      <td style={{padding:"10px 12px"}}>
-                        <span style={{fontSize:12,padding:"2px 8px",borderRadius:20,background:(ORDER_COLOR[item.orderType]||"#6B7280")+"18",color:ORDER_COLOR[item.orderType]||"#6B7280",fontWeight:700}}>{item.orderType||"-"}</span>
+                {(()=>{
+                  // 기성 / 확정 / 추진 그룹 분리
+                  const 기성List  = filtered.filter(x=>x.paidDate)
+                  const 확정List  = filtered.filter(x=>!x.paidDate&&x.expectedDate&&x.itemType!=="추진")
+                  const 추진List  = filtered.filter(x=>x.itemType==="추진"||(!x.paidDate&&!x.expectedDate&&x.itemType==="추진"))
+                  const 기타List  = filtered.filter(x=>!x.paidDate&&!x.expectedDate&&x.itemType!=="추진")
+                  const SECS = [
+                    {label:"✅ 기성 (입금 완료)", color:"#059669", bg:"#D1FAE5", items:기성List},
+                    {label:"📅 확정 (입금 예정)", color:"#6366F1", bg:"#EEF2FF", items:확정List},
+                    {label:"🔶 추진", color:"#D97706", bg:"#FEF3C7", items:추진List},
+                  ].filter(s=>s.items.length>0)
+                  if(기타List.length>0) SECS.push({label:"기타", color:"#6B7280", bg:"#F3F4F6", items:기타List})
+
+                  const COLS = 9
+                  const rows = []
+                  SECS.forEach(({label,color,bg,items})=>{
+                    // 구분 헤더
+                    rows.push(<tr key={"hdr-"+label} style={{background:bg,borderTop:"2px solid "+color}}>
+                      <td colSpan={COLS} style={{padding:"8px 14px",fontSize:13,fontWeight:800,color}}>
+                        {label} — {items.length}건 · {fAmt(items.reduce((s,x)=>s+(x.amount||0),0))}
                       </td>
-                      <td style={{padding:"10px 12px"}}>
-                        <span style={{fontSize:12,padding:"2px 8px",borderRadius:20,background:(TYPE_COLOR[item.itemType]||"#6B7280")+"18",color:TYPE_COLOR[item.itemType]||"#6B7280",fontWeight:700}}>{item.itemType||"-"}</span>
-                      </td>
-                      <td style={{padding:"10px 12px",maxWidth:200,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
-                        <span onClick={()=>goToProj(item)}
-                          style={{fontSize:13.5,fontWeight:600,color:matched?"#6366F1":"#111827",cursor:matched?"pointer":"default",textDecoration:matched?"underline":"none"}}
-                          title={matched?`→ ${matched.name}`:item.projectName}>
-                          {item.projectName}
-                          {matched&&matched.name!==item.projectName&&<span style={{fontSize:10,color:"#9CA3AF",marginLeft:4}}>≈ {matched.name.slice(0,10)}</span>}
-                        </span>
-                      </td>
-                      <td style={{padding:"10px 12px",fontSize:12.5,color:"#6B7280",maxWidth:160,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{item.stage||"-"}</td>
-                      <td style={{padding:"10px 12px",fontSize:13,color:"#059669",fontWeight:item.paidDate?700:400}}>
-                        {item.paidDate?<>✅ {fmtDate(item.paidDate)}</>:"-"}
-                      </td>
-                      <td style={{padding:"10px 12px",fontSize:13,color:"#D97706",fontWeight:item.expectedDate?600:400}}>
-                        {item.expectedDate?<>📅 {fmtDate(item.expectedDate)}</>:"-"}
-                      </td>
-                      <td style={{padding:"10px 12px",textAlign:"right",fontSize:14,fontWeight:800,color:"#312E81",whiteSpace:"nowrap"}}>{fAmt(item.amount||0)}</td>
-                      <td style={{padding:"10px 8px",whiteSpace:"nowrap"}}>
-                        <div style={{display:"flex",gap:4}}>
-                          <button onClick={()=>startEdit(item)} style={{padding:"4px 9px",background:"#EEF2FF",color:"#6366F1",border:"none",borderRadius:6,fontSize:12,fontWeight:600,cursor:"pointer"}}>수정</button>
-                          <button onClick={()=>del(item.id)} style={{padding:"4px 9px",background:"#FEE2E2",color:"#DC2626",border:"none",borderRadius:6,fontSize:12,fontWeight:600,cursor:"pointer"}}>삭제</button>
-                        </div>
-                      </td>
-                    </tr>
-                  )
-                })}
-                <tr style={{background:"#EEF2FF"}}>
-                  <td colSpan={7} style={{padding:"11px 12px",fontSize:14,fontWeight:700,color:"#312E81"}}>합계 ({filtered.length}건)</td>
-                  <td style={{padding:"11px 12px",textAlign:"right",fontSize:15,fontWeight:800,color:"#312E81"}}>{fAmt(filtered.reduce((s,x)=>s+(x.amount||0),0))}</td>
-                  <td/>
-                </tr>
+                    </tr>)
+                    items.forEach((item,i)=>{
+                      const matched = findMatchedProj(item.projectName)
+                      rows.push(
+                        <tr key={item.id} style={{background:i%2===0?"#fff":"#FAFAFA",borderBottom:"1px solid #F3F4F6"}}>
+                          <td style={{padding:"9px 12px",fontSize:12.5,fontWeight:700,color:"#374151",whiteSpace:"nowrap"}}>{item.dept||"-"}</td>
+                          <td style={{padding:"9px 10px"}}>
+                            <span style={{fontSize:11.5,padding:"2px 7px",borderRadius:20,background:(ORDER_COLOR[item.orderType]||"#6B7280")+"18",color:ORDER_COLOR[item.orderType]||"#6B7280",fontWeight:700}}>{item.orderType||"-"}</span>
+                          </td>
+                          <td style={{padding:"9px 10px"}}>
+                            <span style={{fontSize:11.5,padding:"2px 7px",borderRadius:20,background:(TYPE_COLOR[item.itemType]||"#6B7280")+"18",color:TYPE_COLOR[item.itemType]||"#6B7280",fontWeight:700}}>{item.itemType||"-"}</span>
+                          </td>
+                          <td style={{padding:"9px 12px",minWidth:180,maxWidth:280,wordBreak:"keep-all",whiteSpace:"normal",lineHeight:1.4}}>
+                            <span onClick={()=>goToProj(item)}
+                              style={{fontSize:13.5,fontWeight:600,color:matched?"#6366F1":"#111827",cursor:matched?"pointer":"default",textDecoration:matched?"underline":"none"}}>
+                              {item.projectName}
+                              {matched&&matched.name!==item.projectName&&<span style={{fontSize:10,color:"#9CA3AF",marginLeft:4,display:"block"}}>≈ {matched.name}</span>}
+                            </span>
+                          </td>
+                          <td style={{padding:"9px 12px",fontSize:12,color:"#6B7280",whiteSpace:"nowrap"}}>{item.stage||"-"}</td>
+                          <td style={{padding:"9px 12px",fontSize:12.5,color:"#059669",fontWeight:item.paidDate?700:400,whiteSpace:"nowrap"}}>
+                            {item.paidDate?<>✅ {fmtDate(item.paidDate)}</>:"-"}
+                          </td>
+                          <td style={{padding:"9px 12px",fontSize:12.5,color:"#D97706",fontWeight:item.expectedDate?600:400,whiteSpace:"nowrap"}}>
+                            {item.expectedDate?<>📅 {fmtDate(item.expectedDate)}</>:"-"}
+                          </td>
+                          <td style={{padding:"9px 12px",textAlign:"right",fontSize:14,fontWeight:800,color:"#312E81",whiteSpace:"nowrap"}}>{fAmt(item.amount||0)}</td>
+                          <td style={{padding:"9px 8px",whiteSpace:"nowrap"}}>
+                            <div style={{display:"flex",gap:4}}>
+                              <button onClick={()=>startEdit(item)} style={{padding:"3px 8px",background:"#EEF2FF",color:"#6366F1",border:"none",borderRadius:6,fontSize:11.5,fontWeight:600,cursor:"pointer"}}>수정</button>
+                              <button onClick={()=>del(item.id)} style={{padding:"3px 8px",background:"#FEE2E2",color:"#DC2626",border:"none",borderRadius:6,fontSize:11.5,fontWeight:600,cursor:"pointer"}}>삭제</button>
+                            </div>
+                          </td>
+                        </tr>
+                      )
+                    })
+                    // 소계 행
+                    rows.push(<tr key={"sub-"+label} style={{background:bg}}>
+                      <td colSpan={7} style={{padding:"9px 14px",fontSize:13,fontWeight:700,color}}>{label.split(" ")[1]||label} 소계</td>
+                      <td style={{padding:"9px 14px",textAlign:"right",fontSize:13.5,fontWeight:800,color}}>{fAmt(items.reduce((s,x)=>s+(x.amount||0),0))}</td>
+                      <td/>
+                    </tr>)
+                  })
+                  // 총합계
+                  rows.push(<tr key="total" style={{background:"#EEF2FF",borderTop:"2px solid #6366F1"}}>
+                    <td colSpan={7} style={{padding:"11px 14px",fontSize:14,fontWeight:800,color:"#312E81"}}>총 합계 ({filtered.length}건)</td>
+                    <td style={{padding:"11px 14px",textAlign:"right",fontSize:15,fontWeight:800,color:"#312E81"}}>{fAmt(filtered.reduce((s,x)=>s+(x.amount||0),0))}</td>
+                    <td/>
+                  </tr>)
+                  return rows
+                })()}
               </tbody>
             </table>
           }
@@ -5813,28 +5850,18 @@ function uploadCashExcel(e, type, cashItems, setCashItems, saleItems, setSaleIte
   const file = e.target.files?.[0]; if(!file) return
   const isSale = type==="sale"
 
-  // 엑셀 시리얼 날짜 → YYYY-MM-DD 변환
   const toDateStr = (val) => {
     if(!val && val!==0) return ""
     const s = String(val).trim()
     if(!s) return ""
-    // 이미 YYYY-MM-DD 형식이면 그대로
     if(/^\d{4}-\d{2}-\d{2}$/.test(s)) return s
-    // YYYY.MM.DD 형식
     if(/^\d{4}\.\d{2}\.\d{2}$/.test(s)) return s.replace(/\./g, "-")
-    // YYYY/MM/DD 형식
     if(/^\d{4}\/\d{2}\/\d{2}$/.test(s)) return s.replace(/\//g, "-")
-    // 엑셀 시리얼 숫자 (40000~50000 범위)
     const n = parseInt(s)
     if(!isNaN(n) && n > 40000 && n < 60000) {
-      // 엑셀 시리얼: 1900-01-01 = 1 기준
       const d = new Date((n - 25569) * 86400 * 1000)
-      const yyyy = d.getUTCFullYear()
-      const mm   = String(d.getUTCMonth()+1).padStart(2,"0")
-      const dd   = String(d.getUTCDate()).padStart(2,"0")
-      return `${yyyy}-${mm}-${dd}`
+      return `${d.getUTCFullYear()}-${String(d.getUTCMonth()+1).padStart(2,"0")}-${String(d.getUTCDate()).padStart(2,"0")}`
     }
-    // YYYYMMDD (8자리 숫자)
     if(/^\d{8}$/.test(s)) return `${s.slice(0,4)}-${s.slice(4,6)}-${s.slice(6,8)}`
     return s
   }
@@ -5845,48 +5872,108 @@ function uploadCashExcel(e, type, cashItems, setCashItems, saleItems, setSaleIte
       const wb   = XLSX.read(ev.target.result, {type:"binary"})
       const ws   = wb.Sheets[wb.SheetNames[0]]
       const rows = XLSX.utils.sheet_to_json(ws, {header:1, defval:""})
-      const data = rows.slice(3).filter(r=>r[3]) // 4행부터, 프로젝트명 있는 행만
 
-      const newItems = data.map(r => ({
-        id:          `CI${Date.now()}_${Math.random().toString(36).slice(2,7)}`,
-        dept:        String(r[0]||"").trim(),
-        orderType:   String(r[1]||"민간").trim(),
-        itemType:    String(r[2]||"기성").trim(),
-        projectName: String(r[3]||"").trim(),
-        stage:       String(r[4]||"").trim(),
-        paidDate:    toDateStr(r[5]),
-        expectedDate:toDateStr(r[6]),
-        amount:      parseInt(String(r[7]).replace(/[^0-9]/g,""))||0,
-        memo:        String(r[8]||"").trim(),
-        createdAt:   new Date().toISOString(),
-        createdBy:   currentUser?.name||"",
-        fromExcel:   true,
-      })).filter(x=>x.projectName)
+      // 헤더 행 찾기 (프로젝트명 컬럼이 있는 행)
+      let headerRow = 2  // 기본 3행(0-indexed 2)
+      let dataStart = 3
+      for(let i=0;i<Math.min(rows.length,6);i++){
+        if(rows[i].some(c=>String(c).includes("프로젝트명")||String(c).includes("프로젝트"))){
+          headerRow=i; dataStart=i+1; break
+        }
+      }
+      const headers = rows[headerRow].map(h=>String(h).trim())
 
-      if(newItems.length===0){alert("입력된 데이터가 없습니다.\n4행부터 프로젝트명을 입력하세요.");return}
+      // 컬럼 인덱스 찾기 (전체 데이터 내보내기 vs 빈 양식 둘 다 지원)
+      const colIdx = (names) => {
+        for(const n of names){const i=headers.findIndex(h=>h.includes(n));if(i>=0)return i}
+        return -1
+      }
+      const CI = {
+        dept:        colIdx(["본부"]),
+        orderType:   colIdx(["발주구분","발주"]),
+        itemType:    colIdx(["구분"]),
+        projectName: colIdx(["프로젝트명","프로젝트"]),
+        stage:       colIdx(["기성단계","단계","내역"]),
+        paidDate:    colIdx(["입금완료일","완료일"]),
+        expectedDate:colIdx(["입금예상일","예상일"]),
+        amount:      colIdx(["금액"]),
+        memo:        colIdx(["메모","비고"]),
+        id:          colIdx(["시스템ID","ID","id"]),
+      }
 
-      // 중복 감지: 같은 본부+프로젝트명+기성단계+금액 조합
-      const makeKey = item => `${item.dept}|${item.projectName}|${item.stage}|${item.amount}`
-      const existingKeys = new Set((isSale?saleItems:cashItems).map(makeKey))
-      const dupItems   = newItems.filter(x=>existingKeys.has(makeKey(x)))
-      const freshItems = newItems.filter(x=>!existingKeys.has(makeKey(x)))
+      const get = (r,k) => CI[k]>=0 ? r[CI[k]] : ""
+
+      const data = rows.slice(dataStart).filter(r => {
+        const pname = get(r,"projectName")
+        return pname && String(pname).trim() && !String(pname).startsWith("※")
+      })
+
+      const newItems = data.map(r => {
+        const existingId = String(get(r,"id")||"").trim()
+        // ID가 있으면 기존 항목 업데이트용으로 사용, 없으면 새 ID 생성
+        const id = existingId && existingId!=="[시스템ID-수정금지]"
+          ? existingId
+          : `CI${Date.now()}_${Math.random().toString(36).slice(2,7)}`
+        return {
+          id,
+          dept:        String(get(r,"dept")||"").trim(),
+          orderType:   String(get(r,"orderType")||"민간").trim(),
+          itemType:    String(get(r,"itemType")||"기성").trim(),
+          projectName: String(get(r,"projectName")||"").trim(),
+          stage:       String(get(r,"stage")||"").trim(),
+          paidDate:    toDateStr(get(r,"paidDate")),
+          expectedDate:toDateStr(get(r,"expectedDate")),
+          amount:      parseInt(String(get(r,"amount")||"0").replace(/[^0-9]/g,""))||0,
+          memo:        String(get(r,"memo")||"").trim(),
+          createdAt:   new Date().toISOString(),
+          createdBy:   currentUser?.name||"",
+          fromExcel:   true,
+        }
+      }).filter(x=>x.projectName)
+
+      if(newItems.length===0){alert("입력된 데이터가 없습니다.\n프로젝트명 컬럼이 있는 행부터 입력하세요.");return}
+
+      // 중복 처리: ID가 있으면 ID 기준 업데이트, 없으면 내용 기준 중복 체크
+      const existList = isSale?saleItems:cashItems
+      const makeKey   = item => `${item.dept}|${item.projectName}|${item.stage}|${item.amount}`
+      const existById = new Set(existList.map(x=>x.id).filter(Boolean))
+      const existByKey= new Set(existList.map(makeKey))
+
+      const updateItems = newItems.filter(x=>existById.has(x.id))
+      const dupByKey    = newItems.filter(x=>!existById.has(x.id)&&existByKey.has(makeKey(x)))
+      const freshItems  = newItems.filter(x=>!existById.has(x.id)&&!existByKey.has(makeKey(x)))
+
+      // 유사 프로젝트명 중복 감지
+      const normName = s => (s||"").replace(/[\s\-_·.\(\)【】\[\]]/g,"").toLowerCase()
+      const similarGroups = {}
+      freshItems.forEach(item=>{
+        const an = normName(item.projectName)
+        const similar = freshItems.filter(x=>x!==item&&normName(x.projectName).slice(0,8)===an.slice(0,8))
+        if(similar.length>0&&an.length>4){
+          const key = an.slice(0,8)
+          if(!similarGroups[key]) similarGroups[key]=new Set()
+          similarGroups[key].add(item.projectName)
+          similar.forEach(x=>similarGroups[key].add(x.projectName))
+        }
+      })
+      const similarMsg = Object.values(similarGroups).map(s=>[...s]).filter(g=>g.length>1)
 
       let msg = `총 ${newItems.length}건 업로드 예정\n✅ 신규: ${freshItems.length}건`
-      if(dupItems.length>0) msg += `\n🔄 중복(덮어쓰기): ${dupItems.length}건\n\n중복 항목:\n${dupItems.slice(0,5).map(x=>`· ${x.projectName} (${x.stage||"-"})`).join("\n")}`
+      if(updateItems.length>0) msg += `\n🔄 ID기준 업데이트: ${updateItems.length}건`
+      if(dupByKey.length>0)    msg += `\n⚠ 내용중복(덮어쓰기): ${dupByKey.length}건`
+      if(similarMsg.length>0)  msg += `\n\n🔍 유사 프로젝트명 발견 (동일 프로젝트일 수 있음):\n${similarMsg.map(g=>`· ${g.join(" vs ")}`).slice(0,3).join("\n")}`
 
       if(window.confirm(msg)){
-        if(isSale){
-          setSaleItems(prev=>{
-            const filtered = prev.filter(x=>!dupItems.some(d=>makeKey(d)===makeKey(x)))
-            return [...filtered, ...newItems]
-          })
-        } else {
-          setCashItems(prev=>{
-            const filtered = prev.filter(x=>!dupItems.some(d=>makeKey(d)===makeKey(x)))
-            return [...filtered, ...newItems]
-          })
-        }
-        alert(`✓ 완료: 신규 ${freshItems.length}건 추가, 중복 ${dupItems.length}건 덮어쓰기`)
+        const setter = isSale?setSaleItems:setCashItems
+        setter(prev=>{
+          // ID기준 업데이트 + 내용중복 덮어쓰기 + 신규 추가
+          let next = prev.filter(x=>
+            !updateItems.some(u=>u.id===x.id) &&
+            !dupByKey.some(d=>makeKey(d)===makeKey(x))
+          )
+          return [...next, ...newItems]
+        })
+        alert(`✓ 완료: 신규 ${freshItems.length}건 추가, 업데이트 ${updateItems.length}건, 중복교체 ${dupByKey.length}건`)
       }
     } catch(err){ alert("업로드 오류: "+err.message) }
     e.target.value=""
@@ -5933,29 +6020,28 @@ function AnalysisDashboard({projects, cashItems, saleItems, DEPTS, DEPT_COLORS, 
       const db   = (DEPT_BIZ||{})[dept] || {}
       const staff= (deptStaff||{})[dept]?.total || 1
 
-      // saleItems에서 이 본부의 이번 연도 매출
-      const myItems = saleItems.filter(i=>i.dept===dept)
-      const paidAmt = myItems.filter(i=>i.paidDate?.startsWith(thisYear)).reduce((s,i)=>s+(i.amount||0),0)/1e8
-      const expAmt  = myItems.filter(i=>!i.paidDate&&i.expectedDate?.startsWith(thisYear)).reduce((s,i)=>s+(i.amount||0),0)/1e8
+      // cashItems에서 이 본부의 기성+확정 (월수금계획 기반)
+      const myItems = cashItems.filter(i=>i.dept===dept)
+      const paidAmt = myItems.filter(i=>i.paidDate).reduce((s,i)=>s+(i.amount||0),0)/1e8
+      const expAmt  = myItems.filter(i=>!i.paidDate&&i.expectedDate&&i.itemType!=="추진").reduce((s,i)=>s+(i.amount||0),0)/1e8
+      const pushAmt = myItems.filter(i=>i.itemType==="추진").reduce((s,i)=>s+(i.amount||0),0)/1e8
 
-      // DEPT_BIZ 기반 (기존 데이터)
-      const revCum  = db.revCum || paidAmt
-      const revConf = db.revConfirmed || expAmt
-      const revPush = db.revPush || 0
+      const revCum    = paidAmt
+      const revConf   = expAmt
+      const revPush   = pushAmt
       const revTarget = db.revTarget || 0
 
-      // 이월잔액 (올해 이후 미발생액)
       const totalContract = projects.filter(p=>(p.depts||[]).includes(dept)).reduce((s,p)=>{
         const share=(p.deptShares||[]).find(s2=>s2.dept===dept)?.share||100/(p.depts?.length||1)
         return s+(p.serviceFee||0)*(share/100)/1e8
       },0)
-      const carryOver = Math.max(0, totalContract - revCum)
+      const carryOver = Math.max(0, totalContract - revCum - revConf)
+      const rate  = revTarget > 0 ? Math.round((revCum+revConf)/revTarget*100) : null
 
-      const rate  = revTarget > 0 ? Math.round(revCum/revTarget*100) : null
-
-      return {dept, revTarget, revCum, revConf, revPush, rate, staff, perCapita:staff>0?revCum/staff:0, carryOver}
+      return {dept, revTarget, revCum, revConf, revPush, rate, staff,
+        perCapita:staff>0?(revCum+revConf)/staff:0, carryOver}
     })
-  },[DEPTS,DEPT_BIZ,saleItems,projects,deptStaff,thisYear])
+  },[DEPTS,DEPT_BIZ,cashItems,projects,deptStaff,thisYear])
 
   // ── 지출현황 (cashItems 기반) ──────────────────────────────
   const expByDept = useMemo(()=>{
@@ -6055,7 +6141,7 @@ function AnalysisDashboard({projects, cashItems, saleItems, DEPTS, DEPT_COLORS, 
           </div>
           {/* 파이차트 */}
           <div style={{padding:"16px",borderLeft:"1px solid #E5E7EB",display:"flex",flexDirection:"column",alignItems:"center"}}>
-            <div style={{fontSize:13,fontWeight:700,color:"#6B7280",marginBottom:8}}>본부별 계약 비중</div>
+            <div style={{fontSize:13,fontWeight:700,color:"#6B7280",marginBottom:8}}>본부별 계약 비중(확정포함)</div>
             <SimplePieChart data={contractPie} total={totContract}/>
           </div>
         </div>
@@ -6071,8 +6157,10 @@ function AnalysisDashboard({projects, cashItems, saleItems, DEPTS, DEPT_COLORS, 
           <div style={{overflowX:"auto"}}>
             <table style={{width:"100%",borderCollapse:"collapse"}}>
               <thead><tr>
-                {["본부","목표","현누계","기성+확정","추진","달성률","인당매출","이월잔액"].map((h,i)=>(
-                  <th key={i} style={{...tblH,textAlign:i===0?"left":"right"}}>{h}</th>
+                {["본부","목표","현누계","확정","추진","합계(기성+확정)","달성률","인당(기성+확정)","이월잔액"].map((h,i)=>(
+                  <th key={i} style={{...tblH,textAlign:i===0?"left":"right",
+                    color:i===5?"#312E81":i===6||i===7?"#059669":"#6B7280",
+                    background:i===5?"#DCFCE7":i===7?"#D1FAE5":"#F8FAFC"}}>{h}</th>
                 ))}
               </tr></thead>
               <tbody>
@@ -6088,10 +6176,11 @@ function AnalysisDashboard({projects, cashItems, saleItems, DEPTS, DEPT_COLORS, 
                     <td style={tblD("right",true,"#059669")}>{fA(d.revCum)}</td>
                     <td style={tblD("right",false,"#6366F1")}>{fA(d.revConf)}</td>
                     <td style={tblD("right",false,"#D97706")}>{fA(d.revPush)}</td>
+                    <td style={tblD("right",true,"#312E81","#ECFDF5")}>{fA(d.revCum+d.revConf)}</td>
                     <td style={{...tblD("right",true),color:d.rate>=100?"#059669":d.rate>=70?"#D97706":"#DC2626"}}>
                       {d.rate!=null?d.rate+"%":"-"}
                     </td>
-                    <td style={tblD("right")}>{d.perCapita>0?fA(d.perCapita):"-"}</td>
+                    <td style={tblD("right",false,"#059669","#D1FAE5")}>{d.perCapita>0?fA(d.perCapita):"-"}</td>
                     <td style={tblD("right",false,"#6B7280")}>{d.carryOver>0?fA(d.carryOver):"-"}</td>
                   </tr>
                 ))}
@@ -6101,15 +6190,16 @@ function AnalysisDashboard({projects, cashItems, saleItems, DEPTS, DEPT_COLORS, 
                   <td style={tblD("right",true,"#059669")}>{fA(totSale)}</td>
                   <td style={tblD("right",true,"#6366F1")}>{fA(saleByDept.reduce((s,d)=>s+d.revConf,0))}</td>
                   <td style={tblD("right",true,"#D97706")}>{fA(saleByDept.reduce((s,d)=>s+d.revPush,0))}</td>
+                  <td style={tblD("right",true,"#312E81","#DCFCE7")}>{fA(totSale+saleByDept.reduce((s,d)=>s+d.revConf,0))}</td>
                   <td style={{...tblD("right",true),color:totSaleTarget>0&&totSale/totSaleTarget>=1?"#059669":"#D97706"}}>{totSaleTarget>0?Math.round(totSale/totSaleTarget*100)+"%":"-"}</td>
-                  <td style={tblD("right",true)}>{totalStaff>0?fA(totSale/totalStaff):"-"}</td>
+                  <td style={tblD("right",false,"#059669","#D1FAE5")}>{totalStaff>0?fA((totSale+saleByDept.reduce((s,d)=>s+d.revConf,0))/totalStaff):"-"}</td>
                   <td style={tblD("right",true,"#6B7280")}>{fA(saleByDept.reduce((s,d)=>s+d.carryOver,0))}</td>
                 </tr>
               </tbody>
             </table>
           </div>
           <div style={{padding:"16px",borderLeft:"1px solid #E5E7EB",display:"flex",flexDirection:"column",alignItems:"center"}}>
-            <div style={{fontSize:13,fontWeight:700,color:"#6B7280",marginBottom:8}}>본부별 매출 비중</div>
+            <div style={{fontSize:13,fontWeight:700,color:"#6B7280",marginBottom:8}}>본부별 매출 비중(기성+확정)</div>
             <SimplePieChart data={salePie} total={totSale}/>
           </div>
         </div>
@@ -7045,19 +7135,23 @@ function downloadCashDataExcel(cashItems=[], label="월수금계획") {
     if(!isNaN(n)&&n>40000&&n<60000){const d=new Date((n-25569)*86400*1000);return `${d.getUTCFullYear()}-${String(d.getUTCMonth()+1).padStart(2,"0")}-${String(d.getUTCDate()).padStart(2,"0")}`}
     return String(s).trim()
   }
+  // ID 컬럼은 숨김 처리(Z열 이후) - 사용자에게 보이지 않고 내부 업데이트용
   const rows = [
-    ["※ 이 파일을 수정 후 업로드하면 기존 데이터를 덮어씁니다. ID는 수정하지 마세요."],
+    ["※ 4행부터 데이터 입력/수정. 금액은 원(₩) 단위 숫자. 시스템ID열(마지막)은 건드리지 마세요."],
     [],
-    ["ID","본부","발주구분","구분","프로젝트명","기성단계","입금완료일","입금예상일","금액(원)","메모","등록일"],
+    ["본부","발주구분","구분","프로젝트명","기성단계","입금완료일(YYYY-MM-DD)","입금예상일(YYYY-MM-DD)","금액(원)","메모","[시스템ID-수정금지]"],
     ...cashItems.map(i=>[
-      i.id||"", i.dept||"", i.orderType||"", i.itemType||"",
+      i.dept||"", i.orderType||"", i.itemType||"",
       i.projectName||"", i.stage||"",
       fixDate(i.paidDate), fixDate(i.expectedDate),
-      i.amount||0, i.memo||"", (i.createdAt||"").slice(0,10)
+      i.amount||0, i.memo||"",
+      i.id||""   // 마지막 컬럼에 ID (수정 금지 안내)
     ])
   ]
   const ws = XLSX.utils.aoa_to_sheet(rows)
-  ws["!cols"] = [{wch:16},{wch:12},{wch:10},{wch:10},{wch:32},{wch:24},{wch:14},{wch:14},{wch:14},{wch:20},{wch:12}]
+  ws["!cols"] = [{wch:14},{wch:10},{wch:8},{wch:32},{wch:24},{wch:16},{wch:16},{wch:14},{wch:20},{wch:20}]
+  // 마지막 열(ID) 숨김
+  ws["!cols"][9] = {wch:20, hidden:true}
   const wb = XLSX.utils.book_new()
   XLSX.utils.book_append_sheet(wb, ws, label)
   XLSX.writeFile(wb, `상지서울_${label}_${new Date().toISOString().slice(0,10)}.xlsx`)
