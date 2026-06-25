@@ -977,9 +977,9 @@ export default function App() {
         {tab==="stats"     && (canReadTab("stats")  ? <StatsTab projects={projects}/> : <NoPermScreen tabId="stats"/>)}
         {tab==="gamify"    && (canReadTab("gamify") ? <GamifyTab projects={projects} currentUser={currentUser}/> : <NoPermScreen tabId="gamify"/>)}
         {tab==="deptdash"  && <DeptDashTab projects={projects} vendorPayments={vendorPayments} years={years}/>}
-        {tab==="analysis"  && (canReadTab("analysis") ? <AnalysisHub deptStaff={deptStaff} setDeptStaff={setDeptStaff} years={years} setYears={setYears} canWrite={canWrite} isAdmin={currentUser?.role==="admin"} cashflow={effectiveCashflow} cashItems={cashItems} setCashItems={setCashItems} saleItems={saleItems} setSaleItems={setSaleItems} projects={projects} setProjects={setProjects} setTab={setTab} setSelProjId={setSelProjId} currentUser={currentUser} yearTargets={yearTargets} setYearTargets={setYearTargets} deptBiz={deptBiz} staffMonthly={staffMonthly} staffTarget={staffTarget} deptStaff={deptStaff}/> : <NoPermScreen tabId="analysis"/>)}
+        {tab==="analysis"  && (canReadTab("analysis") ? <AnalysisHub deptStaff={deptStaff} setDeptStaff={setDeptStaff} years={years} setYears={setYears} canWrite={canWrite} isAdmin={currentUser?.role==="admin"} cashflow={effectiveCashflow} cashItems={cashItems} setCashItems={setCashItems} saleItems={saleItems} setSaleItems={setSaleItems} projects={projects} setProjects={setProjects} setTab={setTab} setSelProjId={setSelProjId} setDetailTab={setDetailTab} currentUser={currentUser} yearTargets={yearTargets} setYearTargets={setYearTargets} deptBiz={deptBiz} staffMonthly={staffMonthly} staffTarget={staffTarget} deptStaff={deptStaff}/> : <NoPermScreen tabId="analysis"/>)}
         {tab==="datahub" && canReadTab("datahub") && <DataHubTab currentUser={currentUser} deptStaff={deptStaff} setDeptStaff={setDeptStaff} staffTarget={staffTarget} setStaffTarget={setStaffTarget} staffMonthly={staffMonthly} setStaffMonthly={setStaffMonthly} pnlData={pnlData} setPnlData={setPnlData} cashflow={cashflow} setCashflow={setCashflow} years={years} setYears={setYears} projects={projects} setProjects={setProjects} setTab={setTab} setSelProjId={setSelProjId} setSelVerIdx={setSelVerIdx} setShowNewProj={setShowNewProj} versions={versions} saveVersion={saveVersion} restoreVersion={restoreVersion} deleteVersion={deleteVersion} contractTypes={contractTypes} setContractTypes={setContractTypes} projTypes={projTypes} setProjTypes={setProjTypes} bidTypes={bidTypes} setBidTypes={setBidTypes} allData={null} restoreAllData={(entries)=>dbSetAll(entries, userEmail.current)} dbStatus={dbStatus}/>}
-        {tab==="cashflow" && canReadTab("cashflow") && <CashflowTab cashflow={effectiveCashflow} setCashflow={setCashflow} currentUser={currentUser} projects={projects} setProjects={setProjects} projectCashflowByDept={projectCashflowByDept} cashItems={cashItems} setCashItems={setCashItems} saleItems={saleItems} setSaleItems={setSaleItems} setTab={setTab} setSelProjId={setSelProjId} yearTargets={yearTargets} setYearTargets={setYearTargets} deptBiz={deptBiz} deptStaff={deptStaff} staffMonthly={staffMonthly} staffTarget={staffTarget}/>}
+        {tab==="cashflow" && canReadTab("cashflow") && <CashflowTab cashflow={effectiveCashflow} setCashflow={setCashflow} currentUser={currentUser} projects={projects} setProjects={setProjects} projectCashflowByDept={projectCashflowByDept} cashItems={cashItems} setCashItems={setCashItems} saleItems={saleItems} setSaleItems={setSaleItems} setTab={setTab} setSelProjId={setSelProjId} setDetailTab={setDetailTab} yearTargets={yearTargets} setYearTargets={setYearTargets} deptBiz={deptBiz} deptStaff={deptStaff} staffMonthly={staffMonthly} staffTarget={staffTarget}/>}
         {tab==="projects" && canReadTab("projects") && <ProjectsTab projects={projects} setProjects={setProjects} selProjId={selProjId} setSelProjId={setSelProjId} selVerIdx={selVerIdx} setSelVerIdx={setSelVerIdx} cmpIds={cmpIds} setCmpIds={setCmpIds} showNewVer={showNewVer} setShowNewVer={setShowNewVer} canWrite={canWrite&&canWriteTab("projects")} contractTypes={contractTypes} currentUser={currentUser}/>}
         {tab==="vendors" && canReadTab("vendors") && <VendorsTab projects={projects} setProjects={setProjects} vendorsDB={vendorsDB} setVendorsDB={setVendorsDB} vendorPayments={vendorPayments} setVendorPayments={setVendorPayments} canWrite={canWrite&&canWriteTab("vendors")} currentUser={currentUser} setTab={setTab} setSelProjId={setSelProjId} setSelVerIdx={setSelVerIdx}/>}
         {tab==="pnl"      && canReadTab("pnl")      && <PnlTab pnlData={pnlData} setPnlData={setPnlData} canWrite={canWrite&&canWriteTab("pnl")}/>}
@@ -1216,7 +1216,7 @@ function StackTotalTooltip({active,payload,label}) {
 // ════════════════════════════════════════════════════════════
 // 💧 월수금계획 탭 v3 — 계약현황·매출현황 통합
 // ════════════════════════════════════════════════════════════
-function CashflowTab({cashflow,setCashflow,currentUser,projects,setProjects,projectCashflowByDept,cashItems=[],setCashItems,saleItems=[],setSaleItems,setTab,setSelProjId,yearTargets={},setYearTargets,deptBiz={},deptStaff={},staffMonthly={},staffTarget={},initTab}) {
+function CashflowTab({cashflow,setCashflow,currentUser,projects,setProjects,projectCashflowByDept,cashItems=[],setCashItems,saleItems=[],setSaleItems,setTab,setSelProjId,yearTargets={},setYearTargets,deptBiz={},deptStaff={},staffMonthly={},staffTarget={},initTab,setDetailTab}) {
   const {DEPTS,DEPT_COLORS} = useDepts()
   const NOW   = new Date()
   const YEAR  = NOW.getFullYear()
@@ -2180,17 +2180,21 @@ function CashflowTab({cashflow,setCashflow,currentUser,projects,setProjects,proj
                     const BID_C  = {"현상설계":"#7C3AED","민간/실시기술":"#0891B2","민간/사업공모":"#0D9488","설계변경":"#D97706","민간":"#059669","공공":"#6366F1","해외":"#DC2626"}
 
                     // ★ 당해연도 신규 + 설계변경 아닌 프로젝트만
-                    // + execDate 또는 contractExpect 가 당해연도이거나 없는 경우 포함
+                    // 2026년 수행 여부: 다른 연도로 명시된 경우 제외
                     const isExecThisYear = p => {
-                      // 수행시점/계약예상이 당해연도이면 포함
-                      if(p.execDate && p.execDate.startsWith(YR)) return true
-                      if(p.contractExpect && p.contractExpect.startsWith(YR)) return true
-                      if(p.contractDate && p.contractDate.startsWith(YR)) return true
-                      // 수행시점이 아예 없으면 포함 (미기재)
-                      if(!p.execDate && !p.contractExpect) return true
-                      return false
+                      // execDate가 있고 YR이 아니면 제외
+                      if(p.execDate && !p.execDate.startsWith(YR)) return false
+                      // contractExpect가 있고 YR이 아니면 제외
+                      if(p.contractExpect && !p.contractExpect.startsWith(YR)) return false
+                      // contractDate가 있고 YR이 아니면 제외
+                      if(p.contractDate && !p.contractDate.startsWith(YR)) return false
+                      // 날짜가 하나도 없으면 → contractYear가 YR이면 포함
+                      if(!p.execDate && !p.contractExpect && !p.contractDate) {
+                        return p.contractYear && String(p.contractYear)===YR
+                      }
+                      return true
                     }
-                    const newBase   = projects.filter(p=>isNewThisYear(p)&&!p.isAmendment&&isExecThisYear(p))
+                    const newBase = projects.filter(p=>isNewThisYear(p)&&!p.isAmendment&&isExecThisYear(p))
                     const wonProjs  = newBase.filter(p=>isWon(p)||p.type==="계약")
                     const confProjs = newBase.filter(p=>p.type==="확정"&&!isWon(p))
                     const pushProjs = newBase.filter(p=>p.type==="추진")
@@ -2248,7 +2252,13 @@ function CashflowTab({cashflow,setCashflow,currentUser,projects,setProjects,proj
 
                         rows.push(
                           <tr key={p.id}
-                            onClick={()=>{setSelProjId&&setSelProjId(p.id);setTab&&setTab("projects")}}
+                            onClick={()=>{
+                              if(setSelProjId&&setTab&&setDetailTab){
+                                setSelProjId(p.id)
+                                setDetailTab("info")
+                                setTab("projects")
+                              }
+                            }}
                             style={{background:i%2===0?"#fff":"#FAFAFA",borderBottom:"1px solid #F3F4F6",cursor:"pointer"}}
                             onMouseEnter={e=>e.currentTarget.style.background="#EEF2FF"}
                             onMouseLeave={e=>e.currentTarget.style.background=i%2===0?"#fff":"#FAFAFA"}>
@@ -2353,7 +2363,7 @@ function CashflowTab({cashflow,setCashflow,currentUser,projects,setProjects,proj
                     <tbody>
                       {amendProjs.map((p,i)=>(
                         <tr key={p.id}
-                          onClick={()=>{setSelProjId&&setSelProjId(p.id);setTab&&setTab("projects")}}
+                          onClick={()=>{if(setSelProjId&&setTab&&setDetailTab){setSelProjId(p.id);setDetailTab("info");setTab("projects")}}}
                           style={{background:i%2===0?"#fff":"#FFFBEB",borderBottom:"1px solid #FEF3C7",cursor:"pointer"}}
                           onMouseEnter={e=>e.currentTarget.style.background="#FEF3C7"}
                           onMouseLeave={e=>e.currentTarget.style.background=i%2===0?"#fff":"#FFFBEB"}>
@@ -2555,6 +2565,9 @@ function ProjectsTab({projects,setProjects,selProjId,setSelProjId,selVerIdx,setS
   const [cfDraft, setCfDraft]       = useState(null)
   const [detailTab, setDetailTab]   = useState("info")   // info | weekly
 
+  // 프로젝트 선택 시 상세탭 초기화 (프로젝트명 클릭 → 상세 자동 표시)
+  useEffect(()=>{ if(selProjId) setDetailTab("info") }, [selProjId])
+
   const selProj = projects.find(p=>p.id===selProjId)
   const selVer  = selProj?.versions?.[selVerIdx]
   const allCats = useMemo(()=>[...new Set(projects.flatMap(p=>p.versions.flatMap(v=>v.vendors.map(vd=>vd.cat))))].sort(),[projects])
@@ -2597,6 +2610,7 @@ function ProjectsTab({projects,setProjects,selProjId,setSelProjId,selVerIdx,setS
               <table style={{width:"100%",borderCollapse:"collapse"}}>
                 <thead><tr>
                   <th style={S.th("center")}>비교</th>
+                  <th style={S.th("center")}>연번</th>
                   {["구분","코드","프로젝트명","본부","PM","용역비(억)","평당단가","지분%","연면적㎡","진행%","계약일","다운"].map((h,i)=><th key={h+i} style={S.th(i>=5&&i<=10?"right":"left")}>{h}</th>)}
                 </tr></thead>
                 <tbody>
@@ -2608,6 +2622,7 @@ function ProjectsTab({projects,setProjects,selProjId,setSelProjId,selVerIdx,setS
                       onMouseLeave={e=>e.currentTarget.style.background=i%2===0?"var(--color-background-primary,#fff)":"var(--color-background-secondary,#f8f8f6)"}
                       onClick={()=>{setSelProjId(p.id);setSelVerIdx(p.versions.length-1);setView("detail")}}>
                       <td style={S.td("center")} onClick={e=>e.stopPropagation()}><input type="checkbox" checked={cmpIds.includes(p.id)} onChange={e=>setCmpIds(prev=>e.target.checked?[...prev,p.id]:prev.filter(id=>id!==p.id))}/></td>
+                      <td style={{...S.td("center"),fontSize:12,color:"#9CA3AF",fontWeight:600}}>{i+1}</td>
                       <td style={S.td("left")}><span style={S.bdg(tb.bg,tb.fg)}>{p.type}</span></td>
                       <td style={{...S.td("left"),fontFamily:"monospace",fontSize:11,color:C.navyM}}>{p.code}</td>
                       <td style={{...S.td("left"),maxWidth:190,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}} title={p.name}>{p.name}</td>
@@ -7240,7 +7255,7 @@ function ProjTabError() {
 // ══════════════════════════════════════════════════════════════
 // 📊 경영분석 허브 — 서브탭: 대시보드/월수금/계약/지출/인원
 // ══════════════════════════════════════════════════════════════
-function AnalysisHub({deptStaff,setDeptStaff,years,setYears,canWrite,isAdmin,cashflow,cashItems=[],saleItems=[],projects=[],setProjects,setTab,setSelProjId,currentUser,yearTargets={},setYearTargets,deptBiz={},staffMonthly={},staffTarget={},setCashItems,setSaleItems}) {
+function AnalysisHub({deptStaff,setDeptStaff,years,setYears,canWrite,isAdmin,cashflow,cashItems=[],saleItems=[],projects=[],setProjects,setTab,setSelProjId,currentUser,yearTargets={},setYearTargets,deptBiz={},staffMonthly={},staffTarget={},setCashItems,setSaleItems,setDetailTab}) {
   const {DEPTS,DEPT_COLORS,DEPT_BIZ} = useDepts()
   const [subTab, setSubTab] = useState("dashboard")
 
@@ -7265,7 +7280,7 @@ function AnalysisHub({deptStaff,setDeptStaff,years,setYears,canWrite,isAdmin,cas
 
       {subTab==="dashboard" && <AnalysisDashboard projects={projects} cashItems={cashItems} saleItems={saleItems} DEPTS={DEPTS} DEPT_COLORS={DEPT_COLORS} DEPT_BIZ={DEPT_BIZ} deptStaff={deptStaff} years={years}/>}
 
-      {subTab==="cash" && <CashflowTab cashflow={cashflow} setCashflow={()=>{}} currentUser={currentUser} projects={projects} setProjects={setProjects} projectCashflowByDept={{}} cashItems={cashItems} setCashItems={setCashItems} saleItems={saleItems} setSaleItems={setSaleItems} setTab={setTab} setSelProjId={setSelProjId} yearTargets={yearTargets} setYearTargets={isAdmin?setYearTargets:undefined} deptBiz={deptBiz} deptStaff={deptStaff} staffMonthly={staffMonthly} staffTarget={staffTarget}/>}
+      {subTab==="cash" && <CashflowTab cashflow={cashflow} setCashflow={()=>{}} currentUser={currentUser} projects={projects} setProjects={setProjects} projectCashflowByDept={{}} cashItems={cashItems} setCashItems={setCashItems} saleItems={saleItems} setSaleItems={setSaleItems} setTab={setTab} setSelProjId={setSelProjId} setDetailTab={setDetailTab} yearTargets={yearTargets} setYearTargets={isAdmin?setYearTargets:undefined} deptBiz={deptBiz} deptStaff={deptStaff} staffMonthly={staffMonthly} staffTarget={staffTarget}/>}
 
       {subTab==="staff" && <StaffStatusPanel DEPT_COLORS={DEPT_COLORS} deptStaff={deptStaff} staffMonthly={staffMonthly} staffTarget={staffTarget}/>}
     </div>
