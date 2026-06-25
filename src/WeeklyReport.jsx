@@ -48,6 +48,7 @@ export const WEEKLY_REPORT_EMPTY = {
 
 // ─────────────────────────────────────────────────────────────
 export function WeeklyReportTab({proj, setProjects, canWrite, currentUser}) {
+  if(!proj?.id) return null
   const wr = proj.weeklyReport || WEEKLY_REPORT_EMPTY
   const [sub, setSub] = useState("schedule")   // schedule|stages|agenda|contacts
 

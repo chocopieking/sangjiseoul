@@ -815,6 +815,7 @@ export default function App() {
   const TABS = tabOrder
 
   return (
+    <ToastProvider>
     <DeptContext.Provider value={deptCtx}>
     <div style={{fontFamily:"'Apple SD Gothic Neo','Pretendard','Noto Sans KR',sans-serif",fontSize:15,color:"#111827",background:"#F8FAFC",minHeight:"100vh"}}>
 
@@ -998,6 +999,7 @@ export default function App() {
       {/* AI 어시스턴트: ANTHROPIC_API_KEY 설정 후 AIAssistant.jsx 활성화 */}
     </div>
     </DeptContext.Provider>
+    </ToastProvider>
   )
 }
 
@@ -3779,6 +3781,29 @@ function NewProjModal({onClose,onSave,initial=null}) {
               </div>
             </div>
             <div style={S.grid(2,9)}><F label="담당PM" val={f.pm} onChange={v=>u("pm",v)}/><F label="담당본부장" val={f.director} onChange={v=>u("director",v)}/><F label="발주처" val={f.client} onChange={v=>u("client",v)}/><F label="발주처담당자" val={f.clientPm} onChange={v=>u("clientPm",v)}/></div>
+            <div style={S.grid(3,9)}>
+              <F label="발주처담당자 연락처" val={f.clientTel||""} onChange={v=>u("clientTel",v)} ph="010-0000-0000"/>
+              <F label="발주처담당자 이메일" val={f.clientEmail||""} onChange={v=>u("clientEmail",v)} ph="example@co.kr"/>
+              <F label="세대수" val={f.units||0} onChange={v=>u("units",parseInt(v)||0)} type="number"/>
+            </div>
+            {/* 실무담당자 */}
+            <div style={{marginTop:8}}>
+              <div style={{fontSize:13,fontWeight:700,color:"#374151",marginBottom:8,display:"flex",justifyContent:"space-between"}}>
+                실무담당자
+                <button type="button" onClick={()=>u("staffMembers",[...(f.staffMembers||[]),{name:"",title:"",tel:"",email:""}])}
+                  style={{padding:"3px 10px",background:"#EEF2FF",color:"#6366F1",border:"none",borderRadius:6,fontSize:12,fontWeight:700,cursor:"pointer"}}>+ 추가</button>
+              </div>
+              {(f.staffMembers||[]).map((m,mi)=>(
+                <div key={mi} style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr 1fr auto",gap:8,marginBottom:8,alignItems:"end"}}>
+                  <F label="이름" val={m.name} onChange={v=>{const s=[...(f.staffMembers||[])];s[mi]={...m,name:v};u("staffMembers",s)}}/>
+                  <F label="직위" val={m.title} onChange={v=>{const s=[...(f.staffMembers||[])];s[mi]={...m,title:v};u("staffMembers",s)}} ph="과장/대리 등"/>
+                  <F label="연락처" val={m.tel} onChange={v=>{const s=[...(f.staffMembers||[])];s[mi]={...m,tel:v};u("staffMembers",s)}} ph="010-0000-0000"/>
+                  <F label="이메일" val={m.email} onChange={v=>{const s=[...(f.staffMembers||[])];s[mi]={...m,email:v};u("staffMembers",s)}} ph="example@co.kr"/>
+                  <button type="button" onClick={()=>u("staffMembers",(f.staffMembers||[]).filter((_,i2)=>i2!==mi))}
+                    style={{padding:"8px 10px",background:"#FEE2E2",color:"#DC2626",border:"none",borderRadius:6,cursor:"pointer",marginBottom:0}}>✕</button>
+                </div>
+              ))}
+            </div>
           </>},
           {title:"면적정보",content:<div style={S.grid(3,9)}>
             <div><F label="대지면적(㎡)" val={f.siteArea} onChange={v=>u("siteArea",parseFloat(v)||0)} type="number"/>{f.siteArea>0&&<div style={{fontSize:10,color:C.amber,marginTop:2}}>= {pyS.toLocaleString()}평 ← 토목·조경 기준</div>}</div>
@@ -5401,18 +5426,32 @@ function CashItemsView({cashItems, setCashItems, projects, setProjects, DEPTS, c
   if(fixedItems!==cashItems) setTimeout(()=>setCashItems(fixedItems),0)
   const items = fixedItems
 
+  const toast = useToast()
+
   const save = () => {
-    if(!form.projectName.trim()||(!form.paidDate&&!form.expectedDate)){alert("프로젝트명과 입금일(또는 예상일) 중 하나는 필수입니다.");return}
+    if(!form.projectName.trim()||(!form.paidDate&&!form.expectedDate)){
+      toast("프로젝트명과 입금일(또는 예상일) 중 하나는 필수입니다.", "error")
+      return
+    }
     if(editId){
       setCashItems(prev=>prev.map(x=>x.id===editId?{...form,id:editId,updatedAt:new Date().toISOString(),updatedBy:currentUser?.name}:x))
+      toast(`✏ "${form.projectName}" 항목이 수정되었습니다.`, "success")
       setEditId(null)
     } else {
       setCashItems(prev=>[...prev,{...form,id:`CI${Date.now()}`,createdAt:new Date().toISOString(),createdBy:currentUser?.name}])
+      toast(`✅ "${form.projectName}" 항목이 추가되었습니다.`, "success")
     }
     setForm(EMPTY); setShowForm(false)
   }
-  const del = id => { if(window.confirm("삭제하시겠습니까?")) setCashItems(prev=>prev.filter(x=>x.id!==id)) }
-  const startEdit = item => { setForm({...EMPTY,...item}); setEditId(item.id); setShowForm(true) }
+  const del = id => {
+    const item = items.find(x=>x.id===id)
+    if(window.confirm(`"${item?.projectName||"항목"}"을 삭제하시겠습니까?`)){
+      setCashItems(prev=>prev.filter(x=>x.id!==id))
+      toast(`🗑 "${item?.projectName||"항목"}"이 삭제되었습니다.`, "warning")
+    }
+  }
+  // 수정 시 해당 행 ID 기록 (인라인 표시용)
+  const startEdit = item => { setForm({...EMPTY,...item}); setEditId(item.id); setShowForm(false) }
 
   // 프로젝트 자동완성 목록
   const projNames = [...new Set([...(projects||[]).map(p=>p.name),...items.map(i=>i.projectName)])].filter(Boolean)
@@ -5775,12 +5814,20 @@ function CashItemsView({cashItems, setCashItems, projects, setProjects, DEPTS, c
                           <td style={{padding:"9px 12px",textAlign:"right",fontSize:14,fontWeight:800,color:"#312E81",whiteSpace:"nowrap"}}>{fAmt(item.amount||0)}</td>
                           <td style={{padding:"9px 8px",whiteSpace:"nowrap"}}>
                             <div style={{display:"flex",gap:4}}>
-                              <button onClick={()=>startEdit(item)} style={{padding:"3px 8px",background:"#EEF2FF",color:"#6366F1",border:"none",borderRadius:6,fontSize:11.5,fontWeight:600,cursor:"pointer"}}>수정</button>
-                              <button onClick={()=>del(item.id)} style={{padding:"3px 8px",background:"#FEE2E2",color:"#DC2626",border:"none",borderRadius:6,fontSize:11.5,fontWeight:600,cursor:"pointer"}}>삭제</button>
+                              <button onClick={()=>startEdit(item)} style={{padding:"3px 8px",background:"#EEF2FF",color:"#6366F1",border:"none",borderRadius:6,fontSize:11.5,fontWeight:600,cursor:"pointer"}}>{editId===item.id?"✕ 취소":"✏ 수정"}</button>
+                              <button onClick={()=>del(item.id)} style={{padding:"3px 8px",background:"#FEE2E2",color:"#DC2626",border:"none",borderRadius:6,fontSize:11.5,fontWeight:600,cursor:"pointer"}}>🗑 삭제</button>
                             </div>
                           </td>
-                        </tr>
-                      )
+                      </tr>
+                    )
+                    // 인라인 수정 폼
+                    if(editId===item.id) rows.push(
+                      <tr key={item.id+"-edit"}>
+                        <td colSpan={9} style={{padding:"12px 16px",background:"#EEF2FF",borderBottom:"2px solid #6366F1"}}>
+                          <InlineEditForm form={form} setForm={setForm} DEPTS={DEPTS} projNames={projNames} isSale={isSale} onSave={save} onCancel={()=>{setEditId(null);setForm(EMPTY)}}/>
+                        </td>
+                      </tr>
+                    )
                     })
                     // 소계 행
                     rows.push(<tr key={"sub-"+label} style={{background:bg}}>
@@ -7484,6 +7531,115 @@ function BulkInputTool({DEPTS, projects, onSave, onClose}) {
         • 금액은 <strong style={{color:"#34D399"}}>원 단위</strong> 숫자만 입력 (쉼표 자동 제거)<br/>
         • 입금완료일 = 이미 받은 금액 / 입금예상일 = 앞으로 받을 금액<br/>
         • 구분: 기성(완료됨), 확정(예정), 추진(추진중), 미정(불확실)
+      </div>
+    </div>
+  )
+}
+
+// ══════════════════════════════════════════════════════════════
+// 🔔 토스트 메시지 시스템
+// ══════════════════════════════════════════════════════════════
+const ToastCtx = React.createContext(()=>{})
+
+function ToastProvider({children}) {
+  const [toasts, setToasts] = useState([])
+  const show = useCallback((msg, type="success", duration=3000) => {
+    const id = Date.now()
+    setToasts(p=>[...p, {id, msg, type}])
+    setTimeout(()=>setToasts(p=>p.filter(t=>t.id!==id)), duration)
+  }, [])
+
+  const TYPE = {
+    success: {bg:"#059669", icon:"✅"},
+    error:   {bg:"#DC2626", icon:"❌"},
+    info:    {bg:"#6366F1", icon:"ℹ️"},
+    warning: {bg:"#D97706", icon:"⚠️"},
+  }
+
+  return (
+    <ToastCtx.Provider value={show}>
+      {children}
+      <div style={{position:"fixed",bottom:28,right:24,zIndex:9999,display:"flex",flexDirection:"column-reverse",gap:10,pointerEvents:"none"}}>
+        {toasts.map(t=>{
+          const s = TYPE[t.type]||TYPE.success
+          return (
+            <div key={t.id} style={{
+              background:s.bg, color:"#fff", padding:"12px 20px",
+              borderRadius:12, fontSize:14, fontWeight:600,
+              boxShadow:"0 4px 20px rgba(0,0,0,.25)",
+              display:"flex", alignItems:"center", gap:10,
+              minWidth:220, maxWidth:380,
+              animation:"slideUp .25s ease",
+              pointerEvents:"auto",
+            }}>
+              <span style={{fontSize:18}}>{s.icon}</span>
+              <span style={{lineHeight:1.4}}>{t.msg}</span>
+            </div>
+          )
+        })}
+      </div>
+      <style>{`@keyframes slideUp{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:translateY(0)}}`}</style>
+    </ToastCtx.Provider>
+  )
+}
+
+function useToast() { return React.useContext(ToastCtx) }
+
+// ══════════════════════════════════════════════════════════════
+// ✏ 인라인 수정 폼
+// ══════════════════════════════════════════════════════════════
+function InlineEditForm({form, setForm, DEPTS, projNames, isSale, onSave, onCancel}) {
+  const u = (k,v) => setForm(p=>({...p,[k]:v}))
+  const INP = {padding:"7px 10px",border:"1.5px solid #C7D2FE",borderRadius:8,fontSize:13,fontFamily:"inherit",outline:"none",background:"#fff",width:"100%",boxSizing:"border-box"}
+  const ITEM_TYPES = isSale ? ["세금계산서","선급금"] : ["기성","확정","추진","미정","신규","정산","선급금"]
+
+  return (
+    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr 1fr 1fr 1fr 1fr 1fr auto",gap:8,alignItems:"end"}}>
+      <div>
+        <div style={{fontSize:11,color:"#6366F1",fontWeight:700,marginBottom:3}}>본부</div>
+        <select value={form.dept||""} onChange={e=>u("dept",e.target.value)} style={INP}>
+          <option value="">선택</option>
+          {DEPTS.map(d=><option key={d} value={d}>{d}</option>)}
+        </select>
+      </div>
+      <div>
+        <div style={{fontSize:11,color:"#6366F1",fontWeight:700,marginBottom:3}}>발주구분</div>
+        <select value={form.orderType||"민간"} onChange={e=>u("orderType",e.target.value)} style={INP}>
+          {["민간","공공","해외"].map(t=><option key={t} value={t}>{t}</option>)}
+        </select>
+      </div>
+      <div>
+        <div style={{fontSize:11,color:"#6366F1",fontWeight:700,marginBottom:3}}>구분</div>
+        <select value={form.itemType||""} onChange={e=>u("itemType",e.target.value)} style={INP}>
+          {ITEM_TYPES.map(t=><option key={t} value={t}>{t}</option>)}
+        </select>
+      </div>
+      <div style={{gridColumn:"span 2"}}>
+        <div style={{fontSize:11,color:"#6366F1",fontWeight:700,marginBottom:3}}>프로젝트명</div>
+        <input list="inline-proj-list" value={form.projectName||""} onChange={e=>u("projectName",e.target.value)} style={INP} placeholder="프로젝트명"/>
+        <datalist id="inline-proj-list">{projNames.map(n=><option key={n} value={n}/>)}</datalist>
+      </div>
+      <div>
+        <div style={{fontSize:11,color:"#6366F1",fontWeight:700,marginBottom:3}}>입금완료일</div>
+        <input type="date" value={form.paidDate||""} onChange={e=>u("paidDate",e.target.value)} style={INP}/>
+      </div>
+      <div>
+        <div style={{fontSize:11,color:"#6366F1",fontWeight:700,marginBottom:3}}>입금예상일</div>
+        <input type="date" value={form.expectedDate||""} onChange={e=>u("expectedDate",e.target.value)} style={INP}/>
+      </div>
+      <div>
+        <div style={{fontSize:11,color:"#6366F1",fontWeight:700,marginBottom:3}}>금액(원)</div>
+        <input type="number" value={form.amount||""} onChange={e=>u("amount",parseInt(e.target.value)||0)} style={INP} placeholder="원 단위"/>
+      </div>
+      <div style={{display:"flex",gap:6,paddingBottom:0}}>
+        <button onClick={onSave}
+          style={{padding:"8px 16px",background:"#6366F1",color:"#fff",border:"none",borderRadius:8,fontSize:13,fontWeight:700,cursor:"pointer",whiteSpace:"nowrap"}}>
+          💾 저장
+        </button>
+        <button onClick={onCancel}
+          style={{padding:"8px 12px",background:"#F3F4F6",color:"#374151",border:"none",borderRadius:8,fontSize:13,cursor:"pointer"}}>
+          취소
+        </button>
       </div>
     </div>
   )
