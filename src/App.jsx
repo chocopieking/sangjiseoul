@@ -1319,11 +1319,26 @@ function CashflowTab({cashflow,setCashflow,currentUser,projects,setProjects,proj
     const pushAmt= push.reduce((s,p)=>s+(p.serviceFee||0)*share(p),0)
     const target = db.orderTarget||0
 
+    // 당해연도 신규: contractYear가 YR이거나, contractDate가 YR로 시작
+    const isNewYear = p => {
+      if(p.contractYear && String(p.contractYear)===YR) return true
+      if(p.contractDate && p.contractDate.startsWith(YR)) return true
+      return false
+    }
+    const newWon  = won.filter(isNewYear)
+    const newConf = conf.filter(isNewYear)
+    const newPush = push.filter(isNewYear)
+    const newWonAmt  = newWon.reduce((s,p)=>s+(p.serviceFee||0)*share(p),0)
+    const newConfAmt = newConf.reduce((s,p)=>s+(p.serviceFee||0)*share(p),0)
+    const newPushAmt = newPush.reduce((s,p)=>s+(p.serviceFee||0)*share(p),0)
+
     // 인원 3종
     const si = getStaffInfo(dept)
     const cur = si.current||1
 
     return {dept,target,won:wonAmt,conf:confAmt,push:pushAmt,
+      newWon:newWonAmt,newConf:newConfAmt,newPush:newPushAmt,
+      newWonProjs:newWon,newConfProjs:newConf,newPushProjs:newPush,
       total:wonAmt+confAmt,totalWithPush:wonAmt+confAmt+pushAmt,
       rate:target>0?pct(wonAmt+confAmt,target*1e8):null,
       wonProjs:won,confProjs:conf,pushProjs:push,
@@ -1949,6 +1964,42 @@ function CashflowTab({cashflow,setCashflow,currentUser,projects,setProjects,proj
             </div>
           </div>
 
+          {/* 당해연도 신규 계약 KPI */}
+          {(()=>{
+            const yr = String(YEAR)
+            const isNewYr = p => (p.contractYear&&String(p.contractYear)===yr)||(p.contractDate&&p.contractDate.startsWith(yr))
+            const newWonAll  = projects.filter(p=>isWon(p)&&isNewYr(p))
+            const newConfAll = projects.filter(p=>p.type==="확정"&&!isWon(p)&&isNewYr(p))
+            const newPushAll = projects.filter(p=>p.type==="추진"&&isNewYr(p))
+            const amendAll   = projects.filter(p=>p.isAmendment&&isNewYr(p))
+            const s = arr => arr.reduce((t,p)=>t+(p.serviceFee||0),0)
+            const fK = v => v>=1e8?`${(v/1e8).toFixed(2)}억`:v>0?`${(v/1e4).toFixed(0)}만`:"-"
+            return (
+              <div style={{background:"linear-gradient(135deg,#312E81,#6366F1)",borderRadius:14,padding:"18px 22px",marginBottom:16,color:"#fff"}}>
+                <div style={{fontSize:14,fontWeight:700,opacity:.8,marginBottom:10}}>{YEAR}년 신규 계약 현황
+                  <span style={{fontSize:11,opacity:.6,marginLeft:10}}>※ 프로젝트 수정 → "계약 체결 연도"를 {YEAR}로 입력한 항목만 집계</span>
+                </div>
+                <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:12}}>
+                  {[
+                    {label:"✅ 신규 계약",    val:s(newWonAll),  cnt:newWonAll.length,  color:"#34D399"},
+                    {label:"📋 신규 확정",    val:s(newConfAll), cnt:newConfAll.length, color:"#A5B4FC"},
+                    {label:"🔶 신규 추진",    val:s(newPushAll), cnt:newPushAll.length, color:"#FDE68A"},
+                    {label:"⚙ 설계변경·증액", val:s(amendAll),  cnt:amendAll.length,   color:"#FCA5A5"},
+                  ].map(k=>(
+                    <div key={k.label} style={{background:"rgba(255,255,255,.1)",borderRadius:10,padding:"12px 14px",cursor:"pointer"}}
+                      onClick={()=>{
+                        const items = k.label.includes("계약")?newWonAll:k.label.includes("확정")?newConfAll:k.label.includes("추진")?newPushAll:amendAll
+                        setSelDetail({type:k.label+" ("+yr+"년 신규)",dept:"전체",items:items.map(p=>({...p,projectName:p.name,amount:p.serviceFee,paidDate:p.contractDate,stage:"계약"}))})
+                      }}>
+                      <div style={{fontSize:11.5,color:k.color,fontWeight:600,marginBottom:5}}>{k.label} ({k.cnt}건)</div>
+                      <div style={{fontSize:20,fontWeight:800,color:"#fff"}}>{fK(k.val)}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )
+          })()}
+
           {/* 수주 연동 안내 */}
           <div style={{background:"#FEF3CD",borderRadius:12,padding:"12px 18px",marginBottom:20,border:"1px solid #D9770644",fontSize:13,color:"#92400E",lineHeight:1.7}}>
             <strong>💡 수주 판단 기준 —</strong>
@@ -2196,6 +2247,8 @@ function CashflowTab({cashflow,setCashflow,currentUser,projects,setProjects,proj
                             <td style={{padding:"9px 11px",fontSize:13.5,fontWeight:700,color:"#111827",minWidth:180,wordBreak:"keep-all"}}>
                               {p.name}
                               {jvBadge}
+                              {p.contractYear&&String(p.contractYear)===String(YEAR)&&<span style={{marginLeft:5,fontSize:10,background:"#DC2626",color:"#fff",padding:"1px 6px",borderRadius:6,fontWeight:700}}>{YEAR}년 신규</span>}
+                              {p.isAmendment&&<span style={{marginLeft:4,fontSize:10,background:"#D97706",color:"#fff",padding:"1px 6px",borderRadius:6,fontWeight:700}}>설계변경</span>}
                             </td>
                             <td style={{padding:"9px 11px",textAlign:"right",fontSize:12.5,color:"#374151",whiteSpace:"nowrap"}}>
                               {p.totalFee>0?fA(p.totalFee):p.serviceFee>0?fA(p.serviceFee):"-"}
@@ -3892,7 +3945,7 @@ function NewProjModal({onClose,onSave,initial=null}) {
       const ds = getDeptShares(initial).map(s=>({...s}))
       return {...initial, shareRatio:(initial.shareRatio??1)*100, deptShares: ds.length?ds:[{dept:STAFF_DEPTS[0],share:100}], orderType: initial.orderType||"민간", contractType: initial.contractType||"민간"}
     }
-    return {year:new Date().getFullYear()+"",code:"",name:"",deptShares:[{dept:STAFF_DEPTS[0],share:100}],pm:"",director:"",projType:"",contractType:"민간",usage:"",scale:"",siteArea:0,buildArea:0,floorArea:0,units:0,client:"",clientPm:"",totalFee:0,shareRatio:100,serviceFee:0,address:"",contractDate:"",orderDate:"",orderType:"민간",bidType:"민간수의",note:"",type:"확정",prog:0,
+    return {year:new Date().getFullYear()+"",code:"",name:"",deptShares:[{dept:STAFF_DEPTS[0],share:100}],pm:"",director:"",projType:"",contractType:"민간",usage:"",scale:"",siteArea:0,buildArea:0,floorArea:0,units:0,client:"",clientPm:"",clientTel:"",clientEmail:"",staffMembers:[],totalFee:0,shareRatio:100,serviceFee:0,address:"",contractDate:"",orderDate:"",orderType:"민간",bidType:"민간수의",note:"",type:"확정",contractYear:new Date().getFullYear(),isAmendment:false,parentProjName:"",prog:0,
       jvType:"단독이행",   // 단독이행 | 공동이행 | 분담이행
       jvMembers:[],        // [{name,ratio,amount,role}]
     }
@@ -3953,6 +4006,47 @@ function NewProjModal({onClose,onSave,initial=null}) {
               <F label="발주처담당자 연락처" val={f.clientTel||""} onChange={v=>u("clientTel",v)} ph="010-0000-0000"/>
               <F label="발주처담당자 이메일" val={f.clientEmail||""} onChange={v=>u("clientEmail",v)} ph="example@co.kr"/>
               <F label="세대수" val={f.units||0} onChange={v=>u("units",parseInt(v)||0)} type="number"/>
+            </div>
+            {/* 계약연도 + 설계변경 */}
+            <div style={{background:"#EEF2FF",borderRadius:10,padding:"14px 16px",marginTop:8}}>
+              <div style={{fontSize:13,fontWeight:800,color:"#312E81",marginBottom:10}}>📅 계약연도 설정 (당해연도 신규 계약 구분용)</div>
+              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:12}}>
+                <div>
+                  <label style={{fontSize:12,fontWeight:700,color:"#374151",display:"block",marginBottom:5}}>
+                    계약 체결 연도 *
+                    <span style={{fontSize:11,color:"#6B7280",fontWeight:400,marginLeft:6}}>실제 계약이 체결된 연도</span>
+                  </label>
+                  <input type="number" min={2000} max={2100} value={f.contractYear||new Date().getFullYear()} onChange={e=>u("contractYear",parseInt(e.target.value)||new Date().getFullYear())}
+                    style={{padding:"8px 12px",border:"1.5px solid #C7D2FE",borderRadius:9,fontSize:14,width:"100%",boxSizing:"border-box",fontFamily:"inherit",outline:"none",background:"#fff",fontWeight:700,color:"#312E81"}}/>
+                  <div style={{fontSize:11,color:"#6B7280",marginTop:4}}>예: 2024년에 계약된 프로젝트 → 2024 입력</div>
+                </div>
+                <div>
+                  <label style={{fontSize:12,fontWeight:700,color:"#374151",display:"block",marginBottom:5}}>설계변경/증액 여부</label>
+                  <div style={{display:"flex",gap:8,marginTop:4}}>
+                    {[["false","일반 계약"],["true","설계변경·증액"]].map(([val,label])=>(
+                      <button key={val} type="button"
+                        onClick={()=>u("isAmendment",val==="true")}
+                        style={{padding:"8px 14px",border:`2px solid ${String(f.isAmendment||false)===val?"#D97706":"#E5E7EB"}`,borderRadius:9,fontSize:13,fontWeight:600,cursor:"pointer",
+                          background:String(f.isAmendment||false)===val?"#FEF3C7":"#fff",
+                          color:String(f.isAmendment||false)===val?"#92400E":"#6B7280",flex:1}}>
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div>
+                  <label style={{fontSize:12,fontWeight:700,color:"#374151",display:"block",marginBottom:5}}>
+                    원계약 프로젝트명
+                    <span style={{fontSize:11,color:"#6B7280",fontWeight:400,marginLeft:6}}>설계변경일 경우</span>
+                  </label>
+                  <input list="parent-proj-list" value={f.parentProjName||""} onChange={e=>u("parentProjName",e.target.value)}
+                    placeholder="원계약 프로젝트명 검색..."
+                    style={{padding:"8px 12px",border:"1.5px solid #E5E7EB",borderRadius:9,fontSize:13,width:"100%",boxSizing:"border-box",fontFamily:"inherit",outline:"none",background:"#fff"}}/>
+                  <datalist id="parent-proj-list">
+                    {(f._allProjects||[]).map(p=><option key={p} value={p}/>)}
+                  </datalist>
+                </div>
+              </div>
             </div>
             {/* 실무담당자 */}
             <div style={{marginTop:8}}>
