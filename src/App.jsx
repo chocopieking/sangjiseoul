@@ -976,7 +976,7 @@ export default function App() {
         {tab==="stats"     && (canReadTab("stats")  ? <StatsTab projects={projects}/> : <NoPermScreen tabId="stats"/>)}
         {tab==="gamify"    && (canReadTab("gamify") ? <GamifyTab projects={projects} currentUser={currentUser}/> : <NoPermScreen tabId="gamify"/>)}
         {tab==="deptdash"  && <DeptDashTab projects={projects} vendorPayments={vendorPayments} years={years}/>}
-        {tab==="analysis"  && (canReadTab("analysis") ? <AnalysisHub deptStaff={deptStaff} setDeptStaff={setDeptStaff} years={years} setYears={setYears} canWrite={canWrite} isAdmin={currentUser?.role==="admin"} cashflow={effectiveCashflow} cashItems={cashItems} saleItems={saleItems} projects={projects} setProjects={setProjects} setTab={setTab} setSelProjId={setSelProjId} currentUser={currentUser} yearTargets={yearTargets} setYearTargets={setYearTargets} deptBiz={deptBiz} staffMonthly={staffMonthly} staffTarget={staffTarget} deptStaff={deptStaff}/> : <NoPermScreen tabId="analysis"/>)}
+        {tab==="analysis"  && (canReadTab("analysis") ? <AnalysisHub deptStaff={deptStaff} setDeptStaff={setDeptStaff} years={years} setYears={setYears} canWrite={canWrite} isAdmin={currentUser?.role==="admin"} cashflow={effectiveCashflow} cashItems={cashItems} setCashItems={setCashItems} saleItems={saleItems} setSaleItems={setSaleItems} projects={projects} setProjects={setProjects} setTab={setTab} setSelProjId={setSelProjId} currentUser={currentUser} yearTargets={yearTargets} setYearTargets={setYearTargets} deptBiz={deptBiz} staffMonthly={staffMonthly} staffTarget={staffTarget} deptStaff={deptStaff}/> : <NoPermScreen tabId="analysis"/>)}
         {tab==="datahub" && canReadTab("datahub") && <DataHubTab currentUser={currentUser} deptStaff={deptStaff} setDeptStaff={setDeptStaff} staffTarget={staffTarget} setStaffTarget={setStaffTarget} staffMonthly={staffMonthly} setStaffMonthly={setStaffMonthly} pnlData={pnlData} setPnlData={setPnlData} cashflow={cashflow} setCashflow={setCashflow} years={years} setYears={setYears} projects={projects} setProjects={setProjects} setTab={setTab} setSelProjId={setSelProjId} setSelVerIdx={setSelVerIdx} setShowNewProj={setShowNewProj} versions={versions} saveVersion={saveVersion} restoreVersion={restoreVersion} deleteVersion={deleteVersion} contractTypes={contractTypes} setContractTypes={setContractTypes} projTypes={projTypes} setProjTypes={setProjTypes} bidTypes={bidTypes} setBidTypes={setBidTypes} allData={null} restoreAllData={(entries)=>dbSetAll(entries, userEmail.current)} dbStatus={dbStatus}/>}
         {tab==="cashflow" && canReadTab("cashflow") && <CashflowTab cashflow={effectiveCashflow} setCashflow={setCashflow} currentUser={currentUser} projects={projects} setProjects={setProjects} projectCashflowByDept={projectCashflowByDept} cashItems={cashItems} setCashItems={setCashItems} saleItems={saleItems} setSaleItems={setSaleItems} setTab={setTab} setSelProjId={setSelProjId} yearTargets={yearTargets} setYearTargets={setYearTargets} deptBiz={deptBiz} deptStaff={deptStaff} staffMonthly={staffMonthly} staffTarget={staffTarget}/>}
         {tab==="projects" && canReadTab("projects") && <ProjectsTab projects={projects} setProjects={setProjects} selProjId={selProjId} setSelProjId={setSelProjId} selVerIdx={selVerIdx} setSelVerIdx={setSelVerIdx} cmpIds={cmpIds} setCmpIds={setCmpIds} showNewVer={showNewVer} setShowNewVer={setShowNewVer} canWrite={canWrite&&canWriteTab("projects")} contractTypes={contractTypes} currentUser={currentUser}/>}
@@ -1717,14 +1717,20 @@ function CashflowTab({cashflow,setCashflow,currentUser,projects,setProjects,proj
           <div style={{background:"#fff",borderRadius:14,border:"1px solid #E5E7EB",padding:"20px 24px",marginBottom:20}}>
             <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}>
               <div style={{fontSize:16,fontWeight:800,color:"#111827"}}>{YEAR}년 월별 수금 현황 (단위: 억원)</div>
-              <div style={{display:"flex",gap:4,background:"#F3F4F6",borderRadius:8,padding:3}}>
-                {[["overview","📊 연간"],["list","📋 목록"],["monthly","📅 월별"],["dept","🏢 본부별"]].map(([v,l])=>(
-                  <button key={v} onClick={()=>setCashView(v)}
-                    style={{padding:"5px 12px",border:"none",borderRadius:6,fontSize:12.5,fontWeight:cashView===v?700:400,cursor:"pointer",
-                      background:cashView===v?"#6366F1":"none",color:cashView===v?"#fff":"#6B7280"}}>
-                    {l}
-                  </button>
-                ))}
+              <div style={{display:"flex",gap:6,alignItems:"center"}}>
+                <div style={{display:"flex",gap:4,background:"#F3F4F6",borderRadius:8,padding:3}}>
+                  {[["overview","📊 연간"],["list","📋 목록"],["monthly","📅 월별"],["dept","🏢 본부별"]].map(([v,l])=>(
+                    <button key={v} onClick={()=>setCashView(v)}
+                      style={{padding:"5px 12px",border:"none",borderRadius:6,fontSize:12.5,fontWeight:cashView===v?700:400,cursor:"pointer",
+                        background:cashView===v?"#6366F1":"none",color:cashView===v?"#fff":"#6B7280"}}>
+                      {l}
+                    </button>
+                  ))}
+                </div>
+                <button onClick={()=>setCashView("list")}
+                  style={{padding:"6px 14px",background:"#6366F1",color:"#fff",border:"none",borderRadius:9,fontSize:12.5,fontWeight:700,cursor:"pointer"}}>
+                  ✏ 기성내역 입력/추가
+                </button>
               </div>
             </div>
 
@@ -5480,7 +5486,7 @@ function CashItemsView({cashItems, setCashItems, projects, setProjects, DEPTS, c
   const maxBar = Math.max(...(chartData||[]).map(d=>d.total),1)
 
   const ORDER_COLOR = {민간:"#6366F1", 공공:"#059669", 해외:"#D97706"}
-  const TYPE_COLOR  = {신규:"#D97706", 기성:"#6B7280", 정산:"#4F46E5", 세금계산서:"#059669"}
+  const TYPE_COLOR  = {신규:"#D97706", 기성:"#6B7280", 정산:"#4F46E5", 세금계산서:"#059669", 확정:"#6366F1", 추진:"#D97706", 미정:"#9CA3AF", 선급금:"#0891B2"}
   const INP = {padding:"8px 11px",border:"1.5px solid #E5E7EB",borderRadius:9,fontSize:13.5,fontFamily:"inherit",outline:"none",width:"100%",boxSizing:"border-box"}
 
   const goToProj = (item) => {
@@ -5520,7 +5526,7 @@ function CashItemsView({cashItems, setCashItems, projects, setProjects, DEPTS, c
         </select>
         <select value={filterType} onChange={e=>setFilterType(e.target.value)} style={{...INP,width:100,padding:"6px 10px",fontSize:12.5}}>
           <option value="">전체 구분</option>
-          {(isSale?["세금계산서","선급금"]:["기성","신규","정산","선급금"]).map(t=><option key={t} value={t}>{t}</option>)}
+          {(isSale?["세금계산서","선급금"]:["기성","확정","추진","미정","신규","정산","선급금"]).map(t=><option key={t} value={t}>{t}</option>)}
         </select>
         {/* 정렬 */}
         <select value={sortBy} onChange={e=>setSortBy(e.target.value)} style={{...INP,width:110,padding:"6px 10px",fontSize:12.5}}>
@@ -5567,7 +5573,7 @@ function CashItemsView({cashItems, setCashItems, projects, setProjects, DEPTS, c
               <select value={form.orderType} onChange={e=>u("orderType",e.target.value)} style={INP}>{["민간","공공","해외"].map(t=><option key={t} value={t}>{t}</option>)}</select></div>
             <div><label style={{fontSize:12,fontWeight:700,color:"#6B7280",display:"block",marginBottom:4}}>구분</label>
               <select value={form.itemType} onChange={e=>u("itemType",e.target.value)} style={INP}>
-                {(isSale?["세금계산서","선급금"]:["기성","신규","정산","선급금"]).map(t=><option key={t} value={t}>{t}</option>)}
+                {(isSale?["세금계산서","선급금"]:["기성","확정","추진","미정","신규","정산","선급금"]).map(t=><option key={t} value={t}>{t}</option>)}
               </select></div>
           </div>
           <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:10}}>
@@ -6826,7 +6832,7 @@ function ProjTabError() {
 // ══════════════════════════════════════════════════════════════
 // 📊 경영분석 허브 — 서브탭: 대시보드/월수금/계약/지출/인원
 // ══════════════════════════════════════════════════════════════
-function AnalysisHub({deptStaff,setDeptStaff,years,setYears,canWrite,isAdmin,cashflow,cashItems=[],saleItems=[],projects=[],setProjects,setTab,setSelProjId,currentUser,yearTargets={},setYearTargets,deptBiz={},staffMonthly={},staffTarget={}}) {
+function AnalysisHub({deptStaff,setDeptStaff,years,setYears,canWrite,isAdmin,cashflow,cashItems=[],saleItems=[],projects=[],setProjects,setTab,setSelProjId,currentUser,yearTargets={},setYearTargets,deptBiz={},staffMonthly={},staffTarget={},setCashItems,setSaleItems}) {
   const {DEPTS,DEPT_COLORS,DEPT_BIZ} = useDepts()
   const [subTab, setSubTab] = useState("dashboard")
 
@@ -6851,7 +6857,7 @@ function AnalysisHub({deptStaff,setDeptStaff,years,setYears,canWrite,isAdmin,cas
 
       {subTab==="dashboard" && <AnalysisDashboard projects={projects} cashItems={cashItems} saleItems={saleItems} DEPTS={DEPTS} DEPT_COLORS={DEPT_COLORS} DEPT_BIZ={DEPT_BIZ} deptStaff={deptStaff} years={years}/>}
 
-      {subTab==="cash" && <CashflowTab cashflow={cashflow} setCashflow={()=>{}} currentUser={currentUser} projects={projects} setProjects={setProjects} projectCashflowByDept={{}} cashItems={cashItems} setCashItems={()=>{}} saleItems={saleItems} setSaleItems={()=>{}} setTab={setTab} setSelProjId={setSelProjId} yearTargets={yearTargets} setYearTargets={isAdmin?setYearTargets:undefined} deptBiz={deptBiz} deptStaff={deptStaff} staffMonthly={staffMonthly} staffTarget={staffTarget}/>}
+      {subTab==="cash" && <CashflowTab cashflow={cashflow} setCashflow={()=>{}} currentUser={currentUser} projects={projects} setProjects={setProjects} projectCashflowByDept={{}} cashItems={cashItems} setCashItems={setCashItems} saleItems={saleItems} setSaleItems={setSaleItems} setTab={setTab} setSelProjId={setSelProjId} yearTargets={yearTargets} setYearTargets={isAdmin?setYearTargets:undefined} deptBiz={deptBiz} deptStaff={deptStaff} staffMonthly={staffMonthly} staffTarget={staffTarget}/>}
 
       {subTab==="staff" && <StaffStatusPanel DEPT_COLORS={DEPT_COLORS} deptStaff={deptStaff} staffMonthly={staffMonthly} staffTarget={staffTarget}/>}
     </div>
@@ -7320,9 +7326,11 @@ function BulkInputTool({DEPTS, projects, onSave, onClose}) {
   }
 
   const INP = (err) => ({
-    padding:"5px 7px", border:`1.5px solid ${err?"#DC2626":"#E5E7EB"}`,
+    padding:"5px 7px", border:`1.5px solid ${err?"#DC2626":"#475569"}`,
     borderRadius:6, fontSize:12.5, fontFamily:"inherit", outline:"none",
-    width:"100%", boxSizing:"border-box", background: err?"#FEF2F2":"#fff"
+    width:"100%", boxSizing:"border-box",
+    background: err?"#4A1E1E":"#334155",
+    color:"#F1F5F9",
   })
 
   const fPreview = n => {
@@ -7410,14 +7418,14 @@ function BulkInputTool({DEPTS, projects, onSave, onClose}) {
 
                 {/* 입금완료일 */}
                 <td style={{padding:"3px 4px"}}>
-                  <input type="date" value={row.paidDate} onChange={e=>u(ri,"paidDate",e.target.value)}
-                    style={{...INP(errors[`${ri}_date`]&&!row.paidDate&&!row.expectedDate),fontSize:12,colorScheme:"dark"}}/>
+                  <input type="date" value={row.paidDate||""} onChange={e=>u(ri,"paidDate",e.target.value)}
+                    style={{...INP(errors[`${ri}_date`]&&!row.paidDate&&!row.expectedDate),fontSize:12}}/>
                 </td>
 
                 {/* 입금예상일 */}
                 <td style={{padding:"3px 4px"}}>
-                  <input type="date" value={row.expectedDate} onChange={e=>u(ri,"expectedDate",e.target.value)}
-                    style={{...INP(errors[`${ri}_date`]&&!row.paidDate&&!row.expectedDate),fontSize:12,colorScheme:"dark"}}/>
+                  <input type="date" value={row.expectedDate||""} onChange={e=>u(ri,"expectedDate",e.target.value)}
+                    style={{...INP(errors[`${ri}_date`]&&!row.paidDate&&!row.expectedDate),fontSize:12}}/>
                 </td>
 
                 {/* 금액 */}
