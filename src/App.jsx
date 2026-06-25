@@ -1960,42 +1960,6 @@ function CashflowTab({cashflow,setCashflow,currentUser,projects,setProjects,proj
             </div>
           </div>
 
-          {/* 당해연도 신규 계약 KPI */}
-          {(()=>{
-            const yr = String(YEAR)
-            const isNewYr = p => (p.contractYear&&String(p.contractYear)===yr)||(p.contractDate&&p.contractDate.startsWith(yr))
-            const newWonAll  = projects.filter(p=>isWon(p)&&isNewYr(p))
-            const newConfAll = projects.filter(p=>p.type==="확정"&&!isWon(p)&&isNewYr(p))
-            const newPushAll = projects.filter(p=>p.type==="추진"&&isNewYr(p))
-            const amendAll   = projects.filter(p=>p.isAmendment&&isNewYr(p))
-            const s = arr => arr.reduce((t,p)=>t+(p.serviceFee||0),0)
-            const fK = v => v>=1e8?`${(v/1e8).toFixed(2)}억`:v>0?`${(v/1e4).toFixed(0)}만`:"-"
-            return (
-              <div style={{background:"linear-gradient(135deg,#312E81,#6366F1)",borderRadius:14,padding:"18px 22px",marginBottom:16,color:"#fff"}}>
-                <div style={{fontSize:14,fontWeight:700,opacity:.8,marginBottom:10}}>{YEAR}년 신규 계약 현황
-                  <span style={{fontSize:11,opacity:.6,marginLeft:10}}>※ 프로젝트 수정 → "계약 체결 연도"를 {YEAR}로 입력한 항목만 집계</span>
-                </div>
-                <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:12}}>
-                  {[
-                    {label:"✅ 신규 계약",    val:s(newWonAll),  cnt:newWonAll.length,  color:"#34D399"},
-                    {label:"📋 신규 확정",    val:s(newConfAll), cnt:newConfAll.length, color:"#A5B4FC"},
-                    {label:"🔶 신규 추진",    val:s(newPushAll), cnt:newPushAll.length, color:"#FDE68A"},
-                    {label:"⚙ 설계변경·증액", val:s(amendAll),  cnt:amendAll.length,   color:"#FCA5A5"},
-                  ].map(k=>(
-                    <div key={k.label} style={{background:"rgba(255,255,255,.1)",borderRadius:10,padding:"12px 14px",cursor:"pointer"}}
-                      onClick={()=>{
-                        const items = k.label.includes("계약")?newWonAll:k.label.includes("확정")?newConfAll:k.label.includes("추진")?newPushAll:amendAll
-                        setSelDetail({type:k.label+" ("+yr+"년 신규)",dept:"전체",items:items.map(p=>({...p,projectName:p.name,amount:p.serviceFee,paidDate:p.contractDate,stage:"계약"}))})
-                      }}>
-                      <div style={{fontSize:11.5,color:k.color,fontWeight:600,marginBottom:5}}>{k.label} ({k.cnt}건)</div>
-                      <div style={{fontSize:20,fontWeight:800,color:"#fff"}}>{fK(k.val)}</div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )
-          })()}
-
           {/* 당해연도 신규 KPI */}
           {(()=>{
             const yr=YR
@@ -2190,8 +2154,22 @@ function CashflowTab({cashflow,setCashflow,currentUser,projects,setProjects,proj
               <table style={{width:"100%",borderCollapse:"collapse",minWidth:1000}}>
                 <thead>
                   <tr style={{background:"#F8FAFC"}}>
-                    {["연번","구분","본부","프로젝트명","총설계비(예상)","상지지분(예상)","용역비(예상)","수행시점","계약시점(예상)","비고"].map((h,i)=>(
-                      <th key={i} style={{padding:"10px 11px",textAlign:i>=4&&i<=8?"right":"left",fontSize:11.5,fontWeight:700,color:"#6B7280",borderBottom:"2px solid #E5E7EB",whiteSpace:"nowrap"}}>{h}</th>
+                    {[
+                      {h:"연번",      align:"center"},
+                      {h:"구분",      align:"left"},
+                      {h:"본부",      align:"left"},
+                      {h:"발주처",    align:"left"},
+                      {h:"프로젝트명",align:"left"},
+                      {h:`총설계비\n(2026신규)`,align:"right"},
+                      {h:"상지지분",  align:"right"},
+                      {h:"용역비(예상)",align:"right"},
+                      {h:"수행시점",  align:"right"},
+                      {h:"계약시점(예상)",align:"right"},
+                      {h:"컨소시엄구성",align:"left"},
+                      {h:"컨소시엄비율",align:"right"},
+                      {h:"비고",      align:"left"},
+                    ].map(({h,align},i)=>(
+                      <th key={i} style={{padding:"9px 10px",textAlign:align,fontSize:11,fontWeight:700,color:"#6B7280",borderBottom:"2px solid #E5E7EB",whiteSpace:"pre-line",lineHeight:1.3}}>{h}</th>
                     ))}
                   </tr>
                 </thead>
@@ -2202,7 +2180,17 @@ function CashflowTab({cashflow,setCashflow,currentUser,projects,setProjects,proj
                     const BID_C  = {"현상설계":"#7C3AED","민간/실시기술":"#0891B2","민간/사업공모":"#0D9488","설계변경":"#D97706","민간":"#059669","공공":"#6366F1","해외":"#DC2626"}
 
                     // ★ 당해연도 신규 + 설계변경 아닌 프로젝트만
-                    const newBase   = projects.filter(p=>isNewThisYear(p)&&!p.isAmendment)
+                    // + execDate 또는 contractExpect 가 당해연도이거나 없는 경우 포함
+                    const isExecThisYear = p => {
+                      // 수행시점/계약예상이 당해연도이면 포함
+                      if(p.execDate && p.execDate.startsWith(YR)) return true
+                      if(p.contractExpect && p.contractExpect.startsWith(YR)) return true
+                      if(p.contractDate && p.contractDate.startsWith(YR)) return true
+                      // 수행시점이 아예 없으면 포함 (미기재)
+                      if(!p.execDate && !p.contractExpect) return true
+                      return false
+                    }
+                    const newBase   = projects.filter(p=>isNewThisYear(p)&&!p.isAmendment&&isExecThisYear(p))
                     const wonProjs  = newBase.filter(p=>isWon(p)||p.type==="계약")
                     const confProjs = newBase.filter(p=>p.type==="확정"&&!isWon(p))
                     const pushProjs = newBase.filter(p=>p.type==="추진")
@@ -2264,41 +2252,36 @@ function CashflowTab({cashflow,setCashflow,currentUser,projects,setProjects,proj
                             style={{background:i%2===0?"#fff":"#FAFAFA",borderBottom:"1px solid #F3F4F6",cursor:"pointer"}}
                             onMouseEnter={e=>e.currentTarget.style.background="#EEF2FF"}
                             onMouseLeave={e=>e.currentTarget.style.background=i%2===0?"#fff":"#FAFAFA"}>
-                            <td style={{padding:"9px 11px",fontSize:12,color:"#9CA3AF",fontWeight:600,textAlign:"center",whiteSpace:"nowrap"}}>
-                              {no}
-                              {p.priority&&<span style={{fontSize:10,marginLeft:3}}>⭐</span>}
+                            <td style={{padding:"9px 10px",fontSize:12,color:"#9CA3AF",fontWeight:600,textAlign:"center",whiteSpace:"nowrap"}}>
+                              {no}{p.priority&&<span style={{fontSize:9,marginLeft:2}}>⭐</span>}
                             </td>
-                            <td style={{padding:"9px 11px"}}>
-                              <span style={{fontSize:11.5,padding:"2px 8px",borderRadius:12,fontWeight:700,
-                                background:bidColor+"18",color:bidColor,whiteSpace:"nowrap"}}>
-                                {bidLabel}
-                              </span>
+                            <td style={{padding:"9px 10px"}}>
+                              <span style={{fontSize:11,padding:"2px 7px",borderRadius:12,fontWeight:700,background:bidColor+"18",color:bidColor,whiteSpace:"nowrap"}}>{bidLabel}</span>
                             </td>
-                            <td style={{padding:"9px 11px",fontSize:12.5,color:"#6B7280",whiteSpace:"nowrap"}}>{depts}</td>
-                            <td style={{padding:"9px 11px",fontSize:13.5,fontWeight:700,color:"#111827",minWidth:180,wordBreak:"keep-all"}}>
-                              {p.name}
-                              {jvBadge}
-                              {p.contractYear&&String(p.contractYear)===String(YEAR)&&<span style={{marginLeft:5,fontSize:10,background:"#DC2626",color:"#fff",padding:"1px 6px",borderRadius:6,fontWeight:700}}>{YEAR}년 신규</span>}
-                              {p.isAmendment&&<span style={{marginLeft:4,fontSize:10,background:"#D97706",color:"#fff",padding:"1px 6px",borderRadius:6,fontWeight:700}}>설계변경</span>}
+                            <td style={{padding:"9px 10px",fontSize:12,color:"#6B7280",whiteSpace:"nowrap"}}>{depts}</td>
+                            <td style={{padding:"9px 10px",fontSize:12,color:"#374151",maxWidth:120,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}} title={p.client||""}>{p.client||"-"}</td>
+                            <td style={{padding:"9px 10px",fontSize:13,fontWeight:700,color:"#111827",minWidth:160,wordBreak:"keep-all"}}>{p.name}</td>
+                            <td style={{padding:"9px 10px",textAlign:"right",fontSize:12.5,whiteSpace:"nowrap"}}>
+                              <div style={{color:"#D97706",fontWeight:700}}>{p.totalFee>0?fA(p.totalFee):p.serviceFee>0?fA(p.serviceFee):"-"}</div>
+                              <div style={{fontSize:10,color:"#9CA3AF"}}>2026신규</div>
                             </td>
-                            <td style={{padding:"9px 11px",textAlign:"right",fontSize:12.5,color:"#374151",whiteSpace:"nowrap"}}>
-                              {p.totalFee>0?fA(p.totalFee):p.serviceFee>0?fA(p.serviceFee):"-"}
-                            </td>
-                            <td style={{padding:"9px 11px",textAlign:"right",fontSize:12.5,color:"#6366F1",whiteSpace:"nowrap"}}>
-                              {p.shareRatio>0?`${Math.round(p.shareRatio*100)}%`:"-"}
-                            </td>
-                            <td style={{padding:"9px 11px",textAlign:"right",fontSize:13,fontWeight:700,color:"#312E81",whiteSpace:"nowrap"}}>
-                              {p.serviceFee>0?fA(p.serviceFee):"-"}
-                            </td>
-                            <td style={{padding:"9px 11px",textAlign:"right",fontSize:12,color:"#6B7280",whiteSpace:"nowrap"}}>
-                              {p.execDate||p.contractDate||"-"}
-                            </td>
-                            <td style={{padding:"9px 11px",textAlign:"right",fontSize:12,color:"#6B7280",whiteSpace:"nowrap"}}>
-                              {p.contractExpect||p.contractDate||"-"}
-                            </td>
-                            <td style={{padding:"9px 11px",fontSize:12,color:"#9CA3AF",maxWidth:160,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}} title={p.note||p.memo||""}>
-                              {p.note||p.memo||"-"}
-                            </td>
+                            <td style={{padding:"9px 10px",textAlign:"right",fontSize:12,color:"#6366F1",whiteSpace:"nowrap"}}>{p.shareRatio>0?`${Math.round(p.shareRatio*100)}%`:"-"}</td>
+                            <td style={{padding:"9px 10px",textAlign:"right",fontSize:13,fontWeight:700,color:"#312E81",whiteSpace:"nowrap"}}>{p.serviceFee>0?fA(p.serviceFee):"-"}</td>
+                            <td style={{padding:"9px 10px",textAlign:"right",fontSize:11.5,color:"#6B7280",whiteSpace:"nowrap"}}>{p.execDate||"-"}</td>
+                            <td style={{padding:"9px 10px",textAlign:"right",fontSize:11.5,color:"#6B7280",whiteSpace:"nowrap"}}>{p.contractExpect||p.contractDate||"-"}</td>
+                            {(()=>{
+                              const jvM=p.jvMembers||[]
+                              const jvRoles=jvM.map(m=>`${m.name||""}(${m.role||"분담"})`).filter(n=>n.length>3)
+                              return <>
+                                <td style={{padding:"9px 10px",fontSize:11,color:"#6B7280",maxWidth:140,whiteSpace:"normal",wordBreak:"keep-all",lineHeight:1.4}}>
+                                  {jvRoles.length>0?jvRoles.join(" / "):p.jvType&&p.jvType!=="단독이행"?p.jvType:"-"}
+                                </td>
+                                <td style={{padding:"9px 10px",textAlign:"right",fontSize:11,color:"#6366F1",whiteSpace:"nowrap"}}>
+                                  {jvM.length>0?jvM.map(m=>m.ratio>0?m.ratio+"%":"").filter(Boolean).join(" / ")||"-":"-"}
+                                </td>
+                              </>
+                            })()}
+                            <td style={{padding:"9px 10px",fontSize:11,color:"#9CA3AF",maxWidth:120,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}} title={p.note||p.memo||""}>{p.note||p.memo||"-"}</td>
                           </tr>
                         )
                       })
@@ -2306,11 +2289,11 @@ function CashflowTab({cashflow,setCashflow,currentUser,projects,setProjects,proj
                       // 소계 행
                       rows.push(
                         <tr key={`sub-${type}`} style={{background:bg,fontWeight:700}}>
-                          <td colSpan={4} style={{padding:"9px 14px",fontSize:13,color,textAlign:"right"}}>소계 ({items.length}건)</td>
-                          <td style={{padding:"9px 11px",textAlign:"right",fontSize:13,color}}>{fA(secFee)}</td>
-                          <td style={{padding:"9px 11px",textAlign:"right",fontSize:13,color}}>-</td>
-                          <td style={{padding:"9px 11px",textAlign:"right",fontSize:13.5,fontWeight:800,color}}>{fA(secSvc)}</td>
-                          <td colSpan={3}/>
+                          <td colSpan={5} style={{padding:"9px 14px",fontSize:13,color,textAlign:"right"}}>소계 ({items.length}건)</td>
+                          <td style={{padding:"9px 10px",textAlign:"right",fontSize:13,color}}>{fA(secFee)}</td>
+                          <td style={{padding:"9px 10px",textAlign:"right",fontSize:13,color}}>-</td>
+                          <td style={{padding:"9px 10px",textAlign:"right",fontSize:13.5,fontWeight:800,color}}>{fA(secSvc)}</td>
+                          <td colSpan={5}/>
                         </tr>
                       )
                     })
@@ -2318,14 +2301,22 @@ function CashflowTab({cashflow,setCashflow,currentUser,projects,setProjects,proj
                     // 전체 합계
                     rows.push(
                       <tr key="grand-total" style={{background:"#EEF2FF",fontWeight:700,borderTop:"2px solid #6366F1"}}>
-                        <td colSpan={4} style={{padding:"11px 14px",fontSize:14,fontWeight:800,color:"#312E81",textAlign:"right"}}>
+                        <td colSpan={5} style={{padding:"11px 14px",fontSize:14,fontWeight:800,color:"#312E81",textAlign:"right"}}>
                           {YEAR}년 합계 ({newBase.length}건)
                         </td>
-                        <td style={{padding:"11px 11px",textAlign:"right",fontSize:14,fontWeight:800,color:"#312E81"}}>{fA(grandTotal.fee)}</td>
-                        <td style={{padding:"11px 11px",textAlign:"right",fontSize:13,color:"#6366F1"}}>-</td>
-                        <td style={{padding:"11px 11px",textAlign:"right",fontSize:15,fontWeight:800,color:"#312E81"}}>{fA(grandTotal.svc)}</td>
-                        <td colSpan={3}/>
+                        <td style={{padding:"11px 10px",textAlign:"right",fontSize:14,fontWeight:800,color:"#312E81"}}>{fA(grandTotal.fee)}</td>
+                        <td style={{padding:"11px 10px",textAlign:"right",fontSize:13,color:"#6366F1"}}>-</td>
+                        <td style={{padding:"11px 10px",textAlign:"right",fontSize:15,fontWeight:800,color:"#312E81"}}>{fA(grandTotal.svc)}</td>
+                        <td colSpan={5}/>
                       </tr>
+                    )
+
+                    if(newBase.length===0) rows.push(
+                      <tr key="empty-yr"><td colSpan={13} style={{padding:"40px",textAlign:"center",color:"#9CA3AF"}}>
+                        <span style={{display:"block",fontSize:24,marginBottom:8}}>📋</span>
+                        <span style={{display:"block",fontSize:14,fontWeight:600}}>{YEAR}년 수행 프로젝트가 없습니다</span>
+                        <span style={{display:"block",fontSize:12,marginTop:6}}>프로젝트 수정 → "계약현황 반영 연도"를 {YEAR}로, 수행시점을 {YEAR}년으로 설정하세요.</span>
+                      </td></tr>
                     )
 
                     return rows
