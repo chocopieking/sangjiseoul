@@ -1628,7 +1628,7 @@ function CashflowTab({cashflow,setCashflow,currentUser,projects,setProjects,proj
               <table style={{width:"100%",borderCollapse:"collapse"}}>
                 <thead>
                   <tr style={{background:"#EEF2FF"}}>
-                    {["구분","목표인원","연평균인원","현재인원","현누계(입금완료)","인당(현누계)","기성+확정","인당(기성+확정)","미정(불확실)","합계(현누계+기성)","합계(미정포함)"].map((h,i)=>(
+                    {["구분","목표인원","연평균인원","현재인원","현누계(입금완료)","인당(현누계)","기성+확정","인당(기성+확정)","미정(불확실)","합계(현누계+기성)","합계(추진포함)"].map((h,i)=>(
                       <th key={i} style={{padding:"10px 12px",textAlign:i===0?"left":"right",fontSize:11.5,fontWeight:700,
                         color:i===4?"#059669":i===5?"#059669":i===6?"#6366F1":i===7?"#6366F1":i===8?"#D97706":i===9||i===10?"#312E81":i===1?"#DC2626":i===2?"#6B7280":i===3?"#374151":"#6B7280",
                         borderBottom:"2px solid #E5E7EB",
@@ -2022,7 +2022,7 @@ function CashflowTab({cashflow,setCashflow,currentUser,projects,setProjects,proj
               <table style={{width:"100%",borderCollapse:"collapse",minWidth:800}}>
                 <thead>
                   <tr style={{background:"#ECFDF5"}}>
-                    {["구분","계약목표","목표인원","연평균인원","현재인원","계약(수주)","확정","추진","합계(확정포함)","실행률","인당(계약+확정)","합계(미정포함)","실행률(추진포함)"].map((h,i)=>(
+                    {["구분","계약목표","목표인원","연평균인원","현재인원","계약(수주)","확정","추진","합계(확정포함)","실행률","인당(계약+확정)","합계(추진포함)","실행률(추진포함)"].map((h,i)=>(
                       <th key={i} style={{padding:"10px 11px",textAlign:i===0?"left":"right",fontSize:11,fontWeight:700,
                         color:i===8||i===11?"#312E81":i===1?"#DC2626":i===2?"#DC2626":i===3?"#6B7280":i===4?"#374151":i===10?"#059669":"#6B7280",
                         borderBottom:"2px solid #E5E7EB",whiteSpace:"nowrap",
@@ -2099,44 +2099,153 @@ function CashflowTab({cashflow,setCashflow,currentUser,projects,setProjects,proj
             </div>
           </div>
 
-          {/* 프로젝트 목록 */}
+          {/* 프로젝트 목록 — 계약/확정/추진 그룹별 */}
           <div style={{background:"#fff",borderRadius:14,border:"1px solid #E5E7EB",overflow:"hidden"}}>
-            <div style={{padding:"16px 20px",borderBottom:"1px solid #E5E7EB",fontSize:15,fontWeight:800,color:"#111827"}}>📋 전체 프로젝트</div>
+            <div style={{padding:"16px 20px",borderBottom:"1px solid #E5E7EB",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+              <div style={{fontSize:15,fontWeight:800,color:"#111827"}}>📋 전체 프로젝트</div>
+              <div style={{fontSize:12,color:"#6B7280"}}>{projects.length}건 · 클릭하면 프로젝트 상세로 이동</div>
+            </div>
             <div style={{overflowX:"auto"}}>
-              <table style={{width:"100%",borderCollapse:"collapse"}}>
+              <table style={{width:"100%",borderCollapse:"collapse",minWidth:1000}}>
                 <thead>
                   <tr style={{background:"#F8FAFC"}}>
-                    {["프로젝트명","본부","단계","총설계비","용역비(지분)","계약일","컨소시엄","수주여부"].map((h,i)=>(
-                      <th key={i} style={{padding:"10px 12px",textAlign:i>=3?"right":"left",fontSize:12.5,fontWeight:700,color:"#6B7280",borderBottom:"2px solid #E5E7EB",whiteSpace:"nowrap"}}>{h}</th>
+                    {["연번","구분","본부","프로젝트명","총설계비(예상)","상지지분(예상)","용역비(예상)","수행시점","계약시점(예상)","비고"].map((h,i)=>(
+                      <th key={i} style={{padding:"10px 11px",textAlign:i>=4&&i<=8?"right":"left",fontSize:11.5,fontWeight:700,color:"#6B7280",borderBottom:"2px solid #E5E7EB",whiteSpace:"nowrap"}}>{h}</th>
                     ))}
                   </tr>
                 </thead>
                 <tbody>
-                  {projects.slice().sort((a,b)=>{const o={계약:0,확정:1,추진:2,완료:3};return (o[a.type]||9)-(o[b.type]||9)}).map((p,i)=>{
-                    const won = isWon(p)
-                    const TYPE_C={확정:"#6366F1",계약:"#059669",추진:"#D97706",완료:"#9CA3AF"}
-                    const jvType = p.jvType||""
-                    return (
-                      <tr key={p.id} onClick={()=>{setSelProjId&&setSelProjId(p.id);setTab&&setTab("projects")}}
-                        style={{background:i%2===0?"#fff":"#FAFAFA",borderBottom:"1px solid #F3F4F6",cursor:"pointer"}}
-                        onMouseEnter={e=>e.currentTarget.style.background="#EEF2FF"}
-                        onMouseLeave={e=>e.currentTarget.style.background=i%2===0?"#fff":"#FAFAFA"}>
-                        <td style={{padding:"10px 12px",fontSize:13.5,fontWeight:600,color:"#111827",maxWidth:200,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{p.name}</td>
-                        <td style={{padding:"10px 12px",fontSize:12.5,color:"#6B7280",whiteSpace:"nowrap"}}>{(p.depts||[]).join(", ")}</td>
-                        <td style={{padding:"10px 12px"}}><span style={{fontSize:12,padding:"3px 9px",borderRadius:20,background:(TYPE_C[p.type]||"#9CA3AF")+"18",color:TYPE_C[p.type]||"#9CA3AF",fontWeight:700}}>{p.type||"-"}</span></td>
-                        <td style={{padding:"10px 12px",textAlign:"right",fontSize:13,color:"#374151"}}>{p.totalFee>0?fAmt(p.totalFee):p.serviceFee>0?fAmt(p.serviceFee):"-"}</td>
-                        <td style={{padding:"10px 12px",textAlign:"right",fontSize:13,fontWeight:700,color:"#312E81"}}>{p.serviceFee>0?fAmt(p.serviceFee):"-"}</td>
-                        <td style={{padding:"10px 12px",textAlign:"right",fontSize:12,color:"#6B7280"}}>{p.contractDate||"-"}</td>
-                        <td style={{padding:"10px 12px",fontSize:12,color:"#6B7280"}}>
-                          {jvType&&jvType!=="단독이행"?<span style={{background:"#EEF2FF",color:"#6366F1",padding:"2px 7px",borderRadius:6,fontWeight:600}}>{jvType}</span>:"-"}
+                  {(()=>{
+                    const fA = v => v>0?`${(v/1e8).toFixed(2)}억`:"-"
+                    const TYPE_C = {확정:"#6366F1",계약:"#059669",추진:"#D97706",완료:"#9CA3AF"}
+                    const BID_C  = {"현상설계":"#7C3AED","민간/실시기술":"#0891B2","민간/사업공모":"#0D9488","설계변경":"#D97706","민간":"#059669","공공":"#6366F1","해외":"#DC2626"}
+
+                    // 그룹 분류
+                    const wonProjs  = projects.filter(p=>isWon(p)||p.type==="계약")
+                    const confProjs = projects.filter(p=>p.type==="확정"&&!isWon(p))
+                    const pushProjs = projects.filter(p=>p.type==="추진")
+                      .sort((a,b)=>{
+                        // 우선순위 항목 최상단
+                        if(a.priority&&!b.priority) return -1
+                        if(!a.priority&&b.priority) return 1
+                        // 날짜 기준 정렬
+                        const da=a.contractExpect||a.contractDate||"9999"
+                        const db=b.contractExpect||b.contractDate||"9999"
+                        return da.localeCompare(db)
+                      })
+                    const otherProjs= projects.filter(p=>!wonProjs.includes(p)&&!confProjs.includes(p)&&!pushProjs.includes(p))
+
+                    const SECS = [
+                      {label:"✅ 계약 프로젝트", type:"계약", color:"#059669", bg:"#D1FAE5", border:"#059669", items:wonProjs},
+                      {label:"📋 확정 프로젝트", type:"확정", color:"#6366F1", bg:"#EEF2FF", border:"#6366F1", items:confProjs},
+                      {label:"🔶 추진 프로젝트", type:"추진", color:"#D97706", bg:"#FEF3C7", border:"#D97706", items:pushProjs},
+                    ].filter(s=>s.items.length>0)
+                    if(otherProjs.length>0) SECS.push({label:"기타", type:"-", color:"#9CA3AF", bg:"#F3F4F6", border:"#E5E7EB", items:otherProjs})
+
+                    let rows = []
+                    let totalNo = 0
+                    let grandTotal = {fee:0, share:0, svc:0}
+
+                    SECS.forEach(({label,type,color,bg,border,items})=>{
+                      const secFee = items.reduce((s,p)=>s+(p.totalFee||p.serviceFee||0),0)
+                      const secSvc = items.reduce((s,p)=>s+(p.serviceFee||0),0)
+
+                      // 섹션 헤더
+                      rows.push(
+                        <tr key={`hdr-${type}`} style={{background:bg,borderTop:`2px solid ${border}`}}>
+                          <td colSpan={10} style={{padding:"10px 14px",fontSize:13.5,fontWeight:800,color}}>
+                            {label} — {items.length}건
+                            {secSvc>0&&<span style={{marginLeft:12,fontSize:13,fontWeight:600}}>용역비 합계: {fA(secSvc)}</span>}
+                          </td>
+                        </tr>
+                      )
+
+                      // 항목 행들
+                      items.forEach((p,i)=>{
+                        totalNo++
+                        const no = totalNo
+                        grandTotal.fee += p.totalFee||p.serviceFee||0
+                        grandTotal.share += p.shareRatio>0?(p.totalFee||p.serviceFee||0)*p.shareRatio:0
+                        grandTotal.svc += p.serviceFee||0
+
+                        // 구분 표시: bidType > orderType 순
+                        const bidLabel = p.bidType||p.orderType||p.contractType||"-"
+                        const bidColor = BID_C[bidLabel]||"#6B7280"
+                        const depts    = (p.depts||[]).join(", ")||"-"
+                        const jvBadge  = p.jvType&&p.jvType!=="단독이행"
+                          ?<span style={{marginLeft:4,fontSize:10,background:"#EEF2FF",color:"#6366F1",padding:"1px 5px",borderRadius:5}}>{p.jvType}</span>
+                          :null
+
+                        rows.push(
+                          <tr key={p.id}
+                            onClick={()=>{setSelProjId&&setSelProjId(p.id);setTab&&setTab("projects")}}
+                            style={{background:i%2===0?"#fff":"#FAFAFA",borderBottom:"1px solid #F3F4F6",cursor:"pointer"}}
+                            onMouseEnter={e=>e.currentTarget.style.background="#EEF2FF"}
+                            onMouseLeave={e=>e.currentTarget.style.background=i%2===0?"#fff":"#FAFAFA"}>
+                            <td style={{padding:"9px 11px",fontSize:12,color:"#9CA3AF",fontWeight:600,textAlign:"center",whiteSpace:"nowrap"}}>
+                              {no}
+                              {p.priority&&<span style={{fontSize:10,marginLeft:3}}>⭐</span>}
+                            </td>
+                            <td style={{padding:"9px 11px"}}>
+                              <span style={{fontSize:11.5,padding:"2px 8px",borderRadius:12,fontWeight:700,
+                                background:bidColor+"18",color:bidColor,whiteSpace:"nowrap"}}>
+                                {bidLabel}
+                              </span>
+                            </td>
+                            <td style={{padding:"9px 11px",fontSize:12.5,color:"#6B7280",whiteSpace:"nowrap"}}>{depts}</td>
+                            <td style={{padding:"9px 11px",fontSize:13.5,fontWeight:700,color:"#111827",minWidth:180,wordBreak:"keep-all"}}>
+                              {p.name}
+                              {jvBadge}
+                            </td>
+                            <td style={{padding:"9px 11px",textAlign:"right",fontSize:12.5,color:"#374151",whiteSpace:"nowrap"}}>
+                              {p.totalFee>0?fA(p.totalFee):p.serviceFee>0?fA(p.serviceFee):"-"}
+                            </td>
+                            <td style={{padding:"9px 11px",textAlign:"right",fontSize:12.5,color:"#6366F1",whiteSpace:"nowrap"}}>
+                              {p.shareRatio>0?`${Math.round(p.shareRatio*100)}%`:"-"}
+                            </td>
+                            <td style={{padding:"9px 11px",textAlign:"right",fontSize:13,fontWeight:700,color:"#312E81",whiteSpace:"nowrap"}}>
+                              {p.serviceFee>0?fA(p.serviceFee):"-"}
+                            </td>
+                            <td style={{padding:"9px 11px",textAlign:"right",fontSize:12,color:"#6B7280",whiteSpace:"nowrap"}}>
+                              {p.execDate||p.contractDate||"-"}
+                            </td>
+                            <td style={{padding:"9px 11px",textAlign:"right",fontSize:12,color:"#6B7280",whiteSpace:"nowrap"}}>
+                              {p.contractExpect||p.contractDate||"-"}
+                            </td>
+                            <td style={{padding:"9px 11px",fontSize:12,color:"#9CA3AF",maxWidth:160,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}} title={p.note||p.memo||""}>
+                              {p.note||p.memo||"-"}
+                            </td>
+                          </tr>
+                        )
+                      })
+
+                      // 소계 행
+                      rows.push(
+                        <tr key={`sub-${type}`} style={{background:bg,fontWeight:700}}>
+                          <td colSpan={4} style={{padding:"9px 14px",fontSize:13,color,textAlign:"right"}}>소계 ({items.length}건)</td>
+                          <td style={{padding:"9px 11px",textAlign:"right",fontSize:13,color}}>{fA(secFee)}</td>
+                          <td style={{padding:"9px 11px",textAlign:"right",fontSize:13,color}}>-</td>
+                          <td style={{padding:"9px 11px",textAlign:"right",fontSize:13.5,fontWeight:800,color}}>{fA(secSvc)}</td>
+                          <td colSpan={3}/>
+                        </tr>
+                      )
+                    })
+
+                    // 전체 합계
+                    rows.push(
+                      <tr key="grand-total" style={{background:"#EEF2FF",fontWeight:700,borderTop:"2px solid #6366F1"}}>
+                        <td colSpan={4} style={{padding:"11px 14px",fontSize:14,fontWeight:800,color:"#312E81",textAlign:"right"}}>
+                          전체 합계 ({projects.length}건)
                         </td>
-                        <td style={{padding:"10px 12px",textAlign:"right"}}>
-                          {won?<span style={{background:"#D1FAE5",color:"#059669",padding:"3px 10px",borderRadius:20,fontSize:12,fontWeight:700}}>✅ 수주</span>
-                             :<span style={{background:"#F3F4F6",color:"#9CA3AF",padding:"3px 10px",borderRadius:20,fontSize:12}}>미수주</span>}
-                        </td>
+                        <td style={{padding:"11px 11px",textAlign:"right",fontSize:14,fontWeight:800,color:"#312E81"}}>{fA(grandTotal.fee)}</td>
+                        <td style={{padding:"11px 11px",textAlign:"right",fontSize:13,color:"#6366F1"}}>-</td>
+                        <td style={{padding:"11px 11px",textAlign:"right",fontSize:15,fontWeight:800,color:"#312E81"}}>{fA(grandTotal.svc)}</td>
+                        <td colSpan={3}/>
                       </tr>
                     )
-                  })}
+
+                    return rows
+                  })()}
                 </tbody>
               </table>
             </div>
