@@ -1273,7 +1273,9 @@ function CashflowTab({cashflow,setCashflow,currentUser,projects,setProjects,proj
   const cashByDept = useMemo(()=> DEPTS.map(dept=>{
     const all   = cashItems.filter(i=>i.dept===dept)
     const paid  = all.filter(i=>i.paidDate).reduce((s,i)=>s+(i.amount||0),0)
-    const conf  = all.filter(i=>!i.paidDate&&i.expectedDate).reduce((s,i)=>s+(i.amount||0),0)
+    // 기성+확정: 입금완료일 없고 입금예상일 있는 것 중 미정/추진 제외
+    const conf  = all.filter(i=>!i.paidDate&&i.expectedDate&&i.itemType!=="미정"&&i.itemType!=="추진").reduce((s,i)=>s+(i.amount||0),0)
+    // 미정(불확실): 구분이 미정 또는 추진인 항목
     const push  = all.filter(i=>i.itemType==="미정"||i.itemType==="추진").reduce((s,i)=>s+(i.amount||0),0)
     const si    = getStaffInfo(dept)
     const cur   = si.current || 1  // 현재인원 (인당 계산 기준)
@@ -1381,7 +1383,7 @@ function CashflowTab({cashflow,setCashflow,currentUser,projects,setProjects,proj
         const m=String(mi+1).padStart(2,"0")
         const ym=`${YR}-${m}`
         const paid = items.filter(i=>i.paidDate&&fixDate(i.paidDate).slice(0,7)===ym).reduce((s,i)=>s+(i.amount||0),0)
-        const exp  = items.filter(i=>!i.paidDate&&i.expectedDate&&fixDate(i.expectedDate).slice(0,7)===ym).reduce((s,i)=>s+(i.amount||0),0)
+        const exp  = items.filter(i=>!i.paidDate&&i.expectedDate&&i.itemType!=="미정"&&i.itemType!=="추진"&&fixDate(i.expectedDate).slice(0,7)===ym).reduce((s,i)=>s+(i.amount||0),0)
         return {paid,exp,total:paid+exp}
       })
       const cumToNow = monthly.slice(0,MONTH).reduce((s,m)=>s+m.paid,0)
@@ -7026,7 +7028,7 @@ function ProjectCashflowDetail({proj, cashItems, setCashItems, DEPTS, DEPT_COLOR
                   const monthly=Array.from({length:12},(_,mi)=>{
                     const m=String(mi+1).padStart(2,"0"); const ym=`${YR}-${m}`
                     const paid=items.filter(i=>i.paidDate&&fixDate(i.paidDate).slice(0,7)===ym).reduce((s,i)=>s+(i.amount||0),0)
-                    const exp =items.filter(i=>!i.paidDate&&i.expectedDate&&fixDate(i.expectedDate).slice(0,7)===ym).reduce((s,i)=>s+(i.amount||0),0)
+                    const exp =items.filter(i=>!i.paidDate&&i.expectedDate&&i.itemType!=="미정"&&i.itemType!=="추진"&&fixDate(i.expectedDate).slice(0,7)===ym).reduce((s,i)=>s+(i.amount||0),0)
                     return {paid,exp}
                   })
                   const cumToNow  = monthly.slice(0,parseInt(MONTH)).reduce((s,m)=>s+m.paid,0)
@@ -7072,7 +7074,7 @@ function ProjectCashflowDetail({proj, cashItems, setCashItems, DEPTS, DEPT_COLOR
                   {Array.from({length:12},(_,mi)=>{
                     const m=String(mi+1).padStart(2,"0"); const ym=`${YR}-${m}`
                     const paid=myItems.filter(i=>i.paidDate&&fixDate(i.paidDate).slice(0,7)===ym).reduce((s,i)=>s+(i.amount||0),0)
-                    const exp =myItems.filter(i=>!i.paidDate&&i.expectedDate&&fixDate(i.expectedDate).slice(0,7)===ym).reduce((s,i)=>s+(i.amount||0),0)
+                    const exp =myItems.filter(i=>!i.paidDate&&i.expectedDate&&i.itemType!=="미정"&&i.itemType!=="추진"&&fixDate(i.expectedDate).slice(0,7)===ym).reduce((s,i)=>s+(i.amount||0),0)
                     return <td key={mi} style={{padding:"10px 7px",textAlign:"right",fontSize:13,fontWeight:800,
                       color:paid>0?"#059669":exp>0?"#6366F1":"#D1D5DB",
                       borderRight:mi+1===parseInt(MONTH)?"2px solid #DC2626":"1px solid #E5E7EB",
