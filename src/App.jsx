@@ -4969,7 +4969,9 @@ function ProjectHistoryPage({projects, currentUser, cashItems=[]}) {
       <div style={{background:"#fff",borderRadius:14,border:"1px solid #E5E7EB",padding:"16px 20px",marginBottom:14,display:"flex",gap:12,alignItems:"center",flexWrap:"wrap"}}>
         <div style={{fontSize:17,fontWeight:800,color:"#111827"}}>📜 프로젝트 히스토리</div>
         <select value={selId} onChange={e=>setSelId(e.target.value)}
-          style={{flex:1,maxWidth:380,padding:"8px 12px",border:"1.5px solid #E5E7EB",borderRadius:9,fontSize:14,fontFamily:"inherit",outline:"none"}}>
+          disabled={showAll}
+          style={{flex:1,maxWidth:380,padding:"8px 12px",border:"1.5px solid #E5E7EB",borderRadius:9,fontSize:14,fontFamily:"inherit",outline:"none",
+            opacity:showAll?0.4:1,cursor:showAll?"not-allowed":"pointer"}}>
           {projects.map(p=><option key={p.id} value={p.id}>{p.name}</option>)}
         </select>
         <div style={{display:"flex",gap:4,background:"#F3F4F6",borderRadius:8,padding:3,marginLeft:"auto"}}>
@@ -4986,13 +4988,16 @@ function ProjectHistoryPage({projects, currentUser, cashItems=[]}) {
             🌐 전체 프로젝트
           </button>
         </div>
+        {!showAll&&(
         <button onClick={()=>setShowAdd(v=>!v)}
           style={{padding:"8px 16px",background:"#6366F1",color:"#fff",border:"none",borderRadius:9,fontSize:13,fontWeight:700,cursor:"pointer"}}>
           {showAdd?"✕ 취소":"+ 히스토리 추가"}
         </button>
+        )}
       </div>
 
-      {/* 프로젝트 정보 배너 */}
+      {/* 프로젝트 정보 배너 - 전체 보기 시 숨김 */}
+      {!showAll&&(
       <div style={{background:"linear-gradient(135deg,#312E81,#6366F1)",borderRadius:14,padding:"14px 20px",marginBottom:14,color:"#fff",display:"flex",gap:20,flexWrap:"wrap",alignItems:"center"}}>
         <div>
           <div style={{fontSize:14,fontWeight:800,marginBottom:4}}>{proj.name}</div>
@@ -5007,8 +5012,18 @@ function ProjectHistoryPage({projects, currentUser, cashItems=[]}) {
           ))}
         </div>
       </div>
+      )}
 
-      {/* 히스토리 추가 폼 */}
+      {/* 전체 프로젝트 보기 안내 배너 */}
+      {showAll&&(
+      <div style={{background:"linear-gradient(135deg,#92400E,#D97706)",borderRadius:14,padding:"14px 20px",marginBottom:14,color:"#fff",display:"flex",gap:16,alignItems:"center"}}>
+        <span style={{fontSize:24}}>🌐</span>
+        <div>
+          <div style={{fontSize:15,fontWeight:800,marginBottom:3}}>전체 프로젝트 통합 히스토리</div>
+          <div style={{fontSize:12,opacity:.85}}>모든 프로젝트의 이벤트를 날짜순으로 통합하여 표시합니다.</div>
+        </div>
+      </div>
+      )}
       {showAdd&&(
         <div style={{background:"#EEF2FF",borderRadius:14,border:"2px solid #6366F1",padding:"18px 20px",marginBottom:14}}>
           <div style={{fontSize:14,fontWeight:800,color:"#312E81",marginBottom:14}}>✏ 히스토리 항목 추가</div>
@@ -7216,6 +7231,8 @@ function AnalysisHub({deptStaff,setDeptStaff,years,setYears,canWrite,isAdmin,cas
   const SUBS = [
     {id:"dashboard", label:"📊 경영 대시보드"},
     {id:"cash",      label:"💧 월수금현황"},
+    {id:"contract",  label:"📝 계약현황"},
+    {id:"expense",   label:"💸 지출현황"},
     {id:"staff",     label:"👥 인원 현황"},
     {id:"projects",  label:"🏗 프로젝트현황"},
   ]
