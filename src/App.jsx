@@ -249,6 +249,7 @@ export default function App() {
   const setCashItems = (v) => {
     const next = typeof v==="function" ? v(cashItems) : v
     try{ localStorage.setItem("sjs_cash_items", JSON.stringify(next)) }catch{}
+    if(USE_DB) dbSet("sjs_cash_items", next).catch(()=>{})
     setCashItemsRaw(next)
   }
 
@@ -257,6 +258,7 @@ export default function App() {
   const setSaleItems = (v) => {
     const next = typeof v==="function" ? v(saleItems) : v
     try{ localStorage.setItem("sjs_sale_items", JSON.stringify(next)) }catch{}
+    if(USE_DB) dbSet("sjs_sale_items", next).catch(()=>{})
     setSaleItemsRaw(next)
   }
 
@@ -361,6 +363,8 @@ export default function App() {
       setPnlDataRaw(g("sjs_pnl", PNL_INIT))
       setYearsRaw(g("sjs_years", YEARS_DB_INIT))
       setCashflowRaw(g("sjs_cashflow", CF_2026))
+      setCashItemsRaw(g("sjs_cash_items", []))
+      setSaleItemsRaw(g("sjs_sale_items", []))
       setDeptStaffRaw(g("sjs_dept_staff", DEPT_STAFF_INIT))
       setStaffTargetRaw(g("sjs_staff_target", STAFF_TARGET_INIT))
       setStaffMonthlyRaw(g("sjs_staff_monthly", STAFF_MONTHLY_INIT))
@@ -388,6 +392,8 @@ export default function App() {
       else if (key==="sjs_staff_monthly")    setStaffMonthlyRaw(value)
       else if (key==="sjs_departments")      setDepartments(value)
       else if (key==="sjs_dept_biz")         setDeptBizRaw(value)
+      else if (key==="sjs_cash_items")       setCashItemsRaw(value)
+      else if (key==="sjs_sale_items")       setSaleItemsRaw(value)
       else if (key==="sjs_vendors")          setVendorsDBRaw(value)
       else if (key==="sjs_vendor_payments")  setVendorPaymentsRaw(value)
       else if (key==="sjs_contract_types")   setContractTypesRaw(value)
@@ -7259,8 +7265,9 @@ function AnalysisHub({deptStaff,setDeptStaff,years,setYears,canWrite,isAdmin,cas
     {id:"dashboard", label:"📊 경영 대시보드"},
     {id:"cash",      label:"💧 월수금현황"},
     {id:"contract",  label:"📝 계약현황"},
+    {id:"expense",   label:"💸 지출현황"},
     {id:"staff",     label:"👥 인원 현황"},
-    {id:"projects",  label:"🏗 프로젝트"},
+    {id:"projects",  label:"🏗 프로젝트현황"},
   ]
 
   return (
@@ -7281,6 +7288,8 @@ function AnalysisHub({deptStaff,setDeptStaff,years,setYears,canWrite,isAdmin,cas
       {subTab==="cash" && <CashflowTab cashflow={cashflow} setCashflow={()=>{}} currentUser={currentUser} projects={projects} setProjects={setProjects} projectCashflowByDept={{}} cashItems={cashItems} setCashItems={setCashItems} saleItems={saleItems} setSaleItems={setSaleItems} setTab={setTab} setSelProjId={setSelProjId} setDetailTab={setDetailTab} yearTargets={yearTargets} setYearTargets={isAdmin?setYearTargets:undefined} deptBiz={deptBiz} deptStaff={deptStaff} staffMonthly={staffMonthly} staffTarget={staffTarget}/>}
 
       {subTab==="contract" && <CashflowTab cashflow={cashflow} setCashflow={()=>{}} currentUser={currentUser} projects={projects} setProjects={setProjects} projectCashflowByDept={{}} cashItems={cashItems} setCashItems={setCashItems} saleItems={saleItems} setSaleItems={setSaleItems} setTab={setTab} setSelProjId={setSelProjId} setDetailTab={setDetailTab} yearTargets={yearTargets} setYearTargets={isAdmin?setYearTargets:undefined} deptBiz={deptBiz} deptStaff={deptStaff} staffMonthly={staffMonthly} staffTarget={staffTarget} initTab="contract"/>}
+
+      {subTab==="expense" && <CashflowTab cashflow={cashflow} setCashflow={()=>{}} currentUser={currentUser} projects={projects} setProjects={setProjects} projectCashflowByDept={{}} cashItems={cashItems} setCashItems={setCashItems} saleItems={saleItems} setSaleItems={setSaleItems} setTab={setTab} setSelProjId={setSelProjId} setDetailTab={setDetailTab} yearTargets={yearTargets} setYearTargets={isAdmin?setYearTargets:undefined} deptBiz={deptBiz} deptStaff={deptStaff} staffMonthly={staffMonthly} staffTarget={staffTarget} initTab="expense"/>}
 
       {subTab==="staff" && <StaffStatusPanel DEPT_COLORS={DEPT_COLORS} deptStaff={deptStaff} staffMonthly={staffMonthly} staffTarget={staffTarget}/>}
 
