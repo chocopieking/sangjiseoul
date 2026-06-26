@@ -2253,9 +2253,8 @@ function CashflowTab({cashflow,setCashflow,currentUser,projects,setProjects,proj
                         rows.push(
                           <tr key={p.id}
                             onClick={()=>{
-                              if(setSelProjId&&setTab&&setDetailTab){
+                              if(setSelProjId&&setTab){
                                 setSelProjId(p.id)
-                                setDetailTab("info")
                                 setTab("projects")
                               }
                             }}
@@ -2363,7 +2362,7 @@ function CashflowTab({cashflow,setCashflow,currentUser,projects,setProjects,proj
                     <tbody>
                       {amendProjs.map((p,i)=>(
                         <tr key={p.id}
-                          onClick={()=>{if(setSelProjId&&setTab&&setDetailTab){setSelProjId(p.id);setDetailTab("info");setTab("projects")}}}
+                          onClick={()=>{if(setSelProjId&&setTab){setSelProjId(p.id);setTab("projects")}}}
                           style={{background:i%2===0?"#fff":"#FFFBEB",borderBottom:"1px solid #FEF3C7",cursor:"pointer"}}
                           onMouseEnter={e=>e.currentTarget.style.background="#FEF3C7"}
                           onMouseLeave={e=>e.currentTarget.style.background=i%2===0?"#fff":"#FFFBEB"}>
