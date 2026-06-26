@@ -518,6 +518,7 @@ export default function App() {
   const [selProjId, setSelProjId] = useState(null)
   const [selVerIdx, setSelVerIdx] = useState(0)
   const [cmpIds, setCmpIds]       = useState([])
+  const [detailTab, setDetailTab] = useState("info")  // 프로젝트 상세 서브탭
   const [showNewProj, setShowNewProj] = useState(false)
   // const [showAI, setShowAI] = useState(false)  // AI 기능 추후 활성화
   const [showNewVer, setShowNewVer]   = useState(false)
@@ -2562,9 +2563,8 @@ function ProjectsTab({projects,setProjects,selProjId,setSelProjId,selVerIdx,setS
   const [editProj, setEditProj]     = useState(false)
   const [cfEditing, setCfEditing]   = useState(false)
   const [cfDraft, setCfDraft]       = useState(null)
-  const [detailTab, setDetailTab]   = useState("info")   // info | weekly
 
-  // 프로젝트 선택 시 상세탭 초기화 (프로젝트명 클릭 → 상세 자동 표시)
+  // 프로젝트 선택 시 상세탭 초기화
   useEffect(()=>{ if(selProjId) setDetailTab("info") }, [selProjId])
 
   const selProj = projects.find(p=>p.id===selProjId)
