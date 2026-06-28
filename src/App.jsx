@@ -1311,6 +1311,8 @@ function CashflowTab({cashflow,setCashflow,currentUser,projects,setProjects,proj
   // ── 계약현황 집계 ─────────────────────────────────────────
   // 수주 판단: 민간은 해당 프로젝트의 월수금에서 10% 이상 입금완료 항목이 있을 때
   const isWon = (proj) => {
+    // type이 명시적으로 계약이면 즉시 true
+    if(proj.type==="계약"||proj.type==="계약(수주)") return true
     if(proj.orderType==="공공") return !!proj.contractDate
     // 민간: cashItems에서 이 프로젝트의 입금완료 금액이 용역비의 10% 이상
     const projCash = cashItems.filter(i=>i.paidDate&&(i.projectName===proj.name||(i.projectName&&proj.name&&i.projectName.includes(proj.name.slice(0,6)))))
@@ -2210,9 +2212,9 @@ function CashflowTab({cashflow,setCashflow,currentUser,projects,setProjects,proj
                       return true
                     }
                     const newBase = projects.filter(p=>isNewThisYear(p)&&!p.isAmendment&&isExecThisYear(p))
-                    const wonProjs  = newBase.filter(p=>isWon(p)||p.type==="계약")
-                    const confProjs = newBase.filter(p=>p.type==="확정"&&!isWon(p))
-                    const pushProjs = newBase.filter(p=>p.type==="추진")
+                    const wonProjs  = newBase.filter(p=>isWon(p)||p.type==="계약"||p.type==="계약(수주)")
+                    const confProjs = newBase.filter(p=>p.type==="확정"&&!isWon(p)&&p.type!=="계약"&&p.type!=="계약(수주)")
+                    const pushProjs = newBase.filter(p=>!wonProjs.includes(p)&&!confProjs.includes(p))
                       .sort((a,b)=>{
                         // 우선순위 항목 최상단
                         if(a.priority&&!b.priority) return -1
@@ -7379,9 +7381,9 @@ function AnalysisHub({deptStaff,setDeptStaff,years,setYears,canWrite,isAdmin,cas
 
       {subTab==="cash" && <CashflowTab cashflow={cashflow} setCashflow={()=>{}} currentUser={currentUser} projects={projects} setProjects={setProjects} projectCashflowByDept={{}} cashItems={cashItems} setCashItems={setCashItems} saleItems={saleItems} setSaleItems={setSaleItems} setTab={setTab} setSelProjId={setSelProjId} setDetailTab={setDetailTab} yearTargets={yearTargets} setYearTargets={isAdmin?setYearTargets:undefined} deptBiz={deptBiz} deptStaff={deptStaff} staffMonthly={staffMonthly} staffTarget={staffTarget} initTab="cash" hideTabNav={true}/>}
 
-      {subTab==="contract" && <CashflowTab cashflow={cashflow} setCashflow={()=>{}} currentUser={currentUser} projects={projects} setProjects={setProjects} projectCashflowByDept={{}} cashItems={cashItems} setCashItems={setCashItems} saleItems={saleItems} setSaleItems={setSaleItems} setTab={setTab} setSelProjId={setSelProjId} setDetailTab={setDetailTab} yearTargets={yearTargets} setYearTargets={isAdmin?setYearTargets:undefined} deptBiz={deptBiz} deptStaff={deptStaff} staffMonthly={staffMonthly} staffTarget={staffTarget} initTab="contract"/>}
+      {subTab==="contract" && <CashflowTab cashflow={cashflow} setCashflow={()=>{}} currentUser={currentUser} projects={projects} setProjects={setProjects} projectCashflowByDept={{}} cashItems={cashItems} setCashItems={setCashItems} saleItems={saleItems} setSaleItems={setSaleItems} setTab={setTab} setSelProjId={setSelProjId} setDetailTab={setDetailTab} yearTargets={yearTargets} setYearTargets={isAdmin?setYearTargets:undefined} deptBiz={deptBiz} deptStaff={deptStaff} staffMonthly={staffMonthly} staffTarget={staffTarget} initTab="contract" hideTabNav={true}/>}
 
-      {subTab==="expense" && <CashflowTab cashflow={cashflow} setCashflow={()=>{}} currentUser={currentUser} projects={projects} setProjects={setProjects} projectCashflowByDept={{}} cashItems={cashItems} setCashItems={setCashItems} saleItems={saleItems} setSaleItems={setSaleItems} setTab={setTab} setSelProjId={setSelProjId} setDetailTab={setDetailTab} yearTargets={yearTargets} setYearTargets={isAdmin?setYearTargets:undefined} deptBiz={deptBiz} deptStaff={deptStaff} staffMonthly={staffMonthly} staffTarget={staffTarget} initTab="expense"/>}
+      {subTab==="expense" && <CashflowTab cashflow={cashflow} setCashflow={()=>{}} currentUser={currentUser} projects={projects} setProjects={setProjects} projectCashflowByDept={{}} cashItems={cashItems} setCashItems={setCashItems} saleItems={saleItems} setSaleItems={setSaleItems} setTab={setTab} setSelProjId={setSelProjId} setDetailTab={setDetailTab} yearTargets={yearTargets} setYearTargets={isAdmin?setYearTargets:undefined} deptBiz={deptBiz} deptStaff={deptStaff} staffMonthly={staffMonthly} staffTarget={staffTarget} initTab="expense" hideTabNav={true}/>}
 
       {subTab==="staff" && <StaffStatusPanel DEPT_COLORS={DEPT_COLORS} deptStaff={deptStaff} staffMonthly={staffMonthly} staffTarget={staffTarget}/>}
 
