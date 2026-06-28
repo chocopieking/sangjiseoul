@@ -1239,6 +1239,7 @@ function CashflowTab({cashflow,setCashflow,currentUser,projects,setProjects,proj
   const [targetDraft, setTargetDraft] = useState({})
 
   const isAdmin = currentUser?.role==="admin"
+  const toast   = useToast()
 
   const targets   = yearTargets[YEAR] || {salesTarget:145, contractTarget:170}
   const tSales    = targets.salesTarget    || 145
@@ -1650,11 +1651,11 @@ function CashflowTab({cashflow,setCashflow,currentUser,projects,setProjects,proj
               <table style={{width:"100%",borderCollapse:"collapse"}}>
                 <thead>
                   <tr style={{background:"#EEF2FF"}}>
-                    {["구분","목표인원","연평균인원","현재인원","현누계(입금완료)","인당(현누계)","기성+확정","인당(기성+확정)","미정(불확실)","합계(현누계+기성)","합계(미정포함)"].map((h,i)=>(
+                    {["구분","매출목표","현누계(입금완료)","인당(현누계)","기성+확정","인당(기성+확정)","미정(불확실)","합계(현누계+기성)","합계(미정포함)"].map((h,i)=>(
                       <th key={i} style={{padding:"10px 12px",textAlign:i===0?"left":"right",fontSize:11.5,fontWeight:700,
-                        color:i===4?"#059669":i===5?"#059669":i===6?"#6366F1":i===7?"#6366F1":i===8?"#D97706":i===9||i===10?"#312E81":i===1?"#DC2626":i===2?"#6B7280":i===3?"#374151":"#6B7280",
+                        color:i===2?"#059669":i===3?"#059669":i===4?"#6366F1":i===5?"#6366F1":i===6?"#D97706":i>=7?"#312E81":i===1?"#DC2626":"#6B7280",
                         borderBottom:"2px solid #E5E7EB",
-                        background:i===9||i===10?"#D1FAE5":i===5||i===7?"#ECFDF5":i===1?"#FFF0F0":"#EEF2FF",
+                        background:i>=7?"#D1FAE5":i===3||i===5?"#ECFDF5":i===1?"#FFF0F0":"#EEF2FF",
                         whiteSpace:"nowrap"}}>{h}</th>
                     ))}
                   </tr>
@@ -1669,13 +1670,7 @@ function CashflowTab({cashflow,setCashflow,currentUser,projects,setProjects,proj
                         </div>
                       </td>
                       <td style={{padding:"10px 12px",textAlign:"right",fontSize:13,fontWeight:700,color:"#DC2626"}}>
-                        {d.staffTarget>0?d.staffTarget+"명":"-"}
-                      </td>
-                      <td style={{padding:"10px 12px",textAlign:"right",fontSize:13,color:"#6B7280",fontWeight:600}}>
-                        {d.staffAvg>0?d.staffAvg+"명":"-"}
-                      </td>
-                      <td style={{padding:"10px 12px",textAlign:"right",fontSize:13,fontWeight:700,color:"#374151"}}>
-                        {d.staffCurrent>0?d.staffCurrent+"명":"-"}
+                        {(()=>{ const db=(deptBiz||{})[d.dept]||{}; const t=db.revTarget||0; return t>0?fAmt(t*1e8):"-" })()}
                       </td>
                       <td style={{padding:"10px 12px",textAlign:"right",fontSize:13.5,fontWeight:700,color:"#059669",cursor:"pointer",textDecoration:"underline"}}
                         onClick={()=>setSelDetail({type:"현누계",dept:d.dept,items:d.all.filter(i=>i.paidDate)})}>
@@ -1706,12 +1701,11 @@ function CashflowTab({cashflow,setCashflow,currentUser,projects,setProjects,proj
                     const totalCurrent = cashByDept.reduce((s,d)=>s+d.staffCurrent,0)||1
                     const grandPaid    = totalPaid
                     const grandConf    = totalPaid+totalConf
+                    const totRevTarget = DEPTS.reduce((s,d)=>{ const db=(deptBiz||{})[d]||{}; return s+(db.revTarget||0)*1e8 }, 0)
                     return (
                       <tr style={{background:"#D1FAE5",fontWeight:700,borderTop:"2px solid #E5E7EB"}}>
                         <td style={{padding:"11px 12px",fontSize:14,fontWeight:800,color:"#312E81"}}>합계</td>
-                        <td style={{padding:"11px 12px",textAlign:"right",fontSize:13,fontWeight:700,color:"#DC2626"}}>{totalTarget>0?totalTarget+"명":"-"}</td>
-                        <td style={{padding:"11px 12px",textAlign:"right",fontSize:13,fontWeight:700,color:"#6B7280"}}>{totalAvg>0?Math.round(totalAvg)+"명":"-"}</td>
-                        <td style={{padding:"11px 12px",textAlign:"right",fontSize:13,fontWeight:800,color:"#374151"}}>{totalCurrent}명</td>
+                        <td style={{padding:"11px 12px",textAlign:"right",fontSize:13,fontWeight:700,color:"#DC2626"}}>{totRevTarget>0?fAmt(totRevTarget):"-"}</td>
                         <td style={{padding:"11px 12px",textAlign:"right",fontSize:14,fontWeight:800,color:"#059669"}}>{fAmt(grandPaid)}</td>
                         <td style={{padding:"11px 12px",textAlign:"right",fontSize:13,fontWeight:700,color:"#059669",background:"#A7F3D0"}}>
                           {grandPaid/totalCurrent>=1e8?`${(grandPaid/totalCurrent/1e8).toFixed(2)}억`:grandPaid/totalCurrent>=1e4?`${(grandPaid/totalCurrent/1e4).toFixed(0)}만`:"-"}
@@ -2071,6 +2065,10 @@ function CashflowTab({cashflow,setCashflow,currentUser,projects,setProjects,proj
                   style={{padding:"7px 14px",background:"#D1FAE5",color:"#059669",border:"none",borderRadius:9,fontSize:12.5,fontWeight:700,cursor:"pointer"}}>
                   ⬇ 계약 양식
                 </button>}
+                {isAdmin&&<label style={{padding:"7px 14px",background:"#6366F1",color:"#fff",border:"none",borderRadius:9,fontSize:12.5,fontWeight:700,cursor:"pointer",display:"inline-flex",alignItems:"center",gap:5}}>
+                  ⬆ 계약현황 업로드
+                  <input type="file" accept=".xlsx,.xls" style={{display:"none"}} onChange={e=>uploadContractExcel(e,projects,setProjects,currentUser,toast)}/>
+                </label>}
                 {isAdmin&&<button onClick={()=>downloadCashDataExcel(projects.map(p=>({id:p.id,dept:(p.depts||[]).join(","),orderType:p.orderType||"",itemType:p.type||"",projectName:p.name,stage:"",paidDate:p.contractDate||"",expectedDate:p.contractExpect||"",amount:p.serviceFee||0,memo:p.memo||""})),"계약현황")}
                   style={{padding:"7px 14px",background:"#EDE9FE",color:"#7C3AED",border:"none",borderRadius:9,fontSize:12.5,fontWeight:700,cursor:"pointer"}}>
                   ⬇ 전체 데이터
@@ -2495,19 +2493,142 @@ function CashflowTab({cashflow,setCashflow,currentUser,projects,setProjects,proj
 // 계약 엑셀 양식 다운로드
 function downloadContractTemplate() {
   const ws = XLSX.utils.aoa_to_sheet([
-    ["■ 상지서울건축사사무소 — 계약현황 입력 양식"],
-    ["※ 4행부터 데이터 입력. 금액은 억원(소수점 2자리) 단위."],
-    ["※ 컨소시엄: '회사명:지분%' 형식으로 콤마 구분 (예: 건원건축:50%,상지:35%,미림:15%)"],
-    ["※ 본부별지분: '본부명:지분%' 형식 (예: 설계1본부:60%,설계2본부:40%)"],
+    ["■ 상지서울건축사사무소 — 계약현황 입력 양식 (개선)"],
+    ["※ 4행부터 데이터 입력. 구분: 계약(수주)/확정/추진"],
+    ["※ 복수본부: '설계1본부:60%,디자인본부:40%' 형식으로 입력"],
+    ["※ 금액은 원(₩) 단위. 용역비총액에서 상지지분율로 본부별 배분"],
     [],
-    ["본부명","발주구분","구분","프로젝트명","총설계비(억)","상지지분(%)","용역비(억)","계약일","수주일","컨소시엄내용","본부별지분","메모"],
-    ["설계1본부","공공","확정","서부산행정복합타운 기술제안",41.01,35,14.36,"2026-03-15","2026-04-10","건원건축:49%,상지서울:35%,미림:16%","설계1본부:100%",""],
-    ["설계2본부","민간","추진","강남 주상복합 설계용역",20.00,100,20.00,"","","","설계2본부:100%","협의중"],
+    ["본부(복수시 '본부명:지분%' 형식)","발주구분","구분","프로젝트명","용역비총액(원)","상지지분(%)","메모","[시스템ID-수정금지]"],
+    ["설계1본부","공공","계약","경상남도 서부의료원 설립 설계용역",147000000,100,"",""],
+    ["설계1본부:60%,디자인본부:40%","민간","계약","서부산 행정복합타운 실시설계 기술제안",1436000000,100,"복수본부 예시",""],
+    ["주거디자인본부","공공","확정","사직야구장 임시구장 조성사업",848000000,100,"",""],
+    ["설계1본부","민간","추진","신규 추진 프로젝트",500000000,100,"",""],
   ])
-  ws["!cols"] = [{wch:14},{wch:10},{wch:8},{wch:30},{wch:12},{wch:10},{wch:10},{wch:14},{wch:14},{wch:35},{wch:25},{wch:20}]
+  ws["!cols"] = [{wch:30},{wch:10},{wch:8},{wch:40},{wch:16},{wch:10},{wch:20},{wch:20}]
   const wb = XLSX.utils.book_new()
   XLSX.utils.book_append_sheet(wb, ws, "계약현황")
   XLSX.writeFile(wb, "상지서울_계약현황_입력양식.xlsx")
+}
+
+// 계약현황 엑셀 업로드 → projects로 변환
+function uploadContractExcel(e, projects, setProjects, currentUser, toast) {
+  const file = e.target.files?.[0]; if(!file) return
+  const reader = new FileReader()
+  reader.onload = ev => {
+    try {
+      const wb   = XLSX.read(ev.target.result, {type:"binary"})
+      const ws   = wb.Sheets[wb.SheetNames[0]]
+      const rows = XLSX.utils.sheet_to_json(ws, {header:1, defval:""})
+
+      // 헤더 행 찾기
+      let headerRow=2, dataStart=3
+      for(let i=0;i<6;i++){
+        if(rows[i].some(c=>String(c).includes("프로젝트명"))){headerRow=i;dataStart=i+1;break}
+      }
+      const headers = rows[headerRow].map(h=>String(h).trim())
+      const ci = (names)=>{ for(const n of names){ const i=headers.findIndex(h=>h.includes(n)); if(i>=0)return i } return -1 }
+      const CI = {
+        dept:      ci(["본부"]),
+        orderType: ci(["발주구분","발주"]),
+        itemType:  ci(["구분"]),
+        name:      ci(["프로젝트명"]),
+        amount:    ci(["용역비총액","금액"]),
+        shareRatio:ci(["상지지분","지분"]),
+        memo:      ci(["메모","비고"]),
+        id:        ci(["시스템ID","[시스템ID"]),
+      }
+      // 구분 → type 매핑
+      const typeMap = {"계약":"계약","계약(수주)":"계약","수주":"계약","확정":"확정","추진":"추진","미정":"추진"}
+      const get = (r,k)=>CI[k]>=0?r[CI[k]]:""
+
+      // 날짜 변환
+      const toDate = v => {
+        if(!v) return ""
+        const n=parseInt(String(v))
+        if(!isNaN(n)&&n>40000&&n<60000){const d=new Date((n-25569)*86400*1000);return `${d.getUTCFullYear()}-${String(d.getUTCMonth()+1).padStart(2,"0")}-${String(d.getUTCDate()).padStart(2,"0")}`}
+        return String(v).trim()
+      }
+
+      const newProjs = []
+      rows.slice(dataStart).forEach(r=>{
+        const pname = String(get(r,"name")||"").trim()
+        if(!pname||pname.startsWith("※")||pname.includes("프로젝트명")) return
+
+        const deptRaw   = String(get(r,"dept")||"").trim()
+        const typeRaw   = String(get(r,"itemType")||"").trim()
+        const amount    = parseInt(String(get(r,"amount")||"0").replace(/[^0-9\-]/g,""))||0
+        const shareRatio= parseFloat(String(get(r,"shareRatio")||"100").replace(/[^0-9.]/g,""))/100||1
+        const existingId= String(get(r,"id")||"").trim()
+        const id        = existingId&&existingId!=="[시스템ID-수정금지]" ? existingId : `P${Date.now()}_${Math.random().toString(36).slice(2,6)}`
+
+        // 복수 본부 파싱: "설계1본부:60%,디자인본부:40%"
+        let depts = [], deptShares = []
+        if(deptRaw.includes(":")) {
+          deptRaw.split(",").forEach(seg=>{
+            const [dept, pct] = seg.trim().split(":")
+            if(dept) {
+              depts.push(dept.trim())
+              deptShares.push({dept:dept.trim(), share:parseFloat(pct||"100")||100})
+            }
+          })
+        } else {
+          depts = deptRaw ? [deptRaw] : []
+          deptShares = deptRaw ? [{dept:deptRaw, share:100}] : []
+        }
+
+        newProjs.push({
+          id,
+          name:       pname,
+          depts,
+          deptShares,
+          orderType:  String(get(r,"orderType")||"민간").trim(),
+          type:       typeMap[typeRaw]||"추진",
+          serviceFee: amount,
+          shareRatio,
+          memo:       String(get(r,"memo")||"").trim(),
+          contractYear: new Date().getFullYear(),
+          updatedAt:  new Date().toISOString(),
+          updatedBy:  currentUser?.name||"",
+          // 빈 필드 기본값
+          versions:   [],
+          weeklyReport: {},
+        })
+      })
+
+      if(newProjs.length===0){toast&&toast("데이터가 없습니다.","error");return}
+
+      // 중복 체크: ID 기준 업데이트, 프로젝트명 기준 중복 감지
+      const existById  = new Map(projects.map(p=>[p.id, p]))
+      const existByName= new Map(projects.map(p=>[p.name.trim(), p]))
+      let added=0, updated=0, dups=[]
+
+      setProjects(prev=>{
+        let next = [...prev]
+        newProjs.forEach(np=>{
+          if(existById.has(np.id)) {
+            // ID 일치 → 업데이트 (기존 데이터 보존)
+            next = next.map(p=>p.id===np.id?{...p,...np}:p)
+            updated++
+          } else if(existByName.has(np.name)) {
+            // 이름 중복 감지
+            dups.push(np.name)
+            // 그래도 추가는 허용 (확인 후 결정)
+          } else {
+            next.push(np)
+            added++
+          }
+        })
+        return next
+      })
+
+      let msg = `✅ 완료: 신규 ${added}건 추가, 업데이트 ${updated}건`
+      if(dups.length>0) msg += `\n⚠ 동일 프로젝트명 ${dups.length}건 (별도 등록됨): ${dups.slice(0,3).join(", ")}`
+      toast&&toast(msg,"success")
+      if(dups.length>0) alert(`⚠ 중복 프로젝트명 감지:\n${dups.join("\n")}\n\n시스템에는 등록됐습니다. 기존 항목과 병합이 필요한 경우 해당 프로젝트를 수정하세요.`)
+    } catch(err){ toast&&toast("업로드 오류: "+err.message,"error") }
+    e.target.value=""
+  }
+  reader.readAsBinaryString(file)
 }
 
 
