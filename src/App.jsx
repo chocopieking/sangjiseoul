@@ -202,7 +202,7 @@ export default function App() {
   })
 
   // ── 앱 상태 (state 먼저 선언 → useEffect에서 setter 참조 가능) ──
-  const [tab, setTab]             = useState("analysis")
+  const [tab, setTab]             = useState("home")
   const [dbReady, setDbReady]     = useState(!USE_DB)
   const [dbStatus, setDbStatus]   = useState(USE_DB ? "connecting" : "local")
 
@@ -778,6 +778,7 @@ export default function App() {
 
   // ── 메뉴 그룹·순서 — Hook이므로 반드시 조건부 return 이전에 위치 ──
   const TAB_DEFAULTS = [
+    {id:"home",      label:"🏠 홈",           group:"경영"},
     {id:"analysis",  label:"📊 경영분석",    group:"경영"},
     {id:"notice",    label:"📢 공지사항",      group:"경영"},
     {id:"stats",     label:"📈 사용 통계",     group:"경영"},
@@ -984,6 +985,7 @@ export default function App() {
         {tab==="stats"     && (canReadTab("stats")  ? <StatsTab projects={projects}/> : <NoPermScreen tabId="stats"/>)}
         {tab==="gamify"    && (canReadTab("gamify") ? <GamifyTab projects={projects} currentUser={currentUser}/> : <NoPermScreen tabId="gamify"/>)}
         {tab==="deptdash"  && <DeptDashTab projects={projects} vendorPayments={vendorPayments} years={years}/>}
+        {tab==="home" && <MobileHub setTab={setTab} tabOrder={tabOrder} currentUser={currentUser} projects={projects} cashItems={cashItems}/>}
         {tab==="analysis"  && (canReadTab("analysis") ? <AnalysisHub deptStaff={deptStaff} setDeptStaff={setDeptStaff} years={years} setYears={setYears} canWrite={canWrite} isAdmin={currentUser?.role==="admin"} cashflow={effectiveCashflow} cashItems={cashItems} setCashItems={setCashItems} saleItems={saleItems} setSaleItems={setSaleItems} projects={projects} setProjects={setProjects} setTab={setTab} setSelProjId={setSelProjId} setDetailTab={setDetailTab} selProjId={selProjId} selVerIdx={selVerIdx} setSelVerIdx={setSelVerIdx} currentUser={currentUser} yearTargets={yearTargets} setYearTargets={setYearTargets} deptBiz={deptBiz} staffMonthly={staffMonthly} staffTarget={staffTarget} deptStaff={deptStaff}/> : <NoPermScreen tabId="analysis"/>)}
         {tab==="datahub" && canReadTab("datahub") && <DataHubTab currentUser={currentUser} deptStaff={deptStaff} setDeptStaff={setDeptStaff} staffTarget={staffTarget} setStaffTarget={setStaffTarget} staffMonthly={staffMonthly} setStaffMonthly={setStaffMonthly} pnlData={pnlData} setPnlData={setPnlData} cashflow={cashflow} setCashflow={setCashflow} years={years} setYears={setYears} projects={projects} setProjects={setProjects} setTab={setTab} setSelProjId={setSelProjId} setSelVerIdx={setSelVerIdx} setShowNewProj={setShowNewProj} versions={versions} saveVersion={saveVersion} restoreVersion={restoreVersion} deleteVersion={deleteVersion} contractTypes={contractTypes} setContractTypes={setContractTypes} projTypes={projTypes} setProjTypes={setProjTypes} bidTypes={bidTypes} setBidTypes={setBidTypes} allData={null} restoreAllData={(entries)=>dbSetAll(entries, userEmail.current)} dbStatus={dbStatus}/>}
         {tab==="cashflow" && canReadTab("cashflow") && <CashflowTab cashflow={effectiveCashflow} setCashflow={setCashflow} currentUser={currentUser} projects={projects} setProjects={setProjects} projectCashflowByDept={projectCashflowByDept} cashItems={cashItems} setCashItems={setCashItems} saleItems={saleItems} setSaleItems={setSaleItems} setTab={setTab} setSelProjId={setSelProjId} setDetailTab={setDetailTab} yearTargets={yearTargets} setYearTargets={setYearTargets} deptBiz={deptBiz} deptStaff={deptStaff} staffMonthly={staffMonthly} staffTarget={staffTarget}/>}
@@ -7998,6 +8000,262 @@ function InlineEditForm({form, setForm, DEPTS, projNames, isSale, onSave, onCanc
           style={{padding:"8px 12px",background:"#F3F4F6",color:"#374151",border:"none",borderRadius:8,fontSize:13,cursor:"pointer"}}>
           취소
         </button>
+      </div>
+    </div>
+  )
+}
+
+// ══════════════════════════════════════════════════════════════
+// 🏠 모바일 허브 홈페이지
+// ══════════════════════════════════════════════════════════════
+function MobileHub({setTab, tabOrder=[], currentUser, projects=[], cashItems=[]}) {
+  const [search, setSearch] = useState("")
+  const [favorites, setFavorites] = useState(()=>{
+    try{ return JSON.parse(localStorage.getItem("sjs_hub_favorites")||"[]") }catch{ return [] }
+  })
+
+  const toggleFav = (id) => {
+    const next = favorites.includes(id) ? favorites.filter(f=>f!==id) : [...favorites, id]
+    setFavorites(next)
+    try{ localStorage.setItem("sjs_hub_favorites", JSON.stringify(next)) }catch{}
+  }
+
+  // 허브 메뉴 정의
+  const HUB_MENUS = [
+    {
+      group: "📊 경영관리",
+      color: "#6366F1",
+      bg: "#EEF2FF",
+      items: [
+        {id:"analysis", icon:"📊", label:"경영분석",    sub:"MANAGEMENT ANALYSIS"},
+        {id:"deptdash", icon:"🏢", label:"본부별 현황", sub:"DEPT DASHBOARD"},
+        {id:"notice",   icon:"📢", label:"공지사항",    sub:"NOTICE"},
+        {id:"stats",    icon:"📈", label:"사용 통계",   sub:"STATISTICS"},
+      ]
+    },
+    {
+      group: "🏗 프로젝트",
+      color: "#059669",
+      bg: "#D1FAE5",
+      items: [
+        {id:"projects", icon:"🏗", label:"프로젝트",    sub:"PROJECTS"},
+        {id:"history",  icon:"📜", label:"히스토리",    sub:"HISTORY"},
+        {id:"calendar", icon:"📅", label:"일정 캘린더", sub:"CALENDAR"},
+      ]
+    },
+    {
+      group: "💧 수금·계약",
+      color: "#0891B2",
+      bg: "#E0F7FA",
+      items: [
+        {id:"analysis", icon:"💧", label:"월수금현황",  sub:"CASHFLOW", subTab:"cash"},
+        {id:"analysis", icon:"📝", label:"계약현황",    sub:"CONTRACT",  subTab:"contract"},
+        {id:"analysis", icon:"💸", label:"지출현황",    sub:"EXPENSE",   subTab:"expense"},
+        {id:"analysis", icon:"👥", label:"인원현황",    sub:"STAFF",     subTab:"staff"},
+      ]
+    },
+    {
+      group: "📁 문서·관리",
+      color: "#D97706",
+      bg: "#FEF3C7",
+      items: [
+        {id:"contract", icon:"📄", label:"계약서",      sub:"CONTRACTS"},
+        {id:"vendors",  icon:"🤝", label:"협력업체",    sub:"VENDORS"},
+        {id:"archive",  icon:"📁", label:"아카이브",    sub:"ARCHIVE"},
+        {id:"manual",   icon:"📚", label:"업무매뉴얼",  sub:"MANUAL"},
+      ]
+    },
+    {
+      group: "🔧 분석·설정",
+      color: "#7C3AED",
+      bg: "#EDE9FE",
+      items: [
+        {id:"pnl",      icon:"📉", label:"손익분석",    sub:"P&L ANALYSIS"},
+        {id:"optimize", icon:"⚙️", label:"경영최적화",  sub:"OPTIMIZATION"},
+        {id:"datahub",  icon:"🗄️", label:"데이터관리",  sub:"DATA HUB"},
+        {id:"gamify",   icon:"🎮", label:"포인트·랭킹", sub:"GAMIFICATION"},
+      ]
+    },
+  ]
+
+  // 검색 필터
+  const allItems = HUB_MENUS.flatMap(g=>g.items.map(i=>({...i, group:g.group, color:g.color, bg:g.bg})))
+  const filtered = search.trim()
+    ? allItems.filter(i=>i.label.includes(search)||i.sub.toLowerCase().includes(search.toLowerCase()))
+    : []
+  const favItems = allItems.filter(i=>favorites.includes(i.id+(i.subTab||"")))
+
+  // KPI 요약
+  const now = new Date()
+  const YR  = String(now.getFullYear())
+  const thisMon = `${YR}-${String(now.getMonth()+1).padStart(2,"0")}`
+  const totalPaid = cashItems.filter(i=>i.paidDate).reduce((s,i)=>s+(i.amount||0),0)
+  const totalConf = cashItems.filter(i=>!i.paidDate&&i.expectedDate&&i.itemType!=="미정"&&i.itemType!=="추진").reduce((s,i)=>s+(i.amount||0),0)
+  const fA = v => v>=1e8?`${(v/1e8).toFixed(1)}억`:v>=1e4?`${Math.round(v/1e4)}만`:"-"
+
+  const CardItem = ({item, groupColor, groupBg}) => {
+    const isFav = favorites.includes(item.id+(item.subTab||""))
+    return (
+      <div
+        onClick={()=>setTab(item.id)}
+        style={{
+          background:groupBg,
+          borderRadius:16,
+          padding:"16px 14px",
+          cursor:"pointer",
+          position:"relative",
+          border:`1px solid ${groupColor}22`,
+          transition:"transform .1s, box-shadow .1s",
+          userSelect:"none",
+        }}
+        onTouchStart={e=>e.currentTarget.style.transform="scale(0.97)"}
+        onTouchEnd={e=>e.currentTarget.style.transform="scale(1)"}
+        onMouseEnter={e=>e.currentTarget.style.boxShadow=`0 4px 12px ${groupColor}33`}
+        onMouseLeave={e=>e.currentTarget.style.boxShadow="none"}
+      >
+        {/* 즐겨찾기 버튼 */}
+        <button
+          onClick={e=>{e.stopPropagation();toggleFav(item.id+(item.subTab||""))}}
+          style={{position:"absolute",top:10,right:10,background:"none",border:"none",fontSize:16,cursor:"pointer",
+            color:isFav?groupColor:"#D1D5DB",padding:4}}>
+          {isFav?"★":"☆"}
+        </button>
+        {/* 아이콘 */}
+        <div style={{
+          width:52,height:52,borderRadius:14,
+          background:"white",
+          display:"flex",alignItems:"center",justifyContent:"center",
+          fontSize:26,marginBottom:10,
+          boxShadow:`0 2px 8px ${groupColor}22`
+        }}>
+          {item.icon}
+        </div>
+        {/* 텍스트 */}
+        <div style={{fontSize:15,fontWeight:800,color:groupColor,marginBottom:2}}>{item.label}</div>
+        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+          <div style={{fontSize:10,fontWeight:600,color:`${groupColor}99`,letterSpacing:".05em"}}>{item.sub}</div>
+          <span style={{fontSize:14,color:groupColor}}>→</span>
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div style={{maxWidth:680,margin:"0 auto",padding:"0 0 80px"}}>
+      {/* 헤더 */}
+      <div style={{background:"linear-gradient(135deg,#312E81,#6366F1)",padding:"24px 20px 20px",marginBottom:0}}>
+        <div style={{fontSize:12,color:"rgba(255,255,255,.7)",marginBottom:4}}>
+          {currentUser?.dept||""} {currentUser?.name||""}님
+        </div>
+        <div style={{fontSize:22,fontWeight:800,color:"#fff",marginBottom:16}}>
+          🏠 상지서울 업무 허브
+        </div>
+
+        {/* KPI 요약 */}
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10,marginBottom:16}}>
+          {[
+            {label:"진행중 프로젝트",val:projects.filter(p=>p.type==="확정"||p.type==="계약").length+"건",icon:"🏗"},
+            {label:"현누계",         val:fA(totalPaid),                                                   icon:"✅"},
+            {label:"기성+확정",      val:fA(totalPaid+totalConf),                                         icon:"💧"},
+          ].map(k=>(
+            <div key={k.label} style={{background:"rgba(255,255,255,.15)",borderRadius:12,padding:"10px 12px",textAlign:"center"}}>
+              <div style={{fontSize:18,marginBottom:4}}>{k.icon}</div>
+              <div style={{fontSize:15,fontWeight:800,color:"#fff"}}>{k.val}</div>
+              <div style={{fontSize:10,color:"rgba(255,255,255,.7)",marginTop:2}}>{k.label}</div>
+            </div>
+          ))}
+        </div>
+
+        {/* 검색 */}
+        <div style={{background:"white",borderRadius:12,padding:"10px 14px",display:"flex",gap:8,alignItems:"center"}}>
+          <span style={{fontSize:16}}>🔍</span>
+          <input value={search} onChange={e=>setSearch(e.target.value)}
+            placeholder="메뉴 검색 — 이름 입력..."
+            style={{border:"none",outline:"none",fontSize:14,flex:1,fontFamily:"inherit",background:"transparent"}}/>
+          {search&&<button onClick={()=>setSearch("")} style={{border:"none",background:"none",cursor:"pointer",fontSize:14,color:"#9CA3AF"}}>✕</button>}
+        </div>
+      </div>
+
+      <div style={{padding:"16px 14px"}}>
+
+        {/* 검색 결과 */}
+        {search.trim()&&(
+          <div style={{marginBottom:20}}>
+            <div style={{fontSize:14,fontWeight:700,color:"#374151",marginBottom:10}}>
+              🔍 검색 결과 {filtered.length}건
+            </div>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+              {filtered.map((item,i)=>(
+                <CardItem key={i} item={item} groupColor={item.color} groupBg={item.bg}/>
+              ))}
+            </div>
+            {filtered.length===0&&<div style={{color:"#9CA3AF",fontSize:14,textAlign:"center",padding:"20px 0"}}>검색 결과가 없습니다.</div>}
+          </div>
+        )}
+
+        {/* 즐겨찾기 */}
+        {!search&&favItems.length>0&&(
+          <div style={{marginBottom:20}}>
+            <div style={{fontSize:14,fontWeight:800,color:"#374151",marginBottom:10}}>
+              ⭐ 즐겨찾기 {favItems.length}
+            </div>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+              {favItems.map((item,i)=>(
+                <CardItem key={i} item={item} groupColor={item.color} groupBg={{...item,bg:"#FFF8F0"}.bg}/>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* 카테고리별 메뉴 */}
+        {!search&&HUB_MENUS.map(({group,color,bg,items})=>(
+          <div key={group} style={{marginBottom:20}}>
+            <div style={{
+              display:"flex",alignItems:"center",gap:8,
+              marginBottom:10,paddingBottom:8,
+              borderBottom:`2px solid ${color}33`
+            }}>
+              <div style={{fontSize:14,fontWeight:800,color:color}}>{group}</div>
+              <div style={{fontSize:12,color:`${color}88`,fontWeight:600}}>{items.length}</div>
+            </div>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+              {items.map((item,i)=>(
+                <CardItem key={i} item={item} groupColor={color} groupBg={bg}/>
+              ))}
+            </div>
+          </div>
+        ))}
+
+        {/* 버전 */}
+        <div style={{textAlign:"center",color:"#D1D5DB",fontSize:12,marginTop:20}}>
+          상지서울건축사사무소 통합경영시스템 v5 · {new Date().getFullYear()}
+        </div>
+      </div>
+
+      {/* 하단 고정 네비 (모바일) */}
+      <div style={{
+        position:"fixed",bottom:0,left:0,right:0,
+        background:"white",
+        borderTop:"1px solid #E5E7EB",
+        display:"flex",
+        padding:"8px 0 env(safe-area-inset-bottom)",
+        zIndex:1000,
+        boxShadow:"0 -4px 20px rgba(0,0,0,.08)"
+      }}>
+        {[
+          {id:"home",     icon:"🏠", label:"홈"},
+          {id:"analysis", icon:"📊", label:"경영"},
+          {id:"projects", icon:"🏗", label:"프로젝트"},
+          {id:"history",  icon:"📜", label:"히스토리"},
+          {id:"manual",   icon:"📚", label:"매뉴얼"},
+        ].map(({id,icon,label})=>(
+          <button key={id} onClick={()=>setTab(id)}
+            style={{flex:1,border:"none",background:"none",cursor:"pointer",padding:"4px 0",
+              display:"flex",flexDirection:"column",alignItems:"center",gap:2}}>
+            <span style={{fontSize:22}}>{icon}</span>
+            <span style={{fontSize:10,fontWeight:600,color:id==="home"?"#6366F1":"#9CA3AF"}}>{label}</span>
+          </button>
+        ))}
       </div>
     </div>
   )
