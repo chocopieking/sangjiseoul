@@ -2205,10 +2205,7 @@ function CashflowTab({cashflow,setCashflow,currentUser,projects,setProjects,proj
                       if(p.contractExpect && !p.contractExpect.startsWith(YR)) return false
                       // contractDate가 있고 YR이 아니면 제외
                       if(p.contractDate && !p.contractDate.startsWith(YR)) return false
-                      // 날짜가 하나도 없으면 → contractYear가 YR이면 포함
-                      if(!p.execDate && !p.contractExpect && !p.contractDate) {
-                        return p.contractYear && String(p.contractYear)===YR
-                      }
+                      // 날짜 없고 contractYear=YR → 포함 (엑셀 업로드 항목)
                       return true
                     }
                     const newBase = projects.filter(p=>isNewThisYear(p)&&!p.isAmendment&&isExecThisYear(p))
@@ -2599,34 +2596,44 @@ function uploadContractExcel(e, projects, setProjects, currentUser, toast) {
 
       if(newProjs.length===0){toast&&toast("데이터가 없습니다.","error");return}
 
-      // 중복 체크: ID 기준 업데이트, 프로젝트명 기준 중복 감지
-      const existById  = new Map(projects.map(p=>[p.id, p]))
-      const existByName= new Map(projects.map(p=>[p.name.trim(), p]))
-      let added=0, updated=0, dups=[]
+      // 중복 처리 전략:
+      // 1. ID 있으면 → ID로 매칭해서 업데이트
+      // 2. 이름+구분(type) 조합이 같으면 → 업데이트 (같은 프로젝트 재업로드)
+      // 3. 이름은 같지만 구분(type)이 다르면 → 별도 항목으로 추가
+      // 4. 완전 신규 → 추가
+      let added=0, updated=0, dupNames=[]
 
       setProjects(prev=>{
         let next = [...prev]
         newProjs.forEach(np=>{
-          if(existById.has(np.id)) {
-            // ID 일치 → 업데이트 (기존 데이터 보존)
+          // ID로 먼저 찾기
+          const byId = next.find(p=>p.id===np.id&&np.id)
+          if(byId) {
             next = next.map(p=>p.id===np.id?{...p,...np}:p)
             updated++
-          } else if(existByName.has(np.name)) {
-            // 이름 중복 감지
-            dups.push(np.name)
-            // 그래도 추가는 허용 (확인 후 결정)
-          } else {
-            next.push(np)
-            added++
+            return
           }
+          // 이름+type으로 찾기 (같은 이름+같은 구분 = 재업로드)
+          const byNameType = next.find(p=>p.name.trim()===np.name.trim()&&p.type===np.type)
+          if(byNameType) {
+            next = next.map(p=>p.id===byNameType.id?{...p,...np,id:byNameType.id}:p)
+            updated++
+            return
+          }
+          // 이름만 같은 경우 (구분 다름 = 별도 항목, 경고만)
+          const byName = next.find(p=>p.name.trim()===np.name.trim())
+          if(byName) dupNames.push(`${np.name} (기존:${byName.type} → 신규:${np.type})`)
+          // 신규 추가
+          next.push(np)
+          added++
         })
         return next
       })
 
       let msg = `✅ 완료: 신규 ${added}건 추가, 업데이트 ${updated}건`
-      if(dups.length>0) msg += `\n⚠ 동일 프로젝트명 ${dups.length}건 (별도 등록됨): ${dups.slice(0,3).join(", ")}`
+      if(dupNames.length>0) msg += `\n⚠ 동일 프로젝트명(다른 구분) ${dupNames.length}건 별도 추가됨`
       toast&&toast(msg,"success")
-      if(dups.length>0) alert(`⚠ 중복 프로젝트명 감지:\n${dups.join("\n")}\n\n시스템에는 등록됐습니다. 기존 항목과 병합이 필요한 경우 해당 프로젝트를 수정하세요.`)
+      if(dupNames.length>0) alert(`⚠ 같은 이름 다른 구분 항목:\n${dupNames.slice(0,5).join("\n")}\n\n각각 별도 프로젝트로 등록됐습니다.`)
     } catch(err){ toast&&toast("업로드 오류: "+err.message,"error") }
     e.target.value=""
   }
