@@ -260,6 +260,16 @@ export default function App() {
     try{ localStorage.setItem("sjs_sale_items", JSON.stringify(next)) }catch{}
     if(USE_DB) dbSet("sjs_sale_items", next).catch(()=>{})
     setSaleItemsRaw(next)
+
+  // ── 계약현황 아이템 (월수금/프로젝트와 완전 독립) ──────────────
+  const [contractItemsRaw, setContractItemsRaw] = useState(()=>lsGet("sjs_contract_items", []))
+  const contractItems = contractItemsRaw
+  const setContractItems = (v) => {
+    const next = typeof v==="function" ? v(contractItemsRaw) : v
+    try{ localStorage.setItem("sjs_contract_items", JSON.stringify(next)) }catch{}
+    if(USE_DB) dbSet("sjs_contract_items", next).catch(()=>{})
+    setContractItemsRaw(next)
+  }
   }
 
   // ── 데이터 버전 기록 (스냅샷) ───────────────────────────────
@@ -366,8 +376,10 @@ export default function App() {
       // cashItems/saleItems: DB 빈값이면 localStorage 복구
       const cashFromDB = g("sjs_cash_items", null)
       const saleFromDB = g("sjs_sale_items", null)
+      const contractFromDB = g("sjs_contract_items", null)
       setCashItemsRaw(cashFromDB && cashFromDB.length>0 ? cashFromDB : lsGet("sjs_cash_items", []))
       setSaleItemsRaw(saleFromDB && saleFromDB.length>0 ? saleFromDB : lsGet("sjs_sale_items", []))
+      setContractItemsRaw(contractFromDB && contractFromDB.length>0 ? contractFromDB : lsGet("sjs_contract_items", []))
       setDeptStaffRaw(g("sjs_dept_staff", DEPT_STAFF_INIT))
       setStaffTargetRaw(g("sjs_staff_target", STAFF_TARGET_INIT))
       setStaffMonthlyRaw(g("sjs_staff_monthly", STAFF_MONTHLY_INIT))
@@ -396,6 +408,7 @@ export default function App() {
       else if (key==="sjs_departments")      setDepartments(value)
       else if (key==="sjs_dept_biz")         setDeptBizRaw(value)
       else if (key==="sjs_cash_items")       setCashItemsRaw(value)
+      else if (key==="sjs_contract_items")  setContractItemsRaw(value)
       else if (key==="sjs_sale_items")       setSaleItemsRaw(value)
       else if (key==="sjs_vendors")          setVendorsDBRaw(value)
       else if (key==="sjs_vendor_payments")  setVendorPaymentsRaw(value)
@@ -989,9 +1002,9 @@ export default function App() {
         {tab==="gamify"    && (canReadTab("gamify") ? <GamifyTab projects={projects} currentUser={currentUser}/> : <NoPermScreen tabId="gamify"/>)}
         {tab==="deptdash"  && <DeptDashTab projects={projects} vendorPayments={vendorPayments} years={years}/>}
         {tab==="home" && <MobileHub setTab={setTab} tabOrder={tabOrder} currentUser={currentUser} projects={projects} cashItems={cashItems}/>}
-        {tab==="analysis"  && (canReadTab("analysis") ? <AnalysisHub deptStaff={deptStaff} setDeptStaff={setDeptStaff} years={years} setYears={setYears} canWrite={canWrite} isAdmin={currentUser?.role==="admin"} cashflow={effectiveCashflow} cashItems={cashItems} setCashItems={setCashItems} saleItems={saleItems} setSaleItems={setSaleItems} projects={projects} setProjects={setProjects} setTab={setTab} setSelProjId={setSelProjId} setDetailTab={setDetailTab} selProjId={selProjId} selVerIdx={selVerIdx} setSelVerIdx={setSelVerIdx} currentUser={currentUser} yearTargets={yearTargets} setYearTargets={setYearTargets} deptBiz={deptBiz} staffMonthly={staffMonthly} staffTarget={staffTarget} deptStaff={deptStaff}/> : <NoPermScreen tabId="analysis"/>)}
+        {tab==="analysis"  && (canReadTab("analysis") ? <AnalysisHub deptStaff={deptStaff} setDeptStaff={setDeptStaff} years={years} setYears={setYears} canWrite={canWrite} isAdmin={currentUser?.role==="admin"} cashflow={effectiveCashflow} cashItems={cashItems} setCashItems={setCashItems} saleItems={saleItems} setSaleItems={setSaleItems} contractItems={contractItems} setContractItems={setContractItems} projects={projects} setProjects={setProjects} setTab={setTab} setSelProjId={setSelProjId} setDetailTab={setDetailTab} selProjId={selProjId} selVerIdx={selVerIdx} setSelVerIdx={setSelVerIdx} currentUser={currentUser} yearTargets={yearTargets} setYearTargets={setYearTargets} deptBiz={deptBiz} staffMonthly={staffMonthly} staffTarget={staffTarget} deptStaff={deptStaff} YEAR={YEAR} YR={YR}/> : <NoPermScreen tabId="analysis"/>)}
         {tab==="datahub" && canReadTab("datahub") && <DataHubTab currentUser={currentUser} deptStaff={deptStaff} setDeptStaff={setDeptStaff} staffTarget={staffTarget} setStaffTarget={setStaffTarget} staffMonthly={staffMonthly} setStaffMonthly={setStaffMonthly} pnlData={pnlData} setPnlData={setPnlData} cashflow={cashflow} setCashflow={setCashflow} years={years} setYears={setYears} projects={projects} setProjects={setProjects} setTab={setTab} setSelProjId={setSelProjId} setSelVerIdx={setSelVerIdx} setShowNewProj={setShowNewProj} versions={versions} saveVersion={saveVersion} restoreVersion={restoreVersion} deleteVersion={deleteVersion} contractTypes={contractTypes} setContractTypes={setContractTypes} projTypes={projTypes} setProjTypes={setProjTypes} bidTypes={bidTypes} setBidTypes={setBidTypes} allData={null} restoreAllData={(entries)=>dbSetAll(entries, userEmail.current)} dbStatus={dbStatus}/>}
-        {tab==="cashflow" && canReadTab("cashflow") && <CashflowTab cashflow={effectiveCashflow} setCashflow={setCashflow} currentUser={currentUser} projects={projects} setProjects={setProjects} projectCashflowByDept={projectCashflowByDept} cashItems={cashItems} setCashItems={setCashItems} saleItems={saleItems} setSaleItems={setSaleItems} setTab={setTab} setSelProjId={setSelProjId} setDetailTab={setDetailTab} yearTargets={yearTargets} setYearTargets={setYearTargets} deptBiz={deptBiz} deptStaff={deptStaff} staffMonthly={staffMonthly} staffTarget={staffTarget}/>}
+        {tab==="cashflow" && canReadTab("cashflow") && <CashflowTab cashflow={effectiveCashflow} setCashflow={setCashflow} currentUser={currentUser} projects={projects} setProjects={setProjects} projectCashflowByDept={projectCashflowByDept} cashItems={cashItems} setCashItems={setCashItems} saleItems={saleItems} setSaleItems={setSaleItems} setTab={setTab} setSelProjId={setSelProjId} setDetailTab={setDetailTab} yearTargets={yearTargets} setYearTargets={setYearTargets} deptBiz={deptBiz} deptStaff={deptStaff} staffMonthly={staffMonthly} staffTarget={staffTarget} contractItems={contractItems} setContractItems={setContractItems}/>}
         {tab==="projects" && canReadTab("projects") && <ProjectsTab projects={projects} setProjects={setProjects} selProjId={selProjId} setSelProjId={setSelProjId} selVerIdx={selVerIdx} setSelVerIdx={setSelVerIdx} cmpIds={cmpIds} setCmpIds={setCmpIds} showNewVer={showNewVer} setShowNewVer={setShowNewVer} canWrite={canWrite&&canWriteTab("projects")} contractTypes={contractTypes} currentUser={currentUser} setDetailTab={setDetailTab} detailTab={detailTab}/>}
         {tab==="vendors" && canReadTab("vendors") && <VendorsTab projects={projects} setProjects={setProjects} vendorsDB={vendorsDB} setVendorsDB={setVendorsDB} vendorPayments={vendorPayments} setVendorPayments={setVendorPayments} canWrite={canWrite&&canWriteTab("vendors")} currentUser={currentUser} setTab={setTab} setSelProjId={setSelProjId} setSelVerIdx={setSelVerIdx}/>}
         {tab==="pnl"      && canReadTab("pnl")      && <PnlTab pnlData={pnlData} setPnlData={setPnlData} canWrite={canWrite&&canWriteTab("pnl")}/>}
@@ -1228,7 +1241,7 @@ function StackTotalTooltip({active,payload,label}) {
 // ════════════════════════════════════════════════════════════
 // 💧 월수금계획 탭 v3 — 계약현황·매출현황 통합
 // ════════════════════════════════════════════════════════════
-function CashflowTab({cashflow,setCashflow,currentUser,projects,setProjects,projectCashflowByDept,cashItems=[],setCashItems,saleItems=[],setSaleItems,setTab,setSelProjId,yearTargets={},setYearTargets,deptBiz={},deptStaff={},staffMonthly={},staffTarget={},initTab,setDetailTab,hideTabNav=false}) {
+function CashflowTab({cashflow,setCashflow,currentUser,projects,setProjects,projectCashflowByDept,cashItems=[],setCashItems,saleItems=[],setSaleItems,setTab,setSelProjId,yearTargets={},setYearTargets,deptBiz={},deptStaff={},staffMonthly={},staffTarget={},initTab,setDetailTab,hideTabNav=false,contractItems=[],setContractItems}) {
   const {DEPTS,DEPT_COLORS} = useDepts()
   const NOW   = new Date()
   const YEAR  = NOW.getFullYear()
@@ -1601,18 +1614,37 @@ function CashflowTab({cashflow,setCashflow,currentUser,projects,setProjects,proj
               <button onClick={()=>setEditTargets(false)} style={{padding:"4px 8px",background:"#F3F4F6",color:"#6B7280",border:"none",borderRadius:6,fontSize:12,cursor:"pointer"}}>취소</button>
             </div>
         )}
-        <button onClick={()=>downloadCashTemplate("cash")}
-          style={{padding:"7px 14px",background:"#EEF2FF",color:"#6366F1",border:"none",borderRadius:9,fontSize:12.5,fontWeight:700,cursor:"pointer"}}>
-          ⬇ 빈 양식
-        </button>
-        {currentUser?.role==="admin"&&<button onClick={()=>downloadCashDataExcel(cashItems,"월수금계획")}
-          style={{padding:"7px 14px",background:"#EDE9FE",color:"#7C3AED",border:"none",borderRadius:9,fontSize:12.5,fontWeight:700,cursor:"pointer"}}>
-          ⬇ 전체 데이터
-        </button>}
-        {currentUser?.role==="admin"&&<label style={{padding:"7px 14px",background:"#D1FAE5",color:"#059669",border:"none",borderRadius:9,fontSize:12.5,fontWeight:700,cursor:"pointer",display:"inline-flex",alignItems:"center",gap:5}}>
-          ⬆ 엑셀 업로드
-          <input type="file" accept=".xlsx,.xls,.csv" style={{display:"none"}} onChange={e=>uploadCashExcel(e,"cash",cashItems,setCashItems,saleItems,setSaleItems,DEPTS,currentUser)}/>
-        </label>}
+        {/* 월수금계획 탭 전용 버튼 */}
+        {(!mainTab||mainTab==="cash")&&<>
+          <button onClick={()=>downloadCashTemplate("cash")}
+            style={{padding:"7px 14px",background:"#EEF2FF",color:"#6366F1",border:"none",borderRadius:9,fontSize:12.5,fontWeight:700,cursor:"pointer"}}>
+            ⬇ 빈 양식
+          </button>
+          {currentUser?.role==="admin"&&<button onClick={()=>downloadCashDataExcel(cashItems,"월수금계획")}
+            style={{padding:"7px 14px",background:"#EDE9FE",color:"#7C3AED",border:"none",borderRadius:9,fontSize:12.5,fontWeight:700,cursor:"pointer"}}>
+            ⬇ 전체 데이터
+          </button>}
+          {currentUser?.role==="admin"&&<label style={{padding:"7px 14px",background:"#D1FAE5",color:"#059669",border:"none",borderRadius:9,fontSize:12.5,fontWeight:700,cursor:"pointer",display:"inline-flex",alignItems:"center",gap:5}}>
+            ⬆ 엑셀 업로드
+            <input type="file" accept=".xlsx,.xls,.csv" style={{display:"none"}} onChange={e=>uploadCashExcel(e,"cash",cashItems,setCashItems,saleItems,setSaleItems,DEPTS,currentUser)}/>
+          </label>}
+        </>}
+        {/* 지출현황 탭 전용 버튼 */}
+        {mainTab==="expense"&&<>
+          <button onClick={()=>downloadCashTemplate("expense")}
+            style={{padding:"7px 14px",background:"#FEE2E2",color:"#DC2626",border:"none",borderRadius:9,fontSize:12.5,fontWeight:700,cursor:"pointer"}}>
+            ⬇ 빈 양식
+          </button>
+          {currentUser?.role==="admin"&&<button onClick={()=>downloadCashDataExcel(cashItems.filter(i=>i.itemType==="지출"||i.dept),"지출현황")}
+            style={{padding:"7px 14px",background:"#EDE9FE",color:"#7C3AED",border:"none",borderRadius:9,fontSize:12.5,fontWeight:700,cursor:"pointer"}}>
+            ⬇ 전체 데이터
+          </button>}
+          {currentUser?.role==="admin"&&<label style={{padding:"7px 14px",background:"#D1FAE5",color:"#059669",border:"none",borderRadius:9,fontSize:12.5,fontWeight:700,cursor:"pointer",display:"inline-flex",alignItems:"center",gap:5}}>
+            ⬆ 엑셀 업로드
+            <input type="file" accept=".xlsx,.xls,.csv" style={{display:"none"}} onChange={e=>uploadCashExcel(e,"expense",cashItems,setCashItems,saleItems,setSaleItems,DEPTS,currentUser)}/>
+          </label>}
+        </>}
+        {/* 계약현황 탭: CashflowTab 버튼 없음 - ContractStatusPage에서 자체 처리 */}
       </div>
 
       {/* ══ 월수금계획 탭 ══ */}
@@ -1948,9 +1980,8 @@ function CashflowTab({cashflow,setCashflow,currentUser,projects,setProjects,proj
       {/* ══ 계약현황 탭 ══ */}
       {mainTab==="contract"&&(
         <ContractStatusPage
-          projects={projects}
-          setProjects={setProjects}
-          cashItems={cashItems}
+          contractItems={contractItems}
+          setContractItems={setContractItems}
           DEPTS={DEPTS}
           DEPT_COLORS={DEPT_COLORS}
           currentUser={currentUser}
@@ -2074,7 +2105,7 @@ function downloadContractTemplate() {
 }
 
 // 계약현황 엑셀 업로드 → projects로 변환
-function uploadContractExcel(e, projects, setProjects, currentUser, toast) {
+function uploadContractExcel(e, contractItems, setContractItems, currentUser, toast) {
   const file = e.target.files?.[0]; if(!file) return
   const reader = new FileReader()
   reader.onload = ev => {
@@ -2146,15 +2177,13 @@ function uploadContractExcel(e, projects, setProjects, currentUser, toast) {
           deptShares,
           orderType:  String(get(r,"orderType")||"민간").trim(),
           type:       typeMap[typeRaw]||"추진",
+          amount,          // 계약현황은 amount 필드 사용
           serviceFee: amount,
           shareRatio,
           memo:       String(get(r,"memo")||"").trim(),
           contractYear: new Date().getFullYear(),
           updatedAt:  new Date().toISOString(),
           updatedBy:  currentUser?.name||"",
-          // 빈 필드 기본값
-          versions:   [],
-          weeklyReport: {},
         })
       })
 
@@ -2167,7 +2196,7 @@ function uploadContractExcel(e, projects, setProjects, currentUser, toast) {
       // 4. 완전 신규 → 추가
       let added=0, updated=0, dupNames=[]
 
-      setProjects(prev=>{
+      setContractItems(prev=>{
         let next = [...prev]
         newProjs.forEach(np=>{
           // ID로 먼저 찾기
@@ -6922,7 +6951,7 @@ function ProjTabError() {
 // ══════════════════════════════════════════════════════════════
 // 📊 경영분석 허브 — 서브탭: 대시보드/월수금/계약/지출/인원
 // ══════════════════════════════════════════════════════════════
-function AnalysisHub({deptStaff,setDeptStaff,years,setYears,canWrite,isAdmin,cashflow,cashItems=[],saleItems=[],projects=[],setProjects,setTab,setSelProjId,currentUser,yearTargets={},setYearTargets,deptBiz={},staffMonthly={},staffTarget={},setCashItems,setSaleItems,setDetailTab,selProjId,selVerIdx,setSelVerIdx}) {
+function AnalysisHub({deptStaff,setDeptStaff,years,setYears,canWrite,isAdmin,cashflow,cashItems=[],saleItems=[],contractItems=[],setContractItems,projects=[],setProjects,setTab,setSelProjId,currentUser,yearTargets={},setYearTargets,deptBiz={},staffMonthly={},staffTarget={},setCashItems,setSaleItems,setDetailTab,selProjId,selVerIdx,setSelVerIdx,YEAR,YR}) {
   const {DEPTS,DEPT_COLORS,DEPT_BIZ} = useDepts()
   const [subTab, setSubTab] = useState("dashboard")
 
@@ -6950,9 +6979,15 @@ function AnalysisHub({deptStaff,setDeptStaff,years,setYears,canWrite,isAdmin,cas
 
       {subTab==="dashboard" && <AnalysisDashboard projects={projects} cashItems={cashItems} saleItems={saleItems} DEPTS={DEPTS} DEPT_COLORS={DEPT_COLORS} DEPT_BIZ={DEPT_BIZ} deptStaff={deptStaff} years={years}/>}
 
-      {subTab==="cash" && <CashflowTab cashflow={cashflow} setCashflow={()=>{}} currentUser={currentUser} projects={projects} setProjects={setProjects} projectCashflowByDept={{}} cashItems={cashItems} setCashItems={setCashItems} saleItems={saleItems} setSaleItems={setSaleItems} setTab={setTab} setSelProjId={setSelProjId} setDetailTab={setDetailTab} yearTargets={yearTargets} setYearTargets={isAdmin?setYearTargets:undefined} deptBiz={deptBiz} deptStaff={deptStaff} staffMonthly={staffMonthly} staffTarget={staffTarget} initTab="cash" hideTabNav={true}/>}
+      {subTab==="cash" && <CashflowTab cashflow={cashflow} setCashflow={()=>{}} currentUser={currentUser} projects={projects} setProjects={setProjects} projectCashflowByDept={{}} cashItems={cashItems} setCashItems={setCashItems} saleItems={saleItems} setSaleItems={setSaleItems} setTab={setTab} setSelProjId={setSelProjId} setDetailTab={setDetailTab} yearTargets={yearTargets} setYearTargets={isAdmin?setYearTargets:undefined} deptBiz={deptBiz} deptStaff={deptStaff} staffMonthly={staffMonthly} staffTarget={staffTarget} contractItems={contractItems} setContractItems={setContractItems} initTab="cash" hideTabNav={true}/>}
 
-      {subTab==="contract" && <CashflowTab cashflow={cashflow} setCashflow={()=>{}} currentUser={currentUser} projects={projects} setProjects={setProjects} projectCashflowByDept={{}} cashItems={cashItems} setCashItems={setCashItems} saleItems={saleItems} setSaleItems={setSaleItems} setTab={setTab} setSelProjId={setSelProjId} setDetailTab={setDetailTab} yearTargets={yearTargets} setYearTargets={isAdmin?setYearTargets:undefined} deptBiz={deptBiz} deptStaff={deptStaff} staffMonthly={staffMonthly} staffTarget={staffTarget} initTab="contract" hideTabNav={true}/>}
+      {subTab==="contract" && <ContractStatusPage
+        contractItems={contractItems} setContractItems={setContractItems}
+        DEPTS={DEPTS} DEPT_COLORS={DEPT_COLORS}
+        currentUser={currentUser} yearTargets={yearTargets} setYearTargets={isAdmin?setYearTargets:undefined}
+        deptBiz={deptBiz} YEAR={YEAR} YR={YR}
+        setSelProjId={setSelProjId} setTab={setTab} setDetailTab={setDetailTab}
+        isAdmin={isAdmin}/>}
 
       {subTab==="expense" && <CashflowTab cashflow={cashflow} setCashflow={()=>{}} currentUser={currentUser} projects={projects} setProjects={setProjects} projectCashflowByDept={{}} cashItems={cashItems} setCashItems={setCashItems} saleItems={saleItems} setSaleItems={setSaleItems} setTab={setTab} setSelProjId={setSelProjId} setDetailTab={setDetailTab} yearTargets={yearTargets} setYearTargets={isAdmin?setYearTargets:undefined} deptBiz={deptBiz} deptStaff={deptStaff} staffMonthly={staffMonthly} staffTarget={staffTarget} initTab="expense" hideTabNav={true}/>}
 
@@ -7956,93 +7991,107 @@ function MobileHub({setTab, tabOrder=[], currentUser, projects=[], cashItems=[]}
 }
 
 // ══════════════════════════════════════════════════════════════
-// 📝 계약현황 페이지 — 완전 재설계
-// type 필드가 진실의 원천: 계약/확정/추진
+// 📝 계약현황 페이지 — contractItems 독립 저장소 사용
+//    projects와 완전 분리. 엑셀 업로드 → contractItems에만 저장
 // ══════════════════════════════════════════════════════════════
-function ContractStatusPage({projects, setProjects, cashItems, DEPTS, DEPT_COLORS,
-  currentUser, yearTargets, setYearTargets, deptBiz, YEAR, YR, setSelProjId, setTab, isAdmin, setDetailTab}) {
+function ContractStatusPage({contractItems=[], setContractItems, DEPTS, DEPT_COLORS,
+  currentUser, yearTargets, setYearTargets, deptBiz, YEAR, YR,
+  setSelProjId, setTab, isAdmin, setDetailTab}) {
 
-  const toast     = useToast()
-  const NOW       = new Date()
-  const fA        = v => v>=1e8?`${(v/1e8).toFixed(2)}억`:v>=1e4?`${Math.round(v/1e4)}만`:v>0?v.toLocaleString()+"원":"-"
-  const fAneg     = v => v===0?"-":v>=1e8?`${(v/1e8).toFixed(2)}억`:v>0?`${Math.round(v/1e4)}만`:`${(v/1e8).toFixed(2)}억`
+  const toast  = useToast()
+  const fA     = v => v!==0&&Math.abs(v)>=1e8?`${(v/1e8).toFixed(2)}억`:Math.abs(v)>=1e4?`${Math.round(v/1e4)}만`:v!==0?v.toLocaleString()+"원":"-"
   const targets   = (yearTargets||{})[YEAR] || {}
   const tContract = (targets.contractTarget || 170) * 1e8
 
-  // ── type 기준 분류 함수 ──────────────────────────────
-  const getType = (proj) => {
-    const t = (proj.type||"").trim()
+  // contractItems의 구분(type) 기준 분류 — 오직 이 필드만 사용
+  const getType = (item) => {
+    const t = (item.type||"").trim()
     if(t==="계약"||t==="계약(수주)"||t==="수주") return "계약"
     if(t==="확정") return "확정"
     if(t==="추진") return "추진"
-    if(t==="완료") return "완료"
-    return "추진"  // 기본값
+    return null  // 분류 불명 → 표시 안 함
   }
 
-  // 당해연도 판별
-  const isThisYear = (proj) => {
-    if(proj.contractYear && String(proj.contractYear)===YR) return true
-    if(proj.contractDate && proj.contractDate.startsWith(YR)) return true
-    return false
-  }
+  const 계약Items = contractItems.filter(i=>getType(i)==="계약")
+  const 확정Items = contractItems.filter(i=>getType(i)==="확정")
+  const 추진Items = contractItems.filter(i=>getType(i)==="추진")
 
-  // 본부별 지분
-  const share = (proj, dept) => {
-    const ds = (proj.deptShares||[]).find(s=>s.dept===dept)
-    if(ds) return ds.share/100
-    const depts = proj.depts||[]
-    return depts.length>0 ? 1/depts.length : 1
-  }
-
-  // 전체 프로젝트 (당해연도)
-  const thisYearProjs = projects.filter(isThisYear)
-
-  // type별 분류
-  const 계약Projs = thisYearProjs.filter(p=>getType(p)==="계약")
-  const 확정Projs = thisYearProjs.filter(p=>getType(p)==="확정")
-  const 추진Projs = thisYearProjs.filter(p=>getType(p)==="추진").sort((a,b)=>{
-    if(a.priority&&!b.priority) return -1
-    if(!a.priority&&b.priority) return 1
-    return 0
-  })
-
-  const sum = arr => arr.reduce((s,p)=>s+(p.serviceFee||0),0)
-  const 계약Sum = sum(계약Projs)
-  const 확정Sum = sum(확정Projs)
-  const 추진Sum = sum(추진Projs)
+  const sum = arr => arr.reduce((s,i)=>s+(i.amount||0),0)
+  const 계약Sum = sum(계약Items)
+  const 확정Sum = sum(확정Items)
+  const 추진Sum = sum(추진Items)
   const 합계    = 계약Sum + 확정Sum
 
-  // ── 본부별 집계 ──────────────────────────────────────
+  // 본부별 지분 계산
+  const deptShare = (item, dept) => {
+    const ds = (item.deptShares||[]).find(s=>s.dept===dept)
+    if(ds) return ds.share/100
+    const depts = item.depts||[]
+    if(depts.includes(dept)) return 1/depts.length
+    return 0
+  }
+
+  // 본부별 집계
   const byDept = DEPTS.map(dept=>{
-    const myProjs = thisYearProjs.filter(p=>(p.depts||[]).includes(dept)||(p.deptShares||[]).some(s=>s.dept===dept))
-    const 계약 = myProjs.filter(p=>getType(p)==="계약").reduce((s,p)=>s+(p.serviceFee||0)*share(p,dept),0)
-    const 확정 = myProjs.filter(p=>getType(p)==="확정").reduce((s,p)=>s+(p.serviceFee||0)*share(p,dept),0)
-    const 추진 = myProjs.filter(p=>getType(p)==="추진").reduce((s,p)=>s+(p.serviceFee||0)*share(p,dept),0)
+    const my = contractItems.filter(i=>(i.depts||[]).includes(dept)||(i.deptShares||[]).some(s=>s.dept===dept))
+    const 계약 = my.filter(i=>getType(i)==="계약").reduce((s,i)=>s+(i.amount||0)*deptShare(i,dept),0)
+    const 확정 = my.filter(i=>getType(i)==="확정").reduce((s,i)=>s+(i.amount||0)*deptShare(i,dept),0)
+    const 추진 = my.filter(i=>getType(i)==="추진").reduce((s,i)=>s+(i.amount||0)*deptShare(i,dept),0)
     const 목표 = ((deptBiz||{})[dept]?.orderTarget||0)*1e8
-    return {dept, 계약, 확정, 추진, 합계:계약+확정, 합계추진:계약+확정+추진, 목표, color:DEPT_COLORS[dept]||"#6B7280"}
-  })
+    return {dept,계약,확정,추진,합계:계약+확정,목표,color:DEPT_COLORS[dept]||"#6B7280"}
+  }).filter(d=>d.합계+d.추진+d.목표>0)
 
   const SECS = [
-    {label:"✅ 계약 프로젝트", type:"계약", color:"#059669", bg:"#D1FAE5", border:"#059669", projs:계약Projs, sum:계약Sum},
-    {label:"📋 확정 프로젝트", type:"확정", color:"#6366F1", bg:"#EEF2FF", border:"#6366F1", projs:확정Projs, sum:확정Sum},
-    {label:"🔶 추진 프로젝트", type:"추진", color:"#D97706", bg:"#FEF3C7", border:"#D97706", projs:추진Projs, sum:추진Sum},
-  ]
+    {label:"✅ 계약 프로젝트", type:"계약", color:"#059669", bg:"#D1FAE5", border:"#059669", items:계약Items, sum:계약Sum},
+    {label:"📋 확정 프로젝트", type:"확정", color:"#6366F1", bg:"#EEF2FF", border:"#6366F1", items:확정Items, sum:확정Sum},
+    {label:"🔶 추진 프로젝트", type:"추진", color:"#D97706", bg:"#FEF3C7", border:"#D97706", items:추진Items, sum:추진Sum},
+  ].filter(s=>s.items.length>0)
 
-  const TH = (a="right",c="#6B7280") => ({padding:"9px 11px",textAlign:a,fontSize:11.5,fontWeight:700,color:c,borderBottom:"2px solid #E5E7EB",whiteSpace:"nowrap"})
-  const TD = (a="right",c="#374151",bold=false,bg="transparent") => ({padding:"9px 11px",textAlign:a,fontSize:13,fontWeight:bold?700:400,color:c,borderBottom:"1px solid #F3F4F6",background:bg})
+  const TH = (a="right",c="#6B7280") => ({padding:"9px 11px",textAlign:a,fontSize:11.5,fontWeight:700,color:c,borderBottom:"2px solid #E5E7EB",whiteSpace:"nowrap",background:"#F8FAFC"})
+  const TD = (a="right",c="#374151",bold=false) => ({padding:"9px 11px",textAlign:a,fontSize:13,fontWeight:bold?700:400,color:c,borderBottom:"1px solid #F3F4F6"})
 
-  const goProj = (id) => { if(setSelProjId&&setTab){setSelProjId(id);if(typeof setDetailTab==="function")setDetailTab("info");setTab("projects")} }
+  const goProj = (item) => {
+    // contractItems는 별도 저장 - 프로젝트 목록으로 이동만 함
+    if(setTab) setTab("projects")
+  }
+
+  // 계약현황 전체 데이터 다운로드
+  const downloadAllContract = () => {
+    const rows = [
+      ["■ 상지서울건축사사무소 — 계약현황 전체 데이터"],
+      [`기준일: ${new Date().toLocaleDateString("ko-KR")}`],
+      [],
+      ["본부(복수시 '본부명:지분%' 형식)","발주구분","구분","프로젝트명","용역비총액(원)","상지지분(%)","메모","[시스템ID-수정금지]"],
+      ...contractItems.map(i=>[
+        (i.deptShares||[]).length>1
+          ? (i.deptShares||[]).map(s=>`${s.dept}:${s.share}%`).join(",")
+          : (i.depts||[]).join(",") || "",
+        i.orderType||"민간",
+        i.type||"",
+        i.name||"",
+        i.amount||0,
+        Math.round((i.shareRatio||1)*100),
+        i.memo||"",
+        i.id||"",
+      ])
+    ]
+    const ws = XLSX.utils.aoa_to_sheet(rows)
+    ws["!cols"] = [{wch:30},{wch:10},{wch:8},{wch:40},{wch:16},{wch:10},{wch:20},{wch:22}]
+    const wb = XLSX.utils.book_new()
+    XLSX.utils.book_append_sheet(wb, ws, "계약현황")
+    XLSX.writeFile(wb, `상지서울_계약현황_${new Date().toISOString().slice(0,10)}.xlsx`)
+  }
 
   return (
     <div>
-      {/* ── KPI 배너 ── */}
+      {/* KPI 배너 */}
       <div style={{background:"linear-gradient(135deg,#065F46,#059669)",borderRadius:16,padding:"22px 28px",marginBottom:16,color:"#fff"}}>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",flexWrap:"wrap",gap:16}}>
           <div>
             <div style={{fontSize:13,opacity:.75,marginBottom:4}}>{YEAR}년 계약·확정 금액</div>
             <div style={{fontSize:36,fontWeight:800,marginBottom:10}}>{fA(합계)}</div>
             <div style={{display:"flex",gap:10,flexWrap:"wrap"}}>
-              {[["✅ 계약(수주)",계약Sum,"#34D399"],["📋 확정",확정Sum,"#A5B4FC"],["🔶 추진",추진Sum,"#FDE68A"]].map(([l,v,c])=>(
+              {[["✅ 계약",계약Sum,"#34D399"],[" 📋 확정",확정Sum,"#A5B4FC"],["🔶 추진",추진Sum,"#FDE68A"]].map(([l,v,c])=>(
                 <span key={l} style={{background:"rgba(255,255,255,.15)",padding:"4px 12px",borderRadius:20,fontSize:13,fontWeight:700,color:c}}>
                   {l} {fA(v)}
                 </span>
@@ -8050,147 +8099,131 @@ function ContractStatusPage({projects, setProjects, cashItems, DEPTS, DEPT_COLOR
             </div>
           </div>
           <div style={{textAlign:"right"}}>
-            <div style={{fontSize:12,opacity:.7,marginBottom:4}}>{YEAR}년 계약 목표액</div>
-            <div style={{fontSize:28,fontWeight:800,marginBottom:6}}>{fA(tContract)}</div>
-            <div style={{fontSize:13,opacity:.8}}>달성률</div>
-            <div style={{fontSize:22,fontWeight:800,color:합계>=tContract?"#34D399":"#FDE68A"}}>
-              {tContract>0?Math.round(합계/tContract*100):0}%
+            <div style={{fontSize:12,opacity:.7,marginBottom:2}}>{YEAR}년 계약 목표</div>
+            <div style={{fontSize:28,fontWeight:800}}>{fA(tContract)}</div>
+            <div style={{fontSize:20,fontWeight:800,color:합계>=tContract?"#34D399":"#FDE68A",marginTop:4}}>
+              달성률 {tContract>0?Math.round(합계/tContract*100):0}%
             </div>
           </div>
         </div>
       </div>
 
-      {/* ── 업로드 버튼 ── */}
+      {/* 버튼 */}
       {isAdmin&&(
-        <div style={{display:"flex",gap:8,marginBottom:16,flexWrap:"wrap"}}>
+        <div style={{display:"flex",gap:8,marginBottom:16,flexWrap:"wrap",alignItems:"center"}}>
           <button onClick={downloadContractTemplate}
             style={{padding:"7px 14px",background:"#D1FAE5",color:"#059669",border:"none",borderRadius:9,fontSize:12.5,fontWeight:700,cursor:"pointer"}}>
-            ⬇ 양식 다운로드
+            ⬇ 빈 양식
           </button>
-          <label style={{padding:"7px 14px",background:"#6366F1",color:"#fff",border:"none",borderRadius:9,fontSize:12.5,fontWeight:700,cursor:"pointer",display:"inline-flex",alignItems:"center",gap:5}}>
+          <button onClick={downloadAllContract}
+            style={{padding:"7px 14px",background:"#EDE9FE",color:"#7C3AED",border:"none",borderRadius:9,fontSize:12.5,fontWeight:700,cursor:"pointer"}}>
+            ⬇ 계약전체데이터
+          </button>
+          <label style={{padding:"7px 14px",background:"#6366F1",color:"#fff",borderRadius:9,fontSize:12.5,fontWeight:700,cursor:"pointer",display:"inline-flex",alignItems:"center",gap:5}}>
             ⬆ 엑셀 업로드
             <input type="file" accept=".xlsx,.xls" style={{display:"none"}}
-              onChange={e=>uploadContractExcel(e,projects,setProjects,currentUser,toast)}/>
+              onChange={e=>uploadContractExcel(e,contractItems,setContractItems,currentUser,toast)}/>
           </label>
-          <div style={{marginLeft:"auto",padding:"7px 14px",background:"#F3F4F6",borderRadius:9,fontSize:12,color:"#6B7280",display:"flex",alignItems:"center",gap:6}}>
-            <span>전체 {thisYearProjs.length}건</span>
-            <span>·</span>
-            <span style={{color:"#059669",fontWeight:700}}>계약 {계약Projs.length}건</span>
-            <span>·</span>
-            <span style={{color:"#6366F1",fontWeight:700}}>확정 {확정Projs.length}건</span>
-            <span>·</span>
-            <span style={{color:"#D97706",fontWeight:700}}>추진 {추진Projs.length}건</span>
+          <div style={{marginLeft:"auto",fontSize:12,color:"#6B7280",padding:"6px 12px",background:"#F9FAFB",borderRadius:9,border:"1px solid #E5E7EB"}}>
+            총 {contractItems.length}건 |
+            <span style={{color:"#059669",fontWeight:700}}> 계약 {계약Items.length}</span> |
+            <span style={{color:"#6366F1",fontWeight:700}}> 확정 {확정Items.length}</span> |
+            <span style={{color:"#D97706",fontWeight:700}}> 추진 {추진Items.length}</span>
           </div>
         </div>
       )}
 
-      {/* ── 본부별 요약 테이블 ── */}
-      <div style={{background:"#fff",borderRadius:14,border:"1px solid #E5E7EB",overflow:"hidden",marginBottom:16}}>
-        <div style={{padding:"14px 18px",borderBottom:"1px solid #E5E7EB",fontSize:14,fontWeight:800,color:"#111827"}}>
-          📊 본부별 계약 현황 (단위: 억원)
-        </div>
-        <div style={{overflowX:"auto"}}>
-          <table style={{width:"100%",borderCollapse:"collapse"}}>
-            <thead>
-              <tr>
-                {["본부","목표","계약(수주)","확정","합계(계약+확정)","추진","합계(추진포함)","달성률"].map((h,i)=>(
-                  <th key={h} style={TH(i===0?"left":"right",i===4?"#059669":i===2?"#059669":i===3?"#6366F1":i===5?"#D97706":i===6?"#312E81":"#6B7280")}>{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {byDept.filter(d=>d.합계추진>0||d.목표>0).map((d,i)=>(
-                <tr key={d.dept} style={{background:i%2===0?"#fff":"#FAFAFA"}}>
-                  <td style={TD("left","#111827",true)}>
-                    <div style={{display:"flex",alignItems:"center",gap:7}}>
-                      <div style={{width:8,height:8,borderRadius:"50%",background:d.color}}/>
-                      {d.dept}
-                    </div>
-                  </td>
-                  <td style={TD("right","#DC2626")}>{d.목표>0?fA(d.목표):"-"}</td>
-                  <td style={TD("right","#059669",true)}>{d.계약>0?fA(d.계약):"-"}</td>
-                  <td style={TD("right","#6366F1")}>{d.확정>0?fA(d.확정):"-"}</td>
-                  <td style={{...TD("right","#059669",true),background:"#ECFDF5"}}>{d.합계>0?fA(d.합계):"-"}</td>
-                  <td style={TD("right","#D97706")}>{d.추진>0?fA(d.추진):"-"}</td>
-                  <td style={{...TD("right","#312E81",true),background:"#EEF2FF"}}>{d.합계추진>0?fA(d.합계추진):"-"}</td>
-                  <td style={{...TD("right"),color:d.목표>0&&d.합계/d.목표>=1?"#059669":d.목표>0&&d.합계/d.목표>=0.7?"#D97706":"#DC2626",fontWeight:700}}>
-                    {d.목표>0?Math.round(d.합계/d.목표*100)+"%":"-"}
-                  </td>
-                </tr>
-              ))}
-              <tr style={{background:"#EEF2FF",borderTop:"2px solid #6366F1"}}>
-                <td style={TD("left","#312E81",true)}>합계</td>
-                <td style={TD("right","#DC2626",true)}>{fA(byDept.reduce((s,d)=>s+d.목표,0))}</td>
-                <td style={TD("right","#059669",true)}>{fA(계약Sum)}</td>
-                <td style={TD("right","#6366F1",true)}>{fA(확정Sum)}</td>
-                <td style={{...TD("right","#059669",true),background:"#A7F3D0"}}>{fA(합계)}</td>
-                <td style={TD("right","#D97706",true)}>{fA(추진Sum)}</td>
-                <td style={{...TD("right","#312E81",true),background:"#C7D2FE"}}>{fA(합계+추진Sum)}</td>
-                <td style={{...TD("right","#059669",true)}}>{tContract>0?Math.round(합계/tContract*100)+"%":"-"}</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      {/* ── 구분별 프로젝트 목록 ── */}
-      {SECS.filter(s=>s.projs.length>0).map(sec=>(
-        <div key={sec.type} style={{background:"#fff",borderRadius:14,border:`2px solid ${sec.border}`,overflow:"hidden",marginBottom:14}}>
-          {/* 섹션 헤더 */}
-          <div style={{padding:"12px 18px",background:sec.bg,borderBottom:`1px solid ${sec.border}33`,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-            <div style={{fontSize:15,fontWeight:800,color:sec.color}}>{sec.label} ({sec.projs.length}건)</div>
-            <div style={{fontSize:15,fontWeight:800,color:sec.color}}>합계: {fA(sec.sum)}</div>
+      {/* 본부별 요약 */}
+      {byDept.length>0&&(
+        <div style={{background:"#fff",borderRadius:14,border:"1px solid #E5E7EB",overflow:"hidden",marginBottom:14}}>
+          <div style={{padding:"13px 18px",borderBottom:"1px solid #E5E7EB",fontSize:14,fontWeight:800,color:"#111827"}}>
+            📊 본부별 계약 현황
           </div>
-          {/* 테이블 */}
           <div style={{overflowX:"auto"}}>
-            <table style={{width:"100%",borderCollapse:"collapse",minWidth:700}}>
+            <table style={{width:"100%",borderCollapse:"collapse"}}>
               <thead>
-                <tr style={{background:"#F8FAFC"}}>
-                  {["연번","발주","본부","프로젝트명","용역비","지분%","비고"].map((h,i)=>(
+                <tr>
+                  {["본부","목표","계약","확정","합계(계약+확정)","추진","달성률"].map((h,i)=>(
+                    <th key={h} style={TH(i===0?"left":"right",i===4?"#059669":i===2?"#059669":i===3?"#6366F1":i===5?"#D97706":"#6B7280")}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {byDept.map((d,i)=>(
+                  <tr key={d.dept} style={{background:i%2===0?"#fff":"#FAFAFA"}}>
+                    <td style={{...TD("left","#111827",true)}}>
+                      <div style={{display:"flex",alignItems:"center",gap:7}}>
+                        <div style={{width:8,height:8,borderRadius:"50%",background:d.color}}/>
+                        {d.dept}
+                      </div>
+                    </td>
+                    <td style={TD("right","#DC2626")}>{d.목표>0?fA(d.목표):"-"}</td>
+                    <td style={{...TD("right","#059669",true)}}>{d.계약>0?fA(d.계약):"-"}</td>
+                    <td style={TD("right","#6366F1")}>{d.확정>0?fA(d.확정):"-"}</td>
+                    <td style={{...TD("right","#059669",true),background:"#ECFDF5"}}>{d.합계>0?fA(d.합계):"-"}</td>
+                    <td style={TD("right","#D97706")}>{d.추진>0?fA(d.추진):"-"}</td>
+                    <td style={{...TD("right"),color:d.목표>0&&d.합계/d.목표>=1?"#059669":d.목표>0&&d.합계/d.목표>=0.7?"#D97706":"#DC2626",fontWeight:700}}>
+                      {d.목표>0?Math.round(d.합계/d.목표*100)+"%":"-"}
+                    </td>
+                  </tr>
+                ))}
+                <tr style={{background:"#EEF2FF",borderTop:"2px solid #6366F1"}}>
+                  <td style={TD("left","#312E81",true)}>합계</td>
+                  <td style={{...TD("right","#DC2626",true)}}>{fA(byDept.reduce((s,d)=>s+d.목표,0))}</td>
+                  <td style={{...TD("right","#059669",true)}}>{fA(계약Sum)}</td>
+                  <td style={{...TD("right","#6366F1",true)}}>{fA(확정Sum)}</td>
+                  <td style={{...TD("right","#059669",true),background:"#A7F3D0"}}>{fA(합계)}</td>
+                  <td style={{...TD("right","#D97706",true)}}>{fA(추진Sum)}</td>
+                  <td style={{...TD("right","#059669",true)}}>{tContract>0?Math.round(합계/tContract*100)+"%":"-"}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* 구분별 프로젝트 목록 */}
+      {SECS.map(sec=>(
+        <div key={sec.type} style={{background:"#fff",borderRadius:14,border:`2px solid ${sec.border}`,overflow:"hidden",marginBottom:14}}>
+          <div style={{padding:"12px 18px",background:sec.bg,borderBottom:`1px solid ${sec.border}33`,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+            <div style={{fontSize:15,fontWeight:800,color:sec.color}}>{sec.label} ({sec.items.length}건)</div>
+            <div style={{fontSize:15,fontWeight:800,color:sec.color}}>{fA(sec.sum)}</div>
+          </div>
+          <div style={{overflowX:"auto"}}>
+            <table style={{width:"100%",borderCollapse:"collapse"}}>
+              <thead>
+                <tr>
+                  {["연번","발주","본부","프로젝트명","금액(원)","지분%","메모"].map((h,i)=>(
                     <th key={h} style={TH(i>=4?"right":i===0?"center":"left")}>{h}</th>
                   ))}
                 </tr>
               </thead>
               <tbody>
-                {sec.projs.map((p,i)=>{
-                  const depts = (p.depts||[]).join(", ")||"-"
-                  const bidColor = {"공공":"#6366F1","민간":"#059669","해외":"#DC2626"}[p.orderType||"민간"]||"#6B7280"
-                  const jvInfo = (p.deptShares||[]).length>1
-                    ? (p.deptShares||[]).map(s=>`${s.dept}:${s.share}%`).join(" / ")
-                    : null
+                {sec.items.map((item,i)=>{
+                  const bidColor = {"공공":"#6366F1","민간":"#059669","해외":"#DC2626"}[item.orderType||"민간"]||"#6B7280"
+                  const depts = (item.deptShares||[]).length>1
+                    ? (item.deptShares||[]).map(s=>`${s.dept}:${s.share}%`).join(" / ")
+                    : (item.depts||[]).join(", ")||"-"
                   return (
-                    <tr key={p.id} style={{background:i%2===0?"#fff":"#FAFAFA",cursor:"pointer"}}
-                      onClick={()=>goProj(p.id)}
-                      onMouseEnter={e=>e.currentTarget.style.background=sec.bg}
-                      onMouseLeave={e=>e.currentTarget.style.background=i%2===0?"#fff":"#FAFAFA"}>
+                    <tr key={item.id||i} style={{background:i%2===0?"#fff":"#FAFAFA"}}>
                       <td style={{...TD("center","#9CA3AF"),fontSize:12}}>{i+1}</td>
                       <td style={TD("left")}>
                         <span style={{fontSize:11,padding:"2px 7px",borderRadius:10,background:bidColor+"18",color:bidColor,fontWeight:700}}>
-                          {p.orderType||"민간"}
+                          {item.orderType||"민간"}
                         </span>
                       </td>
                       <td style={{...TD("left","#6B7280"),fontSize:12,whiteSpace:"nowrap"}}>{depts}</td>
-                      <td style={{...TD("left","#111827",true),minWidth:200}}>
-                        {p.name}
-                        {p.contractYear&&String(p.contractYear)===YR&&
-                          <span style={{marginLeft:6,fontSize:10,background:sec.color,color:"#fff",padding:"1px 5px",borderRadius:5}}>{YR}신규</span>}
-                        {jvInfo&&<div style={{fontSize:11,color:"#6B7280",marginTop:2}}>{jvInfo}</div>}
-                      </td>
-                      <td style={{...TD("right",sec.color,true),whiteSpace:"nowrap"}}>
-                        {p.serviceFee?fAneg(p.serviceFee):"-"}
-                      </td>
+                      <td style={{...TD("left","#111827",true),minWidth:200}}>{item.name||"-"}</td>
+                      <td style={{...TD("right",sec.color,true),whiteSpace:"nowrap"}}>{fA(item.amount||0)}</td>
                       <td style={{...TD("right","#6366F1"),whiteSpace:"nowrap"}}>
-                        {p.shareRatio>0?`${Math.round(p.shareRatio*100)}%`:"-"}
+                        {item.shareRatio?Math.round(item.shareRatio*100)+"%":"-"}
                       </td>
-                      <td style={{...TD("left","#9CA3AF"),fontSize:12,maxWidth:140,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}
-                        title={p.note||p.memo||""}>
-                        {p.note||p.memo||"-"}
-                      </td>
+                      <td style={{...TD("left","#9CA3AF"),fontSize:12}}>{item.memo||"-"}</td>
                     </tr>
                   )
                 })}
                 <tr style={{background:sec.bg}}>
-                  <td colSpan={4} style={{...TD("right",sec.color,true)}}>소계 ({sec.projs.length}건)</td>
+                  <td colSpan={4} style={{...TD("right",sec.color,true)}}>소계 ({sec.items.length}건)</td>
                   <td style={{...TD("right",sec.color,true)}}>{fA(sec.sum)}</td>
                   <td colSpan={2}/>
                 </tr>
@@ -8200,13 +8233,18 @@ function ContractStatusPage({projects, setProjects, cashItems, DEPTS, DEPT_COLOR
         </div>
       ))}
 
-      {thisYearProjs.length===0&&(
-        <div style={{background:"#fff",borderRadius:14,border:"1px solid #E5E7EB",padding:"48px",textAlign:"center",color:"#9CA3AF"}}>
-          <div style={{fontSize:28,marginBottom:8}}>📋</div>
-          <div style={{fontSize:15,fontWeight:600,marginBottom:6}}>{YEAR}년 계약현황 데이터가 없습니다</div>
-          <div style={{fontSize:13}}>⬆ 엑셀 업로드 버튼으로 계약현황 자료를 불러오세요.</div>
+      {contractItems.length===0&&(
+        <div style={{background:"#fff",borderRadius:14,border:"2px dashed #E5E7EB",padding:"60px",textAlign:"center",color:"#9CA3AF"}}>
+          <div style={{fontSize:40,marginBottom:12}}>📋</div>
+          <div style={{fontSize:16,fontWeight:700,marginBottom:8,color:"#374151"}}>계약현황 데이터가 없습니다</div>
+          <div style={{fontSize:13,marginBottom:16}}>⬇ 빈 양식을 다운로드하여 작성 후 ⬆ 엑셀 업로드 하세요.</div>
+          <div style={{fontSize:12,color:"#D97706",background:"#FEF3C7",padding:"10px 16px",borderRadius:10,display:"inline-block"}}>
+            ※ 계약현황은 월수금계획, 프로젝트 목록과 완전히 분리된 별도 데이터입니다.
+          </div>
         </div>
       )}
     </div>
   )
 }
+
+// ══════════════════════════════════════════════════════════════
