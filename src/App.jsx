@@ -260,6 +260,7 @@ export default function App() {
     try{ localStorage.setItem("sjs_sale_items", JSON.stringify(next)) }catch{}
     if(USE_DB) dbSet("sjs_sale_items", next).catch(()=>{})
     setSaleItemsRaw(next)
+  }
 
   // ── 계약현황 아이템 (월수금/프로젝트와 완전 독립) ──────────────
   const [contractItemsRaw, setContractItemsRaw] = useState(()=>lsGet("sjs_contract_items", []))
@@ -269,7 +270,6 @@ export default function App() {
     try{ localStorage.setItem("sjs_contract_items", JSON.stringify(next)) }catch{}
     if(USE_DB) dbSet("sjs_contract_items", next).catch(()=>{})
     setContractItemsRaw(next)
-  }
   }
 
   // ── 데이터 버전 기록 (스냅샷) ───────────────────────────────
