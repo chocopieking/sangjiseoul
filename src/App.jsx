@@ -363,8 +363,11 @@ export default function App() {
       setPnlDataRaw(g("sjs_pnl", PNL_INIT))
       setYearsRaw(g("sjs_years", YEARS_DB_INIT))
       setCashflowRaw(g("sjs_cashflow", CF_2026))
-      setCashItemsRaw(g("sjs_cash_items", []) || lsGet("sjs_cash_items", []))
-      setSaleItemsRaw(g("sjs_sale_items", []) || lsGet("sjs_sale_items", []))
+      // cashItems/saleItems: DB 빈값이면 localStorage 복구
+      const cashFromDB = g("sjs_cash_items", null)
+      const saleFromDB = g("sjs_sale_items", null)
+      setCashItemsRaw(cashFromDB && cashFromDB.length>0 ? cashFromDB : lsGet("sjs_cash_items", []))
+      setSaleItemsRaw(saleFromDB && saleFromDB.length>0 ? saleFromDB : lsGet("sjs_sale_items", []))
       setDeptStaffRaw(g("sjs_dept_staff", DEPT_STAFF_INIT))
       setStaffTargetRaw(g("sjs_staff_target", STAFF_TARGET_INIT))
       setStaffMonthlyRaw(g("sjs_staff_monthly", STAFF_MONTHLY_INIT))
@@ -1565,52 +1568,57 @@ function CashflowTab({cashflow,setCashflow,currentUser,projects,setProjects,proj
 
   return (
     <div>
-      {/* ── 상단 탭 ── */}
-      {!hideTabNav&&<div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-end",borderBottom:"2px solid #E5E7EB",marginBottom:20,flexWrap:"wrap",gap:8}}>
-        <div style={{display:"flex",gap:0}}>
-          {[["cash","💧 월수금계획"],["contract","📝 계약현황"],["expense","💸 지출현황"]].map(([v,l])=>(
-            <button key={v} onClick={()=>{setMainTab(v);setCashView("overview")}}
-              style={{padding:"11px 20px",border:"none",background:"none",fontSize:14.5,fontWeight:mainTab===v?800:500,cursor:"pointer",
-                color:mainTab===v?(v==="cash"?"#6366F1":v==="contract"?"#059669":"#DC2626"):"#6B7280",
-                borderBottom:mainTab===v?`3px solid ${v==="cash"?"#6366F1":v==="contract"?"#059669":"#DC2626"}`:"3px solid transparent",marginBottom:-2}}>
-              {l}
-            </button>
-          ))}
-        </div>
-        <div style={{display:"flex",gap:8,paddingBottom:10,alignItems:"center"}}>
-          {/* 목표 설정 - 관리자만 */}
-          {currentUser?.role==="admin" && (!editTargets
-            ?<button onClick={()=>{setEditTargets(true);setTargetDraft({...targets})}}
-                style={{padding:"6px 12px",background:"#F3F4F6",color:"#6B7280",border:"1px solid #E5E7EB",borderRadius:9,fontSize:12,fontWeight:600,cursor:"pointer"}}>
-                ⚙ {YEAR}년 목표 설정
-              </button>
-            :<div style={{display:"flex",gap:6,alignItems:"center",background:"#FEF3CD",padding:"6px 12px",borderRadius:9,border:"1px solid #D9770644"}}>
-                <label style={{fontSize:12,color:"#374151"}}>매출목표</label>
-                <input type="number" value={targetDraft.salesTarget||""} onChange={e=>setTargetDraft(p=>({...p,salesTarget:parseFloat(e.target.value)||0}))}
-                  style={{width:70,padding:"4px 7px",border:"1px solid #E5E7EB",borderRadius:6,fontSize:12}}/>
-                <label style={{fontSize:12,color:"#374151"}}>계약목표</label>
-                <input type="number" value={targetDraft.contractTarget||""} onChange={e=>setTargetDraft(p=>({...p,contractTarget:parseFloat(e.target.value)||0}))}
-                  style={{width:70,padding:"4px 7px",border:"1px solid #E5E7EB",borderRadius:6,fontSize:12}}/>
-                <span style={{fontSize:11,color:"#9CA3AF"}}>억원</span>
-                <button onClick={()=>{setYearTargets(p=>({...p,[YEAR]:targetDraft}));setEditTargets(false)}}
-                  style={{padding:"4px 10px",background:"#D97706",color:"#fff",border:"none",borderRadius:6,fontSize:12,fontWeight:700,cursor:"pointer"}}>저장</button>
-                <button onClick={()=>setEditTargets(false)} style={{padding:"4px 8px",background:"#F3F4F6",color:"#6B7280",border:"none",borderRadius:6,fontSize:12,cursor:"pointer"}}>취소</button>
-              </div>
-          )}
-          <button onClick={()=>downloadCashTemplate("cash")}
-            style={{padding:"7px 14px",background:"#EEF2FF",color:"#6366F1",border:"none",borderRadius:9,fontSize:12.5,fontWeight:700,cursor:"pointer"}}>
-            ⬇ 빈 양식
+      {/* ── 상단 탭 (hideTabNav일 때 숨김) ── */}
+      {!hideTabNav&&<div style={{display:"flex",gap:0,borderBottom:"2px solid #E5E7EB",marginBottom:4,flexWrap:"wrap"}}>
+        {[["cash","💧 월수금계획"],["contract","📝 계약현황"],["expense","💸 지출현황"]].map(([v,l])=>(
+          <button key={v} onClick={()=>{setMainTab(v);setCashView("overview")}}
+            style={{padding:"11px 20px",border:"none",background:"none",fontSize:14.5,fontWeight:mainTab===v?800:500,cursor:"pointer",
+              color:mainTab===v?(v==="cash"?"#6366F1":v==="contract"?"#059669":"#DC2626"):"#6B7280",
+              borderBottom:mainTab===v?`3px solid ${v==="cash"?"#6366F1":v==="contract"?"#059669":"#DC2626"}`:"3px solid transparent",marginBottom:-2}}>
+            {l}
           </button>
-          {currentUser?.role==="admin"&&<button onClick={()=>downloadCashDataExcel(cashItems,"월수금계획")}
-            style={{padding:"7px 14px",background:"#EDE9FE",color:"#7C3AED",border:"none",borderRadius:9,fontSize:12.5,fontWeight:700,cursor:"pointer"}}>
-            ⬇ 전체 데이터
-          </button>}
-          {currentUser?.role==="admin"&&<label style={{padding:"7px 14px",background:"#D1FAE5",color:"#059669",border:"none",borderRadius:9,fontSize:12.5,fontWeight:700,cursor:"pointer",display:"inline-flex",alignItems:"center",gap:5}}>
-            ⬆ 엑셀 업로드
-            <input type="file" accept=".xlsx,.xls,.csv" style={{display:"none"}} onChange={e=>uploadCashExcel(e,"cash",cashItems,setCashItems,saleItems,setSaleItems,DEPTS,currentUser)}/>
-          </label>}
-        </div>
+        ))}
       </div>}
+
+      {/* ── 액션 버튼 (항상 표시) ── */}
+      <div style={{display:"flex",gap:8,paddingBottom:10,alignItems:"center",flexWrap:"wrap",marginBottom:hideTabNav?12:0,borderBottom:hideTabNav?"2px solid #E5E7EB":"none"}}>
+        {/* 목표 설정 - 관리자만 */}
+        {currentUser?.role==="admin" && (!editTargets
+          ?<button onClick={()=>{setEditTargets(true);setTargetDraft({...targets})}}
+              style={{padding:"6px 12px",background:"#F3F4F6",color:"#6B7280",border:"1px solid #E5E7EB",borderRadius:9,fontSize:12,fontWeight:600,cursor:"pointer"}}>
+              ⚙ {YEAR}년 목표 설정
+            </button>
+          :<div style={{display:"flex",gap:6,alignItems:"center",background:"#FEF3CD",padding:"6px 12px",borderRadius:9,border:"1px solid #D9770644"}}>
+              <label style={{fontSize:12,color:"#374151"}}>매출목표</label>
+              <input type="number" value={targetDraft.salesTarget||""} onChange={e=>setTargetDraft(p=>({...p,salesTarget:parseFloat(e.target.value)||0}))}
+                style={{width:70,padding:"4px 7px",border:"1px solid #E5E7EB",borderRadius:6,fontSize:12}}/>
+              <label style={{fontSize:12,color:"#374151"}}>계약목표</label>
+              <input type="number" value={targetDraft.contractTarget||""} onChange={e=>setTargetDraft(p=>({...p,contractTarget:parseFloat(e.target.value)||0}))}
+                style={{width:70,padding:"4px 7px",border:"1px solid #E5E7EB",borderRadius:6,fontSize:12}}/>
+              <span style={{fontSize:11,color:"#9CA3AF"}}>억원</span>
+              <button onClick={()=>{setYearTargets(p=>({...p,[YEAR]:targetDraft}));setEditTargets(false)}}
+                style={{padding:"4px 10px",background:"#D97706",color:"#fff",border:"none",borderRadius:6,fontSize:12,fontWeight:700,cursor:"pointer"}}>저장</button>
+              <button onClick={()=>setEditTargets(false)} style={{padding:"4px 8px",background:"#F3F4F6",color:"#6B7280",border:"none",borderRadius:6,fontSize:12,cursor:"pointer"}}>취소</button>
+            </div>
+        )}
+        <button onClick={()=>downloadCashTemplate("cash")}
+          style={{padding:"7px 14px",background:"#EEF2FF",color:"#6366F1",border:"none",borderRadius:9,fontSize:12.5,fontWeight:700,cursor:"pointer"}}>
+          ⬇ 빈 양식
+        </button>
+        {currentUser?.role==="admin"&&<button onClick={()=>downloadCashDataExcel(cashItems,"월수금계획")}
+          style={{padding:"7px 14px",background:"#EDE9FE",color:"#7C3AED",border:"none",borderRadius:9,fontSize:12.5,fontWeight:700,cursor:"pointer"}}>
+          ⬇ 전체 데이터
+        </button>}
+        {currentUser?.role==="admin"&&<label style={{padding:"7px 14px",background:"#D1FAE5",color:"#059669",border:"none",borderRadius:9,fontSize:12.5,fontWeight:700,cursor:"pointer",display:"inline-flex",alignItems:"center",gap:5}}>
+          ⬆ 엑셀 업로드
+          <input type="file" accept=".xlsx,.xls,.csv" style={{display:"none"}} onChange={e=>uploadCashExcel(e,"cash",cashItems,setCashItems,saleItems,setSaleItems,DEPTS,currentUser)}/>
+        </label>}
+        {/* 대량입력 버튼 */}
+        {!mainTab||mainTab==="cash"?<button onClick={()=>setShowBulk(v=>!v)}
+          style={{padding:"7px 14px",background:showBulk?"#374151":"#1E293B",color:"#fff",border:"none",borderRadius:9,fontSize:12.5,fontWeight:700,cursor:"pointer"}}>
+          📋 {showBulk?"대량입력 닫기":"대량입력"}
+        </button>:null}
+      </div>
 
       {/* ══ 월수금계획 탭 ══ */}
       {mainTab==="cash"&&(
