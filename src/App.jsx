@@ -1002,7 +1002,7 @@ export default function App() {
         {tab==="gamify"    && (canReadTab("gamify") ? <GamifyTab projects={projects} currentUser={currentUser}/> : <NoPermScreen tabId="gamify"/>)}
         {tab==="deptdash"  && <DeptDashTab projects={projects} vendorPayments={vendorPayments} years={years}/>}
         {tab==="home" && <MobileHub setTab={setTab} tabOrder={tabOrder} currentUser={currentUser} projects={projects} cashItems={cashItems}/>}
-        {tab==="analysis"  && (canReadTab("analysis") ? <AnalysisHub deptStaff={deptStaff} setDeptStaff={setDeptStaff} years={years} setYears={setYears} canWrite={canWrite} isAdmin={currentUser?.role==="admin"} cashflow={effectiveCashflow} cashItems={cashItems} setCashItems={setCashItems} saleItems={saleItems} setSaleItems={setSaleItems} contractItems={contractItems} setContractItems={setContractItems} projects={projects} setProjects={setProjects} setTab={setTab} setSelProjId={setSelProjId} setDetailTab={setDetailTab} selProjId={selProjId} selVerIdx={selVerIdx} setSelVerIdx={setSelVerIdx} currentUser={currentUser} yearTargets={yearTargets} setYearTargets={setYearTargets} deptBiz={deptBiz} staffMonthly={staffMonthly} staffTarget={staffTarget} deptStaff={deptStaff} YEAR={YEAR} YR={YR}/> : <NoPermScreen tabId="analysis"/>)}
+        {tab==="analysis"  && (canReadTab("analysis") ? <AnalysisHub deptStaff={deptStaff} setDeptStaff={setDeptStaff} years={years} setYears={setYears} canWrite={canWrite} isAdmin={currentUser?.role==="admin"} cashflow={effectiveCashflow} cashItems={cashItems} setCashItems={setCashItems} saleItems={saleItems} setSaleItems={setSaleItems} contractItems={contractItems} setContractItems={setContractItems} projects={projects} setProjects={setProjects} setTab={setTab} setSelProjId={setSelProjId} setDetailTab={setDetailTab} selProjId={selProjId} selVerIdx={selVerIdx} setSelVerIdx={setSelVerIdx} currentUser={currentUser} yearTargets={yearTargets} setYearTargets={setYearTargets} deptBiz={deptBiz} staffMonthly={staffMonthly} staffTarget={staffTarget} deptStaff={deptStaff}/> : <NoPermScreen tabId="analysis"/>)}
         {tab==="datahub" && canReadTab("datahub") && <DataHubTab currentUser={currentUser} deptStaff={deptStaff} setDeptStaff={setDeptStaff} staffTarget={staffTarget} setStaffTarget={setStaffTarget} staffMonthly={staffMonthly} setStaffMonthly={setStaffMonthly} pnlData={pnlData} setPnlData={setPnlData} cashflow={cashflow} setCashflow={setCashflow} years={years} setYears={setYears} projects={projects} setProjects={setProjects} setTab={setTab} setSelProjId={setSelProjId} setSelVerIdx={setSelVerIdx} setShowNewProj={setShowNewProj} versions={versions} saveVersion={saveVersion} restoreVersion={restoreVersion} deleteVersion={deleteVersion} contractTypes={contractTypes} setContractTypes={setContractTypes} projTypes={projTypes} setProjTypes={setProjTypes} bidTypes={bidTypes} setBidTypes={setBidTypes} allData={null} restoreAllData={(entries)=>dbSetAll(entries, userEmail.current)} dbStatus={dbStatus}/>}
         {tab==="cashflow" && canReadTab("cashflow") && <CashflowTab cashflow={effectiveCashflow} setCashflow={setCashflow} currentUser={currentUser} projects={projects} setProjects={setProjects} projectCashflowByDept={projectCashflowByDept} cashItems={cashItems} setCashItems={setCashItems} saleItems={saleItems} setSaleItems={setSaleItems} setTab={setTab} setSelProjId={setSelProjId} setDetailTab={setDetailTab} yearTargets={yearTargets} setYearTargets={setYearTargets} deptBiz={deptBiz} deptStaff={deptStaff} staffMonthly={staffMonthly} staffTarget={staffTarget} contractItems={contractItems} setContractItems={setContractItems}/>}
         {tab==="projects" && canReadTab("projects") && <ProjectsTab projects={projects} setProjects={setProjects} selProjId={selProjId} setSelProjId={setSelProjId} selVerIdx={selVerIdx} setSelVerIdx={setSelVerIdx} cmpIds={cmpIds} setCmpIds={setCmpIds} showNewVer={showNewVer} setShowNewVer={setShowNewVer} canWrite={canWrite&&canWriteTab("projects")} contractTypes={contractTypes} currentUser={currentUser} setDetailTab={setDetailTab} detailTab={detailTab}/>}
@@ -2301,6 +2301,9 @@ function ProjectsTab({projects,setProjects,selProjId,setSelProjId,selVerIdx,setS
   const [cfDraft, setCfDraft]       = useState(null)
   // detailTab은 로컬에서만 관리 (외부 의존 없음 → 에러 없음)
   const [detailTab, setDetailTab]   = useState("info")
+  const NOW  = new Date()
+  const YEAR = NOW.getFullYear()
+  const YR   = String(YEAR)
 
   // 프로젝트 선택 시 상세탭 초기화
   useEffect(()=>{ if(selProjId) setDetailTab("info") }, [selProjId])
@@ -6951,9 +6954,12 @@ function ProjTabError() {
 // ══════════════════════════════════════════════════════════════
 // 📊 경영분석 허브 — 서브탭: 대시보드/월수금/계약/지출/인원
 // ══════════════════════════════════════════════════════════════
-function AnalysisHub({deptStaff,setDeptStaff,years,setYears,canWrite,isAdmin,cashflow,cashItems=[],saleItems=[],contractItems=[],setContractItems,projects=[],setProjects,setTab,setSelProjId,currentUser,yearTargets={},setYearTargets,deptBiz={},staffMonthly={},staffTarget={},setCashItems,setSaleItems,setDetailTab,selProjId,selVerIdx,setSelVerIdx,YEAR,YR}) {
+function AnalysisHub({deptStaff,setDeptStaff,years,setYears,canWrite,isAdmin,cashflow,cashItems=[],saleItems=[],contractItems=[],setContractItems,projects=[],setProjects,setTab,setSelProjId,currentUser,yearTargets={},setYearTargets,deptBiz={},staffMonthly={},staffTarget={},setCashItems,setSaleItems,setDetailTab,selProjId,selVerIdx,setSelVerIdx}) {
   const {DEPTS,DEPT_COLORS,DEPT_BIZ} = useDepts()
   const [subTab, setSubTab] = useState("dashboard")
+  const NOW   = new Date()
+  const YEAR  = NOW.getFullYear()
+  const YR    = String(YEAR)
 
   const SUBS = [
     {id:"dashboard", label:"📊 경영 대시보드"},
