@@ -1511,7 +1511,7 @@ function CashflowTab({cashflow,setCashflow,currentUser,projects,setProjects,proj
                           const norm=s=>(s||"").replace(/[\s\-_·.\(\)【】\[\]]/g,"").toLowerCase()
                           const an=norm(row.projName)
                           const found=(projects||[]).find(p=>{const bn=norm(p.name);return an===bn||an.includes(bn.slice(0,Math.min(bn.length,8)))||bn.includes(an.slice(0,Math.min(an.length,8)))})
-                          if(found&&setTab&&setSelProjId){setSelProjId(found.id);setTab("projects")}
+                          if(found&&setTab&&setSelProjId){setSelProjId(found.id);setDetailTab&&setDetailTab("info");setTab("projects")}
                         }}
                         title={row.projName}>{row.projName}</td>
                       <td style={{padding:"9px 10px",textAlign:"right",fontSize:12.5,fontWeight:600,color:"#374151",borderRight:"1px solid #E5E7EB"}}>{row.totalFee>0?fC(row.totalFee):"-"}</td>
@@ -1613,11 +1613,6 @@ function CashflowTab({cashflow,setCashflow,currentUser,projects,setProjects,proj
           ⬆ 엑셀 업로드
           <input type="file" accept=".xlsx,.xls,.csv" style={{display:"none"}} onChange={e=>uploadCashExcel(e,"cash",cashItems,setCashItems,saleItems,setSaleItems,DEPTS,currentUser)}/>
         </label>}
-        {/* 대량입력 버튼 */}
-        {!mainTab||mainTab==="cash"?<button onClick={()=>setShowBulk(v=>!v)}
-          style={{padding:"7px 14px",background:showBulk?"#374151":"#1E293B",color:"#fff",border:"none",borderRadius:9,fontSize:12.5,fontWeight:700,cursor:"pointer"}}>
-          📋 {showBulk?"대량입력 닫기":"대량입력"}
-        </button>:null}
       </div>
 
       {/* ══ 월수금계획 탭 ══ */}
@@ -1966,6 +1961,7 @@ function CashflowTab({cashflow,setCashflow,currentUser,projects,setProjects,proj
           YR={YR}
           setSelProjId={setSelProjId}
           setTab={setTab}
+          setDetailTab={setDetailTab}
           isAdmin={currentUser?.role==="admin"}
         />
       )}
@@ -7964,7 +7960,7 @@ function MobileHub({setTab, tabOrder=[], currentUser, projects=[], cashItems=[]}
 // type 필드가 진실의 원천: 계약/확정/추진
 // ══════════════════════════════════════════════════════════════
 function ContractStatusPage({projects, setProjects, cashItems, DEPTS, DEPT_COLORS,
-  currentUser, yearTargets, setYearTargets, deptBiz, YEAR, YR, setSelProjId, setTab, isAdmin}) {
+  currentUser, yearTargets, setYearTargets, deptBiz, YEAR, YR, setSelProjId, setTab, isAdmin, setDetailTab}) {
 
   const toast     = useToast()
   const NOW       = new Date()
@@ -8035,7 +8031,7 @@ function ContractStatusPage({projects, setProjects, cashItems, DEPTS, DEPT_COLOR
   const TH = (a="right",c="#6B7280") => ({padding:"9px 11px",textAlign:a,fontSize:11.5,fontWeight:700,color:c,borderBottom:"2px solid #E5E7EB",whiteSpace:"nowrap"})
   const TD = (a="right",c="#374151",bold=false,bg="transparent") => ({padding:"9px 11px",textAlign:a,fontSize:13,fontWeight:bold?700:400,color:c,borderBottom:"1px solid #F3F4F6",background:bg})
 
-  const goProj = (id) => { if(setSelProjId&&setTab){setSelProjId(id);setTab("projects")} }
+  const goProj = (id) => { if(setSelProjId&&setTab){setSelProjId(id);if(typeof setDetailTab==="function")setDetailTab("info");setTab("projects")} }
 
   return (
     <div>

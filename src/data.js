@@ -215,6 +215,7 @@ export const getDeptShares = p => {
 // 누락 필드 보강 (orderType/cashflowPlan/deptShares)
 export const normalizeProject = p => ({
   orderType:"민간", bidType:"민간수의", cashflowPlan:[], cashflowOpening:{}, contractType:"민간",
+  type:"추진",  // 기본값 - contractYear 설정 시 업로드된 type으로 덮어씀
   ...p,
   deptShares: getDeptShares(p),
 })
