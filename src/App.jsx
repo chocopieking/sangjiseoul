@@ -4277,6 +4277,7 @@ function ContractTab({projects, currentUser}) {
   })
   const u = (k,v) => setForm(p=>({...p,[k]:v}))
   const [generating, setGenerating] = useState(false)
+  const [showAIFill, setShowAIFill] = useState(false)
 
   // 프로젝트 선택 시 자동 채우기
   const autoFill = (p) => {
@@ -4469,6 +4470,25 @@ function ContractTab({projects, currentUser}) {
   const inp2 = {padding:"10px 14px",border:"1.5px solid #E5E7EB",borderRadius:10,fontSize:14,width:"100%",boxSizing:"border-box",fontFamily:"inherit",outline:"none"}
   const card2 = {background:"#fff",border:"1px solid #E5E7EB",borderRadius:16,padding:"22px 26px",marginBottom:16,boxShadow:"0 1px 4px rgba(0,0,0,.05)"}
 
+  // 🤖 AI 분석 결과를 계약서 폼에 적용
+  const applyAIResult = (parsed) => {
+    setForm(prev=>({
+      ...prev,
+      contractTitle: parsed.name || prev.contractTitle,
+      siteAddr:      parsed.siteAddr || prev.siteAddr,
+      usage:         parsed.usage || prev.usage,
+      scale:         parsed.scale || prev.scale,
+      totalFee:      parsed.totalFee ? String(parsed.totalFee) : prev.totalFee,
+      contractDate:  parsed.contractDate || prev.contractDate,
+      gabName:       parsed.client || prev.gabName,
+      gabCeo:        parsed.clientCeo || prev.gabCeo,
+      gabRegNo:      parsed.clientRegNo || prev.gabRegNo,
+      gabAddr:       parsed.clientAddr || prev.gabAddr,
+      gabTel:        parsed.clientTel || prev.gabTel,
+    }))
+    setShowAIFill(false)
+  }
+
   return (
     <div style={{maxWidth:900,margin:"0 auto"}}>
       {/* 헤더 */}
@@ -4490,6 +4510,20 @@ function ContractTab({projects, currentUser}) {
           </div>
           <button onClick={()=>autoFill(proj)} style={{...S.btn(),padding:"11px 20px",flexShrink:0}} disabled={!proj}>
             자동 채우기
+          </button>
+        </div>
+      </div>
+
+      {/* 🤖 AI 계약서 분석으로 자동 채우기 */}
+      <div style={{...card2,background:"linear-gradient(135deg,#EEF2FF,#F5F3FF)",border:"1.5px solid #C7D2FE"}}>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:10}}>
+          <div>
+            <div style={{fontSize:16,fontWeight:800,color:"#312E81",marginBottom:4}}>🤖 기존 계약서로 AI 자동 채우기</div>
+            <div style={{fontSize:13,color:"#6366F1"}}>보유하고 있는 계약서(PDF/이미지)를 업로드하면 AI가 분석하여 위 항목들을 자동으로 채워줍니다.</div>
+          </div>
+          <button onClick={()=>setShowAIFill(true)}
+            style={{padding:"10px 20px",background:"linear-gradient(135deg,#6366F1,#8B5CF6)",color:"#fff",border:"none",borderRadius:10,fontSize:13.5,fontWeight:800,cursor:"pointer",whiteSpace:"nowrap",boxShadow:"0 2px 8px rgba(99,102,241,.3)"}}>
+            🤖 계약서 AI 분석
           </button>
         </div>
       </div>
@@ -4584,6 +4618,190 @@ function ContractTab({projects, currentUser}) {
         <div style={{fontSize:12.5,color:"#6B7280",marginTop:10}}>
           생성된 파일을 한글(HWP)에서 열어 HWP로 저장하거나, Word에서 바로 사용하세요.<br/>
           기안 첨부, 이메일 발송, 인트라넷 업로드 등에 활용 가능합니다.
+        </div>
+      </div>
+
+      {/* 🤖 AI 계약서 분석 모달 */}
+      {showAIFill && (
+        <ContractFormAIFill
+          currentUser={currentUser}
+          onApply={applyAIResult}
+          onClose={()=>setShowAIFill(false)}
+        />
+      )}
+    </div>
+  )
+}
+
+// ── 🤖 계약서 작성용 AI 분석 모달 (ContractTab 전용) ──────────────────
+function ContractFormAIFill({currentUser, onApply, onClose}) {
+  const [file, setFile] = useState(null)
+  const [preview, setPreview] = useState(null)
+  const [status, setStatus] = useState("idle") // idle | analyzing | done | error
+  const [parsed, setParsed] = useState(null)
+  const [errorMsg, setErrorMsg] = useState("")
+
+  const handleFile = (f) => {
+    if(!f) return
+    setFile(f); setParsed(null); setStatus("idle"); setErrorMsg("")
+    if(f.type.startsWith("image/")) {
+      const reader = new FileReader()
+      reader.onload = e => setPreview(e.target.result)
+      reader.readAsDataURL(f)
+    } else setPreview(null)
+  }
+
+  const fileToBase64 = (f) => new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => resolve(reader.result.split(",")[1])
+    reader.onerror = reject
+    reader.readAsDataURL(f)
+  })
+
+  const analyze = async () => {
+    if(!file) return
+    setStatus("analyzing"); setErrorMsg("")
+    try {
+      const base64 = await fileToBase64(file)
+      const mediaType = file.type || (file.name.endsWith(".pdf") ? "application/pdf" : "image/jpeg")
+      const isPdf = mediaType === "application/pdf"
+      const contentBlock = isPdf
+        ? { type:"document", source:{ type:"base64", media_type:"application/pdf", data: base64 } }
+        : { type:"image", source:{ type:"base64", media_type: mediaType, data: base64 } }
+
+      const systemPrompt = `당신은 건축설계 계약서 분석 전문 AI입니다.
+업로드된 계약서 문서에서 아래 항목을 정확히 추출하여 JSON으로만 응답하세요.
+설명, 마크다운 코드블록 없이 순수 JSON 객체만 출력하세요.
+
+{
+  "name": "공사명/프로젝트명",
+  "siteAddr": "대지 위치/주소",
+  "usage": "건축물 용도",
+  "scale": "규모 (예: 지하2층/지상15층)",
+  "totalFee": "계약금액/용역비 총액 (숫자만, 원 단위)",
+  "contractDate": "계약일자 (YYYY-MM-DD)",
+  "client": "발주처(갑) 상호명",
+  "clientCeo": "발주처 대표자명",
+  "clientRegNo": "발주처 사업자등록번호",
+  "clientAddr": "발주처 주소",
+  "clientTel": "발주처 연락처"
+}
+금액은 쉼표·단위 없이 숫자만(원 단위)으로 변환하세요. 명시되지 않은 항목은 빈 문자열로 두세요.`
+
+      const res = await fetch("/api/chat", {
+        method: "POST",
+        headers: {"Content-Type":"application/json"},
+        body: JSON.stringify({
+          model: "claude-sonnet-4-6",
+          max_tokens: 1000,
+          system: systemPrompt,
+          messages: [{
+            role: "user",
+            content: [contentBlock, { type:"text", text:"이 계약서에서 정보를 추출하여 JSON으로만 응답하세요." }]
+          }]
+        })
+      })
+      if(!res.ok) throw new Error(`서버 응답 오류 (${res.status})`)
+      const json = await res.json()
+      const text = json.content?.[0]?.text || ""
+      const cleaned = text.replace(/```json|```/g, "").trim()
+      setParsed(JSON.parse(cleaned))
+      setStatus("done")
+    } catch(e) {
+      setStatus("error")
+      setErrorMsg(e.message?.includes("Failed to fetch")
+        ? "서버 연결 오류입니다. Vercel에 ANTHROPIC_API_KEY가 설정되어 있는지 확인하세요."
+        : `분석 오류: ${e.message}`)
+    }
+  }
+
+  const fA = v => v>0 ? `${(Number(v)/1e8).toFixed(2)}억` : "-"
+
+  return (
+    <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.5)",zIndex:2000,display:"flex",alignItems:"center",justifyContent:"center",padding:20}}
+      onClick={e=>{if(e.target===e.currentTarget) onClose()}}>
+      <div style={{background:"#fff",borderRadius:18,maxWidth:560,width:"100%",maxHeight:"85vh",overflowY:"auto",boxShadow:"0 20px 60px rgba(0,0,0,.3)"}}>
+        <div style={{background:"linear-gradient(135deg,#6366F1,#8B5CF6)",borderRadius:"18px 18px 0 0",padding:"18px 22px",color:"#fff",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+          <div>
+            <div style={{fontSize:16,fontWeight:800}}>🤖 계약서 AI 분석</div>
+            <div style={{fontSize:12,opacity:.85,marginTop:2}}>업로드하면 계약서 작성 폼에 자동으로 채워줍니다</div>
+          </div>
+          <button onClick={onClose} style={{background:"rgba(255,255,255,.2)",border:"none",color:"#fff",width:28,height:28,borderRadius:"50%",cursor:"pointer",fontSize:15}}>✕</button>
+        </div>
+
+        <div style={{padding:22}}>
+          {status==="idle" && !parsed && (
+            <div>
+              <label style={{display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",
+                border:"2px dashed #C7D2FE",borderRadius:12,padding:"32px 16px",cursor:"pointer",background:file?"#EEF2FF":"#FAFAFA"}}>
+                <input type="file" accept=".pdf,.png,.jpg,.jpeg,.webp" style={{display:"none"}} onChange={e=>handleFile(e.target.files?.[0])}/>
+                <span style={{fontSize:34,marginBottom:8}}>{file?"📄":"📤"}</span>
+                {file ? (
+                  <div style={{textAlign:"center"}}>
+                    <div style={{fontSize:13.5,fontWeight:700,color:"#312E81"}}>{file.name}</div>
+                    <div style={{fontSize:11,color:"#6B7280",marginTop:2}}>클릭하여 다른 파일 선택</div>
+                  </div>
+                ) : (
+                  <div style={{textAlign:"center"}}>
+                    <div style={{fontSize:13.5,fontWeight:700,color:"#374151"}}>계약서 파일을 선택하세요</div>
+                    <div style={{fontSize:11,color:"#9CA3AF",marginTop:2}}>PDF, JPG, PNG 지원</div>
+                  </div>
+                )}
+              </label>
+              {preview && <div style={{marginTop:12,borderRadius:8,overflow:"hidden",border:"1px solid #E5E7EB",maxHeight:220}}>
+                <img src={preview} alt="미리보기" style={{width:"100%",display:"block",objectFit:"contain"}}/>
+              </div>}
+              <button onClick={analyze} disabled={!file}
+                style={{width:"100%",marginTop:14,padding:"11px",background:file?"linear-gradient(135deg,#6366F1,#8B5CF6)":"#E5E7EB",
+                  color:file?"#fff":"#9CA3AF",border:"none",borderRadius:10,fontSize:14,fontWeight:800,cursor:file?"pointer":"not-allowed"}}>
+                ✨ AI로 분석하기
+              </button>
+            </div>
+          )}
+
+          {status==="analyzing" && (
+            <div style={{textAlign:"center",padding:"40px 20px"}}>
+              <div style={{fontSize:34,marginBottom:14}}>🔍</div>
+              <div style={{fontSize:14,fontWeight:700,color:"#374151"}}>AI가 계약서를 분석하는 중...</div>
+            </div>
+          )}
+
+          {status==="error" && (
+            <div style={{background:"#FEE2E2",borderRadius:10,padding:"16px 18px",color:"#991B1B"}}>
+              <div style={{fontWeight:700,marginBottom:6}}>⚠ 분석 실패</div>
+              <div style={{fontSize:12.5}}>{errorMsg}</div>
+              <button onClick={()=>{setStatus("idle");setErrorMsg("")}}
+                style={{marginTop:10,padding:"6px 14px",background:"#fff",color:"#991B1B",border:"1px solid #FCA5A5",borderRadius:8,fontSize:12,fontWeight:700,cursor:"pointer"}}>
+                다시 시도
+              </button>
+            </div>
+          )}
+
+          {status==="done" && parsed && (
+            <div>
+              <div style={{background:"#D1FAE5",borderRadius:9,padding:"9px 13px",marginBottom:14,fontSize:12.5,color:"#065F46",fontWeight:600}}>
+                ✅ 분석 완료! 아래 내용을 확인 후 폼에 적용하세요.
+              </div>
+              <div style={{background:"#F9FAFB",borderRadius:10,border:"1px solid #E5E7EB",padding:"14px 16px",fontSize:13,lineHeight:1.9}}>
+                <div><strong>공사명:</strong> {parsed.name||"-"}</div>
+                <div><strong>대지위치:</strong> {parsed.siteAddr||"-"}</div>
+                <div><strong>용도/규모:</strong> {parsed.usage||"-"} / {parsed.scale||"-"}</div>
+                <div><strong>계약금액:</strong> {fA(parsed.totalFee)}</div>
+                <div><strong>계약일자:</strong> {parsed.contractDate||"-"}</div>
+                <div><strong>발주처:</strong> {parsed.client||"-"} ({parsed.clientCeo||"-"})</div>
+              </div>
+              <div style={{display:"flex",gap:8,marginTop:16}}>
+                <button onClick={()=>{setStatus("idle");setParsed(null)}}
+                  style={{padding:"9px 16px",background:"#F3F4F6",color:"#6B7280",border:"none",borderRadius:9,fontSize:12.5,fontWeight:600,cursor:"pointer"}}>
+                  다시 분석
+                </button>
+                <button onClick={()=>onApply(parsed)}
+                  style={{flex:1,padding:"9px",background:"linear-gradient(135deg,#059669,#10B981)",color:"#fff",border:"none",borderRadius:9,fontSize:13.5,fontWeight:800,cursor:"pointer"}}>
+                  📥 계약서 폼에 적용
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>
@@ -8021,7 +8239,6 @@ function ContractStatusPage({contractItems=[], setContractItems, DEPTS, DEPT_COL
   const [editId, setEditId] = useState(null)   // 인라인 편집중인 항목 id
   const [draft,  setDraft]  = useState(null)
   const [expandedDept, setExpandedDept] = useState(null) // 본부별 펼침
-  const [showAIUpload, setShowAIUpload] = useState(false) // AI 계약서 분석 모달
 
   // 구분(type) 기준 분류 — 오직 이 필드만 사용
   const getType = (item) => {
@@ -8326,10 +8543,6 @@ function ContractStatusPage({contractItems=[], setContractItems, DEPTS, DEPT_COL
             <input type="file" accept=".xlsx,.xls" style={{display:"none"}}
               onChange={e=>uploadContractExcel(e,contractItems,setContractItems,currentUser,toast)}/>
           </label>
-          <button onClick={()=>setShowAIUpload(true)}
-            style={{padding:"7px 14px",background:"linear-gradient(135deg,#6366F1,#8B5CF6)",color:"#fff",border:"none",borderRadius:9,fontSize:12.5,fontWeight:800,cursor:"pointer",display:"inline-flex",alignItems:"center",gap:5,boxShadow:"0 2px 8px rgba(99,102,241,.3)"}}>
-            🤖 계약서 AI 분석
-          </button>
           <button onClick={()=>{
             if(!window.confirm("금액 단위 오류를 자동 보정합니다. 계속하시겠습니까?")) return
             setContractItems(prev=>prev.map(i=>{
@@ -8567,17 +8780,6 @@ function ContractStatusPage({contractItems=[], setContractItems, DEPTS, DEPT_COL
           <div style={{fontSize:13,marginBottom:16}}>⬇ 빈 양식을 다운로드하거나 + 추가 버튼으로 직접 입력하세요.</div>
         </div>
       )}
-
-      {/* 🤖 계약서 AI 분석 모달 */}
-      {showAIUpload && (
-        <ContractAIUpload
-          contractItems={contractItems}
-          setContractItems={setContractItems}
-          DEPTS={DEPTS}
-          currentUser={currentUser}
-          onClose={()=>setShowAIUpload(false)}
-        />
-      )}
     </div>
   )
 }
@@ -8585,379 +8787,3 @@ function ContractStatusPage({contractItems=[], setContractItems, DEPTS, DEPT_COL
 
 // ══════════════════════════════════════════════════════════════
 
-// ══════════════════════════════════════════════════════════════
-// 🤖 계약서 AI 분석 업로드 모듈
-//    PDF/이미지 업로드 → Claude Vision으로 계약 정보 자동 추출
-// ══════════════════════════════════════════════════════════════
-function ContractAIUpload({contractItems, setContractItems, DEPTS, currentUser, onClose}) {
-  const [file, setFile] = useState(null)
-  const [preview, setPreview] = useState(null)
-  const [status, setStatus] = useState("idle") // idle | reading | analyzing | done | error
-  const [extracted, setExtracted] = useState(null)
-  const [errorMsg, setErrorMsg] = useState("")
-  const [editForm, setEditForm] = useState(null)
-  const [saveMode, setSaveMode] = useState("new") // new | merge
-  const [matchTarget, setMatchTarget] = useState("")
-
-  const INP = {padding:"8px 11px",border:"1.5px solid #E5E7EB",borderRadius:8,fontSize:13,width:"100%",boxSizing:"border-box",fontFamily:"inherit",outline:"none"}
-  const LBL = {fontSize:11.5,fontWeight:700,color:"#6366F1",display:"block",marginBottom:4}
-
-  const handleFile = (f) => {
-    if(!f) return
-    setFile(f)
-    setExtracted(null); setEditForm(null); setStatus("idle"); setErrorMsg("")
-    if(f.type.startsWith("image/")) {
-      const reader = new FileReader()
-      reader.onload = e => setPreview(e.target.result)
-      reader.readAsDataURL(f)
-    } else {
-      setPreview(null)
-    }
-  }
-
-  // 파일 → base64 변환
-  const fileToBase64 = (f) => new Promise((resolve, reject) => {
-    const reader = new FileReader()
-    reader.onload = () => resolve(reader.result.split(",")[1])
-    reader.onerror = reject
-    reader.readAsDataURL(f)
-  })
-
-  // AI 분석 실행
-  const analyze = async () => {
-    if(!file) return
-    setStatus("reading")
-    setErrorMsg("")
-    try {
-      const base64 = await fileToBase64(file)
-      const mediaType = file.type || (file.name.endsWith(".pdf") ? "application/pdf" : "image/jpeg")
-
-      setStatus("analyzing")
-
-      const isPdf = mediaType === "application/pdf"
-      const contentBlock = isPdf
-        ? { type:"document", source:{ type:"base64", media_type:"application/pdf", data: base64 } }
-        : { type:"image", source:{ type:"base64", media_type: mediaType, data: base64 } }
-
-      const systemPrompt = `당신은 건축설계 계약서 분석 전문 AI입니다.
-업로드된 계약서(또는 제안서/공문) 문서에서 아래 항목을 정확히 추출하여 JSON으로만 응답하세요.
-설명, 마크다운 코드블록, 추가 텍스트 없이 순수 JSON 객체만 출력하세요.
-
-추출 항목:
-{
-  "name": "프로젝트명/공사명 (정식 명칭)",
-  "client": "발주처/건축주명",
-  "orderType": "공공 또는 민간 또는 해외 (셋 중 하나, 발주처 성격으로 판단)",
-  "bidType": "공모형식 (예: 기술제안, 수의계약, 현상설계, 일반공모 등 - 문서에서 추정)",
-  "totalFeeExpect": "총 공사비/사업비 (숫자만, 원 단위, 모르면 0)",
-  "serviceFeeExpect": "설계용역비/계약금액 (숫자만, 원 단위)",
-  "shareRatioExpect": "상지 지분율 (숫자, %, 컨소시엄 구성 시 상지서울 지분, 단독이면 100)",
-  "consortium": "컨소시엄 구성사 (쉼표로 구분, 단독이면 빈 문자열)",
-  "contractDate": "계약일자 (YYYY-MM-DD 형식, 모르면 빈 문자열)",
-  "execTime": "착수/수행 예상시점 (자유 텍스트, 예: 2026년 1월)",
-  "contractTime": "계약 체결 예상시점 (자유 텍스트)",
-  "type": "계약 또는 확정 또는 추진 (문서가 정식 계약서면 계약, 가계약/MOU면 확정, 제안서/공모참여면 추진)",
-  "note": "특이사항 요약 (1줄, 공고일정/조건 등)",
-  "confidence": "분석 신뢰도 (높음/중간/낮음)"
-}
-
-금액은 반드시 숫자만(쉼표·단위 없이) 원 단위로 변환하세요. 예: "17억 5천만원" → 1755000000
-문서에 명시되지 않은 항목은 빈 문자열 또는 0으로 두세요.`
-
-      const res = await fetch("/api/chat", {
-        method: "POST",
-        headers: {"Content-Type":"application/json"},
-        body: JSON.stringify({
-          model: "claude-sonnet-4-6",
-          max_tokens: 1500,
-          system: systemPrompt,
-          messages: [{
-            role: "user",
-            content: [
-              contentBlock,
-              { type:"text", text:"이 계약서/문서에서 정보를 추출하여 지정된 JSON 형식으로만 응답하세요." }
-            ]
-          }]
-        })
-      })
-
-      if(!res.ok) throw new Error(`서버 응답 오류 (${res.status})`)
-      const json = await res.json()
-      const text = json.content?.[0]?.text || ""
-
-      // JSON 파싱 (코드블록 제거)
-      const cleaned = text.replace(/```json|```/g, "").trim()
-      const parsed = JSON.parse(cleaned)
-
-      setExtracted(parsed)
-      setEditForm({
-        name: parsed.name || "",
-        client: parsed.client || "",
-        orderType: parsed.orderType || "민간",
-        bidType: parsed.bidType || "",
-        totalFeeExpect: Number(parsed.totalFeeExpect)||0,
-        serviceFeeExpect: Number(parsed.serviceFeeExpect)||0,
-        shareRatioExpect: Number(parsed.shareRatioExpect)||100,
-        consortium: parsed.consortium || "",
-        contractDate: parsed.contractDate || "",
-        execTime: parsed.execTime || "",
-        contractTime: parsed.contractTime || "",
-        type: ["계약","확정","추진"].includes(parsed.type) ? parsed.type : "추진",
-        note: parsed.note || "",
-        depts: [DEPTS[0]],
-        deptShares: [{dept:DEPTS[0], share:100}],
-      })
-      setStatus("done")
-
-      // 기존 항목 이름 유사 매칭 제안
-      const similar = contractItems.find(i=>i.name && parsed.name &&
-        (i.name.includes(parsed.name.slice(0,8)) || parsed.name.includes(i.name.slice(0,8))))
-      if(similar) { setSaveMode("merge"); setMatchTarget(similar.id) }
-
-    } catch(e) {
-      setStatus("error")
-      setErrorMsg(e.message?.includes("Failed to fetch")
-        ? "서버 연결 오류입니다. Vercel에 ANTHROPIC_API_KEY가 설정되어 있는지 확인하세요."
-        : `분석 오류: ${e.message}`)
-    }
-  }
-
-  const fA = v => v>0 ? `${(v/1e8).toFixed(2)}억` : "-"
-
-  const saveResult = () => {
-    if(!editForm) return
-    const bizCompFee = 0
-    const id = saveMode==="merge" && matchTarget ? matchTarget : `C${Date.now()}_${Math.random().toString(36).slice(2,6)}`
-
-    const item = {
-      id, ...editForm,
-      amount: editForm.serviceFeeExpect,
-      bizCompPct: 100, bizCompFee,
-      contractYear: new Date().getFullYear(),
-      updatedAt: new Date().toISOString(),
-      updatedBy: currentUser?.name||"",
-      aiExtracted: true,
-    }
-
-    if(saveMode==="merge" && matchTarget) {
-      setContractItems(prev=>prev.map(i=>i.id===matchTarget?{...i,...item,id:matchTarget}:i))
-    } else {
-      setContractItems(prev=>[...prev, item])
-    }
-    onClose&&onClose()
-  }
-
-  const u = (k,v) => setEditForm(p=>({...p,[k]:v}))
-
-  return (
-    <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.5)",zIndex:2000,display:"flex",alignItems:"center",justifyContent:"center",padding:20}}
-      onClick={e=>{if(e.target===e.currentTarget) onClose&&onClose()}}>
-      <div style={{background:"#fff",borderRadius:18,maxWidth:720,width:"100%",maxHeight:"90vh",overflowY:"auto",boxShadow:"0 20px 60px rgba(0,0,0,.3)"}}>
-
-        {/* 헤더 */}
-        <div style={{background:"linear-gradient(135deg,#6366F1,#8B5CF6)",borderRadius:"18px 18px 0 0",padding:"20px 24px",color:"#fff",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-          <div>
-            <div style={{fontSize:17,fontWeight:800,display:"flex",alignItems:"center",gap:8}}>
-              🤖 계약서 AI 분석
-            </div>
-            <div style={{fontSize:12.5,opacity:.85,marginTop:3}}>계약서·제안서를 업로드하면 AI가 핵심 정보를 자동으로 추출합니다</div>
-          </div>
-          <button onClick={onClose} style={{background:"rgba(255,255,255,.2)",border:"none",color:"#fff",width:30,height:30,borderRadius:"50%",cursor:"pointer",fontSize:16}}>✕</button>
-        </div>
-
-        <div style={{padding:24}}>
-          {/* 1단계: 파일 업로드 */}
-          {status==="idle" && !extracted && (
-            <div>
-              <label style={{
-                display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",
-                border:"2px dashed #C7D2FE",borderRadius:14,padding:"40px 20px",cursor:"pointer",
-                background:file?"#EEF2FF":"#FAFAFA",transition:"all .2s"
-              }}>
-                <input type="file" accept=".pdf,.png,.jpg,.jpeg,.webp" style={{display:"none"}}
-                  onChange={e=>handleFile(e.target.files?.[0])}/>
-                <span style={{fontSize:40,marginBottom:10}}>{file ? "📄" : "📤"}</span>
-                {file ? (
-                  <div style={{textAlign:"center"}}>
-                    <div style={{fontSize:14,fontWeight:700,color:"#312E81"}}>{file.name}</div>
-                    <div style={{fontSize:11.5,color:"#6B7280",marginTop:3}}>{(file.size/1024).toFixed(0)} KB · 클릭하여 다른 파일 선택</div>
-                  </div>
-                ) : (
-                  <div style={{textAlign:"center"}}>
-                    <div style={{fontSize:14,fontWeight:700,color:"#374151"}}>계약서 파일을 선택하세요</div>
-                    <div style={{fontSize:11.5,color:"#9CA3AF",marginTop:3}}>PDF, JPG, PNG 지원 (최대 20MB)</div>
-                  </div>
-                )}
-              </label>
-
-              {preview && (
-                <div style={{marginTop:14,borderRadius:10,overflow:"hidden",border:"1px solid #E5E7EB",maxHeight:280}}>
-                  <img src={preview} alt="미리보기" style={{width:"100%",display:"block",objectFit:"contain"}}/>
-                </div>
-              )}
-
-              <button onClick={analyze} disabled={!file}
-                style={{width:"100%",marginTop:16,padding:"12px",background:file?"linear-gradient(135deg,#6366F1,#8B5CF6)":"#E5E7EB",
-                  color:file?"#fff":"#9CA3AF",border:"none",borderRadius:11,fontSize:14.5,fontWeight:800,cursor:file?"pointer":"not-allowed"}}>
-                ✨ AI로 계약 내용 분석하기
-              </button>
-            </div>
-          )}
-
-          {/* 2단계: 분석 중 */}
-          {(status==="reading"||status==="analyzing") && (
-            <div style={{textAlign:"center",padding:"50px 20px"}}>
-              <div style={{fontSize:40,marginBottom:16,animation:"spin 2s linear infinite"}}>🔍</div>
-              <div style={{fontSize:15,fontWeight:700,color:"#374151",marginBottom:6}}>
-                {status==="reading" ? "문서를 읽는 중..." : "AI가 계약 내용을 분석하는 중..."}
-              </div>
-              <div style={{fontSize:12.5,color:"#9CA3AF"}}>프로젝트명, 금액, 발주처, 계약조건 등을 추출하고 있습니다</div>
-              <style>{`@keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}`}</style>
-            </div>
-          )}
-
-          {/* 에러 */}
-          {status==="error" && (
-            <div style={{background:"#FEE2E2",borderRadius:12,padding:"18px 20px",color:"#991B1B"}}>
-              <div style={{fontWeight:700,marginBottom:6}}>⚠ 분석 실패</div>
-              <div style={{fontSize:13}}>{errorMsg}</div>
-              <button onClick={()=>{setStatus("idle");setErrorMsg("")}}
-                style={{marginTop:12,padding:"7px 16px",background:"#fff",color:"#991B1B",border:"1px solid #FCA5A5",borderRadius:8,fontSize:12.5,fontWeight:700,cursor:"pointer"}}>
-                다시 시도
-              </button>
-            </div>
-          )}
-
-          {/* 3단계: 추출 결과 확인/수정 */}
-          {status==="done" && editForm && (
-            <div>
-              <div style={{background:"#D1FAE5",borderRadius:10,padding:"10px 14px",marginBottom:16,display:"flex",alignItems:"center",gap:8}}>
-                <span style={{fontSize:18}}>✅</span>
-                <div style={{fontSize:13,color:"#065F46",fontWeight:600}}>
-                  분석 완료! 아래 내용을 확인하고 필요시 수정한 후 저장하세요.
-                  {extracted?.confidence && <span style={{marginLeft:8,fontSize:11,opacity:.8}}>(신뢰도: {extracted.confidence})</span>}
-                </div>
-              </div>
-
-              <div style={{display:"grid",gridTemplateColumns:"2fr 1fr",gap:10,marginBottom:10}}>
-                <div>
-                  <label style={LBL}>프로젝트명</label>
-                  <input value={editForm.name} onChange={e=>u("name",e.target.value)} style={INP}/>
-                </div>
-                <div>
-                  <label style={LBL}>구분</label>
-                  <select value={editForm.type} onChange={e=>u("type",e.target.value)} style={INP}>
-                    <option value="계약">계약</option><option value="확정">확정</option><option value="추진">추진</option>
-                  </select>
-                </div>
-              </div>
-
-              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10,marginBottom:10}}>
-                <div>
-                  <label style={LBL}>발주처</label>
-                  <input value={editForm.client} onChange={e=>u("client",e.target.value)} style={INP}/>
-                </div>
-                <div>
-                  <label style={LBL}>발주구분</label>
-                  <select value={editForm.orderType} onChange={e=>u("orderType",e.target.value)} style={INP}>
-                    <option value="민간">민간</option><option value="공공">공공</option><option value="해외">해외</option>
-                  </select>
-                </div>
-                <div>
-                  <label style={LBL}>공모형식</label>
-                  <input value={editForm.bidType} onChange={e=>u("bidType",e.target.value)} style={INP}/>
-                </div>
-              </div>
-
-              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10,marginBottom:10}}>
-                <div>
-                  <label style={LBL}>총설계비(예상) — 억원</label>
-                  <input type="number" step="0.01" value={editForm.totalFeeExpect?(editForm.totalFeeExpect/1e8).toFixed(2):""}
-                    onChange={e=>u("totalFeeExpect",Math.round((parseFloat(e.target.value)||0)*1e8))} style={INP}/>
-                </div>
-                <div>
-                  <label style={LBL}>상지지분(예상) — %</label>
-                  <input type="number" value={editForm.shareRatioExpect} onChange={e=>u("shareRatioExpect",parseFloat(e.target.value)||0)} style={INP}/>
-                </div>
-                <div>
-                  <label style={LBL}>용역비(예상) — 억원</label>
-                  <input type="number" step="0.01" value={editForm.serviceFeeExpect?(editForm.serviceFeeExpect/1e8).toFixed(2):""}
-                    onChange={e=>u("serviceFeeExpect",Math.round((parseFloat(e.target.value)||0)*1e8))} style={INP}/>
-                </div>
-              </div>
-
-              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10,marginBottom:10}}>
-                <div>
-                  <label style={LBL}>계약일자</label>
-                  <input type="date" value={editForm.contractDate} onChange={e=>u("contractDate",e.target.value)} style={INP}/>
-                </div>
-                <div>
-                  <label style={LBL}>수행예상시점</label>
-                  <input value={editForm.execTime} onChange={e=>u("execTime",e.target.value)} style={INP}/>
-                </div>
-                <div>
-                  <label style={LBL}>계약예상시점</label>
-                  <input value={editForm.contractTime} onChange={e=>u("contractTime",e.target.value)} style={INP}/>
-                </div>
-              </div>
-
-              <div style={{display:"grid",gridTemplateColumns:"1fr 2fr",gap:10,marginBottom:10}}>
-                <div>
-                  <label style={LBL}>컨소시엄</label>
-                  <input value={editForm.consortium} onChange={e=>u("consortium",e.target.value)} placeholder="단독이면 비워두세요" style={INP}/>
-                </div>
-                <div>
-                  <label style={LBL}>내용/특이사항</label>
-                  <input value={editForm.note} onChange={e=>u("note",e.target.value)} style={INP}/>
-                </div>
-              </div>
-
-              {/* 담당 본부 */}
-              <div style={{marginBottom:14}}>
-                <label style={LBL}>담당 본부</label>
-                <select value={editForm.depts[0]} onChange={e=>{u("depts",[e.target.value]);u("deptShares",[{dept:e.target.value,share:100}])}} style={INP}>
-                  {DEPTS.map(d=><option key={d} value={d}>{d}</option>)}
-                </select>
-              </div>
-
-              {/* 저장 방식 */}
-              <div style={{background:"#F9FAFB",borderRadius:10,padding:"12px 14px",marginBottom:16,border:"1px solid #E5E7EB"}}>
-                <label style={LBL}>저장 방식</label>
-                <div style={{display:"flex",gap:8}}>
-                  <button onClick={()=>setSaveMode("new")}
-                    style={{flex:1,padding:"8px",border:`2px solid ${saveMode==="new"?"#6366F1":"#E5E7EB"}`,borderRadius:8,
-                      background:saveMode==="new"?"#EEF2FF":"#fff",color:saveMode==="new"?"#312E81":"#6B7280",fontSize:12.5,fontWeight:700,cursor:"pointer"}}>
-                    🆕 신규 프로젝트로 추가
-                  </button>
-                  {matchTarget && (
-                    <button onClick={()=>setSaveMode("merge")}
-                      style={{flex:1,padding:"8px",border:`2px solid ${saveMode==="merge"?"#D97706":"#E5E7EB"}`,borderRadius:8,
-                        background:saveMode==="merge"?"#FEF3C7":"#fff",color:saveMode==="merge"?"#92400E":"#6B7280",fontSize:12.5,fontWeight:700,cursor:"pointer"}}>
-                      🔗 기존 프로젝트 업데이트
-                    </button>
-                  )}
-                </div>
-                {saveMode==="merge"&&matchTarget&&(
-                  <div style={{fontSize:11.5,color:"#92400E",marginTop:6}}>
-                    유사 프로젝트 발견: "{contractItems.find(i=>i.id===matchTarget)?.name}" — 이 항목을 업데이트합니다.
-                  </div>
-                )}
-              </div>
-
-              <div style={{display:"flex",gap:8}}>
-                <button onClick={()=>{setStatus("idle");setExtracted(null);setEditForm(null)}}
-                  style={{padding:"10px 18px",background:"#F3F4F6",color:"#6B7280",border:"none",borderRadius:9,fontSize:13,fontWeight:600,cursor:"pointer"}}>
-                  다시 분석
-                </button>
-                <button onClick={saveResult}
-                  style={{flex:1,padding:"10px",background:"linear-gradient(135deg,#059669,#10B981)",color:"#fff",border:"none",borderRadius:9,fontSize:14,fontWeight:800,cursor:"pointer"}}>
-                  💾 계약현황에 저장
-                </button>
-              </div>
-            </div>
-          )}
-        </div>
-      </div>
-    </div>
-  )
-}
