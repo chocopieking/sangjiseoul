@@ -2087,24 +2087,22 @@ function CashflowTab({cashflow,setCashflow,currentUser,projects,setProjects,proj
 // 계약 엑셀 양식 다운로드
 function downloadContractTemplate() {
   const ws = XLSX.utils.aoa_to_sheet([
-    ["■ 상지서울건축사사무소 — 계약현황 입력 양식 (개선)"],
-    ["※ 4행부터 데이터 입력. 구분: 계약(수주)/확정/추진"],
-    ["※ 복수본부: '설계1본부:60%,디자인본부:40%' 형식으로 입력"],
-    ["※ 금액은 원(₩) 단위. 용역비총액에서 상지지분율로 본부별 배분"],
+    ["■ 상지서울건축사사무소 — 계약현황 입력 양식"],
+    ["※ 4행부터 데이터 입력. 구분: 계약/확정/추진"],
+    ["※ 복수본부: '본부명:지분%,본부명:지분%' 형식으로 입력"],
+    ["※ 금액은 억원 단위로 입력 (예: 17.55)"],
     [],
-    ["본부(복수시 '본부명:지분%' 형식)","발주구분","구분","프로젝트명","용역비총액(원)","상지지분(%)","메모","[시스템ID-수정금지]"],
-    ["설계1본부","공공","계약","경상남도 서부의료원 설립 설계용역",147000000,100,"",""],
-    ["설계1본부:60%,디자인본부:40%","민간","계약","서부산 행정복합타운 실시설계 기술제안",1436000000,100,"복수본부 예시",""],
-    ["주거디자인본부","공공","확정","사직야구장 임시구장 조성사업",848000000,100,"",""],
-    ["설계1본부","민간","추진","신규 추진 프로젝트",500000000,100,"",""],
+    ["본부(복수시 '본부명:지분%')","발주구분","구분","프로젝트명","공모형식","총설계비예상(억)","상지지분예상(%)","용역비예상(억)","사업자공모비율(%)","수행예상시점","계약예상시점","컨소시엄","내용","[시스템ID]"],
+    ["설계1본부:60%,디자인본부:40%","민간","추진","서부산 행정복합타운 건립공사 실시설계 기술제안","기술제안",50.13,35,17.55,40,"2026년 1월","2026년 12월","토문건축,상지건축,이림건축","9/12 공고",""],
+    ["설계1본부","공공","계약","경상남도 서부의료원 설립 설계용역","수의계약",14.7,100,1.47,100,"2026년 2월","2026년 1월","","",""],
   ])
-  ws["!cols"] = [{wch:30},{wch:10},{wch:8},{wch:40},{wch:16},{wch:10},{wch:20},{wch:20}]
+  ws["!cols"] = [{wch:30},{wch:9},{wch:7},{wch:38},{wch:12},{wch:14},{wch:13},{wch:13},{wch:13},{wch:13},{wch:13},{wch:22},{wch:20},{wch:18}]
   const wb = XLSX.utils.book_new()
   XLSX.utils.book_append_sheet(wb, ws, "계약현황")
   XLSX.writeFile(wb, "상지서울_계약현황_입력양식.xlsx")
 }
 
-// 계약현황 엑셀 업로드 → projects로 변환
+// 계약현황 엑셀 업로드 → contractItems로 변환
 function uploadContractExcel(e, contractItems, setContractItems, currentUser, toast) {
   const file = e.target.files?.[0]; if(!file) return
   const reader = new FileReader()
@@ -2114,13 +2112,11 @@ function uploadContractExcel(e, contractItems, setContractItems, currentUser, to
       const ws   = wb.Sheets[wb.SheetNames[0]]
       const rows = XLSX.utils.sheet_to_json(ws, {header:1, defval:""})
 
-      // 헤더 행 찾기
       let headerRow=2, dataStart=3
       for(let i=0;i<6;i++){
         if(rows[i].some(c=>String(c).includes("프로젝트명"))){headerRow=i;dataStart=i+1;break}
       }
       const headers = rows[headerRow].map(h=>String(h).trim())
-      // 정확히 일치하는 헤더를 우선 찾고, 없으면 포함 검색 (단, 발주구분/구분 혼동 방지)
       const ciExact = (name) => headers.findIndex(h=>h===name)
       const ci = (names)=>{
         for(const n of names){ const i=ciExact(n); if(i>=0) return i }
@@ -2128,108 +2124,86 @@ function uploadContractExcel(e, contractItems, setContractItems, currentUser, to
         return -1
       }
       const CI = {
-        dept:      ci(["본부"]),
-        orderType: ci(["발주구분"]),
-        itemType:  ci(["구분"]),  // 정확히 "구분"만 (발주구분과 별도)
-        name:      ci(["프로젝트명"]),
-        amount:    ci(["용역비총액","금액"]),
-        shareRatio:ci(["상지지분","지분"]),
-        memo:      ci(["메모","비고"]),
-        id:        ci(["시스템ID","[시스템ID"]),
+        dept:       ci(["본부"]),
+        orderType:  ci(["발주구분"]),
+        itemType:   ci(["구분"]),
+        name:       ci(["프로젝트명"]),
+        bidType:    ci(["공모형식"]),
+        totalFee:   ci(["총설계비예상","총설계비"]),
+        shareRatio: ci(["상지지분예상","상지지분"]),
+        svcFee:     ci(["용역비예상","용역비"]),
+        bizCompPct: ci(["사업자공모비율","사업자공모"]),
+        execTime:   ci(["수행예상시점","수행시점","수행예상"]),
+        contractTime:ci(["계약예상시점","계약시점","계약예상"]),
+        consortium: ci(["컨소시엄"]),
+        note:       ci(["내용","메모","비고"]),
+        id:         ci(["시스템ID","[시스템ID"]),
       }
-      // 안전장치: itemType이 orderType과 같은 컬럼을 가리키면 강제로 다음 "구분" 컬럼 탐색
       if(CI.itemType === CI.orderType) {
         const altIdx = headers.findIndex((h,idx)=>idx!==CI.orderType && h.trim()==="구분")
         if(altIdx>=0) CI.itemType = altIdx
       }
-      // 구분 → type 매핑
+
       const typeMap = {"계약":"계약","계약(수주)":"계약","수주":"계약","확정":"확정","추진":"추진","미정":"추진"}
       const get = (r,k)=>CI[k]>=0?r[CI[k]]:""
+      const toAmt = v => Math.round((parseFloat(String(v||"0").replace(/[^0-9.\-]/g,""))||0)*1e8)
 
-      // 날짜 변환
-      const toDate = v => {
-        if(!v) return ""
-        const n=parseInt(String(v))
-        if(!isNaN(n)&&n>40000&&n<60000){const d=new Date((n-25569)*86400*1000);return `${d.getUTCFullYear()}-${String(d.getUTCMonth()+1).padStart(2,"0")}-${String(d.getUTCDate()).padStart(2,"0")}`}
-        return String(v).trim()
-      }
-
-      const newProjs = []
+      const newItems = []
       rows.slice(dataStart).forEach(r=>{
         const pname = String(get(r,"name")||"").trim()
         if(!pname||pname.startsWith("※")||pname.includes("프로젝트명")) return
 
-        const deptRaw   = String(get(r,"dept")||"").trim()
-        const typeRaw   = String(get(r,"itemType")||"").trim()
-        const amount    = parseInt(String(get(r,"amount")||"0").replace(/[^0-9\-]/g,""))||0
-        const shareRatio= parseFloat(String(get(r,"shareRatio")||"100").replace(/[^0-9.]/g,""))/100||1
-        const existingId= String(get(r,"id")||"").trim()
-        const id        = existingId&&existingId!=="[시스템ID-수정금지]" ? existingId : `P${Date.now()}_${Math.random().toString(36).slice(2,6)}`
+        const deptRaw    = String(get(r,"dept")||"").trim()
+        const typeRaw     = String(get(r,"itemType")||"").trim()
+        const totalFeeExpect   = toAmt(get(r,"totalFee"))
+        const shareRatioExpect = parseFloat(String(get(r,"shareRatio")||"100").replace(/[^0-9.]/g,""))||100
+        const serviceFeeExpect = toAmt(get(r,"svcFee"))
+        const bizCompPct       = parseFloat(String(get(r,"bizCompPct")||"100").replace(/[^0-9.]/g,""))||100
+        const bizCompFee       = Math.round(serviceFeeExpect * bizCompPct / 100)
+        const existingId  = String(get(r,"id")||"").trim()
+        const id = existingId&&existingId!=="[시스템ID-수정금지]"&&existingId!=="[시스템ID]" ? existingId : `C${Date.now()}_${Math.random().toString(36).slice(2,6)}`
 
-        // 복수 본부 파싱: "설계1본부:60%,디자인본부:40%"
         let depts = [], deptShares = []
         if(deptRaw.includes(":")) {
           deptRaw.split(",").forEach(seg=>{
             const [dept, pct] = seg.trim().split(":")
-            if(dept) {
-              depts.push(dept.trim())
-              deptShares.push({dept:dept.trim(), share:parseFloat(pct||"100")||100})
-            }
+            if(dept) { depts.push(dept.trim()); deptShares.push({dept:dept.trim(), share:parseFloat(pct||"100")||100}) }
           })
         } else {
           depts = deptRaw ? [deptRaw] : []
           deptShares = deptRaw ? [{dept:deptRaw, share:100}] : []
         }
 
-        newProjs.push({
-          id,
-          name:       pname,
-          depts,
-          deptShares,
-          orderType:  String(get(r,"orderType")||"민간").trim(),
-          type:       typeMap[typeRaw]||"추진",
-          amount,          // 계약현황은 amount 필드 사용
-          serviceFee: amount,
-          shareRatio,
-          memo:       String(get(r,"memo")||"").trim(),
+        newItems.push({
+          id, name: pname, depts, deptShares,
+          orderType: String(get(r,"orderType")||"민간").trim(),
+          type: typeMap[typeRaw]||"추진",
+          bidType: String(get(r,"bidType")||"").trim(),
+          totalFeeExpect, shareRatioExpect, serviceFeeExpect,
+          amount: serviceFeeExpect,  // 하위호환
+          bizCompPct, bizCompFee,
+          execTime: String(get(r,"execTime")||"").trim(),
+          contractTime: String(get(r,"contractTime")||"").trim(),
+          consortium: String(get(r,"consortium")||"").trim(),
+          note: String(get(r,"note")||"").trim(),
           contractYear: new Date().getFullYear(),
-          updatedAt:  new Date().toISOString(),
-          updatedBy:  currentUser?.name||"",
+          updatedAt: new Date().toISOString(), updatedBy: currentUser?.name||"",
         })
       })
 
-      if(newProjs.length===0){toast&&toast("데이터가 없습니다.","error");return}
+      if(newItems.length===0){toast&&toast("데이터가 없습니다.","error");return}
 
-      // 중복 처리 전략:
-      // 1. ID 있으면 → ID로 매칭해서 업데이트
-      // 2. 이름+구분(type) 조합이 같으면 → 업데이트 (같은 프로젝트 재업로드)
-      // 3. 이름은 같지만 구분(type)이 다르면 → 별도 항목으로 추가
-      // 4. 완전 신규 → 추가
       let added=0, updated=0, dupNames=[]
-
       setContractItems(prev=>{
         let next = [...prev]
-        newProjs.forEach(np=>{
-          // ID로 먼저 찾기
+        newItems.forEach(np=>{
           const byId = next.find(p=>p.id===np.id&&np.id)
-          if(byId) {
-            next = next.map(p=>p.id===np.id?{...p,...np}:p)
-            updated++
-            return
-          }
-          // 이름+type으로 찾기 (같은 이름+같은 구분 = 재업로드)
+          if(byId) { next = next.map(p=>p.id===np.id?{...p,...np}:p); updated++; return }
           const byNameType = next.find(p=>p.name.trim()===np.name.trim()&&p.type===np.type)
-          if(byNameType) {
-            next = next.map(p=>p.id===byNameType.id?{...p,...np,id:byNameType.id}:p)
-            updated++
-            return
-          }
-          // 이름만 같은 경우 (구분 다름 = 별도 항목, 경고만)
+          if(byNameType) { next = next.map(p=>p.id===byNameType.id?{...p,...np,id:byNameType.id}:p); updated++; return }
           const byName = next.find(p=>p.name.trim()===np.name.trim())
           if(byName) dupNames.push(`${np.name} (기존:${byName.type} → 신규:${np.type})`)
-          // 신규 추가
-          next.push(np)
-          added++
+          next.push(np); added++
         })
         return next
       })
@@ -2244,9 +2218,6 @@ function uploadContractExcel(e, contractItems, setContractItems, currentUser, to
   reader.readAsBinaryString(file)
 }
 
-
-
-// 전사 연도별 기성 현황 — 프로젝트별 월수금계획(cashflowPlan) 합산
 function ProjectCashflowSummaryCard({projects,projectCashflowByDept,DEPTS,DEPT_COLORS}) {
   const allYears = useMemo(()=>Object.keys(projectCashflowByDept||{}).sort(),[projectCashflowByDept])
   const rows = useMemo(()=>{
@@ -8016,30 +7987,35 @@ function ContractStatusPage({contractItems=[], setContractItems, DEPTS, DEPT_COL
   setSelProjId, setTab, isAdmin, setDetailTab}) {
 
   const toast  = useToast()
-  const fA     = v => v!==0&&Math.abs(v)>=1e8?`${(v/1e8).toFixed(2)}억`:Math.abs(v)>=1e4?`${Math.round(v/1e4)}만`:v!==0?v.toLocaleString()+"원":"-"
+  const fA     = v => v!==0&&Math.abs(v)>=1e8?`${(v/1e8).toFixed(2)}억`:Math.abs(v)>=1e4?`${Math.round(v/1e4)}만`:v!==0?(v||0).toLocaleString()+"원":"-"
+  const fAin   = v => v>0?(v/1e8).toFixed(2):""  // 억원 단위 입력값
   const targets   = (yearTargets||{})[YEAR] || {}
   const tContract = (targets.contractTarget || 170) * 1e8
 
-  // contractItems의 구분(type) 기준 분류 — 오직 이 필드만 사용
+  const [editId, setEditId] = useState(null)   // 인라인 편집중인 항목 id
+  const [draft,  setDraft]  = useState(null)
+  const [expandedDept, setExpandedDept] = useState(null) // 본부별 펼침
+
+  // 구분(type) 기준 분류 — 오직 이 필드만 사용
   const getType = (item) => {
     const t = (item.type||"").trim()
     if(t==="계약"||t==="계약(수주)"||t==="수주") return "계약"
     if(t==="확정") return "확정"
     if(t==="추진") return "추진"
-    return null  // 분류 불명 → 표시 안 함
+    return null
   }
 
   const 계약Items = contractItems.filter(i=>getType(i)==="계약")
   const 확정Items = contractItems.filter(i=>getType(i)==="확정")
   const 추진Items = contractItems.filter(i=>getType(i)==="추진")
 
-  const sum = arr => arr.reduce((s,i)=>s+(i.amount||0),0)
+  const sum = arr => arr.reduce((s,i)=>s+(i.serviceFeeExpect||i.amount||0),0)
   const 계약Sum = sum(계약Items)
   const 확정Sum = sum(확정Items)
   const 추진Sum = sum(추진Items)
   const 합계    = 계약Sum + 확정Sum
 
-  // 본부별 지분 계산
+  // 본부 지분 헬퍼
   const deptShare = (item, dept) => {
     const ds = (item.deptShares||[]).find(s=>s.dept===dept)
     if(ds) return ds.share/100
@@ -8048,12 +8024,13 @@ function ContractStatusPage({contractItems=[], setContractItems, DEPTS, DEPT_COL
     return 0
   }
 
-  // 본부별 집계
+  // 본부별 집계 (서비스비 예상 기준)
   const byDept = DEPTS.map(dept=>{
     const my = contractItems.filter(i=>(i.depts||[]).includes(dept)||(i.deptShares||[]).some(s=>s.dept===dept))
-    const 계약 = my.filter(i=>getType(i)==="계약").reduce((s,i)=>s+(i.amount||0)*deptShare(i,dept),0)
-    const 확정 = my.filter(i=>getType(i)==="확정").reduce((s,i)=>s+(i.amount||0)*deptShare(i,dept),0)
-    const 추진 = my.filter(i=>getType(i)==="추진").reduce((s,i)=>s+(i.amount||0)*deptShare(i,dept),0)
+    const feeOf = i => i.serviceFeeExpect || i.amount || 0
+    const 계약 = my.filter(i=>getType(i)==="계약").reduce((s,i)=>s+feeOf(i)*deptShare(i,dept),0)
+    const 확정 = my.filter(i=>getType(i)==="확정").reduce((s,i)=>s+feeOf(i)*deptShare(i,dept),0)
+    const 추진 = my.filter(i=>getType(i)==="추진").reduce((s,i)=>s+feeOf(i)*deptShare(i,dept),0)
     const 목표 = ((deptBiz||{})[dept]?.orderTarget||0)*1e8
     return {dept,계약,확정,추진,합계:계약+확정,목표,color:DEPT_COLORS[dept]||"#6B7280"}
   }).filter(d=>d.합계+d.추진+d.목표>0)
@@ -8064,13 +8041,54 @@ function ContractStatusPage({contractItems=[], setContractItems, DEPTS, DEPT_COL
     {label:"🔶 추진 프로젝트", type:"추진", color:"#D97706", bg:"#FEF3C7", border:"#D97706", items:추진Items, sum:추진Sum},
   ].filter(s=>s.items.length>0)
 
-  const TH = (a="right",c="#6B7280") => ({padding:"9px 11px",textAlign:a,fontSize:11.5,fontWeight:700,color:c,borderBottom:"2px solid #E5E7EB",whiteSpace:"nowrap",background:"#F8FAFC"})
-  const TD = (a="right",c="#374151",bold=false) => ({padding:"9px 11px",textAlign:a,fontSize:13,fontWeight:bold?700:400,color:c,borderBottom:"1px solid #F3F4F6"})
+  const TH = (a="right",c="#6B7280") => ({padding:"8px 9px",textAlign:a,fontSize:11,fontWeight:700,color:c,borderBottom:"2px solid #E5E7EB",whiteSpace:"nowrap",background:"#F8FAFC"})
+  const TD = (a="right",c="#374151",bold=false) => ({padding:"8px 9px",textAlign:a,fontSize:12.5,fontWeight:bold?700:400,color:c,borderBottom:"1px solid #F3F4F6"})
 
-  const goProj = (item) => {
-    // contractItems는 별도 저장 - 프로젝트 목록으로 이동만 함
-    if(setTab) setTab("projects")
+  // ── 항목 업데이트 ──────────────────────────────────────
+  const updateItem = (id, patch) => {
+    setContractItems(prev=>prev.map(i=>i.id===id?{...i,...patch}:i))
   }
+
+  // ── 상태 이동 (계약 ↔ 확정 ↔ 추진) ────────────────────
+  const moveType = (item, newType) => {
+    updateItem(item.id, {type:newType})
+    toast&&toast(`"${item.name}" → ${newType}(으)로 이동했습니다.`,"success")
+  }
+
+  // ── 항목 삭제 ──────────────────────────────────────────
+  const deleteItem = (id) => {
+    if(!window.confirm("이 항목을 삭제하시겠습니까?")) return
+    setContractItems(prev=>prev.filter(i=>i.id!==id))
+  }
+
+  // ── 신규 항목 추가 ─────────────────────────────────────
+  const addItem = (type) => {
+    const newItem = {
+      id: `C${Date.now()}_${Math.random().toString(36).slice(2,6)}`,
+      name: "새 프로젝트", type, orderType:"민간",
+      depts: [DEPTS[0]], deptShares: [{dept:DEPTS[0], share:100}],
+      totalFeeExpect:0, shareRatioExpect:100, serviceFeeExpect:0,
+      bizCompPct:100, bizCompFee:0,
+      execTime:"", contractTime:"", consortium:"", note:"",
+      contractYear: YEAR, updatedAt: new Date().toISOString(), updatedBy: currentUser?.name||"",
+    }
+    setContractItems(prev=>[...prev, newItem])
+    setEditId(newItem.id)
+    setDraft(newItem)
+  }
+
+  // ── 편집 시작/저장 ─────────────────────────────────────
+  const startEdit = (item) => { setEditId(item.id); setDraft({...item}) }
+  const saveEdit = () => {
+    if(!draft) return
+    // 사업자공모 최종설계비 자동계산
+    const bizCompFee = Math.round((draft.serviceFeeExpect||0) * (draft.bizCompPct||100) / 100)
+    updateItem(editId, {...draft, bizCompFee})
+    setEditId(null); setDraft(null)
+  }
+  const cancelEdit = () => { setEditId(null); setDraft(null) }
+
+  const goProj = (item) => { if(setTab) setTab("projects") }
 
   // 계약현황 전체 데이터 다운로드
   const downloadAllContract = () => {
@@ -8078,25 +8096,150 @@ function ContractStatusPage({contractItems=[], setContractItems, DEPTS, DEPT_COL
       ["■ 상지서울건축사사무소 — 계약현황 전체 데이터"],
       [`기준일: ${new Date().toLocaleDateString("ko-KR")}`],
       [],
-      ["본부(복수시 '본부명:지분%' 형식)","발주구분","구분","프로젝트명","용역비총액(원)","상지지분(%)","메모","[시스템ID-수정금지]"],
+      ["본부(복수시 '본부명:지분%')","발주구분","구분","프로젝트명","공모형식","총설계비예상(원)","상지지분예상(%)","용역비예상(원)","사업자공모비율(%)","사업자공모최종설계비(원)","수행예상시점","계약예상시점","컨소시엄","내용","[시스템ID]"],
       ...contractItems.map(i=>[
         (i.deptShares||[]).length>1
           ? (i.deptShares||[]).map(s=>`${s.dept}:${s.share}%`).join(",")
           : (i.depts||[]).join(",") || "",
-        i.orderType||"민간",
-        i.type||"",
-        i.name||"",
-        i.amount||0,
-        Math.round((i.shareRatio||1)*100),
-        i.memo||"",
-        i.id||"",
+        i.orderType||"민간", i.type||"", i.name||"", i.bidType||"",
+        i.totalFeeExpect||0, i.shareRatioExpect||100, i.serviceFeeExpect||i.amount||0,
+        i.bizCompPct||100, i.bizCompFee||0,
+        i.execTime||"", i.contractTime||"", i.consortium||"", i.note||"", i.id||"",
       ])
     ]
     const ws = XLSX.utils.aoa_to_sheet(rows)
-    ws["!cols"] = [{wch:30},{wch:10},{wch:8},{wch:40},{wch:16},{wch:10},{wch:20},{wch:22}]
+    ws["!cols"] = [{wch:28},{wch:9},{wch:7},{wch:35},{wch:12},{wch:15},{wch:12},{wch:14},{wch:12},{wch:18},{wch:12},{wch:12},{wch:20},{wch:25},{wch:20}]
     const wb = XLSX.utils.book_new()
     XLSX.utils.book_append_sheet(wb, ws, "계약현황")
     XLSX.writeFile(wb, `상지서울_계약현황_${new Date().toISOString().slice(0,10)}.xlsx`)
+  }
+
+  // ── 인라인 편집 입력 컴포넌트 ──────────────────────────
+  const EditRow = ({item}) => {
+    const d = draft
+    const u = (k,v) => setDraft(p=>({...p,[k]:v}))
+    const uDeptShare = (idx,key,val) => {
+      const next = [...(d.deptShares||[])]
+      next[idx] = {...next[idx], [key]:val}
+      u("deptShares", next)
+      u("depts", next.map(s=>s.dept))
+    }
+    const addDeptShare = () => {
+      const used = (d.deptShares||[]).map(s=>s.dept)
+      const avail = DEPTS.find(dp=>!used.includes(dp)) || DEPTS[0]
+      u("deptShares", [...(d.deptShares||[]), {dept:avail, share:0}])
+    }
+    const removeDeptShare = (idx) => {
+      const next=(d.deptShares||[]).filter((_,i)=>i!==idx)
+      u("deptShares", next); u("depts", next.map(s=>s.dept))
+    }
+    const bizCompFeePreview = Math.round((d.serviceFeeExpect||0)*(d.bizCompPct||100)/100)
+
+    const inp = {padding:"6px 8px",border:"1.5px solid #C7D2FE",borderRadius:7,fontSize:12.5,width:"100%",boxSizing:"border-box",fontFamily:"inherit",outline:"none"}
+    const lbl = {fontSize:11,fontWeight:700,color:"#6366F1",display:"block",marginBottom:3}
+
+    return (
+      <tr>
+        <td colSpan={9} style={{padding:0,background:"#EEF2FF"}}>
+          <div style={{padding:"16px 18px",border:"2px solid #6366F1",borderRadius:10,margin:6}}>
+            <div style={{display:"grid",gridTemplateColumns:"2fr 1fr 1fr",gap:10,marginBottom:10}}>
+              <div>
+                <label style={lbl}>프로젝트명</label>
+                <input value={d.name||""} onChange={e=>u("name",e.target.value)} style={inp}/>
+              </div>
+              <div>
+                <label style={lbl}>발주구분</label>
+                <select value={d.orderType||"민간"} onChange={e=>u("orderType",e.target.value)} style={inp}>
+                  <option value="민간">민간</option><option value="공공">공공</option><option value="해외">해외</option>
+                </select>
+              </div>
+              <div>
+                <label style={lbl}>공모형식</label>
+                <input value={d.bidType||""} onChange={e=>u("bidType",e.target.value)} placeholder="기술제안/수의계약 등" style={inp}/>
+              </div>
+            </div>
+
+            {/* 본부 분할 */}
+            <div style={{marginBottom:10}}>
+              <label style={lbl}>본부 (복수 분할 가능)</label>
+              <div style={{display:"flex",flexDirection:"column",gap:6}}>
+                {(d.deptShares||[]).map((s,idx)=>(
+                  <div key={idx} style={{display:"flex",gap:6,alignItems:"center"}}>
+                    <select value={s.dept} onChange={e=>uDeptShare(idx,"dept",e.target.value)} style={{...inp,flex:2}}>
+                      {DEPTS.map(dp=><option key={dp} value={dp}>{dp}</option>)}
+                    </select>
+                    <input type="number" value={s.share} onChange={e=>uDeptShare(idx,"share",parseFloat(e.target.value)||0)}
+                      style={{...inp,flex:1}} placeholder="지분%"/>
+                    <span style={{fontSize:12,color:"#6B7280"}}>%</span>
+                    {(d.deptShares||[]).length>1&&
+                      <button onClick={()=>removeDeptShare(idx)} style={{padding:"4px 9px",background:"#FEE2E2",color:"#DC2626",border:"none",borderRadius:6,fontSize:11,cursor:"pointer"}}>✕</button>}
+                  </div>
+                ))}
+                <button onClick={addDeptShare} style={{padding:"5px 10px",background:"#E0E7FF",color:"#4338CA",border:"none",borderRadius:7,fontSize:11.5,fontWeight:600,cursor:"pointer",alignSelf:"flex-start"}}>
+                  + 본부 추가 (분할)
+                </button>
+                <div style={{fontSize:11,color:(d.deptShares||[]).reduce((s,x)=>s+(x.share||0),0)===100?"#059669":"#DC2626"}}>
+                  지분 합계: {(d.deptShares||[]).reduce((s,x)=>s+(x.share||0),0)}% {(d.deptShares||[]).reduce((s,x)=>s+(x.share||0),0)!==100&&"(100%이어야 함)"}
+                </div>
+              </div>
+            </div>
+
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10,marginBottom:10}}>
+              <div>
+                <label style={lbl}>총설계비(예상) — 억원</label>
+                <input type="number" step="0.01" value={fAin(d.totalFeeExpect)} onChange={e=>u("totalFeeExpect",Math.round((parseFloat(e.target.value)||0)*1e8))} style={inp}/>
+              </div>
+              <div>
+                <label style={lbl}>상지지분(예상) — %</label>
+                <input type="number" value={d.shareRatioExpect||""} onChange={e=>u("shareRatioExpect",parseFloat(e.target.value)||0)} style={inp}/>
+              </div>
+              <div>
+                <label style={lbl}>용역비(예상) — 억원</label>
+                <input type="number" step="0.01" value={fAin(d.serviceFeeExpect)} onChange={e=>u("serviceFeeExpect",Math.round((parseFloat(e.target.value)||0)*1e8))} style={inp}/>
+              </div>
+            </div>
+
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr 1fr",gap:10,marginBottom:10,background:"#FEF3C7",padding:"10px 12px",borderRadius:8}}>
+              <div>
+                <label style={lbl}>사업자공모 비율 — %</label>
+                <input type="number" value={d.bizCompPct||""} onChange={e=>u("bizCompPct",parseFloat(e.target.value)||0)} style={inp} placeholder="예: 40"/>
+              </div>
+              <div>
+                <label style={lbl}>사업자공모 최종설계비 (자동계산)</label>
+                <div style={{padding:"6px 8px",background:"#fff",borderRadius:7,fontSize:13,fontWeight:800,color:"#D97706",border:"1.5px solid #FDE68A"}}>
+                  {fA(bizCompFeePreview)}
+                </div>
+                <div style={{fontSize:10,color:"#92400E",marginTop:2}}>용역비예상 × 공모비율</div>
+              </div>
+              <div>
+                <label style={lbl}>수행예상시점</label>
+                <input value={d.execTime||""} onChange={e=>u("execTime",e.target.value)} placeholder="2026년 1월" style={inp}/>
+              </div>
+              <div>
+                <label style={lbl}>계약예상시점</label>
+                <input value={d.contractTime||""} onChange={e=>u("contractTime",e.target.value)} placeholder="2026년 12월" style={inp}/>
+              </div>
+            </div>
+
+            <div style={{display:"grid",gridTemplateColumns:"1fr 2fr",gap:10,marginBottom:12}}>
+              <div>
+                <label style={lbl}>컨소시엄</label>
+                <input value={d.consortium||""} onChange={e=>u("consortium",e.target.value)} placeholder="토문건축, 상지건축, 이림건축" style={inp}/>
+              </div>
+              <div>
+                <label style={lbl}>내용</label>
+                <input value={d.note||""} onChange={e=>u("note",e.target.value)} placeholder="9/12 공고 등" style={inp}/>
+              </div>
+            </div>
+
+            <div style={{display:"flex",gap:8,justifyContent:"flex-end"}}>
+              <button onClick={cancelEdit} style={{padding:"7px 16px",background:"#F3F4F6",color:"#6B7280",border:"none",borderRadius:8,fontSize:12.5,fontWeight:600,cursor:"pointer"}}>취소</button>
+              <button onClick={saveEdit} style={{padding:"7px 18px",background:"#6366F1",color:"#fff",border:"none",borderRadius:8,fontSize:12.5,fontWeight:700,cursor:"pointer"}}>💾 저장</button>
+            </div>
+          </div>
+        </td>
+      </tr>
+    )
   }
 
   return (
@@ -8108,10 +8251,8 @@ function ContractStatusPage({contractItems=[], setContractItems, DEPTS, DEPT_COL
             <div style={{fontSize:13,opacity:.75,marginBottom:4}}>{YEAR}년 계약·확정 금액</div>
             <div style={{fontSize:36,fontWeight:800,marginBottom:10}}>{fA(합계)}</div>
             <div style={{display:"flex",gap:10,flexWrap:"wrap"}}>
-              {[["✅ 계약",계약Sum,"#34D399"],[" 📋 확정",확정Sum,"#A5B4FC"],["🔶 추진",추진Sum,"#FDE68A"]].map(([l,v,c])=>(
-                <span key={l} style={{background:"rgba(255,255,255,.15)",padding:"4px 12px",borderRadius:20,fontSize:13,fontWeight:700,color:c}}>
-                  {l} {fA(v)}
-                </span>
+              {[["✅ 계약",계약Sum,"#34D399"],["📋 확정",확정Sum,"#A5B4FC"],["🔶 추진",추진Sum,"#FDE68A"]].map(([l,v,c])=>(
+                <span key={l} style={{background:"rgba(255,255,255,.15)",padding:"4px 12px",borderRadius:20,fontSize:13,fontWeight:700,color:c}}>{l} {fA(v)}</span>
               ))}
             </div>
           </div>
@@ -8141,11 +8282,10 @@ function ContractStatusPage({contractItems=[], setContractItems, DEPTS, DEPT_COL
             <input type="file" accept=".xlsx,.xls" style={{display:"none"}}
               onChange={e=>uploadContractExcel(e,contractItems,setContractItems,currentUser,toast)}/>
           </label>
-          <div style={{marginLeft:"auto",fontSize:12,color:"#6B7280",padding:"6px 12px",background:"#F9FAFB",borderRadius:9,border:"1px solid #E5E7EB"}}>
-            총 {contractItems.length}건 |
-            <span style={{color:"#059669",fontWeight:700}}> 계약 {계약Items.length}</span> |
-            <span style={{color:"#6366F1",fontWeight:700}}> 확정 {확정Items.length}</span> |
-            <span style={{color:"#D97706",fontWeight:700}}> 추진 {추진Items.length}</span>
+          <div style={{display:"flex",gap:6,marginLeft:"auto"}}>
+            <button onClick={()=>addItem("계약")} style={{padding:"7px 13px",background:"#D1FAE5",color:"#059669",border:"none",borderRadius:9,fontSize:12,fontWeight:700,cursor:"pointer"}}>+ 계약 추가</button>
+            <button onClick={()=>addItem("확정")} style={{padding:"7px 13px",background:"#EEF2FF",color:"#6366F1",border:"none",borderRadius:9,fontSize:12,fontWeight:700,cursor:"pointer"}}>+ 확정 추가</button>
+            <button onClick={()=>addItem("추진")} style={{padding:"7px 13px",background:"#FEF3C7",color:"#D97706",border:"none",borderRadius:9,fontSize:12,fontWeight:700,cursor:"pointer"}}>+ 추진 추가</button>
           </div>
         </div>
       )}
@@ -8153,45 +8293,40 @@ function ContractStatusPage({contractItems=[], setContractItems, DEPTS, DEPT_COL
       {/* 본부별 요약 */}
       {byDept.length>0&&(
         <div style={{background:"#fff",borderRadius:14,border:"1px solid #E5E7EB",overflow:"hidden",marginBottom:14}}>
-          <div style={{padding:"13px 18px",borderBottom:"1px solid #E5E7EB",fontSize:14,fontWeight:800,color:"#111827"}}>
-            📊 본부별 계약 현황
-          </div>
+          <div style={{padding:"13px 18px",borderBottom:"1px solid #E5E7EB",fontSize:14,fontWeight:800,color:"#111827"}}>📊 본부별 계약 현황 (지분 반영)</div>
           <div style={{overflowX:"auto"}}>
             <table style={{width:"100%",borderCollapse:"collapse"}}>
-              <thead>
-                <tr>
-                  {["본부","목표","계약","확정","합계(계약+확정)","추진","달성률"].map((h,i)=>(
-                    <th key={h} style={TH(i===0?"left":"right",i===4?"#059669":i===2?"#059669":i===3?"#6366F1":i===5?"#D97706":"#6B7280")}>{h}</th>
-                  ))}
-                </tr>
-              </thead>
+              <thead><tr>
+                {["본부","목표","계약","확정","합계(계약+확정)","추진","달성률"].map((h,i)=>(
+                  <th key={h} style={TH(i===0?"left":"right",i===4?"#059669":i===2?"#059669":i===3?"#6366F1":i===5?"#D97706":"#6B7280")}>{h}</th>
+                ))}
+              </tr></thead>
               <tbody>
                 {byDept.map((d,i)=>(
                   <tr key={d.dept} style={{background:i%2===0?"#fff":"#FAFAFA"}}>
-                    <td style={{...TD("left","#111827",true)}}>
+                    <td style={TD("left","#111827",true)}>
                       <div style={{display:"flex",alignItems:"center",gap:7}}>
-                        <div style={{width:8,height:8,borderRadius:"50%",background:d.color}}/>
-                        {d.dept}
+                        <div style={{width:8,height:8,borderRadius:"50%",background:d.color}}/>{d.dept}
                       </div>
                     </td>
                     <td style={TD("right","#DC2626")}>{d.목표>0?fA(d.목표):"-"}</td>
-                    <td style={{...TD("right","#059669",true)}}>{d.계약>0?fA(d.계약):"-"}</td>
+                    <td style={TD("right","#059669",true)}>{d.계약>0?fA(d.계약):"-"}</td>
                     <td style={TD("right","#6366F1")}>{d.확정>0?fA(d.확정):"-"}</td>
                     <td style={{...TD("right","#059669",true),background:"#ECFDF5"}}>{d.합계>0?fA(d.합계):"-"}</td>
                     <td style={TD("right","#D97706")}>{d.추진>0?fA(d.추진):"-"}</td>
-                    <td style={{...TD("right"),color:d.목표>0&&d.합계/d.목표>=1?"#059669":d.목표>0&&d.합계/d.목표>=0.7?"#D97706":"#DC2626",fontWeight:700}}>
+                    <td style={{...TD(),color:d.목표>0&&d.합계/d.목표>=1?"#059669":d.목표>0&&d.합계/d.목표>=0.7?"#D97706":"#DC2626",fontWeight:700}}>
                       {d.목표>0?Math.round(d.합계/d.목표*100)+"%":"-"}
                     </td>
                   </tr>
                 ))}
                 <tr style={{background:"#EEF2FF",borderTop:"2px solid #6366F1"}}>
                   <td style={TD("left","#312E81",true)}>합계</td>
-                  <td style={{...TD("right","#DC2626",true)}}>{fA(byDept.reduce((s,d)=>s+d.목표,0))}</td>
-                  <td style={{...TD("right","#059669",true)}}>{fA(계약Sum)}</td>
-                  <td style={{...TD("right","#6366F1",true)}}>{fA(확정Sum)}</td>
+                  <td style={TD("right","#DC2626",true)}>{fA(byDept.reduce((s,d)=>s+d.목표,0))}</td>
+                  <td style={TD("right","#059669",true)}>{fA(계약Sum)}</td>
+                  <td style={TD("right","#6366F1",true)}>{fA(확정Sum)}</td>
                   <td style={{...TD("right","#059669",true),background:"#A7F3D0"}}>{fA(합계)}</td>
-                  <td style={{...TD("right","#D97706",true)}}>{fA(추진Sum)}</td>
-                  <td style={{...TD("right","#059669",true)}}>{tContract>0?Math.round(합계/tContract*100)+"%":"-"}</td>
+                  <td style={TD("right","#D97706",true)}>{fA(추진Sum)}</td>
+                  <td style={TD("right","#059669",true)}>{tContract>0?Math.round(합계/tContract*100)+"%":"-"}</td>
                 </tr>
               </tbody>
             </table>
@@ -8207,42 +8342,65 @@ function ContractStatusPage({contractItems=[], setContractItems, DEPTS, DEPT_COL
             <div style={{fontSize:15,fontWeight:800,color:sec.color}}>{fA(sec.sum)}</div>
           </div>
           <div style={{overflowX:"auto"}}>
-            <table style={{width:"100%",borderCollapse:"collapse"}}>
-              <thead>
-                <tr>
-                  {["연번","발주","본부","프로젝트명","금액(원)","지분%","메모"].map((h,i)=>(
-                    <th key={h} style={TH(i>=4?"right":i===0?"center":"left")}>{h}</th>
-                  ))}
-                </tr>
-              </thead>
+            <table style={{width:"100%",borderCollapse:"collapse",minWidth:1300}}>
+              <thead><tr>
+                {["연번","본부","공모형식","프로젝트명","총설계비(예상)","상지지분(예상)","용역비(예상)","사업자공모","최종설계비","수행예상","계약예상","컨소시엄","내용",isAdmin?"관리":null].filter(Boolean).map((h,i)=>(
+                  <th key={h} style={TH(i>=4&&i<=8?"right":i===0?"center":"left")}>{h}</th>
+                ))}
+              </tr></thead>
               <tbody>
                 {sec.items.map((item,i)=>{
+                  if(editId===item.id) return <EditRow key={item.id} item={item}/>
                   const bidColor = {"공공":"#6366F1","민간":"#059669","해외":"#DC2626"}[item.orderType||"민간"]||"#6B7280"
                   const depts = (item.deptShares||[]).length>1
                     ? (item.deptShares||[]).map(s=>`${s.dept}:${s.share}%`).join(" / ")
                     : (item.depts||[]).join(", ")||"-"
+                  const svcFee = item.serviceFeeExpect||item.amount||0
                   return (
                     <tr key={item.id||i} style={{background:i%2===0?"#fff":"#FAFAFA"}}>
-                      <td style={{...TD("center","#9CA3AF"),fontSize:12}}>{i+1}</td>
-                      <td style={TD("left")}>
-                        <span style={{fontSize:11,padding:"2px 7px",borderRadius:10,background:bidColor+"18",color:bidColor,fontWeight:700}}>
-                          {item.orderType||"민간"}
-                        </span>
+                      <td style={{...TD("center","#9CA3AF"),fontSize:11.5}}>{i+1}</td>
+                      <td style={{...TD("left","#6B7280"),fontSize:11.5,whiteSpace:"nowrap",maxWidth:140}}>
+                        <div style={{display:"flex",alignItems:"center",gap:4}}>
+                          <span style={{fontSize:10,padding:"1px 5px",borderRadius:8,background:bidColor+"18",color:bidColor,fontWeight:700}}>{item.orderType||"민간"}</span>
+                          {depts}
+                        </div>
                       </td>
-                      <td style={{...TD("left","#6B7280"),fontSize:12,whiteSpace:"nowrap"}}>{depts}</td>
-                      <td style={{...TD("left","#111827",true),minWidth:200}}>{item.name||"-"}</td>
-                      <td style={{...TD("right",sec.color,true),whiteSpace:"nowrap"}}>{fA(item.amount||0)}</td>
-                      <td style={{...TD("right","#6366F1"),whiteSpace:"nowrap"}}>
-                        {item.shareRatio?Math.round(item.shareRatio*100)+"%":"-"}
+                      <td style={{...TD("left","#6B7280"),fontSize:11.5}}>{item.bidType||"-"}</td>
+                      <td style={{...TD("left","#111827",true),minWidth:180,cursor:"pointer"}} onClick={()=>startEdit(item)}>
+                        {item.name}
+                        {item.contractYear&&String(item.contractYear)===YR&&
+                          <span style={{marginLeft:5,fontSize:9,background:sec.color,color:"#fff",padding:"1px 5px",borderRadius:5}}>{YR}신규</span>}
                       </td>
-                      <td style={{...TD("left","#9CA3AF"),fontSize:12}}>{item.memo||"-"}</td>
+                      <td style={{...TD("right","#374151"),whiteSpace:"nowrap"}}>{item.totalFeeExpect?fA(item.totalFeeExpect):"-"}</td>
+                      <td style={{...TD("right","#6366F1"),whiteSpace:"nowrap"}}>{item.shareRatioExpect?item.shareRatioExpect+"%":"-"}</td>
+                      <td style={{...TD("right",sec.color,true),whiteSpace:"nowrap"}}>{fA(svcFee)}</td>
+                      <td style={{...TD("right","#D97706"),whiteSpace:"nowrap"}}>{item.bizCompPct?item.bizCompPct+"%":"-"}</td>
+                      <td style={{...TD("right","#D97706",true),whiteSpace:"nowrap"}}>{item.bizCompFee?fA(item.bizCompFee):"-"}</td>
+                      <td style={{...TD("right","#6B7280"),fontSize:11.5,whiteSpace:"nowrap"}}>{item.execTime||"-"}</td>
+                      <td style={{...TD("right","#6B7280"),fontSize:11.5,whiteSpace:"nowrap"}}>{item.contractTime||"-"}</td>
+                      <td style={{...TD("left","#6B7280"),fontSize:11.5,maxWidth:130,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}} title={item.consortium||""}>{item.consortium||"-"}</td>
+                      <td style={{...TD("left","#9CA3AF"),fontSize:11.5,maxWidth:120,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}} title={item.note||""}>{item.note||"-"}</td>
+                      {isAdmin&&(
+                        <td style={{...TD("center"),whiteSpace:"nowrap"}}>
+                          <div style={{display:"flex",gap:3,justifyContent:"center"}}>
+                            <button onClick={()=>startEdit(item)} title="편집"
+                              style={{padding:"3px 7px",background:"#EEF2FF",color:"#6366F1",border:"none",borderRadius:5,fontSize:10.5,cursor:"pointer"}}>✏</button>
+                            {sec.type!=="계약"&&<button onClick={()=>moveType(item,sec.type==="추진"?"확정":"계약")} title="상위 단계로 이동"
+                              style={{padding:"3px 7px",background:"#D1FAE5",color:"#059669",border:"none",borderRadius:5,fontSize:10.5,cursor:"pointer"}}>↑</button>}
+                            {sec.type!=="추진"&&<button onClick={()=>moveType(item,sec.type==="계약"?"확정":"추진")} title="하위 단계로 이동"
+                              style={{padding:"3px 7px",background:"#FEF3C7",color:"#D97706",border:"none",borderRadius:5,fontSize:10.5,cursor:"pointer"}}>↓</button>}
+                            <button onClick={()=>deleteItem(item.id)} title="삭제"
+                              style={{padding:"3px 7px",background:"#FEE2E2",color:"#DC2626",border:"none",borderRadius:5,fontSize:10.5,cursor:"pointer"}}>✕</button>
+                          </div>
+                        </td>
+                      )}
                     </tr>
                   )
                 })}
                 <tr style={{background:sec.bg}}>
-                  <td colSpan={4} style={{...TD("right",sec.color,true)}}>소계 ({sec.items.length}건)</td>
+                  <td colSpan={6} style={{...TD("right",sec.color,true)}}>소계 ({sec.items.length}건)</td>
                   <td style={{...TD("right",sec.color,true)}}>{fA(sec.sum)}</td>
-                  <td colSpan={2}/>
+                  <td colSpan={isAdmin?7:6}/>
                 </tr>
               </tbody>
             </table>
@@ -8254,14 +8412,12 @@ function ContractStatusPage({contractItems=[], setContractItems, DEPTS, DEPT_COL
         <div style={{background:"#fff",borderRadius:14,border:"2px dashed #E5E7EB",padding:"60px",textAlign:"center",color:"#9CA3AF"}}>
           <div style={{fontSize:40,marginBottom:12}}>📋</div>
           <div style={{fontSize:16,fontWeight:700,marginBottom:8,color:"#374151"}}>계약현황 데이터가 없습니다</div>
-          <div style={{fontSize:13,marginBottom:16}}>⬇ 빈 양식을 다운로드하여 작성 후 ⬆ 엑셀 업로드 하세요.</div>
-          <div style={{fontSize:12,color:"#D97706",background:"#FEF3C7",padding:"10px 16px",borderRadius:10,display:"inline-block"}}>
-            ※ 계약현황은 월수금계획, 프로젝트 목록과 완전히 분리된 별도 데이터입니다.
-          </div>
+          <div style={{fontSize:13,marginBottom:16}}>⬇ 빈 양식을 다운로드하거나 + 추가 버튼으로 직접 입력하세요.</div>
         </div>
       )}
     </div>
   )
 }
+
 
 // ══════════════════════════════════════════════════════════════
