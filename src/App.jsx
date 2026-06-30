@@ -2120,16 +2120,27 @@ function uploadContractExcel(e, contractItems, setContractItems, currentUser, to
         if(rows[i].some(c=>String(c).includes("프로젝트명"))){headerRow=i;dataStart=i+1;break}
       }
       const headers = rows[headerRow].map(h=>String(h).trim())
-      const ci = (names)=>{ for(const n of names){ const i=headers.findIndex(h=>h.includes(n)); if(i>=0)return i } return -1 }
+      // 정확히 일치하는 헤더를 우선 찾고, 없으면 포함 검색 (단, 발주구분/구분 혼동 방지)
+      const ciExact = (name) => headers.findIndex(h=>h===name)
+      const ci = (names)=>{
+        for(const n of names){ const i=ciExact(n); if(i>=0) return i }
+        for(const n of names){ const i=headers.findIndex(h=>h.includes(n)); if(i>=0)return i }
+        return -1
+      }
       const CI = {
         dept:      ci(["본부"]),
-        orderType: ci(["발주구분","발주"]),
-        itemType:  ci(["구분"]),
+        orderType: ci(["발주구분"]),
+        itemType:  ci(["구분"]),  // 정확히 "구분"만 (발주구분과 별도)
         name:      ci(["프로젝트명"]),
         amount:    ci(["용역비총액","금액"]),
         shareRatio:ci(["상지지분","지분"]),
         memo:      ci(["메모","비고"]),
         id:        ci(["시스템ID","[시스템ID"]),
+      }
+      // 안전장치: itemType이 orderType과 같은 컬럼을 가리키면 강제로 다음 "구분" 컬럼 탐색
+      if(CI.itemType === CI.orderType) {
+        const altIdx = headers.findIndex((h,idx)=>idx!==CI.orderType && h.trim()==="구분")
+        if(altIdx>=0) CI.itemType = altIdx
       }
       // 구분 → type 매핑
       const typeMap = {"계약":"계약","계약(수주)":"계약","수주":"계약","확정":"확정","추진":"추진","미정":"추진"}
