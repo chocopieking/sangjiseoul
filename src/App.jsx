@@ -7949,14 +7949,19 @@ function MobileHub({setTab, tabOrder=[], currentUser, projects=[], cashItems=[]}
         </div>
       </div>
 
-      {/* 하단 고정 네비 (모바일) */}
-      <div style={{
+      {/* 하단 고정 네비 (모바일 전용 - 데스크탑에서는 사이드바와 겹치지 않게 처리) */}
+      <style>{`
+        @media (min-width: 769px) {
+          .sjs-mobile-bottom-nav { display: none !important; }
+        }
+      `}</style>
+      <div className="sjs-mobile-bottom-nav" style={{
         position:"fixed",bottom:0,left:0,right:0,
         background:"white",
         borderTop:"1px solid #E5E7EB",
         display:"flex",
         padding:"8px 0 env(safe-area-inset-bottom)",
-        zIndex:1000,
+        zIndex:50,
         boxShadow:"0 -4px 20px rgba(0,0,0,.08)"
       }}>
         {[
@@ -7987,14 +7992,36 @@ function ContractStatusPage({contractItems=[], setContractItems, DEPTS, DEPT_COL
   setSelProjId, setTab, isAdmin, setDetailTab}) {
 
   const toast  = useToast()
-  const fA     = v => v!==0&&Math.abs(v)>=1e8?`${(v/1e8).toFixed(2)}억`:Math.abs(v)>=1e4?`${Math.round(v/1e4)}만`:v!==0?(v||0).toLocaleString()+"원":"-"
+  // 비정상 대값 자동 보정: 단일 프로젝트 용역비가 1000억(1e11)을 넘는 경우는 사실상 없음
+  // (예전 업로드에서 억단위가 원단위로 중복 변환되어 저장된 경우 자동 복구)
+  const normFee = v => {
+    let n = Number(v)||0
+    let guard = 0
+    while(Math.abs(n) >= 1e11 && guard < 5) { n = n/1e8; guard++ }
+    return n
+  }
+  const fA = v => {
+    const n = normFee(v)
+    if(n===0) return "-"
+    const abs = Math.abs(n)
+    if(abs>=1e8) return `${(n/1e8).toFixed(2)}억`
+    if(abs>=1e4) return `${Math.round(n/1e4)}만`
+    return `${n.toLocaleString()}원`
+  }
   const fAin   = v => v>0?(v/1e8).toFixed(2):""  // 억원 단위 입력값
+
+  // 비정상 데이터 자동 감지 (1000억 초과 항목 존재 여부)
+  const hasAbnormalData = contractItems.some(i=>{
+    const raw = Number(i.serviceFeeExpect||i.amount||0)
+    return Math.abs(raw) >= 1e11
+  })
   const targets   = (yearTargets||{})[YEAR] || {}
   const tContract = (targets.contractTarget || 170) * 1e8
 
   const [editId, setEditId] = useState(null)   // 인라인 편집중인 항목 id
   const [draft,  setDraft]  = useState(null)
   const [expandedDept, setExpandedDept] = useState(null) // 본부별 펼침
+  const [showAIUpload, setShowAIUpload] = useState(false) // AI 계약서 분석 모달
 
   // 구분(type) 기준 분류 — 오직 이 필드만 사용
   const getType = (item) => {
@@ -8009,7 +8036,7 @@ function ContractStatusPage({contractItems=[], setContractItems, DEPTS, DEPT_COL
   const 확정Items = contractItems.filter(i=>getType(i)==="확정")
   const 추진Items = contractItems.filter(i=>getType(i)==="추진")
 
-  const sum = arr => arr.reduce((s,i)=>s+(i.serviceFeeExpect||i.amount||0),0)
+  const sum = arr => arr.reduce((s,i)=>s+normFee(i.serviceFeeExpect||i.amount||0),0)
   const 계약Sum = sum(계약Items)
   const 확정Sum = sum(확정Items)
   const 추진Sum = sum(추진Items)
@@ -8024,16 +8051,23 @@ function ContractStatusPage({contractItems=[], setContractItems, DEPTS, DEPT_COL
     return 0
   }
 
-  // 본부별 집계 (서비스비 예상 기준)
+  // 본부별 집계 (서비스비 예상 기준) + 클릭 상세를 위한 항목 리스트 포함
   const byDept = DEPTS.map(dept=>{
     const my = contractItems.filter(i=>(i.depts||[]).includes(dept)||(i.deptShares||[]).some(s=>s.dept===dept))
-    const feeOf = i => i.serviceFeeExpect || i.amount || 0
-    const 계약 = my.filter(i=>getType(i)==="계약").reduce((s,i)=>s+feeOf(i)*deptShare(i,dept),0)
-    const 확정 = my.filter(i=>getType(i)==="확정").reduce((s,i)=>s+feeOf(i)*deptShare(i,dept),0)
-    const 추진 = my.filter(i=>getType(i)==="추진").reduce((s,i)=>s+feeOf(i)*deptShare(i,dept),0)
+    const feeOf = i => normFee(i.serviceFeeExpect || i.amount || 0)
+    const items계약 = my.filter(i=>getType(i)==="계약")
+    const items확정 = my.filter(i=>getType(i)==="확정")
+    const items추진 = my.filter(i=>getType(i)==="추진")
+    const 계약 = items계약.reduce((s,i)=>s+feeOf(i)*deptShare(i,dept),0)
+    const 확정 = items확정.reduce((s,i)=>s+feeOf(i)*deptShare(i,dept),0)
+    const 추진 = items추진.reduce((s,i)=>s+feeOf(i)*deptShare(i,dept),0)
     const 목표 = ((deptBiz||{})[dept]?.orderTarget||0)*1e8
-    return {dept,계약,확정,추진,합계:계약+확정,목표,color:DEPT_COLORS[dept]||"#6B7280"}
+    return {dept,계약,확정,추진,합계:계약+확정,목표,color:DEPT_COLORS[dept]||"#6B7280",
+      items계약, items확정, items추진, items합계:[...items계약,...items확정]}
   }).filter(d=>d.합계+d.추진+d.목표>0)
+
+  // 클릭 상세보기 state: {dept, type, label, items, color}
+  const [detailView, setDetailView] = useState(null)
 
   const SECS = [
     {label:"✅ 계약 프로젝트", type:"계약", color:"#059669", bg:"#D1FAE5", border:"#059669", items:계약Items, sum:계약Sum},
@@ -8244,6 +8278,16 @@ function ContractStatusPage({contractItems=[], setContractItems, DEPTS, DEPT_COL
 
   return (
     <div>
+      {/* 비정상 금액 데이터 경고 */}
+      {hasAbnormalData && isAdmin && (
+        <div style={{background:"#FEE2E2",border:"2px solid #DC2626",borderRadius:12,padding:"12px 18px",marginBottom:14,display:"flex",alignItems:"center",gap:10}}>
+          <span style={{fontSize:20}}>⚠️</span>
+          <div style={{flex:1,fontSize:13,color:"#991B1B"}}>
+            <strong>금액 단위 오류가 감지되었습니다.</strong> 일부 프로젝트 금액이 비정상적으로 큰 값으로 표시됩니다.
+            아래 <strong>🔧 금액 단위 보정</strong> 버튼을 눌러 데이터를 영구적으로 수정하세요. (화면에는 자동 보정되어 표시되지만, 저장된 원본 데이터는 그대로입니다)
+          </div>
+        </div>
+      )}
       {/* KPI 배너 */}
       <div style={{background:"linear-gradient(135deg,#065F46,#059669)",borderRadius:16,padding:"22px 28px",marginBottom:16,color:"#fff"}}>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",flexWrap:"wrap",gap:16}}>
@@ -8282,6 +8326,29 @@ function ContractStatusPage({contractItems=[], setContractItems, DEPTS, DEPT_COL
             <input type="file" accept=".xlsx,.xls" style={{display:"none"}}
               onChange={e=>uploadContractExcel(e,contractItems,setContractItems,currentUser,toast)}/>
           </label>
+          <button onClick={()=>setShowAIUpload(true)}
+            style={{padding:"7px 14px",background:"linear-gradient(135deg,#6366F1,#8B5CF6)",color:"#fff",border:"none",borderRadius:9,fontSize:12.5,fontWeight:800,cursor:"pointer",display:"inline-flex",alignItems:"center",gap:5,boxShadow:"0 2px 8px rgba(99,102,241,.3)"}}>
+            🤖 계약서 AI 분석
+          </button>
+          <button onClick={()=>{
+            if(!window.confirm("금액 단위 오류를 자동 보정합니다. 계속하시겠습니까?")) return
+            setContractItems(prev=>prev.map(i=>{
+              const fixedSvc   = normFee(i.serviceFeeExpect||i.amount||0)
+              const fixedTotal = normFee(i.totalFeeExpect||0)
+              const fixedBiz   = normFee(i.bizCompFee||0)
+              return {
+                ...i,
+                serviceFeeExpect: fixedSvc,
+                amount: fixedSvc,  // amount와 serviceFeeExpect를 동일한 정규화값으로 통일
+                totalFeeExpect: fixedTotal,
+                bizCompFee: fixedBiz,
+              }
+            }))
+            toast&&toast("금액 단위 보정 완료","success")
+          }} style={{padding:"7px 14px",background:hasAbnormalData?"#DC2626":"#FEE2E2",color:hasAbnormalData?"#fff":"#DC2626",border:"none",borderRadius:9,fontSize:12.5,fontWeight:800,cursor:"pointer",animation:hasAbnormalData?"pulse 1.5s infinite":"none"}}>
+            🔧 금액 단위 보정{hasAbnormalData?" (필요!)":""}
+          </button>
+          <style>{`@keyframes pulse{0%,100%{opacity:1}50%{opacity:.6}}`}</style>
           <div style={{display:"flex",gap:6,marginLeft:"auto"}}>
             <button onClick={()=>addItem("계약")} style={{padding:"7px 13px",background:"#D1FAE5",color:"#059669",border:"none",borderRadius:9,fontSize:12,fontWeight:700,cursor:"pointer"}}>+ 계약 추가</button>
             <button onClick={()=>addItem("확정")} style={{padding:"7px 13px",background:"#EEF2FF",color:"#6366F1",border:"none",borderRadius:9,fontSize:12,fontWeight:700,cursor:"pointer"}}>+ 확정 추가</button>
@@ -8293,7 +8360,10 @@ function ContractStatusPage({contractItems=[], setContractItems, DEPTS, DEPT_COL
       {/* 본부별 요약 */}
       {byDept.length>0&&(
         <div style={{background:"#fff",borderRadius:14,border:"1px solid #E5E7EB",overflow:"hidden",marginBottom:14}}>
-          <div style={{padding:"13px 18px",borderBottom:"1px solid #E5E7EB",fontSize:14,fontWeight:800,color:"#111827"}}>📊 본부별 계약 현황 (지분 반영)</div>
+          <div style={{padding:"13px 18px",borderBottom:"1px solid #E5E7EB",fontSize:14,fontWeight:800,color:"#111827",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+            <span>📊 본부별 계약 현황 (지분 반영)</span>
+            <span style={{fontSize:11.5,fontWeight:500,color:"#9CA3AF"}}>금액 클릭 → 상세 프로젝트 보기</span>
+          </div>
           <div style={{overflowX:"auto"}}>
             <table style={{width:"100%",borderCollapse:"collapse"}}>
               <thead><tr>
@@ -8302,35 +8372,115 @@ function ContractStatusPage({contractItems=[], setContractItems, DEPTS, DEPT_COL
                 ))}
               </tr></thead>
               <tbody>
-                {byDept.map((d,i)=>(
-                  <tr key={d.dept} style={{background:i%2===0?"#fff":"#FAFAFA"}}>
-                    <td style={TD("left","#111827",true)}>
-                      <div style={{display:"flex",alignItems:"center",gap:7}}>
-                        <div style={{width:8,height:8,borderRadius:"50%",background:d.color}}/>{d.dept}
-                      </div>
-                    </td>
-                    <td style={TD("right","#DC2626")}>{d.목표>0?fA(d.목표):"-"}</td>
-                    <td style={TD("right","#059669",true)}>{d.계약>0?fA(d.계약):"-"}</td>
-                    <td style={TD("right","#6366F1")}>{d.확정>0?fA(d.확정):"-"}</td>
-                    <td style={{...TD("right","#059669",true),background:"#ECFDF5"}}>{d.합계>0?fA(d.합계):"-"}</td>
-                    <td style={TD("right","#D97706")}>{d.추진>0?fA(d.추진):"-"}</td>
-                    <td style={{...TD(),color:d.목표>0&&d.합계/d.목표>=1?"#059669":d.목표>0&&d.합계/d.목표>=0.7?"#D97706":"#DC2626",fontWeight:700}}>
-                      {d.목표>0?Math.round(d.합계/d.목표*100)+"%":"-"}
-                    </td>
-                  </tr>
-                ))}
+                {byDept.map((d,i)=>{
+                  const Cell = ({val, items, type, color, bg, bold}) => {
+                    const clickable = val>0 && items && items.length>0
+                    const isActive = detailView&&detailView.dept===d.dept&&detailView.type===type
+                    return (
+                      <td style={{...TD("right",color,bold),background:isActive?"#FEF9C3":bg,
+                        cursor:clickable?"pointer":"default",
+                        textDecoration:clickable?"underline":"none",
+                        textDecorationStyle:"dotted",textUnderlineOffset:3}}
+                        onClick={()=>{
+                          if(!clickable) return
+                          if(isActive) setDetailView(null)
+                          else setDetailView({dept:d.dept, type, label:`${d.dept} · ${type}`, items, color})
+                        }}>
+                        {val>0?fA(val):"-"}
+                      </td>
+                    )
+                  }
+                  return (
+                    <tr key={d.dept} style={{background:i%2===0?"#fff":"#FAFAFA"}}>
+                      <td style={TD("left","#111827",true)}>
+                        <div style={{display:"flex",alignItems:"center",gap:7}}>
+                          <div style={{width:8,height:8,borderRadius:"50%",background:d.color}}/>{d.dept}
+                        </div>
+                      </td>
+                      <td style={TD("right","#DC2626")}>{d.목표>0?fA(d.목표):"-"}</td>
+                      <Cell val={d.계약} items={d.items계약} type="계약" color="#059669" bold/>
+                      <Cell val={d.확정} items={d.items확정} type="확정" color="#6366F1"/>
+                      <Cell val={d.합계} items={d.items합계} type="합계(계약+확정)" color="#059669" bg="#ECFDF5" bold/>
+                      <Cell val={d.추진} items={d.items추진} type="추진" color="#D97706"/>
+                      <td style={{...TD(),color:d.목표>0&&d.합계/d.목표>=1?"#059669":d.목표>0&&d.합계/d.목표>=0.7?"#D97706":"#DC2626",fontWeight:700}}>
+                        {d.목표>0?Math.round(d.합계/d.목표*100)+"%":"-"}
+                      </td>
+                    </tr>
+                  )
+                })}
                 <tr style={{background:"#EEF2FF",borderTop:"2px solid #6366F1"}}>
                   <td style={TD("left","#312E81",true)}>합계</td>
                   <td style={TD("right","#DC2626",true)}>{fA(byDept.reduce((s,d)=>s+d.목표,0))}</td>
-                  <td style={TD("right","#059669",true)}>{fA(계약Sum)}</td>
-                  <td style={TD("right","#6366F1",true)}>{fA(확정Sum)}</td>
-                  <td style={{...TD("right","#059669",true),background:"#A7F3D0"}}>{fA(합계)}</td>
-                  <td style={TD("right","#D97706",true)}>{fA(추진Sum)}</td>
+                  <td style={{...TD("right","#059669",true),cursor:계약Sum>0?"pointer":"default",textDecoration:계약Sum>0?"underline":"none",textDecorationStyle:"dotted"}}
+                    onClick={()=>계약Sum>0&&setDetailView(prev=>prev?.type==="전체계약"?null:{dept:"전체",type:"전체계약",label:"전체 · 계약",items:계약Items,color:"#059669"})}>
+                    {fA(계약Sum)}
+                  </td>
+                  <td style={{...TD("right","#6366F1",true),cursor:확정Sum>0?"pointer":"default",textDecoration:확정Sum>0?"underline":"none",textDecorationStyle:"dotted"}}
+                    onClick={()=>확정Sum>0&&setDetailView(prev=>prev?.type==="전체확정"?null:{dept:"전체",type:"전체확정",label:"전체 · 확정",items:확정Items,color:"#6366F1"})}>
+                    {fA(확정Sum)}
+                  </td>
+                  <td style={{...TD("right","#059669",true),background:"#A7F3D0",cursor:합계>0?"pointer":"default",textDecoration:합계>0?"underline":"none",textDecorationStyle:"dotted"}}
+                    onClick={()=>합계>0&&setDetailView(prev=>prev?.type==="전체합계"?null:{dept:"전체",type:"전체합계",label:"전체 · 계약+확정",items:[...계약Items,...확정Items],color:"#059669"})}>
+                    {fA(합계)}
+                  </td>
+                  <td style={{...TD("right","#D97706",true),cursor:추진Sum>0?"pointer":"default",textDecoration:추진Sum>0?"underline":"none",textDecorationStyle:"dotted"}}
+                    onClick={()=>추진Sum>0&&setDetailView(prev=>prev?.type==="전체추진"?null:{dept:"전체",type:"전체추진",label:"전체 · 추진",items:추진Items,color:"#D97706"})}>
+                    {fA(추진Sum)}
+                  </td>
                   <td style={TD("right","#059669",true)}>{tContract>0?Math.round(합계/tContract*100)+"%":"-"}</td>
                 </tr>
               </tbody>
             </table>
           </div>
+
+          {/* 상세 프로젝트 리스트 (클릭 시 펼침) */}
+          {detailView&&(
+            <div style={{borderTop:`3px solid ${detailView.color}`,background:`${detailView.color}0A`,padding:"14px 18px"}}>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
+                <div style={{fontSize:13.5,fontWeight:800,color:detailView.color}}>
+                  📋 {detailView.label} — {detailView.items.length}건 / {fA(detailView.items.reduce((s,i)=>s+normFee(i.serviceFeeExpect||i.amount||0)*(detailView.dept==="전체"?1:deptShare(i,detailView.dept)),0))}
+                </div>
+                <button onClick={()=>setDetailView(null)}
+                  style={{padding:"4px 10px",background:"#fff",color:"#6B7280",border:"1px solid #E5E7EB",borderRadius:7,fontSize:11.5,cursor:"pointer"}}>
+                  ✕ 닫기
+                </button>
+              </div>
+              <div style={{background:"#fff",borderRadius:10,border:"1px solid #E5E7EB",overflow:"hidden"}}>
+                <table style={{width:"100%",borderCollapse:"collapse"}}>
+                  <thead><tr style={{background:"#F8FAFC"}}>
+                    {["연번","구분","본부(지분)","프로젝트명","해당금액","전체용역비"].map((h,i)=>(
+                      <th key={h} style={TH(i>=4?"right":i===0?"center":"left")}>{h}</th>
+                    ))}
+                  </tr></thead>
+                  <tbody>
+                    {detailView.items.map((item,i)=>{
+                      const fullFee = normFee(item.serviceFeeExpect||item.amount||0)
+                      const sh = detailView.dept==="전체" ? 1 : deptShare(item, detailView.dept)
+                      const myFee = fullFee*sh
+                      const t = getType(item)
+                      const tColor = t==="계약"?"#059669":t==="확정"?"#6366F1":"#D97706"
+                      const deptLabel = (item.deptShares||[]).length>1
+                        ? (item.deptShares||[]).map(s=>`${s.dept}:${s.share}%`).join(" / ")
+                        : (item.depts||[]).join(", ")
+                      return (
+                        <tr key={item.id||i} style={{background:i%2===0?"#fff":"#FAFAFA",cursor:"pointer"}}
+                          onClick={()=>startEdit(item)}>
+                          <td style={{...TD("center","#9CA3AF"),fontSize:11.5}}>{i+1}</td>
+                          <td style={TD("left")}>
+                            <span style={{fontSize:10.5,padding:"1px 7px",borderRadius:9,background:tColor+"18",color:tColor,fontWeight:700}}>{t}</span>
+                          </td>
+                          <td style={{...TD("left","#6B7280"),fontSize:11.5}}>{deptLabel}</td>
+                          <td style={{...TD("left","#111827",true)}}>{item.name}</td>
+                          <td style={{...TD("right",detailView.color,true)}}>{fA(myFee)}</td>
+                          <td style={{...TD("right","#9CA3AF"),fontSize:11.5}}>{fA(fullFee)}</td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
@@ -8355,7 +8505,9 @@ function ContractStatusPage({contractItems=[], setContractItems, DEPTS, DEPT_COL
                   const depts = (item.deptShares||[]).length>1
                     ? (item.deptShares||[]).map(s=>`${s.dept}:${s.share}%`).join(" / ")
                     : (item.depts||[]).join(", ")||"-"
-                  const svcFee = item.serviceFeeExpect||item.amount||0
+                  const svcFee = normFee(item.serviceFeeExpect||item.amount||0)
+                  const totalFee = normFee(item.totalFeeExpect||0)
+                  const bizFee = normFee(item.bizCompFee||0)
                   return (
                     <tr key={item.id||i} style={{background:i%2===0?"#fff":"#FAFAFA"}}>
                       <td style={{...TD("center","#9CA3AF"),fontSize:11.5}}>{i+1}</td>
@@ -8371,11 +8523,11 @@ function ContractStatusPage({contractItems=[], setContractItems, DEPTS, DEPT_COL
                         {item.contractYear&&String(item.contractYear)===YR&&
                           <span style={{marginLeft:5,fontSize:9,background:sec.color,color:"#fff",padding:"1px 5px",borderRadius:5}}>{YR}신규</span>}
                       </td>
-                      <td style={{...TD("right","#374151"),whiteSpace:"nowrap"}}>{item.totalFeeExpect?fA(item.totalFeeExpect):"-"}</td>
+                      <td style={{...TD("right","#374151"),whiteSpace:"nowrap"}}>{totalFee?fA(totalFee):"-"}</td>
                       <td style={{...TD("right","#6366F1"),whiteSpace:"nowrap"}}>{item.shareRatioExpect?item.shareRatioExpect+"%":"-"}</td>
                       <td style={{...TD("right",sec.color,true),whiteSpace:"nowrap"}}>{fA(svcFee)}</td>
                       <td style={{...TD("right","#D97706"),whiteSpace:"nowrap"}}>{item.bizCompPct?item.bizCompPct+"%":"-"}</td>
-                      <td style={{...TD("right","#D97706",true),whiteSpace:"nowrap"}}>{item.bizCompFee?fA(item.bizCompFee):"-"}</td>
+                      <td style={{...TD("right","#D97706",true),whiteSpace:"nowrap"}}>{bizFee?fA(bizFee):"-"}</td>
                       <td style={{...TD("right","#6B7280"),fontSize:11.5,whiteSpace:"nowrap"}}>{item.execTime||"-"}</td>
                       <td style={{...TD("right","#6B7280"),fontSize:11.5,whiteSpace:"nowrap"}}>{item.contractTime||"-"}</td>
                       <td style={{...TD("left","#6B7280"),fontSize:11.5,maxWidth:130,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}} title={item.consortium||""}>{item.consortium||"-"}</td>
@@ -8415,9 +8567,397 @@ function ContractStatusPage({contractItems=[], setContractItems, DEPTS, DEPT_COL
           <div style={{fontSize:13,marginBottom:16}}>⬇ 빈 양식을 다운로드하거나 + 추가 버튼으로 직접 입력하세요.</div>
         </div>
       )}
+
+      {/* 🤖 계약서 AI 분석 모달 */}
+      {showAIUpload && (
+        <ContractAIUpload
+          contractItems={contractItems}
+          setContractItems={setContractItems}
+          DEPTS={DEPTS}
+          currentUser={currentUser}
+          onClose={()=>setShowAIUpload(false)}
+        />
+      )}
     </div>
   )
 }
 
 
 // ══════════════════════════════════════════════════════════════
+
+// ══════════════════════════════════════════════════════════════
+// 🤖 계약서 AI 분석 업로드 모듈
+//    PDF/이미지 업로드 → Claude Vision으로 계약 정보 자동 추출
+// ══════════════════════════════════════════════════════════════
+function ContractAIUpload({contractItems, setContractItems, DEPTS, currentUser, onClose}) {
+  const [file, setFile] = useState(null)
+  const [preview, setPreview] = useState(null)
+  const [status, setStatus] = useState("idle") // idle | reading | analyzing | done | error
+  const [extracted, setExtracted] = useState(null)
+  const [errorMsg, setErrorMsg] = useState("")
+  const [editForm, setEditForm] = useState(null)
+  const [saveMode, setSaveMode] = useState("new") // new | merge
+  const [matchTarget, setMatchTarget] = useState("")
+
+  const INP = {padding:"8px 11px",border:"1.5px solid #E5E7EB",borderRadius:8,fontSize:13,width:"100%",boxSizing:"border-box",fontFamily:"inherit",outline:"none"}
+  const LBL = {fontSize:11.5,fontWeight:700,color:"#6366F1",display:"block",marginBottom:4}
+
+  const handleFile = (f) => {
+    if(!f) return
+    setFile(f)
+    setExtracted(null); setEditForm(null); setStatus("idle"); setErrorMsg("")
+    if(f.type.startsWith("image/")) {
+      const reader = new FileReader()
+      reader.onload = e => setPreview(e.target.result)
+      reader.readAsDataURL(f)
+    } else {
+      setPreview(null)
+    }
+  }
+
+  // 파일 → base64 변환
+  const fileToBase64 = (f) => new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => resolve(reader.result.split(",")[1])
+    reader.onerror = reject
+    reader.readAsDataURL(f)
+  })
+
+  // AI 분석 실행
+  const analyze = async () => {
+    if(!file) return
+    setStatus("reading")
+    setErrorMsg("")
+    try {
+      const base64 = await fileToBase64(file)
+      const mediaType = file.type || (file.name.endsWith(".pdf") ? "application/pdf" : "image/jpeg")
+
+      setStatus("analyzing")
+
+      const isPdf = mediaType === "application/pdf"
+      const contentBlock = isPdf
+        ? { type:"document", source:{ type:"base64", media_type:"application/pdf", data: base64 } }
+        : { type:"image", source:{ type:"base64", media_type: mediaType, data: base64 } }
+
+      const systemPrompt = `당신은 건축설계 계약서 분석 전문 AI입니다.
+업로드된 계약서(또는 제안서/공문) 문서에서 아래 항목을 정확히 추출하여 JSON으로만 응답하세요.
+설명, 마크다운 코드블록, 추가 텍스트 없이 순수 JSON 객체만 출력하세요.
+
+추출 항목:
+{
+  "name": "프로젝트명/공사명 (정식 명칭)",
+  "client": "발주처/건축주명",
+  "orderType": "공공 또는 민간 또는 해외 (셋 중 하나, 발주처 성격으로 판단)",
+  "bidType": "공모형식 (예: 기술제안, 수의계약, 현상설계, 일반공모 등 - 문서에서 추정)",
+  "totalFeeExpect": "총 공사비/사업비 (숫자만, 원 단위, 모르면 0)",
+  "serviceFeeExpect": "설계용역비/계약금액 (숫자만, 원 단위)",
+  "shareRatioExpect": "상지 지분율 (숫자, %, 컨소시엄 구성 시 상지서울 지분, 단독이면 100)",
+  "consortium": "컨소시엄 구성사 (쉼표로 구분, 단독이면 빈 문자열)",
+  "contractDate": "계약일자 (YYYY-MM-DD 형식, 모르면 빈 문자열)",
+  "execTime": "착수/수행 예상시점 (자유 텍스트, 예: 2026년 1월)",
+  "contractTime": "계약 체결 예상시점 (자유 텍스트)",
+  "type": "계약 또는 확정 또는 추진 (문서가 정식 계약서면 계약, 가계약/MOU면 확정, 제안서/공모참여면 추진)",
+  "note": "특이사항 요약 (1줄, 공고일정/조건 등)",
+  "confidence": "분석 신뢰도 (높음/중간/낮음)"
+}
+
+금액은 반드시 숫자만(쉼표·단위 없이) 원 단위로 변환하세요. 예: "17억 5천만원" → 1755000000
+문서에 명시되지 않은 항목은 빈 문자열 또는 0으로 두세요.`
+
+      const res = await fetch("/api/chat", {
+        method: "POST",
+        headers: {"Content-Type":"application/json"},
+        body: JSON.stringify({
+          model: "claude-sonnet-4-6",
+          max_tokens: 1500,
+          system: systemPrompt,
+          messages: [{
+            role: "user",
+            content: [
+              contentBlock,
+              { type:"text", text:"이 계약서/문서에서 정보를 추출하여 지정된 JSON 형식으로만 응답하세요." }
+            ]
+          }]
+        })
+      })
+
+      if(!res.ok) throw new Error(`서버 응답 오류 (${res.status})`)
+      const json = await res.json()
+      const text = json.content?.[0]?.text || ""
+
+      // JSON 파싱 (코드블록 제거)
+      const cleaned = text.replace(/```json|```/g, "").trim()
+      const parsed = JSON.parse(cleaned)
+
+      setExtracted(parsed)
+      setEditForm({
+        name: parsed.name || "",
+        client: parsed.client || "",
+        orderType: parsed.orderType || "민간",
+        bidType: parsed.bidType || "",
+        totalFeeExpect: Number(parsed.totalFeeExpect)||0,
+        serviceFeeExpect: Number(parsed.serviceFeeExpect)||0,
+        shareRatioExpect: Number(parsed.shareRatioExpect)||100,
+        consortium: parsed.consortium || "",
+        contractDate: parsed.contractDate || "",
+        execTime: parsed.execTime || "",
+        contractTime: parsed.contractTime || "",
+        type: ["계약","확정","추진"].includes(parsed.type) ? parsed.type : "추진",
+        note: parsed.note || "",
+        depts: [DEPTS[0]],
+        deptShares: [{dept:DEPTS[0], share:100}],
+      })
+      setStatus("done")
+
+      // 기존 항목 이름 유사 매칭 제안
+      const similar = contractItems.find(i=>i.name && parsed.name &&
+        (i.name.includes(parsed.name.slice(0,8)) || parsed.name.includes(i.name.slice(0,8))))
+      if(similar) { setSaveMode("merge"); setMatchTarget(similar.id) }
+
+    } catch(e) {
+      setStatus("error")
+      setErrorMsg(e.message?.includes("Failed to fetch")
+        ? "서버 연결 오류입니다. Vercel에 ANTHROPIC_API_KEY가 설정되어 있는지 확인하세요."
+        : `분석 오류: ${e.message}`)
+    }
+  }
+
+  const fA = v => v>0 ? `${(v/1e8).toFixed(2)}억` : "-"
+
+  const saveResult = () => {
+    if(!editForm) return
+    const bizCompFee = 0
+    const id = saveMode==="merge" && matchTarget ? matchTarget : `C${Date.now()}_${Math.random().toString(36).slice(2,6)}`
+
+    const item = {
+      id, ...editForm,
+      amount: editForm.serviceFeeExpect,
+      bizCompPct: 100, bizCompFee,
+      contractYear: new Date().getFullYear(),
+      updatedAt: new Date().toISOString(),
+      updatedBy: currentUser?.name||"",
+      aiExtracted: true,
+    }
+
+    if(saveMode==="merge" && matchTarget) {
+      setContractItems(prev=>prev.map(i=>i.id===matchTarget?{...i,...item,id:matchTarget}:i))
+    } else {
+      setContractItems(prev=>[...prev, item])
+    }
+    onClose&&onClose()
+  }
+
+  const u = (k,v) => setEditForm(p=>({...p,[k]:v}))
+
+  return (
+    <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.5)",zIndex:2000,display:"flex",alignItems:"center",justifyContent:"center",padding:20}}
+      onClick={e=>{if(e.target===e.currentTarget) onClose&&onClose()}}>
+      <div style={{background:"#fff",borderRadius:18,maxWidth:720,width:"100%",maxHeight:"90vh",overflowY:"auto",boxShadow:"0 20px 60px rgba(0,0,0,.3)"}}>
+
+        {/* 헤더 */}
+        <div style={{background:"linear-gradient(135deg,#6366F1,#8B5CF6)",borderRadius:"18px 18px 0 0",padding:"20px 24px",color:"#fff",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+          <div>
+            <div style={{fontSize:17,fontWeight:800,display:"flex",alignItems:"center",gap:8}}>
+              🤖 계약서 AI 분석
+            </div>
+            <div style={{fontSize:12.5,opacity:.85,marginTop:3}}>계약서·제안서를 업로드하면 AI가 핵심 정보를 자동으로 추출합니다</div>
+          </div>
+          <button onClick={onClose} style={{background:"rgba(255,255,255,.2)",border:"none",color:"#fff",width:30,height:30,borderRadius:"50%",cursor:"pointer",fontSize:16}}>✕</button>
+        </div>
+
+        <div style={{padding:24}}>
+          {/* 1단계: 파일 업로드 */}
+          {status==="idle" && !extracted && (
+            <div>
+              <label style={{
+                display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",
+                border:"2px dashed #C7D2FE",borderRadius:14,padding:"40px 20px",cursor:"pointer",
+                background:file?"#EEF2FF":"#FAFAFA",transition:"all .2s"
+              }}>
+                <input type="file" accept=".pdf,.png,.jpg,.jpeg,.webp" style={{display:"none"}}
+                  onChange={e=>handleFile(e.target.files?.[0])}/>
+                <span style={{fontSize:40,marginBottom:10}}>{file ? "📄" : "📤"}</span>
+                {file ? (
+                  <div style={{textAlign:"center"}}>
+                    <div style={{fontSize:14,fontWeight:700,color:"#312E81"}}>{file.name}</div>
+                    <div style={{fontSize:11.5,color:"#6B7280",marginTop:3}}>{(file.size/1024).toFixed(0)} KB · 클릭하여 다른 파일 선택</div>
+                  </div>
+                ) : (
+                  <div style={{textAlign:"center"}}>
+                    <div style={{fontSize:14,fontWeight:700,color:"#374151"}}>계약서 파일을 선택하세요</div>
+                    <div style={{fontSize:11.5,color:"#9CA3AF",marginTop:3}}>PDF, JPG, PNG 지원 (최대 20MB)</div>
+                  </div>
+                )}
+              </label>
+
+              {preview && (
+                <div style={{marginTop:14,borderRadius:10,overflow:"hidden",border:"1px solid #E5E7EB",maxHeight:280}}>
+                  <img src={preview} alt="미리보기" style={{width:"100%",display:"block",objectFit:"contain"}}/>
+                </div>
+              )}
+
+              <button onClick={analyze} disabled={!file}
+                style={{width:"100%",marginTop:16,padding:"12px",background:file?"linear-gradient(135deg,#6366F1,#8B5CF6)":"#E5E7EB",
+                  color:file?"#fff":"#9CA3AF",border:"none",borderRadius:11,fontSize:14.5,fontWeight:800,cursor:file?"pointer":"not-allowed"}}>
+                ✨ AI로 계약 내용 분석하기
+              </button>
+            </div>
+          )}
+
+          {/* 2단계: 분석 중 */}
+          {(status==="reading"||status==="analyzing") && (
+            <div style={{textAlign:"center",padding:"50px 20px"}}>
+              <div style={{fontSize:40,marginBottom:16,animation:"spin 2s linear infinite"}}>🔍</div>
+              <div style={{fontSize:15,fontWeight:700,color:"#374151",marginBottom:6}}>
+                {status==="reading" ? "문서를 읽는 중..." : "AI가 계약 내용을 분석하는 중..."}
+              </div>
+              <div style={{fontSize:12.5,color:"#9CA3AF"}}>프로젝트명, 금액, 발주처, 계약조건 등을 추출하고 있습니다</div>
+              <style>{`@keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}`}</style>
+            </div>
+          )}
+
+          {/* 에러 */}
+          {status==="error" && (
+            <div style={{background:"#FEE2E2",borderRadius:12,padding:"18px 20px",color:"#991B1B"}}>
+              <div style={{fontWeight:700,marginBottom:6}}>⚠ 분석 실패</div>
+              <div style={{fontSize:13}}>{errorMsg}</div>
+              <button onClick={()=>{setStatus("idle");setErrorMsg("")}}
+                style={{marginTop:12,padding:"7px 16px",background:"#fff",color:"#991B1B",border:"1px solid #FCA5A5",borderRadius:8,fontSize:12.5,fontWeight:700,cursor:"pointer"}}>
+                다시 시도
+              </button>
+            </div>
+          )}
+
+          {/* 3단계: 추출 결과 확인/수정 */}
+          {status==="done" && editForm && (
+            <div>
+              <div style={{background:"#D1FAE5",borderRadius:10,padding:"10px 14px",marginBottom:16,display:"flex",alignItems:"center",gap:8}}>
+                <span style={{fontSize:18}}>✅</span>
+                <div style={{fontSize:13,color:"#065F46",fontWeight:600}}>
+                  분석 완료! 아래 내용을 확인하고 필요시 수정한 후 저장하세요.
+                  {extracted?.confidence && <span style={{marginLeft:8,fontSize:11,opacity:.8}}>(신뢰도: {extracted.confidence})</span>}
+                </div>
+              </div>
+
+              <div style={{display:"grid",gridTemplateColumns:"2fr 1fr",gap:10,marginBottom:10}}>
+                <div>
+                  <label style={LBL}>프로젝트명</label>
+                  <input value={editForm.name} onChange={e=>u("name",e.target.value)} style={INP}/>
+                </div>
+                <div>
+                  <label style={LBL}>구분</label>
+                  <select value={editForm.type} onChange={e=>u("type",e.target.value)} style={INP}>
+                    <option value="계약">계약</option><option value="확정">확정</option><option value="추진">추진</option>
+                  </select>
+                </div>
+              </div>
+
+              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10,marginBottom:10}}>
+                <div>
+                  <label style={LBL}>발주처</label>
+                  <input value={editForm.client} onChange={e=>u("client",e.target.value)} style={INP}/>
+                </div>
+                <div>
+                  <label style={LBL}>발주구분</label>
+                  <select value={editForm.orderType} onChange={e=>u("orderType",e.target.value)} style={INP}>
+                    <option value="민간">민간</option><option value="공공">공공</option><option value="해외">해외</option>
+                  </select>
+                </div>
+                <div>
+                  <label style={LBL}>공모형식</label>
+                  <input value={editForm.bidType} onChange={e=>u("bidType",e.target.value)} style={INP}/>
+                </div>
+              </div>
+
+              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10,marginBottom:10}}>
+                <div>
+                  <label style={LBL}>총설계비(예상) — 억원</label>
+                  <input type="number" step="0.01" value={editForm.totalFeeExpect?(editForm.totalFeeExpect/1e8).toFixed(2):""}
+                    onChange={e=>u("totalFeeExpect",Math.round((parseFloat(e.target.value)||0)*1e8))} style={INP}/>
+                </div>
+                <div>
+                  <label style={LBL}>상지지분(예상) — %</label>
+                  <input type="number" value={editForm.shareRatioExpect} onChange={e=>u("shareRatioExpect",parseFloat(e.target.value)||0)} style={INP}/>
+                </div>
+                <div>
+                  <label style={LBL}>용역비(예상) — 억원</label>
+                  <input type="number" step="0.01" value={editForm.serviceFeeExpect?(editForm.serviceFeeExpect/1e8).toFixed(2):""}
+                    onChange={e=>u("serviceFeeExpect",Math.round((parseFloat(e.target.value)||0)*1e8))} style={INP}/>
+                </div>
+              </div>
+
+              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10,marginBottom:10}}>
+                <div>
+                  <label style={LBL}>계약일자</label>
+                  <input type="date" value={editForm.contractDate} onChange={e=>u("contractDate",e.target.value)} style={INP}/>
+                </div>
+                <div>
+                  <label style={LBL}>수행예상시점</label>
+                  <input value={editForm.execTime} onChange={e=>u("execTime",e.target.value)} style={INP}/>
+                </div>
+                <div>
+                  <label style={LBL}>계약예상시점</label>
+                  <input value={editForm.contractTime} onChange={e=>u("contractTime",e.target.value)} style={INP}/>
+                </div>
+              </div>
+
+              <div style={{display:"grid",gridTemplateColumns:"1fr 2fr",gap:10,marginBottom:10}}>
+                <div>
+                  <label style={LBL}>컨소시엄</label>
+                  <input value={editForm.consortium} onChange={e=>u("consortium",e.target.value)} placeholder="단독이면 비워두세요" style={INP}/>
+                </div>
+                <div>
+                  <label style={LBL}>내용/특이사항</label>
+                  <input value={editForm.note} onChange={e=>u("note",e.target.value)} style={INP}/>
+                </div>
+              </div>
+
+              {/* 담당 본부 */}
+              <div style={{marginBottom:14}}>
+                <label style={LBL}>담당 본부</label>
+                <select value={editForm.depts[0]} onChange={e=>{u("depts",[e.target.value]);u("deptShares",[{dept:e.target.value,share:100}])}} style={INP}>
+                  {DEPTS.map(d=><option key={d} value={d}>{d}</option>)}
+                </select>
+              </div>
+
+              {/* 저장 방식 */}
+              <div style={{background:"#F9FAFB",borderRadius:10,padding:"12px 14px",marginBottom:16,border:"1px solid #E5E7EB"}}>
+                <label style={LBL}>저장 방식</label>
+                <div style={{display:"flex",gap:8}}>
+                  <button onClick={()=>setSaveMode("new")}
+                    style={{flex:1,padding:"8px",border:`2px solid ${saveMode==="new"?"#6366F1":"#E5E7EB"}`,borderRadius:8,
+                      background:saveMode==="new"?"#EEF2FF":"#fff",color:saveMode==="new"?"#312E81":"#6B7280",fontSize:12.5,fontWeight:700,cursor:"pointer"}}>
+                    🆕 신규 프로젝트로 추가
+                  </button>
+                  {matchTarget && (
+                    <button onClick={()=>setSaveMode("merge")}
+                      style={{flex:1,padding:"8px",border:`2px solid ${saveMode==="merge"?"#D97706":"#E5E7EB"}`,borderRadius:8,
+                        background:saveMode==="merge"?"#FEF3C7":"#fff",color:saveMode==="merge"?"#92400E":"#6B7280",fontSize:12.5,fontWeight:700,cursor:"pointer"}}>
+                      🔗 기존 프로젝트 업데이트
+                    </button>
+                  )}
+                </div>
+                {saveMode==="merge"&&matchTarget&&(
+                  <div style={{fontSize:11.5,color:"#92400E",marginTop:6}}>
+                    유사 프로젝트 발견: "{contractItems.find(i=>i.id===matchTarget)?.name}" — 이 항목을 업데이트합니다.
+                  </div>
+                )}
+              </div>
+
+              <div style={{display:"flex",gap:8}}>
+                <button onClick={()=>{setStatus("idle");setExtracted(null);setEditForm(null)}}
+                  style={{padding:"10px 18px",background:"#F3F4F6",color:"#6B7280",border:"none",borderRadius:9,fontSize:13,fontWeight:600,cursor:"pointer"}}>
+                  다시 분석
+                </button>
+                <button onClick={saveResult}
+                  style={{flex:1,padding:"10px",background:"linear-gradient(135deg,#059669,#10B981)",color:"#fff",border:"none",borderRadius:9,fontSize:14,fontWeight:800,cursor:"pointer"}}>
+                  💾 계약현황에 저장
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
