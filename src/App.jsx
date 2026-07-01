@@ -407,9 +407,19 @@ export default function App() {
       else if (key==="sjs_staff_monthly")    setStaffMonthlyRaw(value)
       else if (key==="sjs_departments")      setDepartments(value)
       else if (key==="sjs_dept_biz")         setDeptBizRaw(value)
-      else if (key==="sjs_cash_items")       setCashItemsRaw(value)
-      else if (key==="sjs_contract_items")  setContractItemsRaw(value)
-      else if (key==="sjs_sale_items")       setSaleItemsRaw(value)
+      else if (key==="sjs_cash_items") {
+        // 빈 배열이 오면 기존 데이터 보호 (실수 초기화 방지)
+        if(Array.isArray(value) && value.length === 0) return
+        setCashItemsRaw(value)
+      }
+      else if (key==="sjs_contract_items") {
+        if(Array.isArray(value) && value.length === 0) return
+        setContractItemsRaw(value)
+      }
+      else if (key==="sjs_sale_items") {
+        if(Array.isArray(value) && value.length === 0) return
+        setSaleItemsRaw(value)
+      }
       else if (key==="sjs_vendors")          setVendorsDBRaw(value)
       else if (key==="sjs_vendor_payments")  setVendorPaymentsRaw(value)
       else if (key==="sjs_contract_types")   setContractTypesRaw(value)
@@ -1185,7 +1195,7 @@ function AnalysisTab({deptStaff,setDeptStaff,years,setYears,canWrite,cashflow,ca
       )}
 
       {/* 경영 대시보드 */}
-      {aView==="dashboard" && <AnalysisDashboard projects={projects} cashItems={cashItems} saleItems={saleItems} DEPTS={DEPTS} DEPT_COLORS={DEPT_COLORS} DEPT_BIZ={DEPT_BIZ} deptStaff={deptStaff} years={years}/>}
+      {aView==="dashboard" && <AnalysisDashboard projects={projects} cashItems={cashItems} saleItems={saleItems} DEPTS={DEPTS} DEPT_COLORS={DEPT_COLORS} DEPT_BIZ={DEPT_BIZ} deptStaff={deptStaff} years={years} contractItems={contractItems}/>}
 
       {/* 기존 통합/본부별 분석 */}
       {aView!=="dashboard" && (
@@ -2237,6 +2247,15 @@ function uploadContractExcel(e, contractItems, setContractItems, currentUser, to
       })
 
       if(newItems.length===0){toast&&toast("데이터가 없습니다.","error");return}
+
+      // 업로드 전 현재 계약현황 자동 백업
+      const backupKey = `sjs_backup_contract_${new Date().toISOString().slice(0,19).replace(/:/g,"-")}`
+      try{
+        if(contractItems.length>0){
+          localStorage.setItem(backupKey, JSON.stringify(contractItems))
+          console.log(`💾 계약현황 백업: ${backupKey} (${contractItems.length}건)`)
+        }
+      }catch(e){ console.warn("백업 저장 실패:", e) }
 
       let added=0, updated=0, dupNames=[]
       setContractItems(prev=>{
@@ -6421,6 +6440,16 @@ function uploadCashExcel(e, type, cashItems, setCashItems, saleItems, setSaleIte
       if(similarMsg.length>0)  msg += `\n\n🔍 유사 프로젝트명 발견 (동일 프로젝트일 수 있음):\n${similarMsg.map(g=>`· ${g.join(" vs ")}`).slice(0,3).join("\n")}`
 
       if(window.confirm(msg)){
+        // 업로드 전 현재 데이터 localStorage 백업
+        const backupKey = `sjs_backup_${isSale?"sale":"cash"}_${new Date().toISOString().slice(0,19).replace(/:/g,"-")}`
+        try{
+          const currentData = isSale?saleItems:cashItems
+          if(currentData.length>0){
+            localStorage.setItem(backupKey, JSON.stringify(currentData))
+            console.log(`💾 백업 저장: ${backupKey} (${currentData.length}건)`)
+          }
+        }catch(e){ console.warn("백업 저장 실패:", e) }
+
         const setter = isSale?setSaleItems:setCashItems
         setter(prev=>{
           // ID기준 업데이트 + 내용중복 덮어쓰기 + 신규 추가
@@ -6430,7 +6459,7 @@ function uploadCashExcel(e, type, cashItems, setCashItems, saleItems, setSaleIte
           )
           return [...next, ...newItems]
         })
-        alert(`✓ 완료: 신규 ${freshItems.length}건 추가, 업데이트 ${updateItems.length}건, 중복교체 ${dupByKey.length}건`)
+        alert(`✓ 완료: 신규 ${freshItems.length}건 추가, 업데이트 ${updateItems.length}건, 중복교체 ${dupByKey.length}건\n\n💾 이전 데이터는 브라우저 로컬에 자동 백업됐습니다.\n   관리자도구 콘솔 → localStorage.getItem("${backupKey}")`)
       }
     } catch(err){ alert("업로드 오류: "+err.message) }
     e.target.value=""
@@ -6441,7 +6470,7 @@ function uploadCashExcel(e, type, cashItems, setCashItems, saleItems, setSaleIte
 // ══════════════════════════════════════════════════════════════
 // 📊 경영 대시보드 — 계약·매출·지출 현황
 // ══════════════════════════════════════════════════════════════
-function AnalysisDashboard({projects, cashItems, saleItems, DEPTS, DEPT_COLORS, DEPT_BIZ, deptStaff, years}) {
+function AnalysisDashboard({projects, cashItems, saleItems, DEPTS, DEPT_COLORS, DEPT_BIZ, deptStaff, years, contractItems=[]}) {
   const {STAFF_DEPTS} = useDepts()
   const now      = new Date()
   const thisYear = String(now.getFullYear())
@@ -6451,27 +6480,45 @@ function AnalysisDashboard({projects, cashItems, saleItems, DEPTS, DEPT_COLORS, 
   // 전체 인원 = STAFF_DEPTS 기준 (비계약 부서 포함)
   const totalStaff = (STAFF_DEPTS||DEPTS).reduce((s,d)=>s+((deptStaff||{})[d]?.total||0), 0)
 
-  // ── 계약현황 집계 (프로젝트 기반) ──────────────────────────
+  // ── 계약현황 집계 (contractItems 기반 — 업로드된 계약현황 엑셀 직접 반영) ──
   const contractByDept = useMemo(()=>{
     return DEPTS.map(dept=>{
       const db = (DEPT_BIZ||{})[dept] || {}
       const myProjs = projects.filter(p=>(p.depts||[]).includes(dept)||(p.deptShares||[]).some(s=>s.dept===dept))
       const staff   = (deptStaff||{})[dept]?.total || 1
+      const target  = db.orderTarget || 0
 
-      // 계약완료 (실행수주)
-      const done  = db.orderDone || 0
-      // 확정 (계약예정)
-      const conf  = db.orderConfirmed || 0
-      // 추진중
-      const push  = db.orderPush || 0
-      // 목표
-      const target= db.orderTarget || 0
-      const total = done + conf + push
-      const rate  = target > 0 ? Math.round((done+conf)/target*100) : null
+      // contractItems에서 본부별 지분 반영 집계
+      const deptShare = (item) => {
+        const ds = (item.deptShares||[]).find(s=>s.dept===dept)
+        if(ds) return ds.share/100
+        if((item.depts||[]).includes(dept)) return 1/((item.depts||[]).length||1)
+        return 0
+      }
+      const normV = v => { let n=Number(v)||0; let g=0; while(Math.abs(n)>=1e11&&g<5){n=n/1e8;g++}; return n }
+      const myItems = contractItems.filter(i=>
+        (i.depts||[]).includes(dept)||(i.deptShares||[]).some(s=>s.dept===dept)
+      )
+      const done = myItems.filter(i=>(i.type||"").includes("계약"))
+                          .reduce((s,i)=>s+normV(i.serviceFeeExpect||i.amount||0)*deptShare(i),0)*1e8  // 억→원
+      const conf = myItems.filter(i=>i.type==="확정")
+                          .reduce((s,i)=>s+normV(i.serviceFeeExpect||i.amount||0)*deptShare(i),0)*1e8
+      const push = myItems.filter(i=>i.type==="추진")
+                          .reduce((s,i)=>s+normV(i.serviceFeeExpect||i.amount||0)*deptShare(i),0)*1e8
 
-      return {dept, target, done, conf, push, total, rate, staff, perCapita: staff>0?(done+conf)/staff:0, projects:myProjs.length}
+      // contractItems 없으면 기존 deptBiz 값 폴백
+      const hasCItems = contractItems.length > 0
+      const doneAmt  = hasCItems ? done/1e8 : (db.orderDone||0)
+      const confAmt  = hasCItems ? conf/1e8 : (db.orderConfirmed||0)
+      const pushAmt  = hasCItems ? push/1e8 : (db.orderPush||0)
+
+      const total = doneAmt + confAmt + pushAmt
+      const rate  = target > 0 ? Math.round((doneAmt+confAmt)/target*100) : null
+
+      return {dept, target, done:doneAmt, conf:confAmt, push:pushAmt, total, rate, staff,
+              perCapita: staff>0?(doneAmt+confAmt)/staff:0, projects:myProjs.length}
     })
-  },[DEPTS,DEPT_BIZ,projects,deptStaff])
+  },[DEPTS,DEPT_BIZ,projects,deptStaff,contractItems])
 
   // ── 매출현황 집계 (saleItems + DEPT_BIZ 기반) ──────────────
   const saleByDept = useMemo(()=>{
@@ -7292,7 +7339,7 @@ function AnalysisHub({deptStaff,setDeptStaff,years,setYears,canWrite,isAdmin,cas
         ))}
       </div>
 
-      {subTab==="dashboard" && <AnalysisDashboard projects={projects} cashItems={cashItems} saleItems={saleItems} DEPTS={DEPTS} DEPT_COLORS={DEPT_COLORS} DEPT_BIZ={DEPT_BIZ} deptStaff={deptStaff} years={years}/>}
+      {subTab==="dashboard" && <AnalysisDashboard projects={projects} cashItems={cashItems} saleItems={saleItems} DEPTS={DEPTS} DEPT_COLORS={DEPT_COLORS} DEPT_BIZ={DEPT_BIZ} deptStaff={deptStaff} years={years} contractItems={contractItems}/>}
 
       {subTab==="cash" && <CashflowTab cashflow={cashflow} setCashflow={()=>{}} currentUser={currentUser} projects={projects} setProjects={setProjects} projectCashflowByDept={{}} cashItems={cashItems} setCashItems={setCashItems} saleItems={saleItems} setSaleItems={setSaleItems} setTab={setTab} setSelProjId={setSelProjId} setDetailTab={setDetailTab} yearTargets={yearTargets} setYearTargets={isAdmin?setYearTargets:undefined} deptBiz={deptBiz} deptStaff={deptStaff} staffMonthly={staffMonthly} staffTarget={staffTarget} contractItems={contractItems} setContractItems={setContractItems} initTab="cash" hideTabNav={true}/>}
 
