@@ -536,6 +536,41 @@ export default function App() {
   },[cashflow,projectCashflowByDept,DEPTS])
 
   const [alerts, setAlerts]       = useState(ALERTS_INIT)
+  const [schedules, setSchedulesRaw] = useState(()=>{
+    try{ return JSON.parse(localStorage.getItem("sjs_schedules")||"[]") }catch{ return [] }
+  })
+  const setSchedules = v => {
+    const next = typeof v==="function"?v(schedules):v
+    try{ localStorage.setItem("sjs_schedules",JSON.stringify(next)) }catch{}
+    setSchedulesRaw(next)
+  }
+  const [notifPerm, setNotifPerm] = useState("default") // default | granted | denied
+
+  // 알림 엔진 — 5분마다 임박 일정 체크
+  useEffect(()=>{
+    if(!("Notification" in window)) return
+    setNotifPerm(Notification.permission)
+    const check = () => {
+      if(Notification.permission!=="granted") return
+      const now = new Date()
+      ;(schedules||[]).forEach(evt=>{
+        if(!evt.date||!evt.alarm||evt.alarm==="0") return
+        const evtDate = new Date(`${evt.date}T${evt.time||"00:00"}`)
+        const diffMin = (evtDate-now)/(1000*60)
+        const alarmMin = parseInt(evt.alarm)||30
+        // 알람 시간 ±2분 범위
+        if(diffMin>0&&diffMin<=alarmMin+2&&diffMin>=alarmMin-2) {
+          new Notification(`📅 ${evt.title}`, {
+            body: `${diffMin<=1?"지금!":diffMin+"분 후"} | ${evt.date} ${evt.time||""}`,
+            icon: "/icon-192.png", tag: evt.id
+          })
+        }
+      })
+    }
+    check()
+    const timer = setInterval(check, 5*60*1000)
+    return ()=>clearInterval(timer)
+  },[schedules])
   const [showAlerts, setShowAlerts] = useState(false)
   const [selProjId, setSelProjId] = useState(null)
   const [selVerIdx, setSelVerIdx] = useState(0)
@@ -547,6 +582,14 @@ export default function App() {
   const [uploadMsg, setUploadMsg]     = useState("")
   const uploadRef = useRef(null)
   const unread = alerts.filter(a=>!a.read).length
+  // 7일 이내 임박 일정
+  const upcomingCount = (schedules||[]).filter(e=>{
+    if(!e.date) return false
+    const d = new Date(e.date); const now = new Date()
+    const diff = (d-now)/(1000*60*60*24)
+    return diff>=0&&diff<=7
+  }).length
+  const totalBadge = unread + upcomingCount
 
   // 알람
   const readAlert = id => setAlerts(p=>p.map(a=>a.id===id?{...a,read:true}:a))
@@ -806,6 +849,7 @@ export default function App() {
     {id:"vendors",   label:"🤝 협력업체",     group:"관리"},
     {id:"contract",  label:"📄 계약서",       group:"관리"},
     {id:"archive",   label:"📁 아카이브",     group:"관리"},
+    {id:"docvault",  label:"📂 문서보관소",    group:"관리"},
     {id:"pnl",       label:"📉 손익분석",     group:"분석"},
     {id:"optimize",  label:"⚙️ 경영최적화",  group:"분석"},
     {id:"datahub",   label:"🗄️ 데이터관리",  group:"설정"},
@@ -974,7 +1018,7 @@ export default function App() {
           <div style={{display:"flex",gap:6,marginTop:10}}>
             <button onClick={()=>setShowAlerts(o=>!o)} style={{...S.btn(C.grayL,"#374151"),flex:1,justifyContent:"center",padding:"7px",position:"relative",borderRadius:8}}>
               <i className="ti ti-bell" aria-label="알람" style={{fontSize:15}}/>
-              {unread>0&&<span style={{position:"absolute",top:2,right:8,minWidth:16,height:16,background:C.red,borderRadius:8,fontSize:10,fontWeight:700,color:"#fff",display:"flex",alignItems:"center",justifyContent:"center",padding:"0 3px"}}>{unread}</span>}
+              {totalBadge>0&&<span style={{position:"absolute",top:2,right:8,minWidth:16,height:16,background:C.red,borderRadius:8,fontSize:10,fontWeight:700,color:"#fff",display:"flex",alignItems:"center",justifyContent:"center",padding:"0 3px"}}>{totalBadge}</span>}
             </button>
             <button onClick={doLogout} style={{...S.btn(C.grayL,"#374151"),flex:1,justifyContent:"center",padding:"7px",borderRadius:8,fontSize:12}}>로그아웃</button>
           </div>
@@ -1010,9 +1054,10 @@ export default function App() {
         {tab==="pnl"      && canReadTab("pnl")      && <PnlTab pnlData={pnlData} setPnlData={setPnlData} canWrite={canWrite&&canWriteTab("pnl")}/>}
         {tab==="optimize" && <OptimizeTab projects={projects} deptStaff={deptStaff} pnlData={pnlData}/>}
         {tab==="archive"   && <ArchiveTab currentUser={currentUser} projects={projects}/>}
+        {tab==="docvault"  && <DocVaultPage currentUser={currentUser} projects={projects}/>}}
         {tab==="contract"  && <ContractTab projects={projects} currentUser={currentUser}/>}
         {tab==="history"   && <ProjectHistoryPage projects={projects} currentUser={currentUser} cashItems={cashItems}/>}
-        {tab==="calendar"  && <ProjectCalendarPage projects={projects} setTab={setTab} setSelProjId={setSelProjId}/>}
+        {tab==="calendar"  && <SmartSchedulePage projects={projects} cashItems={cashItems} contractItems={contractItems} currentUser={currentUser} schedules={schedules} setSchedules={setSchedules}/>}
         {tab==="manual"    && <ManualTab currentUser={currentUser}/>}
         {tab==="auth_mgmt"&& currentUser.role==="admin" && <AuthTab users={users} saveUsers={saveUsers} currentUser={currentUser} hashPw={hashPw}/>}
         </div>
@@ -8851,3 +8896,540 @@ function ContractStatusPage({contractItems=[], setContractItems, DEPTS, DEPT_COL
 
 // ══════════════════════════════════════════════════════════════
 
+
+// ══════════════════════════════════════════════════════════════
+// 📅 스마트 일정 관리 & 알람 시스템
+// ══════════════════════════════════════════════════════════════
+function SmartSchedulePage({projects=[], cashItems=[], contractItems=[], currentUser, schedules=[], setSchedules}) {
+  const [view, setView]       = useState("month")   // month | week | list
+  const [today]               = useState(new Date())
+  const [curDate, setCurDate] = useState(new Date())
+  const [showAdd, setShowAdd] = useState(false)
+  const [editEvt, setEditEvt] = useState(null)
+  const [filterType, setFilterType] = useState("all")
+  const [notifPerm, setNotifPerm] = useState(Notification?.permission||"default")
+  const [draftEvt, setDraftEvt] = useState({
+    title:"", date:"", time:"09:00", endDate:"", type:"개인",
+    repeat:"none", alarm:"30", note:"", color:"#6366F1"
+  })
+
+  const TYPES = {
+    "개인":"#6366F1","회의":"#0891B2","납기":"#DC2626","기성":"#059669",
+    "계약":"#D97706","공문":"#7C3AED","기타":"#6B7280"
+  }
+  const REPEAT = {"none":"반복없음","daily":"매일","weekly":"매주","monthly":"매월","yearly":"매년"}
+  const ALARM  = {"0":"알람없음","10":"10분 전","30":"30분 전","60":"1시간 전","1440":"하루 전","2880":"2일 전"}
+
+  // 시스템 일정 자동 수집
+  const systemEvts = useMemo(()=>{
+    const evts = []
+    const YR = String(today.getFullYear())
+    // 계약 예상시점
+    ;(contractItems||[]).forEach(i=>{
+      if(i.contractTime) evts.push({id:`sys_ct_${i.id}`,title:`📝 계약예정: ${i.name}`,date:i.contractTime,type:"계약",system:true,color:"#D97706",projectId:i.id})
+      if(i.execTime)     evts.push({id:`sys_et_${i.id}`,title:`🏗 수행예정: ${i.name}`,date:i.execTime,type:"납기",system:true,color:"#DC2626",projectId:i.id})
+    })
+    // 기성 예정일
+    ;(cashItems||[]).filter(i=>i.expectedDate&&!i.paidDate).forEach(i=>{
+      evts.push({id:`sys_cd_${i.id||Math.random()}`,title:`💧 기성예정: ${i.projectName||""} ${i.stage||""}`,date:i.expectedDate,type:"기성",system:true,color:"#059669"})
+    })
+    // 프로젝트 납기
+    ;(projects||[]).filter(p=>p.contractExpect||p.execDate).forEach(p=>{
+      if(p.contractExpect) evts.push({id:`sys_pe_${p.id}`,title:`📋 계약예상: ${p.name}`,date:p.contractExpect,type:"계약",system:true,color:"#D97706",projectId:p.id})
+    })
+    return evts
+  },[contractItems,cashItems,projects])
+
+  // 전체 이벤트 = 개인 + 시스템
+  const allEvts = useMemo(()=>[
+    ...schedules.map(s=>({...s,system:false})),
+    ...(filterType==="all"||filterType==="system"?systemEvts:[])
+  ].filter(e=>filterType==="all"||filterType==="system"?true:e.type===filterType)
+  ,[schedules,systemEvts,filterType])
+
+  // 날짜 파싱 (다양한 형식 지원)
+  const parseDate = (d) => {
+    if(!d) return null
+    // YYYY-MM-DD
+    if(/^\d{4}-\d{2}-\d{2}/.test(d)) return new Date(d)
+    // YYYY년 MM월
+    const m = d.match(/(\d{4})년\s*(\d{1,2})월/)
+    if(m) return new Date(parseInt(m[1]), parseInt(m[2])-1, 1)
+    // YYYY년 MM월 DD일
+    const m2 = d.match(/(\d{4})년\s*(\d{1,2})월\s*(\d{1,2})/)
+    if(m2) return new Date(parseInt(m2[1]), parseInt(m2[2])-1, parseInt(m2[3]))
+    return null
+  }
+
+  // 월 내 이벤트
+  const curYear  = curDate.getFullYear()
+  const curMonth = curDate.getMonth()
+  const daysInMonth = new Date(curYear, curMonth+1, 0).getDate()
+  const firstDow    = new Date(curYear, curMonth, 1).getDay()
+
+  const evtsByDay = useMemo(()=>{
+    const map = {}
+    allEvts.forEach(e=>{
+      const d = parseDate(e.date)
+      if(!d) return
+      const key = `${d.getFullYear()}-${d.getMonth()+1}-${d.getDate()}`
+      if(!map[key]) map[key]=[]
+      map[key].push(e)
+    })
+    return map
+  },[allEvts])
+
+  // 알림 권한 요청
+  const requestNotif = async () => {
+    if(!("Notification" in window)) return alert("이 브라우저는 알림을 지원하지 않습니다.")
+    const perm = await Notification.requestPermission()
+    setNotifPerm(perm)
+    if(perm==="granted") alert("✅ 알림 허용됐습니다. 이벤트 알람을 받을 수 있습니다.")
+  }
+
+  // 이벤트 저장
+  const saveEvent = () => {
+    if(!draftEvt.title.trim()||!draftEvt.date) return
+    const id = editEvt?.id || `E${Date.now()}_${Math.random().toString(36).slice(2,5)}`
+    const evt = {...draftEvt, id, createdBy:currentUser?.name||"", createdAt:new Date().toISOString()}
+    if(editEvt) setSchedules(prev=>prev.map(e=>e.id===editEvt.id?evt:e))
+    else setSchedules(prev=>[...prev, evt])
+    setShowAdd(false); setEditEvt(null)
+    setDraftEvt({title:"",date:"",time:"09:00",endDate:"",type:"개인",repeat:"none",alarm:"30",note:"",color:"#6366F1"})
+  }
+
+  const deleteEvent = (id) => {
+    if(!window.confirm("삭제하시겠습니까?")) return
+    setSchedules(prev=>prev.filter(e=>e.id!==id))
+  }
+
+  // 오늘 + 이번주 임박 이벤트
+  const todayStr = `${today.getFullYear()}-${today.getMonth()+1}-${today.getDate()}`
+  const upcomingEvts = allEvts.filter(e=>{
+    const d = parseDate(e.date); if(!d) return false
+    const diff = (d-today)/(1000*60*60*24)
+    return diff>=-1&&diff<=7
+  }).sort((a,b)=>(parseDate(a.date)||0)-(parseDate(b.date)||0))
+
+  const INP = {padding:"8px 11px",border:"1.5px solid #E5E7EB",borderRadius:8,fontSize:13,width:"100%",boxSizing:"border-box",fontFamily:"inherit",outline:"none"}
+
+  return (
+    <div>
+      {/* 헤더 */}
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14,flexWrap:"wrap",gap:8}}>
+        <div style={{fontSize:18,fontWeight:800,color:"#111827"}}>📅 일정 관리</div>
+        <div style={{display:"flex",gap:6,flexWrap:"wrap",alignItems:"center"}}>
+          {/* 알림 권한 */}
+          <button onClick={requestNotif}
+            style={{padding:"6px 12px",background:notifPerm==="granted"?"#D1FAE5":"#EEF2FF",color:notifPerm==="granted"?"#059669":"#6366F1",border:"none",borderRadius:8,fontSize:12,fontWeight:700,cursor:"pointer"}}>
+            {notifPerm==="granted"?"🔔 알림 ON":"🔔 알림 설정"}
+          </button>
+          {/* 뷰 전환 */}
+          <div style={{display:"flex",background:"#F3F4F6",borderRadius:8,padding:3,gap:2}}>
+            {[["month","월"],["week","주"],["list","목록"]].map(([v,l])=>(
+              <button key={v} onClick={()=>setView(v)}
+                style={{padding:"5px 12px",border:"none",borderRadius:6,fontSize:12.5,fontWeight:view===v?700:400,cursor:"pointer",background:view===v?"#6366F1":"none",color:view===v?"#fff":"#6B7280"}}>{l}</button>
+            ))}
+          </div>
+          {/* 필터 */}
+          <select value={filterType} onChange={e=>setFilterType(e.target.value)}
+            style={{padding:"6px 10px",border:"1px solid #E5E7EB",borderRadius:8,fontSize:12.5,fontFamily:"inherit",outline:"none"}}>
+            <option value="all">전체</option>
+            <option value="system">시스템 일정</option>
+            {Object.keys(TYPES).map(t=><option key={t} value={t}>{t}</option>)}
+          </select>
+          <button onClick={()=>{setShowAdd(true);setEditEvt(null)}}
+            style={{padding:"7px 14px",background:"#6366F1",color:"#fff",border:"none",borderRadius:9,fontSize:13,fontWeight:700,cursor:"pointer"}}>
+            + 일정 추가
+          </button>
+        </div>
+      </div>
+
+      {/* 임박 일정 배너 */}
+      {upcomingEvts.length>0&&(
+        <div style={{background:"#EEF2FF",borderRadius:12,padding:"12px 16px",marginBottom:14,border:"1px solid #C7D2FE"}}>
+          <div style={{fontSize:13,fontWeight:700,color:"#312E81",marginBottom:8}}>🔔 7일 내 일정 ({upcomingEvts.length}건)</div>
+          <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+            {upcomingEvts.slice(0,6).map(e=>{
+              const d = parseDate(e.date)
+              const diff = d?Math.round((d-today)/(1000*60*60*24)):0
+              const label = diff<0?"지남":diff===0?"오늘":diff===1?"내일":`${diff}일 후`
+              return (
+                <div key={e.id} style={{background:"#fff",borderRadius:8,padding:"6px 12px",border:`1.5px solid ${e.color||TYPES[e.type]||"#6B7280"}`,display:"flex",alignItems:"center",gap:6}}>
+                  <span style={{fontSize:9,fontWeight:700,padding:"1px 5px",borderRadius:6,background:e.color||TYPES[e.type]||"#6B7280",color:"#fff"}}>{label}</span>
+                  <span style={{fontSize:12.5,fontWeight:600,color:"#111827"}}>{e.title}</span>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* 일정 추가/수정 폼 */}
+      {showAdd&&(
+        <div style={{background:"#EEF2FF",borderRadius:14,border:"2px solid #6366F1",padding:"18px 20px",marginBottom:14}}>
+          <div style={{fontSize:14,fontWeight:800,color:"#312E81",marginBottom:12}}>{editEvt?"📝 일정 수정":"+ 일정 추가"}</div>
+          <div style={{display:"grid",gridTemplateColumns:"2fr 1fr 1fr",gap:10,marginBottom:10}}>
+            <div><label style={{fontSize:11.5,fontWeight:700,color:"#6366F1",display:"block",marginBottom:3}}>제목 *</label>
+              <input value={draftEvt.title} onChange={e=>setDraftEvt(p=>({...p,title:e.target.value}))} placeholder="일정 제목" style={INP}/></div>
+            <div><label style={{fontSize:11.5,fontWeight:700,color:"#6366F1",display:"block",marginBottom:3}}>유형</label>
+              <select value={draftEvt.type} onChange={e=>setDraftEvt(p=>({...p,type:e.target.value,color:TYPES[e.target.value]||"#6366F1"}))} style={INP}>
+                {Object.keys(TYPES).map(t=><option key={t} value={t}>{t}</option>)}</select></div>
+            <div><label style={{fontSize:11.5,fontWeight:700,color:"#6366F1",display:"block",marginBottom:3}}>알람</label>
+              <select value={draftEvt.alarm} onChange={e=>setDraftEvt(p=>({...p,alarm:e.target.value}))} style={INP}>
+                {Object.entries(ALARM).map(([v,l])=><option key={v} value={v}>{l}</option>)}</select></div>
+          </div>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr 1fr",gap:10,marginBottom:10}}>
+            <div><label style={{fontSize:11.5,fontWeight:700,color:"#6366F1",display:"block",marginBottom:3}}>날짜 *</label>
+              <input type="date" value={draftEvt.date} onChange={e=>setDraftEvt(p=>({...p,date:e.target.value}))} style={INP}/></div>
+            <div><label style={{fontSize:11.5,fontWeight:700,color:"#6366F1",display:"block",marginBottom:3}}>시간</label>
+              <input type="time" value={draftEvt.time} onChange={e=>setDraftEvt(p=>({...p,time:e.target.value}))} style={INP}/></div>
+            <div><label style={{fontSize:11.5,fontWeight:700,color:"#6366F1",display:"block",marginBottom:3}}>종료일</label>
+              <input type="date" value={draftEvt.endDate} onChange={e=>setDraftEvt(p=>({...p,endDate:e.target.value}))} style={INP}/></div>
+            <div><label style={{fontSize:11.5,fontWeight:700,color:"#6366F1",display:"block",marginBottom:3}}>반복</label>
+              <select value={draftEvt.repeat} onChange={e=>setDraftEvt(p=>({...p,repeat:e.target.value}))} style={INP}>
+                {Object.entries(REPEAT).map(([v,l])=><option key={v} value={v}>{l}</option>)}</select></div>
+          </div>
+          <div style={{marginBottom:10}}>
+            <label style={{fontSize:11.5,fontWeight:700,color:"#6366F1",display:"block",marginBottom:3}}>메모</label>
+            <input value={draftEvt.note} onChange={e=>setDraftEvt(p=>({...p,note:e.target.value}))} placeholder="내용 메모" style={INP}/>
+          </div>
+          <div style={{display:"flex",gap:8,justifyContent:"flex-end"}}>
+            <button onClick={()=>{setShowAdd(false);setEditEvt(null)}} style={{padding:"7px 16px",background:"#F3F4F6",color:"#6B7280",border:"none",borderRadius:8,fontSize:12.5,fontWeight:600,cursor:"pointer"}}>취소</button>
+            <button onClick={saveEvent} style={{padding:"7px 18px",background:"#6366F1",color:"#fff",border:"none",borderRadius:8,fontSize:12.5,fontWeight:700,cursor:"pointer"}}>💾 저장</button>
+          </div>
+        </div>
+      )}
+
+      {/* 월간 캘린더 뷰 */}
+      {view==="month"&&(
+        <div style={{background:"#fff",borderRadius:14,border:"1px solid #E5E7EB",overflow:"hidden"}}>
+          {/* 월 네비게이션 */}
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"14px 20px",borderBottom:"1px solid #E5E7EB"}}>
+            <button onClick={()=>setCurDate(new Date(curYear,curMonth-1,1))} style={{padding:"6px 12px",background:"#F3F4F6",border:"none",borderRadius:8,cursor:"pointer",fontSize:14}}>‹</button>
+            <div style={{fontSize:16,fontWeight:800,color:"#111827"}}>{curYear}년 {curMonth+1}월</div>
+            <div style={{display:"flex",gap:6}}>
+              <button onClick={()=>setCurDate(new Date())} style={{padding:"5px 12px",background:"#EEF2FF",color:"#6366F1",border:"none",borderRadius:8,cursor:"pointer",fontSize:12,fontWeight:700}}>오늘</button>
+              <button onClick={()=>setCurDate(new Date(curYear,curMonth+1,1))} style={{padding:"6px 12px",background:"#F3F4F6",border:"none",borderRadius:8,cursor:"pointer",fontSize:14}}>›</button>
+            </div>
+          </div>
+          {/* 요일 헤더 */}
+          <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)"}}>
+            {["일","월","화","수","목","금","토"].map((d,i)=>(
+              <div key={d} style={{padding:"8px",textAlign:"center",fontSize:12.5,fontWeight:700,color:i===0?"#DC2626":i===6?"#2563EB":"#6B7280",background:"#F8FAFC",borderBottom:"1px solid #E5E7EB"}}>{d}</div>
+            ))}
+          </div>
+          {/* 날짜 그리드 */}
+          <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)"}}>
+            {Array.from({length:firstDow}).map((_,i)=>(
+              <div key={`empty-${i}`} style={{minHeight:80,borderRight:"1px solid #F3F4F6",borderBottom:"1px solid #F3F4F6",background:"#FAFAFA"}}/>
+            ))}
+            {Array.from({length:daysInMonth}).map((_,idx)=>{
+              const day = idx+1
+              const isToday = curYear===today.getFullYear()&&curMonth===today.getMonth()&&day===today.getDate()
+              const key = `${curYear}-${curMonth+1}-${day}`
+              const dayEvts = evtsByDay[key]||[]
+              const dow = (firstDow+idx)%7
+              return (
+                <div key={day} style={{minHeight:80,borderRight:"1px solid #F3F4F6",borderBottom:"1px solid #F3F4F6",padding:"4px",position:"relative",background:isToday?"#EEF2FF":"#fff",cursor:"pointer"}}
+                  onDoubleClick={()=>{setDraftEvt(p=>({...p,date:`${curYear}-${String(curMonth+1).padStart(2,"0")}-${String(day).padStart(2,"0")}`}));setShowAdd(true)}}>
+                  <div style={{width:22,height:22,borderRadius:"50%",background:isToday?"#6366F1":"none",display:"flex",alignItems:"center",justifyContent:"center",marginBottom:2,fontSize:12.5,fontWeight:isToday?700:400,color:isToday?"#fff":dow===0?"#DC2626":dow===6?"#2563EB":"#374151"}}>{day}</div>
+                  {dayEvts.slice(0,3).map(e=>(
+                    <div key={e.id} style={{fontSize:10,padding:"1px 4px",borderRadius:4,marginBottom:1,background:(e.color||TYPES[e.type]||"#6B7280")+"22",color:e.color||TYPES[e.type]||"#6B7280",fontWeight:600,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",cursor:"pointer"}}
+                      onClick={evt=>{evt.stopPropagation();if(!e.system){setEditEvt(e);setDraftEvt(e);setShowAdd(true)}}}>
+                      {e.title}
+                    </div>
+                  ))}
+                  {dayEvts.length>3&&<div style={{fontSize:9,color:"#9CA3AF",fontWeight:600}}>+{dayEvts.length-3}건</div>}
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* 목록 뷰 */}
+      {view==="list"&&(
+        <div style={{background:"#fff",borderRadius:14,border:"1px solid #E5E7EB",overflow:"hidden"}}>
+          <div style={{padding:"13px 18px",borderBottom:"1px solid #E5E7EB",fontSize:14,fontWeight:700,color:"#111827"}}>
+            📋 전체 일정 ({allEvts.length}건)
+          </div>
+          {allEvts.length===0&&<div style={{padding:"48px",textAlign:"center",color:"#9CA3AF"}}>등록된 일정이 없습니다.</div>}
+          {allEvts.sort((a,b)=>(parseDate(a.date)||0)-(parseDate(b.date)||0)).map((e,i)=>{
+            const d = parseDate(e.date)
+            const diff = d?Math.round((d-today)/(1000*60*60*24)):null
+            return (
+              <div key={e.id} style={{padding:"12px 18px",borderBottom:"1px solid #F3F4F6",display:"flex",gap:12,alignItems:"flex-start",background:i%2===0?"#fff":"#FAFAFA"}}>
+                <div style={{width:4,background:e.color||TYPES[e.type]||"#6B7280",borderRadius:2,alignSelf:"stretch",flexShrink:0}}/>
+                <div style={{flex:1}}>
+                  <div style={{display:"flex",gap:6,alignItems:"center",marginBottom:3,flexWrap:"wrap"}}>
+                    <span style={{fontSize:10.5,padding:"1px 7px",borderRadius:9,background:(e.color||TYPES[e.type]||"#6B7280")+"18",color:e.color||TYPES[e.type]||"#6B7280",fontWeight:700}}>{e.type||"개인"}</span>
+                    <span style={{fontSize:13.5,fontWeight:700,color:"#111827"}}>{e.title}</span>
+                    {e.system&&<span style={{fontSize:9,background:"#EEF2FF",color:"#6366F1",padding:"1px 5px",borderRadius:5,fontWeight:600}}>시스템</span>}
+                  </div>
+                  <div style={{fontSize:12,color:"#6B7280"}}>{e.date} {e.time||""} {e.note&&`· ${e.note}`}</div>
+                </div>
+                <div style={{flexShrink:0,display:"flex",gap:6,alignItems:"center"}}>
+                  {diff!==null&&<span style={{fontSize:11,fontWeight:700,color:diff<0?"#DC2626":diff===0?"#6366F1":"#6B7280"}}>{diff<0?"지남":diff===0?"오늘":`${diff}일 후`}</span>}
+                  {!e.system&&(
+                    <>
+                      <button onClick={()=>{setEditEvt(e);setDraftEvt(e);setShowAdd(true)}} style={{padding:"3px 8px",background:"#EEF2FF",color:"#6366F1",border:"none",borderRadius:6,fontSize:11,cursor:"pointer"}}>✏</button>
+                      <button onClick={()=>deleteEvent(e.id)} style={{padding:"3px 8px",background:"#FEE2E2",color:"#DC2626",border:"none",borderRadius:6,fontSize:11,cursor:"pointer"}}>✕</button>
+                    </>
+                  )}
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      )}
+
+      {/* 주간 뷰 */}
+      {view==="week"&&(
+        <div style={{background:"#fff",borderRadius:14,border:"1px solid #E5E7EB",overflow:"hidden"}}>
+          <div style={{padding:"13px 18px",borderBottom:"1px solid #E5E7EB",fontSize:14,fontWeight:700,color:"#111827"}}>
+            📅 이번 주 일정
+          </div>
+          {Array.from({length:7}).map((_,i)=>{
+            const d = new Date(today); d.setDate(today.getDate()-today.getDay()+i)
+            const key = `${d.getFullYear()}-${d.getMonth()+1}-${d.getDate()}`
+            const dayEvts = evtsByDay[key]||[]
+            const isToday = key===todayStr
+            const DOW = ["일","월","화","수","목","금","토"]
+            return (
+              <div key={i} style={{display:"flex",gap:0,borderBottom:"1px solid #F3F4F6",background:isToday?"#EEF2FF":"#fff"}}>
+                <div style={{width:80,padding:"12px",textAlign:"center",flexShrink:0,borderRight:"1px solid #E5E7EB"}}>
+                  <div style={{fontSize:12,color:i===0?"#DC2626":i===6?"#2563EB":"#6B7280",fontWeight:700}}>{DOW[i]}</div>
+                  <div style={{fontSize:20,fontWeight:800,color:isToday?"#6366F1":"#374151"}}>{d.getDate()}</div>
+                </div>
+                <div style={{flex:1,padding:"8px 12px",display:"flex",flexDirection:"column",gap:4}}>
+                  {dayEvts.length===0&&<div style={{fontSize:12,color:"#D1D5DB",paddingTop:4}}>일정 없음</div>}
+                  {dayEvts.map(e=>(
+                    <div key={e.id} style={{padding:"5px 10px",borderRadius:7,background:(e.color||TYPES[e.type]||"#6B7280")+"18",borderLeft:`3px solid ${e.color||TYPES[e.type]||"#6B7280"}`,display:"flex",justifyContent:"space-between"}}>
+                      <span style={{fontSize:12.5,fontWeight:600,color:"#111827"}}>{e.time?`${e.time} `:""}  {e.title}</span>
+                      <span style={{fontSize:10,color:e.color||TYPES[e.type]||"#6B7280",fontWeight:600}}>{e.type}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      )}
+
+      <div style={{marginTop:14,padding:"10px 14px",background:"#F9FAFB",borderRadius:10,fontSize:11.5,color:"#9CA3AF",border:"1px solid #F3F4F6"}}>
+        💡 날짜 더블클릭으로 일정 추가 · 시스템 일정은 계약현황·월수금계획에서 자동 수집 · 알림 설정 시 브라우저 푸시 알람 지원
+      </div>
+    </div>
+  )
+}
+
+
+// ══════════════════════════════════════════════════════════════
+// 📂 문서 보관소 — 계약서/공문/회의록 통합 관리
+// ══════════════════════════════════════════════════════════════
+function DocVaultPage({currentUser, projects=[]}) {
+  const [docs, setDocsRaw] = useState(()=>{
+    try{ return JSON.parse(localStorage.getItem("sjs_docvault")||"[]") }catch{ return [] }
+  })
+  const setDocs = v => {
+    const next = typeof v==="function"?v(docs):v
+    try{ localStorage.setItem("sjs_docvault",JSON.stringify(next)) }catch{}
+    setDocsRaw(next)
+  }
+  const [filterCat, setFilterCat]   = useState("전체")
+  const [filterYear, setFilterYear] = useState("전체")
+  const [search, setSearch]         = useState("")
+  const [showAdd, setShowAdd]       = useState(false)
+  const [analyzing, setAnalyzing]   = useState(false)
+  const [draft, setDraft]           = useState({title:"",category:"연간계약서",year:String(new Date().getFullYear()),project:"",date:"",summary:"",tags:"",fileData:null,fileName:"",fileSize:0})
+
+  const CATS = ["연간계약서","협력업체계약서","공문(수신)","공문(발신)","회의록","기타"]
+  const CAT_ICON = {"연간계약서":"📝","협력업체계약서":"🤝","공문(수신)":"📨","공문(발신)":"📤","회의록":"📋","기타":"📌"}
+  const CAT_COLOR = {"연간계약서":"#6366F1","협력업체계약서":"#059669","공문(수신)":"#0891B2","공문(발신)":"#D97706","회의록":"#7C3AED","기타":"#6B7280"}
+
+  const years = [...new Set([String(new Date().getFullYear()),...docs.map(d=>d.year)])].sort((a,b)=>b-a)
+
+  // 필터링
+  const filtered = docs.filter(d=>{
+    if(filterCat!=="전체"&&d.category!==filterCat) return false
+    if(filterYear!=="전체"&&d.year!==filterYear) return false
+    if(search.trim()&&!(d.title.includes(search)||d.summary.includes(search)||(d.tags||"").includes(search)||(d.project||"").includes(search))) return false
+    return true
+  }).sort((a,b)=>(b.date||"").localeCompare(a.date||""))
+
+  // 파일 읽기 → AI 분석
+  const handleFile = async (file) => {
+    if(!file) return
+    setDraft(p=>({...p,fileName:file.name,fileSize:file.size}))
+    // AI 분석
+    setAnalyzing(true)
+    try {
+      const base64 = await new Promise((res,rej)=>{
+        const r=new FileReader(); r.onload=()=>res(r.result.split(",")[1]); r.onerror=rej; r.readAsDataURL(file)
+      })
+      const isPdf = file.type==="application/pdf"
+      const block = isPdf
+        ? {type:"document",source:{type:"base64",media_type:"application/pdf",data:base64}}
+        : {type:"image",source:{type:"base64",media_type:file.type||"image/jpeg",data:base64}}
+
+      const res = await fetch("/api/chat",{
+        method:"POST",headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({
+          model:"claude-sonnet-4-6",max_tokens:600,
+          system:`문서를 분석하여 JSON으로만 응답하세요:
+{"title":"문서 제목","category":"연간계약서|협력업체계약서|공문(수신)|공문(발신)|회의록|기타 중 하나","date":"날짜(YYYY-MM-DD)","project":"관련 프로젝트명","summary":"2~3줄 요약","tags":"주요 키워드 쉼표 구분"}
+설명 없이 JSON만.`,
+          messages:[{role:"user",content:[block,{type:"text",text:"이 문서를 분석하여 JSON으로 응답하세요."}]}]
+        })
+      })
+      if(res.ok){
+        const json=await res.json()
+        const text=json.content?.[0]?.text||""
+        const parsed=JSON.parse(text.replace(/```json|```/g,"").trim())
+        setDraft(p=>({...p,...parsed,fileName:file.name,fileSize:file.size}))
+      }
+    } catch(e){ console.warn("AI 분석 실패:",e) }
+    setAnalyzing(false)
+  }
+
+  const saveDoc = () => {
+    if(!draft.title.trim()) return
+    const id = `D${Date.now()}_${Math.random().toString(36).slice(2,5)}`
+    const doc = {...draft, id, createdAt:new Date().toISOString(), createdBy:currentUser?.name||""}
+    setDocs(prev=>[...prev, doc])
+    setShowAdd(false)
+    setDraft({title:"",category:"연간계약서",year:String(new Date().getFullYear()),project:"",date:"",summary:"",tags:"",fileData:null,fileName:"",fileSize:0})
+  }
+
+  const deleteDoc = (id) => { if(window.confirm("삭제하시겠습니까?")) setDocs(prev=>prev.filter(d=>d.id!==id)) }
+
+  const INP = {padding:"8px 11px",border:"1.5px solid #E5E7EB",borderRadius:8,fontSize:13,width:"100%",boxSizing:"border-box",fontFamily:"inherit",outline:"none"}
+
+  // 카테고리별 통계
+  const catStats = CATS.map(c=>({cat:c,count:docs.filter(d=>d.category===c).length}))
+
+  return (
+    <div>
+      {/* 헤더 */}
+      <div style={{background:"linear-gradient(135deg,#92400E,#D97706)",borderRadius:16,padding:"20px 24px",marginBottom:16,color:"#fff",display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:10}}>
+        <div>
+          <div style={{fontSize:20,fontWeight:800,marginBottom:4}}>📂 문서 보관소</div>
+          <div style={{fontSize:13,opacity:.85}}>계약서·공문·회의록 {docs.length}건 보관 중 · AI 자동 분류</div>
+        </div>
+        <button onClick={()=>setShowAdd(v=>!v)}
+          style={{padding:"9px 18px",background:"rgba(255,255,255,.2)",color:"#fff",border:"2px solid rgba(255,255,255,.4)",borderRadius:10,fontSize:13.5,fontWeight:800,cursor:"pointer"}}>
+          {showAdd?"✕ 취소":"+ 문서 등록"}
+        </button>
+      </div>
+
+      {/* 카테고리 통계 */}
+      <div style={{display:"grid",gridTemplateColumns:"repeat(6,1fr)",gap:8,marginBottom:14}}>
+        {catStats.map(({cat,count})=>(
+          <div key={cat} onClick={()=>setFilterCat(filterCat===cat?"전체":cat)}
+            style={{background:filterCat===cat?CAT_COLOR[cat]||"#6B7280":"#fff",borderRadius:11,padding:"10px 12px",textAlign:"center",cursor:"pointer",border:`1.5px solid ${CAT_COLOR[cat]||"#E5E7EB"}`,transition:"all .15s"}}>
+            <div style={{fontSize:18,marginBottom:3}}>{CAT_ICON[cat]||"📌"}</div>
+            <div style={{fontSize:11,fontWeight:700,color:filterCat===cat?"#fff":CAT_COLOR[cat]||"#374151",lineHeight:1.3}}>{cat.replace("계약서","").replace("(","\n(")}</div>
+            <div style={{fontSize:16,fontWeight:800,color:filterCat===cat?"#fff":"#111827",marginTop:2}}>{count}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* 문서 등록 폼 */}
+      {showAdd&&(
+        <div style={{background:"#FEF9C3",borderRadius:14,border:"2px solid #D97706",padding:"18px 20px",marginBottom:14}}>
+          <div style={{fontSize:14,fontWeight:800,color:"#92400E",marginBottom:12}}>📁 새 문서 등록</div>
+
+          {/* 파일 업로드 */}
+          <label style={{display:"flex",alignItems:"center",gap:10,border:"2px dashed #D97706",borderRadius:10,padding:"12px 16px",cursor:"pointer",background:"#fff",marginBottom:12}}>
+            <input type="file" accept=".pdf,.png,.jpg,.jpeg,.docx,.hwp,.xlsx" style={{display:"none"}} onChange={e=>handleFile(e.target.files?.[0])}/>
+            <span style={{fontSize:22}}>📤</span>
+            <div>
+              <div style={{fontSize:13.5,fontWeight:700,color:"#92400E"}}>{draft.fileName||"파일 선택 (PDF/이미지/Word)"}</div>
+              {draft.fileName&&<div style={{fontSize:11,color:"#6B7280"}}>{(draft.fileSize/1024).toFixed(0)} KB · AI가 자동 분류합니다</div>}
+            </div>
+            {analyzing&&<div style={{marginLeft:"auto",fontSize:12,color:"#D97706",fontWeight:700}}>🤖 AI 분석 중...</div>}
+          </label>
+
+          <div style={{display:"grid",gridTemplateColumns:"2fr 1fr 1fr 1fr",gap:10,marginBottom:10}}>
+            <div><label style={{fontSize:11.5,fontWeight:700,color:"#92400E",display:"block",marginBottom:3}}>문서 제목 *</label>
+              <input value={draft.title} onChange={e=>setDraft(p=>({...p,title:e.target.value}))} placeholder="문서 제목" style={INP}/></div>
+            <div><label style={{fontSize:11.5,fontWeight:700,color:"#92400E",display:"block",marginBottom:3}}>분류</label>
+              <select value={draft.category} onChange={e=>setDraft(p=>({...p,category:e.target.value}))} style={INP}>
+                {CATS.map(c=><option key={c} value={c}>{c}</option>)}</select></div>
+            <div><label style={{fontSize:11.5,fontWeight:700,color:"#92400E",display:"block",marginBottom:3}}>연도</label>
+              <input value={draft.year} onChange={e=>setDraft(p=>({...p,year:e.target.value}))} placeholder="2026" style={INP}/></div>
+            <div><label style={{fontSize:11.5,fontWeight:700,color:"#92400E",display:"block",marginBottom:3}}>문서일자</label>
+              <input type="date" value={draft.date} onChange={e=>setDraft(p=>({...p,date:e.target.value}))} style={INP}/></div>
+          </div>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 2fr",gap:10,marginBottom:10}}>
+            <div><label style={{fontSize:11.5,fontWeight:700,color:"#92400E",display:"block",marginBottom:3}}>관련 프로젝트</label>
+              <input list="proj-list-dv" value={draft.project} onChange={e=>setDraft(p=>({...p,project:e.target.value}))} placeholder="프로젝트명 검색" style={INP}/>
+              <datalist id="proj-list-dv">{projects.map(p=><option key={p.id} value={p.name}/>)}</datalist></div>
+            <div><label style={{fontSize:11.5,fontWeight:700,color:"#92400E",display:"block",marginBottom:3}}>태그 (쉼표 구분)</label>
+              <input value={draft.tags} onChange={e=>setDraft(p=>({...p,tags:e.target.value}))} placeholder="계약, 2026, 경남의료원" style={INP}/></div>
+          </div>
+          <div style={{marginBottom:12}}>
+            <label style={{fontSize:11.5,fontWeight:700,color:"#92400E",display:"block",marginBottom:3}}>요약 / 내용</label>
+            <textarea value={draft.summary} onChange={e=>setDraft(p=>({...p,summary:e.target.value}))} rows={2} placeholder="AI가 자동 요약하거나 직접 입력" style={{...INP,resize:"vertical"}}/>
+          </div>
+          <div style={{display:"flex",gap:8,justifyContent:"flex-end"}}>
+            <button onClick={()=>setShowAdd(false)} style={{padding:"7px 16px",background:"#fff",color:"#6B7280",border:"1px solid #E5E7EB",borderRadius:8,fontSize:12.5,fontWeight:600,cursor:"pointer"}}>취소</button>
+            <button onClick={saveDoc} style={{padding:"7px 18px",background:"#D97706",color:"#fff",border:"none",borderRadius:8,fontSize:12.5,fontWeight:700,cursor:"pointer"}}>💾 저장</button>
+          </div>
+        </div>
+      )}
+
+      {/* 검색 + 필터 */}
+      <div style={{display:"flex",gap:8,marginBottom:12,flexWrap:"wrap"}}>
+        <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="🔍 제목·요약·태그·프로젝트 검색"
+          style={{flex:1,padding:"8px 14px",border:"1.5px solid #E5E7EB",borderRadius:9,fontSize:13,fontFamily:"inherit",outline:"none"}}/>
+        <select value={filterYear} onChange={e=>setFilterYear(e.target.value)}
+          style={{padding:"8px 12px",border:"1px solid #E5E7EB",borderRadius:9,fontSize:13,fontFamily:"inherit",outline:"none"}}>
+          <option value="전체">전체 연도</option>
+          {years.map(y=><option key={y} value={y}>{y}년</option>)}
+        </select>
+      </div>
+
+      {/* 문서 목록 */}
+      {filtered.length===0?(
+        <div style={{background:"#fff",borderRadius:14,border:"2px dashed #E5E7EB",padding:"60px",textAlign:"center",color:"#9CA3AF"}}>
+          <div style={{fontSize:36,marginBottom:8}}>📂</div>
+          <div style={{fontSize:15,fontWeight:600,marginBottom:6,color:"#374151"}}>등록된 문서가 없습니다</div>
+          <div style={{fontSize:13}}>+ 문서 등록 버튼으로 계약서, 공문, 회의록 등을 보관하세요.</div>
+        </div>
+      ):(
+        <div style={{background:"#fff",borderRadius:14,border:"1px solid #E5E7EB",overflow:"hidden"}}>
+          <div style={{padding:"12px 18px",borderBottom:"1px solid #E5E7EB",fontSize:13.5,fontWeight:700,color:"#374151",display:"flex",justifyContent:"space-between"}}>
+            <span>검색결과 {filtered.length}건</span>
+            <span style={{fontSize:12,color:"#9CA3AF",fontWeight:400}}>최신순</span>
+          </div>
+          {filtered.map((doc,i)=>(
+            <div key={doc.id} style={{padding:"13px 18px",borderBottom:"1px solid #F3F4F6",display:"flex",gap:12,alignItems:"flex-start",background:i%2===0?"#fff":"#FAFAFA"}}>
+              <div style={{fontSize:24,flexShrink:0,marginTop:2}}>{CAT_ICON[doc.category]||"📌"}</div>
+              <div style={{flex:1,minWidth:0}}>
+                <div style={{display:"flex",gap:7,alignItems:"center",marginBottom:4,flexWrap:"wrap"}}>
+                  <span style={{fontSize:11,padding:"1px 7px",borderRadius:9,background:(CAT_COLOR[doc.category]||"#6B7280")+"18",color:CAT_COLOR[doc.category]||"#6B7280",fontWeight:700}}>{doc.category}</span>
+                  {doc.year&&<span style={{fontSize:11,color:"#9CA3AF"}}>{doc.year}년</span>}
+                  <span style={{fontSize:14,fontWeight:700,color:"#111827"}}>{doc.title}</span>
+                </div>
+                {doc.summary&&<div style={{fontSize:12.5,color:"#6B7280",marginBottom:4,lineHeight:1.5}}>{doc.summary}</div>}
+                <div style={{display:"flex",gap:8,flexWrap:"wrap",alignItems:"center"}}>
+                  {doc.project&&<span style={{fontSize:11.5,color:"#6366F1",fontWeight:600}}>🏗 {doc.project}</span>}
+                  {doc.date&&<span style={{fontSize:11.5,color:"#6B7280"}}>📅 {doc.date}</span>}
+                  {doc.fileName&&<span style={{fontSize:11,color:"#9CA3AF"}}>📎 {doc.fileName}</span>}
+                  {doc.tags&&doc.tags.split(",").map(t=>t.trim()).filter(Boolean).map(t=>(
+                    <span key={t} style={{fontSize:10,padding:"1px 6px",borderRadius:8,background:"#F3F4F6",color:"#6B7280"}}>#{t}</span>
+                  ))}
+                </div>
+              </div>
+              <div style={{flexShrink:0}}>
+                <button onClick={()=>deleteDoc(doc.id)} style={{padding:"4px 9px",background:"#FEE2E2",color:"#DC2626",border:"none",borderRadius:6,fontSize:11.5,cursor:"pointer"}}>✕</button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
