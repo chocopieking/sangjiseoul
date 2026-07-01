@@ -6471,6 +6471,22 @@ function uploadCashExcel(e, type, cashItems, setCashItems, saleItems, setSaleIte
 // 📊 경영 대시보드 — 계약·매출·지출 현황
 // ══════════════════════════════════════════════════════════════
 function AnalysisDashboard({projects, cashItems, saleItems, DEPTS, DEPT_COLORS, DEPT_BIZ, deptStaff, years, contractItems=[]}) {
+  /* ═══════════════════════════════════════════════════════════
+   * 단위 규칙 (UNIT RULES) — 절대 변경 금지
+   * ───────────────────────────────────────────────────────────
+   * contractItems.serviceFeeExpect : 원(₩) 단위로 저장
+   *   예) 17.55억 → 1755000000 (원)
+   *   표시: /1e8 → 17.55억
+   *
+   * cashItems.amount               : 원(₩) 단위로 저장
+   *   표시: /1e8 → 억원
+   *
+   * deptBiz.orderDone/conf/push    : 억원 단위로 저장
+   *   예) 17.55 → 17.55억 (그대로 표시)
+   *
+   * fA (AnalysisDashboard 내)      : 억원 단위 값을 받아 표시
+   *   contractByDept.done/conf/push: 반드시 억원 단위
+   * ═══════════════════════════════════════════════════════════ */
   const {STAFF_DEPTS} = useDepts()
   const now      = new Date()
   const thisYear = String(now.getFullYear())
@@ -6494,12 +6510,14 @@ function AnalysisDashboard({projects, cashItems, saleItems, DEPTS, DEPT_COLORS, 
         if((item.depts||[]).includes(dept)) return 1/((item.depts||[]).length||1)
         return 0
       }
-      // contractItems의 serviceFeeExpect/amount는 저장 단위가 혼재할 수 있음
-      // normFeeToAmt: 억원 단위로 정규화 (1e11 이상이면 원 단위로 판단 → /1e8)
+      // contractItems 저장 단위: 원(Raw) 단위로 저장됨 (업로드 시 억원*1e8 변환)
+      // fA(v)와 동일한 방식으로 억원으로 환산해서 사용
       const toAmt = v => {
-        let n = Math.abs(Number(v)||0)
-        if(n>=1e11) return n/1e8  // 원 단위 → 억원
-        return n                   // 이미 억원 단위
+        const n = Math.abs(Number(v)||0)
+        if(n === 0) return 0
+        // 1억(1e8) 이상 → 원 단위로 저장된 것 → 억원으로 환산
+        // 1억 미만 → 이미 억원 단위 (엣지케이스 대비)
+        return n >= 1e8 ? n/1e8 : n
       }
 
       const myItems = contractItems.filter(i=>
