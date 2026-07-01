@@ -6480,37 +6480,43 @@ function AnalysisDashboard({projects, cashItems, saleItems, DEPTS, DEPT_COLORS, 
   // 전체 인원 = STAFF_DEPTS 기준 (비계약 부서 포함)
   const totalStaff = (STAFF_DEPTS||DEPTS).reduce((s,d)=>s+((deptStaff||{})[d]?.total||0), 0)
 
-  // ── 계약현황 집계 (contractItems 기반 — 업로드된 계약현황 엑셀 직접 반영) ──
+  // ── 계약현황 집계 (contractItems 기반) ──────────────────────
   const contractByDept = useMemo(()=>{
     return DEPTS.map(dept=>{
-      const db = (DEPT_BIZ||{})[dept] || {}
+      const db      = (DEPT_BIZ||{})[dept] || {}
       const myProjs = projects.filter(p=>(p.depts||[]).includes(dept)||(p.deptShares||[]).some(s=>s.dept===dept))
       const staff   = (deptStaff||{})[dept]?.total || 1
-      const target  = db.orderTarget || 0
+      const target  = db.orderTarget || 0  // 억원 단위
 
-      // contractItems에서 본부별 지분 반영 집계
       const deptShare = (item) => {
         const ds = (item.deptShares||[]).find(s=>s.dept===dept)
         if(ds) return ds.share/100
         if((item.depts||[]).includes(dept)) return 1/((item.depts||[]).length||1)
         return 0
       }
-      const normV = v => { let n=Number(v)||0; let g=0; while(Math.abs(n)>=1e11&&g<5){n=n/1e8;g++}; return n }
+      // contractItems의 serviceFeeExpect/amount는 저장 단위가 혼재할 수 있음
+      // normFeeToAmt: 억원 단위로 정규화 (1e11 이상이면 원 단위로 판단 → /1e8)
+      const toAmt = v => {
+        let n = Math.abs(Number(v)||0)
+        if(n>=1e11) return n/1e8  // 원 단위 → 억원
+        return n                   // 이미 억원 단위
+      }
+
       const myItems = contractItems.filter(i=>
         (i.depts||[]).includes(dept)||(i.deptShares||[]).some(s=>s.dept===dept)
       )
       const done = myItems.filter(i=>(i.type||"").includes("계약"))
-                          .reduce((s,i)=>s+normV(i.serviceFeeExpect||i.amount||0)*deptShare(i),0)*1e8  // 억→원
+                          .reduce((s,i)=>s+toAmt(i.serviceFeeExpect||i.amount||0)*deptShare(i),0)
       const conf = myItems.filter(i=>i.type==="확정")
-                          .reduce((s,i)=>s+normV(i.serviceFeeExpect||i.amount||0)*deptShare(i),0)*1e8
+                          .reduce((s,i)=>s+toAmt(i.serviceFeeExpect||i.amount||0)*deptShare(i),0)
       const push = myItems.filter(i=>i.type==="추진")
-                          .reduce((s,i)=>s+normV(i.serviceFeeExpect||i.amount||0)*deptShare(i),0)*1e8
+                          .reduce((s,i)=>s+toAmt(i.serviceFeeExpect||i.amount||0)*deptShare(i),0)
 
-      // contractItems 없으면 기존 deptBiz 값 폴백
+      // contractItems 없으면 기존 deptBiz 값 폴백 (모두 억원 단위)
       const hasCItems = contractItems.length > 0
-      const doneAmt  = hasCItems ? done/1e8 : (db.orderDone||0)
-      const confAmt  = hasCItems ? conf/1e8 : (db.orderConfirmed||0)
-      const pushAmt  = hasCItems ? push/1e8 : (db.orderPush||0)
+      const doneAmt = hasCItems ? done : (db.orderDone||0)
+      const confAmt = hasCItems ? conf : (db.orderConfirmed||0)
+      const pushAmt = hasCItems ? push : (db.orderPush||0)
 
       const total = doneAmt + confAmt + pushAmt
       const rate  = target > 0 ? Math.round((doneAmt+confAmt)/target*100) : null
@@ -6527,7 +6533,11 @@ function AnalysisDashboard({projects, cashItems, saleItems, DEPTS, DEPT_COLORS, 
       const staff= (deptStaff||{})[dept]?.total || 1
 
       // cashItems에서 이 본부의 기성+확정 (월수금계획 기반)
-      const myItems = cashItems.filter(i=>i.dept===dept)
+      // dept 단일필드 OR depts 배열 OR projectName 매칭 모두 지원
+      const myItems = cashItems.filter(i=>
+        i.dept===dept ||
+        (Array.isArray(i.depts)&&i.depts.includes(dept))
+      )
       const paidAmt = myItems.filter(i=>i.paidDate).reduce((s,i)=>s+(i.amount||0),0)/1e8
       const expAmt  = myItems.filter(i=>!i.paidDate&&i.expectedDate&&i.itemType!=="미정"&&i.itemType!=="추진").reduce((s,i)=>s+(i.amount||0),0)/1e8
       const pushAmt = myItems.filter(i=>i.itemType==="미정"||i.itemType==="추진").reduce((s,i)=>s+(i.amount||0),0)/1e8
