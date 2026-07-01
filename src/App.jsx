@@ -6485,23 +6485,87 @@ function AnalysisDashboard({projects, cashItems, saleItems, DEPTS, DEPT_COLORS, 
   const tblH = {padding:"10px 12px",textAlign:"left",fontSize:12.5,fontWeight:700,color:"#6B7280",borderBottom:"2px solid #E5E7EB",whiteSpace:"nowrap",background:"#F8FAFC"}
   const tblD = (align="left",bold=false,color="#374151")=>({padding:"10px 12px",textAlign:align,fontSize:13,fontWeight:bold?700:400,color,borderBottom:"1px solid #F3F4F6",whiteSpace:"nowrap"})
 
+  // 계약 추진 합계
+  const totDone   = contractByDept.reduce((s,d)=>s+d.done,0)
+  const totConf   = contractByDept.reduce((s,d)=>s+d.conf,0)
+  const totPush   = contractByDept.reduce((s,d)=>s+d.push,0)
+  const totSaleConf = saleByDept.reduce((s,d)=>s+d.revConf,0)
+  const totSalePush = saleByDept.reduce((s,d)=>s+d.revPush,0)
+  const contractRate = totTarget>0 ? Math.round((totDone+totConf)/totTarget*100) : 0
+  const saleRate     = totSaleTarget>0 ? Math.round(totSale/totSaleTarget*100) : 0
+
   return (
     <div>
-      {/* 전사 KPI */}
-      <div style={{display:"grid",gridTemplateColumns:"repeat(6,1fr)",gap:10,marginBottom:20}}>
-        {[
-          ["💰 계약 달성률",totTarget>0?`${Math.round(totContract/totTarget*100)}%`:"-%","#6366F1"],
-          ["📝 계약(완료+확정)",fA(totContract),"#312E81"],
-          ["📈 매출 달성률",totSaleTarget>0?`${Math.round(totSale/totSaleTarget*100)}%`:"-%","#059669"],
-          ["💧 매출 누계",fA(totSale),"#0F6E56"],
-          ["💸 지출 합계",fA(totExp),"#DC2626"],
-          ["👥 총 인원",totalStaff+"명","#6B7280"],
-        ].map(([l,v,c])=>(
-          <div key={l} style={{background:"#fff",borderRadius:12,border:"1px solid #E5E7EB",padding:"14px 16px",textAlign:"center"}}>
-            <div style={{fontSize:12,color:"#6B7280",marginBottom:6,fontWeight:600}}>{l}</div>
-            <div style={{fontSize:20,fontWeight:800,color:c}}>{v}</div>
+      {/* 전사 KPI — 묶음 형태 */}
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:12,marginBottom:20}}>
+
+        {/* 계약 묶음: 완료 + 확정 + 추진 */}
+        <div style={{background:"linear-gradient(135deg,#312E81,#6366F1)",borderRadius:14,padding:"18px 20px",color:"#fff"}}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
+            <div style={{fontSize:14,fontWeight:700,opacity:.85}}>📝 계약현황</div>
+            <div style={{fontSize:22,fontWeight:900}}>{contractRate}%</div>
           </div>
-        ))}
+          <div style={{marginBottom:8}}>
+            <div style={{display:"flex",justifyContent:"space-between",fontSize:11.5,opacity:.75,marginBottom:3}}>
+              <span>달성률 ({totTarget>0?fA(totTarget):"목표미설정"} 목표)</span>
+              <span>{fA(totDone+totConf)} / {fA(totTarget)}</span>
+            </div>
+            <div style={{height:6,background:"rgba(255,255,255,.2)",borderRadius:3}}>
+              <div style={{height:"100%",background:"#34D399",borderRadius:3,width:`${Math.min(contractRate,100)}%`}}/>
+            </div>
+          </div>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8}}>
+            {[["✅ 완료",fA(totDone),"#34D399"],["📋 확정",fA(totConf),"#A5B4FC"],["🔶 추진",fA(totPush),"#FDE68A"]].map(([l,v,c])=>(
+              <div key={l} style={{background:"rgba(255,255,255,.1)",borderRadius:9,padding:"8px 10px",textAlign:"center"}}>
+                <div style={{fontSize:10,color:c,fontWeight:600,marginBottom:3}}>{l}</div>
+                <div style={{fontSize:14,fontWeight:800,color:"#fff"}}>{v}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* 매출 묶음: 현누계 + 확정 + 미정 */}
+        <div style={{background:"linear-gradient(135deg,#065F46,#059669)",borderRadius:14,padding:"18px 20px",color:"#fff"}}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
+            <div style={{fontSize:14,fontWeight:700,opacity:.85}}>💧 매출현황</div>
+            <div style={{fontSize:22,fontWeight:900}}>{saleRate}%</div>
+          </div>
+          <div style={{marginBottom:8}}>
+            <div style={{display:"flex",justifyContent:"space-between",fontSize:11.5,opacity:.75,marginBottom:3}}>
+              <span>달성률 ({totSaleTarget>0?totSaleTarget+"억":"목표미설정"} 목표)</span>
+              <span>{fA(totSale)} / {fA(totSaleTarget)}</span>
+            </div>
+            <div style={{height:6,background:"rgba(255,255,255,.2)",borderRadius:3}}>
+              <div style={{height:"100%",background:"#34D399",borderRadius:3,width:`${Math.min(saleRate,100)}%`}}/>
+            </div>
+          </div>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8}}>
+            {[["✅ 현누계",fA(totSale),"#34D399"],["📋 확정",fA(totSaleConf),"#A5B4FC"],["❓ 미정",fA(totSalePush),"#FDE68A"]].map(([l,v,c])=>(
+              <div key={l} style={{background:"rgba(255,255,255,.1)",borderRadius:9,padding:"8px 10px",textAlign:"center"}}>
+                <div style={{fontSize:10,color:c,fontWeight:600,marginBottom:3}}>{l}</div>
+                <div style={{fontSize:14,fontWeight:800,color:"#fff"}}>{v}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* 지출 + 인원 */}
+        <div style={{display:"grid",gridTemplateRows:"1fr 1fr",gap:10}}>
+          <div style={{background:"linear-gradient(135deg,#7C1D1D,#DC2626)",borderRadius:12,padding:"14px 18px",color:"#fff",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+            <div>
+              <div style={{fontSize:12,opacity:.8,marginBottom:4}}>💸 지출 합계</div>
+              <div style={{fontSize:22,fontWeight:800}}>{fA(totExp)}</div>
+            </div>
+            <div style={{fontSize:32,opacity:.4}}>📤</div>
+          </div>
+          <div style={{background:"linear-gradient(135deg,#374151,#6B7280)",borderRadius:12,padding:"14px 18px",color:"#fff",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+            <div>
+              <div style={{fontSize:12,opacity:.8,marginBottom:4}}>👥 총 인원</div>
+              <div style={{fontSize:22,fontWeight:800}}>{totalStaff}명</div>
+            </div>
+            <div style={{fontSize:32,opacity:.4}}>👤</div>
+          </div>
+        </div>
       </div>
 
       {/* ── 계약현황 ── */}
@@ -6514,7 +6578,7 @@ function AnalysisDashboard({projects, cashItems, saleItems, DEPTS, DEPT_COLORS, 
           <div style={{overflowX:"auto"}}>
             <table style={{width:"100%",borderCollapse:"collapse"}}>
               <thead><tr>
-                {["본부","목표","완료(계약)","확정","미정(불확실)","합계(기성+확정)","달성률","인당(기성+확정)","프로젝트"].map((h,i)=>(
+                {["본부","목표","완료(계약)","확정","추진","합계(완료+확정)","달성률","인당(완료+확정)","프로젝트"].map((h,i)=>(
                   <th key={i} style={{...tblH,textAlign:i===0?"left":"right"}}>{h}</th>
                 ))}
               </tr></thead>
@@ -6573,7 +6637,7 @@ function AnalysisDashboard({projects, cashItems, saleItems, DEPTS, DEPT_COLORS, 
           <div style={{overflowX:"auto"}}>
             <table style={{width:"100%",borderCollapse:"collapse"}}>
               <thead><tr>
-                {["본부","목표","현누계","확정","미정(불확실)","합계(기성+확정)","달성률","인당(기성+확정)","이월잔액"].map((h,i)=>(
+                {["본부","목표","현누계","확정","미정","합계(기성+확정)","달성률","인당(기성+확정)","이월잔액"].map((h,i)=>(
                   <th key={i} style={{...tblH,textAlign:i===0?"left":"right",
                     color:i===5?"#312E81":i===6||i===7?"#059669":"#6B7280",
                     background:i===5?"#DCFCE7":i===7?"#D1FAE5":"#F8FAFC"}}>{h}</th>
