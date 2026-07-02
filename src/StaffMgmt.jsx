@@ -2,40 +2,38 @@ import React, { useState, useMemo, useRef, useEffect } from "react"
 import { INITIAL_STAFF_DB } from "./staffData.js"
 import * as XLSX from "xlsx"
 
-const STATUS_OPTIONS = ["재직","휴직","파견","퇴사","계약직"]
-const STATUS_COLOR   = {재직:"#059669",휴직:"#D97706",파견:"#6366F1",퇴사:"#DC2626",계약직:"#0891B2"}
-const STATUS_BG      = {재직:"#D1FAE5",휴직:"#FEF3C7",파견:"#EEF2FF",퇴사:"#FEE2E2",계약직:"#E0F7FA"}
-const RANK_ORDER     = ["사장","부사장","전무","전무보","상무","상무보","이사","이사대우","부장","차장","과장","대리","주임","사원","연구원",""]
+const STATUS_OPTIONS = ["재직","휴직","파견","퇴사","계약직","비카운트"]
+const STATUS_COLOR   = {재직:"#059669",휴직:"#D97706",파견:"#6366F1",퇴사:"#DC2626",계약직:"#0891B2",비카운트:"#9CA3AF"}
+const STATUS_BG      = {재직:"#D1FAE5",휴직:"#FEF3C7",파견:"#EEF2FF",퇴사:"#FEE2E2",계약직:"#E0F7FA",비카운트:"#F3F4F6"}
+// 인원 집계 제외 상태 (본부별 현황에 반영 안 됨)
+const EXCLUDE_FROM_COUNT = new Set(["퇴사","계약직","비카운트"])
+const RANK_ORDER = ["회장","부회장","사장","부사장","전무","전무보","상무","상무보","이사","이사대우","부장","차장","과장","대리","주임","사원","연구원",""]
+
 const DEPT_MAP = {
   "설계1본부":"설계1본부","설계1":"설계1본부",
   "설계2본부":"설계2본부","설계2":"설계2본부",
   "주거디자인본부":"주거디자인본부","주거":"주거디자인본부",
-  "디자인본부":"디자인본부","디본":"디자인본부","디자인":"디자인본부",
-  "운영지원본부":"운영지원본부","경영진":"경영진","전략기획본부":"전략기획본부",
-  "감리단":"감리단","파트장":"파트장",
+  "디자인본부":"디자인본부","디자인":"디자인본부","디본":"디자인본부",
+  "운영지원본부":"운영지원본부","경영진":"경영진",
+  "전략기획본부":"전략기획본부","감리단":"감리단","파트장":"파트장",
 }
-function normDept(d){ return DEPT_MAP[d?.trim()]||d?.trim()||"" }
+const normDept = d => DEPT_MAP[d?.trim()]||d?.trim()||""
 
+// ── 초기화 ──────────────────────────────────────────────────
 function initStaff(){
   try{
-    const saved=localStorage.getItem("sjs_staff_db")
+    const saved = localStorage.getItem("sjs_staff_db")
     if(saved&&saved!=="{}"){
-      const parsed=JSON.parse(saved)
-      // 배열로 저장된 이전 버전 데이터 → 객체로 변환
+      const parsed = JSON.parse(saved)
       if(Array.isArray(parsed)){
         const db={}
-        parsed.forEach((u,i)=>{
-          const id=u.id||`S${i+1000}`
-          db[id]={...u,id}
-        })
+        parsed.forEach((u,i)=>{ const id=u.id||`S${i+1000}`; db[id]={...u,id} })
         localStorage.setItem("sjs_staff_db",JSON.stringify(db))
         return db
       }
-      // 정상 객체 형태
       if(typeof parsed==="object"&&Object.keys(parsed).length>0) return parsed
     }
   }catch{}
-  // 초기 데이터 생성
   const db={}
   INITIAL_STAFF_DB.forEach((u,i)=>{
     const id=`S${i+1000}`
@@ -43,46 +41,232 @@ function initStaff(){
       ...u, id,
       dept: normDept(u.dept||""),
       status: u.status==="사용"||!u.status?"재직":(u.resignDate?"퇴사":"미사용"),
-      photo:"", memo:[],
+      excludeCount: false, photo:"", memo:[]
     }
   })
   try{ localStorage.setItem("sjs_staff_db",JSON.stringify(db)) }catch{}
   return db
 }
 
-// 수정 시 히스토리 자동 기록 (부서이동/직급변경/이름변경 등)
-function buildChangeLogs(prev, next, author){
-  const logs=[]
-  const date=new Date().toISOString().slice(0,10)
-  const checks=[
-    ["dept","부서이동","🏢"],["rank","직급변경","🎖"],["name","이름변경","📛"],
-    ["status","상태변경","🔄"],["mobile","연락처변경","📱"],["email","이메일변경","📧"],
+// ── 기본 조직도 구조 ────────────────────────────────────────
+const DEFAULT_ORG = {
+  id:"root", title:"오철호", role:"회장", color:"#312E81",
+  children:[
+    { id:"ceo1", title:"강순일", role:"사장", color:"#6366F1",
+      children:[
+        {id:"d1",title:"설계1본부",role:"본부장",color:"#059669",children:[]},
+        {id:"d2",title:"설계2본부",role:"본부장",color:"#D97706",children:[]},
+        {id:"d3",title:"주거디자인본부",role:"본부장",color:"#7C3AED",children:[]},
+        {id:"d4",title:"디자인본부",role:"본부장",color:"#0891B2",children:[]},
+        {id:"d5",title:"운영지원본부",role:"본부장",color:"#DC2626",children:[]},
+        {id:"d6",title:"전략기획본부",role:"본부장",color:"#6B7280",children:[]},
+      ]
+    }
   ]
-  checks.forEach(([k,label,icon])=>{
-    if(prev[k]!==next[k]&&(prev[k]||next[k]))
-      logs.push({id:`L${Date.now()}_${k}`,date,text:`${icon} ${label}: ${prev[k]||"없음"} → ${next[k]||"없음"}`,author,auto:true})
+}
+
+function initOrg(){
+  try{
+    const s=localStorage.getItem("sjs_org_chart")
+    if(s) return JSON.parse(s)
+  }catch{}
+  return DEFAULT_ORG
+}
+
+// ── 변경 히스토리 자동 기록 ─────────────────────────────────
+function buildChangeLogs(prev, next, author){
+  const now = new Date()
+  const datetime = `${now.toISOString().slice(0,10)} ${now.toTimeString().slice(0,5)}`
+  const logs=[]
+  const checks=[
+    ["dept","🏢 부서이동","부서"],["rank","🎖 직급변경","직급"],["name","📛 이름변경","이름"],
+    ["status","🔄 상태변경","상태"],["mobile","📱 연락처변경","연락처"],["email","📧 이메일변경","이메일"],
+    ["excludeCount","📊 인원산입변경","인원집계"],
+  ]
+  checks.forEach(([k,label,field])=>{
+    if(String(prev[k])!==String(next[k])&&(prev[k]!==undefined||next[k]!==undefined)){
+      logs.push({
+        id:`L${Date.now()}_${k}`,
+        date: now.toISOString().slice(0,10),
+        time: now.toTimeString().slice(0,5),
+        datetime,
+        text:`${label}: "${prev[k]||"없음"}" → "${next[k]||"없음"}"`,
+        author, type: field==="부서"?"부서이동":field==="직급"?"직급변경":"변경사항",
+        auto:true
+      })
+    }
   })
   return logs
 }
 
+// ── 조직도 컴포넌트 ─────────────────────────────────────────
+function OrgNode({node, onEdit, onAdd, onDelete, depth=0}){
+  const [collapsed, setCollapsed] = useState(false)
+  const hasChildren = node.children&&node.children.length>0
+
+  return (
+    <div style={{display:"flex",flexDirection:"column",alignItems:"center",gap:0}}>
+      {/* 노드 박스 */}
+      <div style={{position:"relative",display:"flex",flexDirection:"column",alignItems:"center"}}>
+        {depth>0&&<div style={{width:2,height:20,background:"#CBD5E1"}}/>}
+        <div style={{
+          background:node.color||"#6366F1",color:"#fff",borderRadius:12,
+          padding:"10px 18px",minWidth:110,textAlign:"center",
+          boxShadow:"0 4px 12px rgba(0,0,0,.15)",position:"relative",cursor:"pointer",
+          border:"2px solid transparent",transition:"all .15s",
+        }}
+          onMouseEnter={e=>e.currentTarget.style.border="2px solid rgba(255,255,255,.5)"}
+          onMouseLeave={e=>e.currentTarget.style.border="2px solid transparent"}
+        >
+          <div style={{fontSize:13.5,fontWeight:800}}>{node.title}</div>
+          <div style={{fontSize:11,opacity:.85,marginTop:2}}>{node.role}</div>
+          {/* 편집 버튼 */}
+          <div style={{position:"absolute",top:-8,right:-8,display:"flex",gap:2}}>
+            <button onClick={e=>{e.stopPropagation();onEdit(node)}}
+              style={{width:18,height:18,border:"none",borderRadius:"50%",background:"#FEF3C7",color:"#D97706",fontSize:9,cursor:"pointer",fontWeight:900,display:"flex",alignItems:"center",justifyContent:"center"}}>✏</button>
+            <button onClick={e=>{e.stopPropagation();onAdd(node)}}
+              style={{width:18,height:18,border:"none",borderRadius:"50%",background:"#D1FAE5",color:"#059669",fontSize:12,cursor:"pointer",fontWeight:900,display:"flex",alignItems:"center",justifyContent:"center"}}>+</button>
+            {depth>0&&<button onClick={e=>{e.stopPropagation();onDelete(node.id)}}
+              style={{width:18,height:18,border:"none",borderRadius:"50%",background:"#FEE2E2",color:"#DC2626",fontSize:9,cursor:"pointer",fontWeight:900,display:"flex",alignItems:"center",justifyContent:"center"}}>✕</button>}
+          </div>
+          {hasChildren&&<div onClick={e=>{e.stopPropagation();setCollapsed(v=>!v)}}
+            style={{position:"absolute",bottom:-10,left:"50%",transform:"translateX(-50%)",
+              width:18,height:18,borderRadius:"50%",background:"#fff",color:"#6366F1",
+              fontSize:10,fontWeight:900,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",
+              border:"2px solid #6366F1",zIndex:1}}>
+            {collapsed?"▶":"▼"}
+          </div>}
+        </div>
+        {hasChildren&&!collapsed&&<div style={{width:2,height:20,background:"#CBD5E1"}}/>}
+      </div>
+
+      {/* 자식 노드 */}
+      {hasChildren&&!collapsed&&(
+        <div style={{display:"flex",gap:16,alignItems:"flex-start",position:"relative"}}>
+          {/* 수평 연결선 */}
+          {node.children.length>1&&(
+            <div style={{position:"absolute",top:0,left:0,right:0,height:2,background:"#CBD5E1",zIndex:0}}/>
+          )}
+          {node.children.map(child=>(
+            <OrgNode key={child.id} node={child} onEdit={onEdit} onAdd={onAdd} onDelete={onDelete} depth={depth+1}/>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function OrgChart({org, setOrg}){
+  const [editNode, setEditNode] = useState(null)
+  const [addParentId, setAddParentId] = useState(null)
+  const [draftNode, setDraftNode] = useState(null)
+
+  const updateNode = (tree, id, patch) => {
+    if(tree.id===id) return {...tree,...patch}
+    return {...tree, children:(tree.children||[]).map(c=>updateNode(c,id,patch))}
+  }
+  const addChildNode = (tree, parentId, newNode) => {
+    if(tree.id===parentId) return {...tree,children:[...(tree.children||[]),newNode]}
+    return {...tree,children:(tree.children||[]).map(c=>addChildNode(c,parentId,newNode))}
+  }
+  const deleteNode = (tree, id) => {
+    return {...tree,children:(tree.children||[]).filter(c=>c.id!==id).map(c=>deleteNode(c,id))}
+  }
+
+  const handleEdit = (node) => { setEditNode(node); setDraftNode({...node}); setAddParentId(null) }
+  const handleAdd  = (node) => { setAddParentId(node.id); setDraftNode({id:`N${Date.now()}`,title:"",role:"",color:"#6366F1",children:[]}); setEditNode(null) }
+  const handleDelete = (id) => { if(window.confirm("삭제하시겠습니까?")){ const next=deleteNode(org,id); setOrg(next); localStorage.setItem("sjs_org_chart",JSON.stringify(next)) } }
+
+  const saveNode = () => {
+    if(!draftNode?.title) return
+    let next
+    if(editNode) next=updateNode(org,editNode.id,draftNode)
+    else if(addParentId) next=addChildNode(org,addParentId,draftNode)
+    else return
+    setOrg(next); localStorage.setItem("sjs_org_chart",JSON.stringify(next))
+    setEditNode(null); setAddParentId(null); setDraftNode(null)
+  }
+
+  const COLORS=["#312E81","#6366F1","#059669","#D97706","#DC2626","#7C3AED","#0891B2","#374151","#9CA3AF"]
+  const INP={padding:"7px 10px",border:"1.5px solid #E5E7EB",borderRadius:7,fontSize:13,width:"100%",boxSizing:"border-box",fontFamily:"inherit",outline:"none"}
+
+  return (
+    <div>
+      <div style={{display:"flex",gap:8,marginBottom:14,alignItems:"center"}}>
+        <div style={{fontSize:17,fontWeight:800,color:"#312E81"}}>🏢 조직도</div>
+        <button onClick={()=>{if(window.confirm("조직도를 초기화하시겠습니까?")){setOrg(DEFAULT_ORG);localStorage.setItem("sjs_org_chart",JSON.stringify(DEFAULT_ORG))}}}
+          style={{marginLeft:"auto",padding:"5px 12px",background:"#F3F4F6",color:"#6B7280",border:"none",borderRadius:7,fontSize:12,cursor:"pointer"}}>
+          🔄 초기화
+        </button>
+      </div>
+
+      {/* 편집 폼 */}
+      {(editNode||addParentId)&&draftNode&&(
+        <div style={{background:"#EEF2FF",borderRadius:12,border:"2px solid #6366F1",padding:"14px 16px",marginBottom:14}}>
+          <div style={{fontSize:13.5,fontWeight:700,color:"#312E81",marginBottom:10}}>
+            {editNode?"✏ 노드 수정":"+ 하위 노드 추가"}
+          </div>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:8}}>
+            <div>
+              <label style={{fontSize:11,fontWeight:700,color:"#6366F1",display:"block",marginBottom:3}}>이름/부서명</label>
+              <input value={draftNode.title} onChange={e=>setDraftNode(p=>({...p,title:e.target.value}))} style={INP}/>
+            </div>
+            <div>
+              <label style={{fontSize:11,fontWeight:700,color:"#6366F1",display:"block",marginBottom:3}}>직책/역할</label>
+              <input value={draftNode.role||""} onChange={e=>setDraftNode(p=>({...p,role:e.target.value}))} style={INP}/>
+            </div>
+          </div>
+          <div style={{marginBottom:10}}>
+            <label style={{fontSize:11,fontWeight:700,color:"#6366F1",display:"block",marginBottom:3}}>색상</label>
+            <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+              {COLORS.map(c=>(
+                <div key={c} onClick={()=>setDraftNode(p=>({...p,color:c}))}
+                  style={{width:28,height:28,borderRadius:"50%",background:c,cursor:"pointer",
+                    border:`3px solid ${draftNode.color===c?"#fff":"transparent"}`,
+                    boxShadow:draftNode.color===c?"0 0 0 2px "+c:"none"}}/>
+              ))}
+            </div>
+          </div>
+          <div style={{display:"flex",gap:8}}>
+            <button onClick={()=>{setEditNode(null);setAddParentId(null);setDraftNode(null)}}
+              style={{padding:"6px 14px",background:"#F3F4F6",color:"#6B7280",border:"none",borderRadius:7,fontSize:12.5,cursor:"pointer"}}>취소</button>
+            <button onClick={saveNode}
+              style={{padding:"6px 16px",background:"#6366F1",color:"#fff",border:"none",borderRadius:7,fontSize:12.5,fontWeight:700,cursor:"pointer"}}>💾 저장</button>
+          </div>
+        </div>
+      )}
+
+      {/* 조직도 렌더 */}
+      <div style={{overflowX:"auto",padding:"20px",background:"#F8FAFC",borderRadius:14,border:"1px solid #E5E7EB",minHeight:300}}>
+        <div style={{display:"inline-flex",flexDirection:"column",alignItems:"center",minWidth:"100%"}}>
+          <OrgNode node={org} onEdit={handleEdit} onAdd={handleAdd} onDelete={handleDelete}/>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ── 메인 컴포넌트 ────────────────────────────────────────────
 export function StaffMgmtPage({currentUser,deptStaff,setDeptStaff,DEPTS=[],DEPT_COLORS={},setTab}){
   const [staffDB, setStaffDBRaw] = useState(initStaff)
+  const [org,     setOrg]        = useState(initOrg)
+  const [view,    setView]       = useState("org")   // org | list
   const [filter,  setFilter]     = useState({dept:"전체",status:"재직",search:""})
   const [selId,   setSelId]      = useState(null)
   const [showAdd, setShowAdd]    = useState(false)
   const [draft,   setDraft]      = useState(null)
   const [newMemo, setNewMemo]    = useState("")
   const [memoType,setMemoType]   = useState("일반")
+  const [memoDate,setMemoDate]   = useState(new Date().toISOString().slice(0,10))
   const photoRef = useRef()
 
   const setStaffDB = v => {
     const next = typeof v==="function"?v(staffDB):v
     setStaffDBRaw(next)
-    try{ localStorage.setItem("sjs_staff_db", JSON.stringify(next)) }catch{}
-    // 재직자만 (퇴사/계약직 제외) 본부별 현황 연동
+    try{ localStorage.setItem("sjs_staff_db",JSON.stringify(next)) }catch{}
     if(setDeptStaff){
       const dm={}
-      Object.values(next).filter(s=>s.status!=="퇴사"&&s.status!=="계약직").forEach(s=>{
+      Object.values(next).filter(s=>!EXCLUDE_FROM_COUNT.has(s.status)&&!s.excludeCount).forEach(s=>{
         if(s.dept){ if(!dm[s.dept])dm[s.dept]={total:0}; dm[s.dept].total++ }
       })
       setDeptStaff(prev=>({...prev,...Object.fromEntries(
@@ -92,14 +276,11 @@ export function StaffMgmtPage({currentUser,deptStaff,setDeptStaff,DEPTS=[],DEPT_
   }
 
   const staffList = useMemo(()=>{
-    const vals = Object.values(staffDB)
-    // 혹시 staffDB 자체가 배열인 경우 방어
     if(Array.isArray(staffDB)) return staffDB
-    return vals
+    return Object.values(staffDB)
   },[staffDB])
-  const sel = selId ? (staffDB[selId] || staffList.find(s=>s.id===selId)) : null
+  const sel = selId ? (staffDB[selId]||staffList.find(s=>s.id===selId)) : null
 
-  // 필터링 + 정렬
   const filtered = useMemo(()=>staffList.filter(s=>{
     if(filter.dept!=="전체"&&s.dept!==filter.dept) return false
     if(filter.status!=="전체"&&s.status!==filter.status) return false
@@ -114,34 +295,39 @@ export function StaffMgmtPage({currentUser,deptStaff,setDeptStaff,DEPTS=[],DEPT_
     return (a.name||"").localeCompare(b.name||"","ko")
   }),[staffList,filter])
 
-  // 본부별 통계 (재직자만)
   const deptStats = useMemo(()=>{
     const m={}
-    staffList.filter(s=>s.status!=="퇴사"&&s.status!=="계약직").forEach(s=>{
+    staffList.filter(s=>!EXCLUDE_FROM_COUNT.has(s.status)&&!s.excludeCount).forEach(s=>{
       if(s.dept){ if(!m[s.dept])m[s.dept]=0; m[s.dept]++ }
     })
     return m
   },[staffList])
 
-  const allDepts = [...new Set(staffList.map(s=>s.dept).filter(Boolean))].sort()
+  const allDepts=[...new Set(staffList.map(s=>s.dept).filter(Boolean))].sort()
 
-  // 사진 업로드
   const handlePhoto = e=>{
-    const f=e.target.files?.[0]; if(!f) return
+    const f=e.target.files?.[0]; if(!f||!selId) return
     const r=new FileReader()
-    r.onload=ev=>{ if(selId) setStaffDB(prev=>({...prev,[selId]:{...prev[selId],photo:ev.target.result}})) }
+    r.onload=ev=>setStaffDB(prev=>({...prev,[selId]:{...prev[selId],photo:ev.target.result}}))
     r.readAsDataURL(f)
   }
 
-  // 메모 추가
   const addMemo = ()=>{
     if(!newMemo.trim()||!selId) return
-    const entry={id:`M${Date.now()}`,date:new Date().toISOString().slice(0,10),text:newMemo.trim(),author:currentUser?.name||"",type:memoType}
+    const now=new Date()
+    const entry={
+      id:`M${Date.now()}`,
+      date: memoDate||now.toISOString().slice(0,10),
+      time: now.toTimeString().slice(0,5),
+      datetime:`${memoDate} ${now.toTimeString().slice(0,5)}`,
+      text:newMemo.trim(),
+      author:currentUser?.name||"",
+      type:memoType
+    }
     setStaffDB(prev=>({...prev,[selId]:{...prev[selId],memo:[...(prev[selId].memo||[]),entry]}}))
     setNewMemo("")
   }
 
-  // 직원 저장 (변경 히스토리 자동 기록)
   const saveDraft = ()=>{
     if(!draft?.name?.trim()) return
     if(draft.id&&staffDB[draft.id]){
@@ -149,42 +335,47 @@ export function StaffMgmtPage({currentUser,deptStaff,setDeptStaff,DEPTS=[],DEPT_
       const autoLogs=buildChangeLogs(prev,draft,currentUser?.name||"")
       const updatedMemo=[...(prev.memo||[]),...autoLogs]
       setStaffDB(p=>({...p,[draft.id]:{...draft,memo:updatedMemo}}))
-      if(autoLogs.length>0) alert(`✅ 저장됨\n히스토리 자동 기록: ${autoLogs.map(l=>l.text).join(", ")}`)
+      if(autoLogs.length) {
+        const changes=autoLogs.map(l=>l.text).join("\n")
+        alert(`✅ 저장됨\n\n자동 기록된 변경사항:\n${changes}`)
+      }
     } else {
       const id=`S${Date.now()}`
-      setStaffDB(p=>({...p,[id]:{...draft,id,memo:[{id:`M${Date.now()}`,date:new Date().toISOString().slice(0,10),text:"🆕 신규 등록",author:currentUser?.name||"",type:"시스템",auto:true}]}}))
+      const now=new Date()
+      setStaffDB(p=>({...p,[id]:{...draft,id,memo:[{
+        id:`M${Date.now()}`,date:now.toISOString().slice(0,10),time:now.toTimeString().slice(0,5),
+        datetime:`${now.toISOString().slice(0,10)} ${now.toTimeString().slice(0,5)}`,
+        text:"🆕 신규 등록",author:currentUser?.name||"",type:"시스템",auto:true
+      }]}}))
       setSelId(id)
     }
     setDraft(null); setShowAdd(false)
   }
 
-  // ── 엑셀 양식 다운로드
+  // 엑셀
   const downloadTemplate = ()=>{
     const ws=XLSX.utils.aoa_to_sheet([
-      ["※ 이 양식으로 직원 정보를 입력 후 업로드하세요. [시스템ID]열은 수정 금지."],
+      ["※ 직원 정보 입력 양식. [시스템ID]열 수정 금지. 재직상태: 재직/휴직/파견/퇴사/계약직/비카운트"],
       [],
-      ["이름","영문이름","본부","직급","이메일","핸드폰","성별","학위","학교","입사일(YYYY-MM-DD)","퇴사일(YYYY-MM-DD)","재직상태","[시스템ID]"],
-      ["홍길동","Hong Gildong","설계1본부","과장","hong@example.com","010-1234-5678","남자","학사","서울대","2020-03-01","","재직",""],
+      ["이름","영문이름","본부","직급","이메일","핸드폰","성별","학위","학교","입사일(YYYY-MM-DD)","퇴사일","재직상태","인원집계제외(Y/N)","[시스템ID]"],
+      ["홍길동","Hong Gildong","설계1본부","과장","hong@sangji21c.co.kr","010-1234-5678","남자","학사","서울대","2020-03-01","","재직","N",""],
     ])
-    ws["!cols"]=[{wch:12},{wch:18},{wch:16},{wch:10},{wch:24},{wch:14},{wch:6},{wch:8},{wch:16},{wch:14},{wch:14},{wch:8},{wch:20}]
+    ws["!cols"]=[{wch:12},{wch:18},{wch:16},{wch:10},{wch:26},{wch:14},{wch:6},{wch:8},{wch:16},{wch:14},{wch:12},{wch:10},{wch:14},{wch:20}]
     const wb=XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb,ws,"직원목록")
     XLSX.writeFile(wb,"상지서울_직원관리_양식.xlsx")
   }
 
-  // ── 전체 데이터 다운로드
   const downloadAll = ()=>{
     const rows=[
-      ["이름","영문이름","본부","직급","이메일","핸드폰","성별","학위","학교","입사일","퇴사일","재직상태","[시스템ID]"],
+      ["이름","영문이름","본부","직급","이메일","핸드폰","성별","학위","학교","입사일","퇴사일","재직상태","인원집계제외","[시스템ID]"],
       ...staffList.map(s=>[s.name||"",s.nameEn||"",s.dept||"",s.rank||"",s.email||"",s.mobile||"",
-        s.gender||"",s.degree||"",s.school||"",s.joinDate||"",s.resignDate||"",s.status||"재직",s.id])
+        s.gender||"",s.degree||"",s.school||"",s.joinDate||"",s.resignDate||"",s.status||"재직",s.excludeCount?"Y":"N",s.id])
     ]
     const ws=XLSX.utils.aoa_to_sheet(rows)
-    ws["!cols"]=[{wch:12},{wch:18},{wch:16},{wch:10},{wch:24},{wch:14},{wch:6},{wch:8},{wch:16},{wch:14},{wch:14},{wch:8},{wch:20}]
     const wb=XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb,ws,"직원목록")
     XLSX.writeFile(wb,`상지서울_직원데이터_${new Date().toISOString().slice(0,10)}.xlsx`)
   }
 
-  // ── 엑셀 업로드
   const uploadExcel = e=>{
     const f=e.target.files?.[0]; if(!f) return
     const r=new FileReader()
@@ -197,9 +388,11 @@ export function StaffMgmtPage({currentUser,deptStaff,setDeptStaff,DEPTS=[],DEPT_
         const ni=ns=>{ for(const n of ns){ const i=headers.findIndex(h=>h.includes(n)); if(i>=0)return i }; return -1 }
         const CI={
           name:ni(["이름"]),nameEn:ni(["영문"]),dept:ni(["본부","부서"]),rank:ni(["직급"]),
-          email:ni(["이메일","메일"]),mobile:ni(["핸드폰","연락처","전화"]),gender:ni(["성별"]),
-          degree:ni(["학위"]),school:ni(["학교"]),joinDate:ni(["입사일"]),resignDate:ni(["퇴사일"]),
-          status:ni(["재직상태","상태"]),id:ni(["시스템ID","[시스템ID"])
+          email:ni(["이메일","메일"]),mobile:ni(["핸드폰","연락처"]),
+          gender:ni(["성별"]),degree:ni(["학위"]),school:ni(["학교"]),
+          joinDate:ni(["입사일"]),resignDate:ni(["퇴사일"]),
+          status:ni(["재직상태","상태"]),excludeCount:ni(["인원집계제외","집계제외"]),
+          id:ni(["시스템ID","[시스템ID"])
         }
         let added=0,updated=0
         setStaffDB(prev=>{
@@ -210,11 +403,12 @@ export function StaffMgmtPage({currentUser,deptStaff,setDeptStaff,DEPTS=[],DEPT_
             const existingId=CI.id>=0?String(r[CI.id]).trim():""
             const existing=existingId&&next[existingId]?next[existingId]:Object.values(next).find(s=>s.name===name)
             const newData={
-              name, nameEn:r[CI.nameEn]||"", dept:normDept(r[CI.dept]||""),
-              rank:r[CI.rank]||"", email:r[CI.email]||"", mobile:r[CI.mobile]||"",
-              gender:r[CI.gender]||"남자", degree:r[CI.degree]||"",
-              school:r[CI.school]||"", joinDate:r[CI.joinDate]||"",
-              resignDate:r[CI.resignDate]||"", status:r[CI.status]||"재직",
+              name,nameEn:r[CI.nameEn]||"",dept:normDept(r[CI.dept]||""),rank:r[CI.rank]||"",
+              email:r[CI.email]||"",mobile:r[CI.mobile]||"",gender:r[CI.gender]||"남자",
+              degree:r[CI.degree]||"",school:r[CI.school]||"",
+              joinDate:r[CI.joinDate]||"",resignDate:r[CI.resignDate]||"",
+              status:r[CI.status]||"재직",
+              excludeCount: CI.excludeCount>=0?(r[CI.excludeCount]||"").toLowerCase()==="y":false,
             }
             if(existing){
               const autoLogs=buildChangeLogs(existing,{...existing,...newData},"엑셀업로드")
@@ -222,7 +416,12 @@ export function StaffMgmtPage({currentUser,deptStaff,setDeptStaff,DEPTS=[],DEPT_
               updated++
             } else {
               const id=`S${Date.now()}_${added}`
-              next[id]={...newData,id,photo:"",memo:[{id:`M${Date.now()}`,date:new Date().toISOString().slice(0,10),text:"🆕 엑셀 업로드로 등록",author:"시스템",type:"시스템",auto:true}]}
+              const now=new Date()
+              next[id]={...newData,id,photo:"",memo:[{
+                id:`M${Date.now()}`,date:now.toISOString().slice(0,10),time:now.toTimeString().slice(0,5),
+                datetime:`${now.toISOString().slice(0,10)} ${now.toTimeString().slice(0,5)}`,
+                text:"🆕 엑셀 업로드로 등록",author:"시스템",type:"시스템",auto:true
+              }]}
               added++
             }
           })
@@ -234,310 +433,264 @@ export function StaffMgmtPage({currentUser,deptStaff,setDeptStaff,DEPTS=[],DEPT_
     r.readAsBinaryString(f); e.target.value=""
   }
 
-  const startEdit = s=>{ setDraft({...s}); setShowAdd(true) }
-  const startAdd  = ()=>{
+  const startEdit=s=>{setDraft({...s});setShowAdd(true)}
+  const startAdd=()=>{
     setDraft({id:null,name:"",nameEn:"",dept:DEPTS[0]||"",rank:"사원",gender:"남자",email:"",
-              mobile:"",degree:"",school:"",joinDate:"",resignDate:"",status:"재직",photo:"",memo:[]})
+              mobile:"",degree:"",school:"",joinDate:"",resignDate:"",status:"재직",excludeCount:false,photo:"",memo:[]})
     setShowAdd(true)
   }
 
   const INP={padding:"8px 12px",border:"1.5px solid #E5E7EB",borderRadius:8,fontSize:14,fontFamily:"inherit",outline:"none",width:"100%",boxSizing:"border-box"}
   const LBL={fontSize:12,fontWeight:700,color:"#6366F1",display:"block",marginBottom:4}
-
   const MEMO_TYPES=["일반","부서이동","직급변경","프로젝트","평가","기타"]
-  const MEMO_COLOR={"일반":"#6366F1","부서이동":"#D97706","직급변경":"#059669","프로젝트":"#0891B2","평가":"#7C3AED","기타":"#6B7280","시스템":"#9CA3AF"}
+  const MEMO_COLOR={"일반":"#6366F1","부서이동":"#D97706","직급변경":"#059669","프로젝트":"#0891B2","평가":"#7C3AED","기타":"#6B7280","시스템":"#9CA3AF","변경사항":"#DC2626"}
 
   return (
     <div style={{fontFamily:"'Noto Sans KR',sans-serif"}}>
       {/* 헤더 */}
-      <div style={{background:"linear-gradient(135deg,#312E81,#6366F1)",borderRadius:16,padding:"20px 24px",marginBottom:16,color:"#fff",display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:12}}>
+      <div style={{background:"linear-gradient(135deg,#312E81,#6366F1)",borderRadius:16,padding:"18px 22px",marginBottom:14,color:"#fff",display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:10}}>
         <div>
-          <div style={{fontSize:22,fontWeight:900,marginBottom:4}}>👤 직원 관리 시스템</div>
-          <div style={{fontSize:14,opacity:.8}}>전체 {staffList.length}명 · 재직 {staffList.filter(s=>s.status==="재직").length}명 · 퇴사 {staffList.filter(s=>s.status==="퇴사").length}명</div>
+          <div style={{fontSize:20,fontWeight:900,marginBottom:3}}>👤 직원 관리 시스템</div>
+          <div style={{fontSize:13,opacity:.8}}>
+            전체 {staffList.length}명 · 인원집계 {staffList.filter(s=>!EXCLUDE_FROM_COUNT.has(s.status)&&!s.excludeCount).length}명 · 퇴사 {staffList.filter(s=>s.status==="퇴사").length}명
+          </div>
         </div>
-        <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+        <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
           <button onClick={()=>setTab&&setTab("home")}
-            style={{padding:"8px 16px",background:"rgba(255,255,255,.2)",color:"#fff",border:"2px solid rgba(255,255,255,.4)",borderRadius:10,fontSize:13,fontWeight:700,cursor:"pointer"}}>
-            🏠 홈으로
-          </button>
-          <button onClick={()=>{
-            if(window.confirm("직원 데이터를 초기화하시겠습니까? (기존 수정사항 삭제됨)")) {
-              localStorage.removeItem("sjs_staff_db")
-              window.location.reload()
-            }
-          }} style={{padding:"8px 16px",background:"rgba(255,255,255,.1)",color:"rgba(255,255,255,.7)",border:"1px solid rgba(255,255,255,.2)",borderRadius:10,fontSize:12,fontWeight:600,cursor:"pointer"}}>
-            🔄 초기화
-          </button>
+            style={{padding:"7px 14px",background:"rgba(255,255,255,.2)",color:"#fff",border:"2px solid rgba(255,255,255,.35)",borderRadius:9,fontSize:12.5,fontWeight:700,cursor:"pointer"}}>🏠 홈</button>
           <button onClick={downloadTemplate}
-            style={{padding:"8px 16px",background:"#D1FAE5",color:"#065F46",border:"none",borderRadius:10,fontSize:13,fontWeight:700,cursor:"pointer"}}>
-            ⬇ 양식 다운로드
-          </button>
+            style={{padding:"7px 14px",background:"#D1FAE5",color:"#065F46",border:"none",borderRadius:9,fontSize:12.5,fontWeight:700,cursor:"pointer"}}>⬇ 양식</button>
           <button onClick={downloadAll}
-            style={{padding:"8px 16px",background:"#EDE9FE",color:"#5B21B6",border:"none",borderRadius:10,fontSize:13,fontWeight:700,cursor:"pointer"}}>
-            ⬇ 전체 데이터
-          </button>
-          <label style={{padding:"8px 16px",background:"#FEF3C7",color:"#92400E",border:"none",borderRadius:10,fontSize:13,fontWeight:700,cursor:"pointer",display:"inline-flex",alignItems:"center",gap:4}}>
-            ⬆ 엑셀 업로드
-            <input type="file" accept=".xlsx,.xls" style={{display:"none"}} onChange={uploadExcel}/>
+            style={{padding:"7px 14px",background:"#EDE9FE",color:"#5B21B6",border:"none",borderRadius:9,fontSize:12.5,fontWeight:700,cursor:"pointer"}}>⬇ 전체</button>
+          <label style={{padding:"7px 14px",background:"#FEF3C7",color:"#92400E",border:"none",borderRadius:9,fontSize:12.5,fontWeight:700,cursor:"pointer",display:"inline-flex",alignItems:"center",gap:3}}>
+            ⬆ 업로드 <input type="file" accept=".xlsx,.xls" style={{display:"none"}} onChange={uploadExcel}/>
           </label>
           <button onClick={startAdd}
-            style={{padding:"8px 16px",background:"#fff",color:"#6366F1",border:"none",borderRadius:10,fontSize:13,fontWeight:800,cursor:"pointer"}}>
-            + 직원 추가
+            style={{padding:"7px 14px",background:"#fff",color:"#6366F1",border:"none",borderRadius:9,fontSize:12.5,fontWeight:800,cursor:"pointer"}}>+ 추가</button>
+          <button onClick={()=>{if(window.confirm("초기화하시겠습니까?")){localStorage.removeItem("sjs_staff_db");window.location.reload()}}}
+            style={{padding:"7px 12px",background:"rgba(255,255,255,.1)",color:"rgba(255,255,255,.7)",border:"1px solid rgba(255,255,255,.2)",borderRadius:9,fontSize:11,cursor:"pointer"}}>🔄</button>
+        </div>
+      </div>
+
+      {/* 뷰 탭 */}
+      <div style={{display:"flex",gap:4,marginBottom:14,background:"#F3F4F6",borderRadius:10,padding:3,width:"fit-content"}}>
+        {[["org","🏢 조직도"],["list","👥 직원 목록"]].map(([v,l])=>(
+          <button key={v} onClick={()=>{setView(v);if(v==="org")setSelId(null)}}
+            style={{padding:"8px 20px",border:"none",borderRadius:8,fontSize:13.5,fontWeight:view===v?700:400,cursor:"pointer",
+              background:view===v?"#fff":"none",color:view===v?"#6366F1":"#6B7280",
+              boxShadow:view===v?"0 1px 4px rgba(0,0,0,.1)":"none"}}>
+            {l}
           </button>
-        </div>
-      </div>
-
-      {/* 본부별 현황 */}
-      <div style={{display:"flex",gap:8,flexWrap:"wrap",marginBottom:14}}>
-        {Object.entries(deptStats).sort((a,b)=>b[1]-a[1]).map(([d,c])=>(
-          <div key={d} onClick={()=>setFilter(p=>({...p,dept:d==="전체"?"전체":d,status:"재직"}))}
-            style={{padding:"10px 16px",background:filter.dept===d?"#6366F1":"#fff",borderRadius:11,
-              border:`2px solid ${DEPT_COLORS[d]||"#6366F1"}`,cursor:"pointer",display:"flex",gap:10,alignItems:"center",
-              boxShadow:filter.dept===d?"0 4px 12px rgba(99,102,241,.3)":"0 1px 4px rgba(0,0,0,.06)"}}>
-            <div style={{width:10,height:10,borderRadius:"50%",background:DEPT_COLORS[d]||"#6366F1"}}/>
-            <span style={{fontSize:14,fontWeight:700,color:filter.dept===d?"#fff":(DEPT_COLORS[d]||"#6366F1")}}>{d}</span>
-            <span style={{fontSize:20,fontWeight:900,color:filter.dept===d?"#fff":"#111827"}}>{c}</span>
-            <span style={{fontSize:12,color:filter.dept===d?"rgba(255,255,255,.8)":"#9CA3AF"}}>명</span>
-          </div>
         ))}
-        <div onClick={()=>setFilter(p=>({...p,dept:"전체",status:"재직"}))}
-          style={{padding:"10px 16px",background:filter.dept==="전체"?"#6366F1":"#F3F4F6",borderRadius:11,cursor:"pointer",display:"flex",gap:10,alignItems:"center",border:"2px solid transparent"}}>
-          <span style={{fontSize:14,fontWeight:700,color:filter.dept==="전체"?"#fff":"#6B7280"}}>전체</span>
-          <span style={{fontSize:20,fontWeight:900,color:filter.dept==="전체"?"#fff":"#111827"}}>
-            {staffList.filter(s=>s.status!=="퇴사"&&s.status!=="계약직").length}
-          </span>
-        </div>
       </div>
 
-      <div style={{display:"flex",gap:14}}>
-        {/* 왼쪽: 목록 */}
-        <div style={{width:300,flexShrink:0,display:"flex",flexDirection:"column",gap:8}}>
-          <div style={{background:"#fff",borderRadius:12,border:"1px solid #E5E7EB",padding:"12px"}}>
-            <input value={filter.search} onChange={e=>setFilter(p=>({...p,search:e.target.value}))}
-              placeholder="🔍 이름·직급·이메일 검색"
-              style={{...INP,marginBottom:8}}/>
-            <div style={{display:"flex",gap:6}}>
-              <select value={filter.status} onChange={e=>setFilter(p=>({...p,status:e.target.value}))} style={{...INP,flex:1}}>
-                <option value="전체">전체 상태</option>
-                {STATUS_OPTIONS.map(s=><option key={s} value={s}>{s}</option>)}
-              </select>
-            </div>
-            <div style={{fontSize:13,color:"#6B7280",marginTop:8,fontWeight:600}}>
-              {filtered.length}명 표시
-            </div>
-          </div>
+      {/* 조직도 뷰 */}
+      {view==="org"&&<OrgChart org={org} setOrg={setOrg}/>}
 
-          <div style={{flex:1,overflowY:"auto",maxHeight:"calc(100vh - 380px)",display:"flex",flexDirection:"column",gap:4}}>
-            {filtered.map(s=>(
-              <div key={s.id} onClick={()=>{setSelId(s.id);setShowAdd(false)}}
-                style={{background:selId===s.id?"#EEF2FF":"#fff",borderRadius:10,
-                  border:`1.5px solid ${selId===s.id?"#6366F1":"#E5E7EB"}`,
-                  padding:"10px 12px",cursor:"pointer",display:"flex",gap:10,alignItems:"center",
-                  boxShadow:selId===s.id?"0 2px 8px rgba(99,102,241,.2)":"none",
-                  transition:"all .15s"}}>
-                <div style={{width:42,height:42,borderRadius:"50%",flexShrink:0,
-                  background:s.photo?"transparent":"#E5E7EB",overflow:"hidden",
-                  display:"flex",alignItems:"center",justifyContent:"center",
-                  border:"2px solid #E5E7EB"}}>
-                  {s.photo?<img src={s.photo} style={{width:"100%",height:"100%",objectFit:"cover"}}/>
-                    :<span style={{fontSize:18,color:"#9CA3AF"}}>👤</span>}
-                </div>
-                <div style={{flex:1,minWidth:0}}>
-                  <div style={{display:"flex",gap:5,alignItems:"center",marginBottom:2}}>
-                    <span style={{fontSize:15,fontWeight:800,color:"#111827"}}>{s.name}</span>
-                    <span style={{fontSize:10,padding:"2px 6px",borderRadius:8,
-                      background:STATUS_BG[s.status]||"#F3F4F6",color:STATUS_COLOR[s.status]||"#6B7280",fontWeight:700}}>
-                      {s.status}
-                    </span>
-                  </div>
-                  <div style={{fontSize:12,color:"#6B7280",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
-                    {s.dept} · {s.rank}
-                  </div>
-                </div>
+      {/* 직원 목록 뷰 */}
+      {view==="list"&&(
+        <div>
+          {/* 본부별 통계 */}
+          <div style={{display:"flex",gap:8,flexWrap:"wrap",marginBottom:12}}>
+            <div onClick={()=>setFilter(p=>({...p,dept:"전체"}))}
+              style={{padding:"8px 14px",background:filter.dept==="전체"?"#6366F1":"#fff",borderRadius:10,cursor:"pointer",
+                border:"2px solid #E5E7EB",display:"flex",gap:8,alignItems:"center"}}>
+              <span style={{fontSize:13.5,fontWeight:700,color:filter.dept==="전체"?"#fff":"#6B7280"}}>전체</span>
+              <span style={{fontSize:18,fontWeight:900,color:filter.dept==="전체"?"#fff":"#111827"}}>
+                {staffList.filter(s=>!EXCLUDE_FROM_COUNT.has(s.status)&&!s.excludeCount).length}
+              </span>
+            </div>
+            {Object.entries(deptStats).sort((a,b)=>b[1]-a[1]).map(([d,c])=>(
+              <div key={d} onClick={()=>setFilter(p=>({...p,dept:d}))}
+                style={{padding:"8px 14px",background:filter.dept===d?(DEPT_COLORS[d]||"#6366F1"):"#fff",borderRadius:10,cursor:"pointer",
+                  border:`2px solid ${DEPT_COLORS[d]||"#6366F1"}`,display:"flex",gap:8,alignItems:"center"}}>
+                <div style={{width:8,height:8,borderRadius:"50%",background:filter.dept===d?"#fff":(DEPT_COLORS[d]||"#6366F1")}}/>
+                <span style={{fontSize:13,fontWeight:700,color:filter.dept===d?"#fff":(DEPT_COLORS[d]||"#6366F1")}}>{d}</span>
+                <span style={{fontSize:18,fontWeight:900,color:filter.dept===d?"#fff":"#111827"}}>{c}</span>
               </div>
             ))}
           </div>
-        </div>
 
-        {/* 오른쪽: 상세 */}
-        <div style={{flex:1,overflowY:"auto"}}>
-          {/* 편집 폼 */}
-          {showAdd&&draft&&(
-            <div style={{background:"#fff",borderRadius:14,border:"2px solid #6366F1",padding:"22px"}}>
-              <div style={{fontSize:17,fontWeight:800,color:"#312E81",marginBottom:16}}>
-                {draft.id?"✏ 직원 정보 수정":"+ 신규 직원 등록"}
+          <div style={{display:"flex",gap:12}}>
+            {/* 목록 */}
+            <div style={{width:290,flexShrink:0}}>
+              <div style={{background:"#fff",borderRadius:12,border:"1px solid #E5E7EB",padding:"10px",marginBottom:8}}>
+                <input value={filter.search} onChange={e=>setFilter(p=>({...p,search:e.target.value}))}
+                  placeholder="🔍 이름·직급·이메일" style={{...INP,marginBottom:6}}/>
+                <select value={filter.status} onChange={e=>setFilter(p=>({...p,status:e.target.value}))} style={INP}>
+                  <option value="전체">전체</option>
+                  {STATUS_OPTIONS.map(s=><option key={s} value={s}>{s}</option>)}
+                </select>
+                <div style={{fontSize:12,color:"#6B7280",marginTop:6,fontWeight:600}}>{filtered.length}명</div>
               </div>
-              <div style={{display:"grid",gridTemplateColumns:"2fr 2fr 1fr",gap:10,marginBottom:10}}>
-                {[["이름 *","name","text"],["영문이름","nameEn","text"],["이메일","email","email"]].map(([l,k,t])=>(
-                  <div key={k}>
-                    <label style={LBL}>{l}</label>
-                    <input type={t} value={draft[k]||""} onChange={e=>setDraft(p=>({...p,[k]:e.target.value}))} style={INP}/>
-                  </div>
-                ))}
-              </div>
-              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr 1fr",gap:10,marginBottom:10}}>
-                <div>
-                  <label style={LBL}>본부</label>
-                  <select value={draft.dept||""} onChange={e=>setDraft(p=>({...p,dept:e.target.value}))} style={INP}>
-                    {["",...allDepts,...(DEPTS.filter(d=>!allDepts.includes(d)))].map(d=><option key={d} value={d}>{d||"미배정"}</option>)}
-                  </select>
-                </div>
-                <div>
-                  <label style={LBL}>직급</label>
-                  <select value={draft.rank||""} onChange={e=>setDraft(p=>({...p,rank:e.target.value}))} style={INP}>
-                    {RANK_ORDER.map(r=><option key={r} value={r}>{r||"없음"}</option>)}
-                  </select>
-                </div>
-                <div>
-                  <label style={LBL}>재직상태</label>
-                  <select value={draft.status||"재직"} onChange={e=>setDraft(p=>({...p,status:e.target.value}))} style={INP}>
-                    {STATUS_OPTIONS.map(s=><option key={s} value={s}>{s}</option>)}
-                  </select>
-                </div>
-                <div>
-                  <label style={LBL}>핸드폰</label>
-                  <input value={draft.mobile||""} onChange={e=>setDraft(p=>({...p,mobile:e.target.value}))} style={INP}/>
-                </div>
-              </div>
-              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:14}}>
-                {[["입사일","joinDate"],["퇴사일","resignDate"]].map(([l,k])=>(
-                  <div key={k}>
-                    <label style={LBL}>{l}</label>
-                    <input value={draft[k]||""} onChange={e=>setDraft(p=>({...p,[k]:e.target.value}))} placeholder="YYYY-MM-DD" style={INP}/>
-                  </div>
-                ))}
-              </div>
-              <div style={{display:"flex",gap:8,justifyContent:"flex-end"}}>
-                <button onClick={()=>{setShowAdd(false);setDraft(null)}}
-                  style={{padding:"9px 18px",background:"#F3F4F6",color:"#6B7280",border:"none",borderRadius:9,fontSize:14,fontWeight:600,cursor:"pointer"}}>취소</button>
-                <button onClick={saveDraft}
-                  style={{padding:"9px 22px",background:"#6366F1",color:"#fff",border:"none",borderRadius:9,fontSize:14,fontWeight:800,cursor:"pointer"}}>💾 저장</button>
-              </div>
-            </div>
-          )}
-
-          {/* 직원 상세 */}
-          {sel&&!showAdd&&(
-            <div style={{display:"flex",flexDirection:"column",gap:12}}>
-              {/* 프로필 카드 */}
-              <div style={{background:"#fff",borderRadius:14,border:"1px solid #E5E7EB",padding:"22px",display:"flex",gap:20,alignItems:"flex-start"}}>
-                <div style={{flexShrink:0,textAlign:"center"}}>
-                  <div style={{width:100,height:100,borderRadius:16,background:"#E5E7EB",overflow:"hidden",
-                    display:"flex",alignItems:"center",justifyContent:"center",border:"3px solid #E5E7EB",marginBottom:8}}>
-                    {sel.photo?<img src={sel.photo} style={{width:"100%",height:"100%",objectFit:"cover"}}/>
-                      :<span style={{fontSize:44}}>👤</span>}
-                  </div>
-                  <input type="file" ref={photoRef} accept="image/*" style={{display:"none"}} onChange={handlePhoto}/>
-                  <button onClick={()=>photoRef.current?.click()}
-                    style={{padding:"5px 12px",background:"#EEF2FF",color:"#6366F1",border:"none",borderRadius:7,fontSize:12,cursor:"pointer",fontWeight:700}}>
-                    📷 사진
-                  </button>
-                </div>
-                <div style={{flex:1}}>
-                  <div style={{display:"flex",gap:10,alignItems:"center",marginBottom:8,flexWrap:"wrap"}}>
-                    <span style={{fontSize:22,fontWeight:900,color:"#111827"}}>{sel.name}</span>
-                    {sel.nameEn&&<span style={{fontSize:14,color:"#9CA3AF"}}>{sel.nameEn}</span>}
-                    <span style={{fontSize:12,padding:"3px 10px",borderRadius:10,
-                      background:STATUS_BG[sel.status]||"#F3F4F6",color:STATUS_COLOR[sel.status]||"#6B7280",fontWeight:800}}>
-                      {sel.status}
-                    </span>
-                  </div>
-                  <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"6px 20px",fontSize:14,color:"#374151",marginBottom:12}}>
-                    {[["본부",sel.dept],["직급",sel.rank],["이메일",sel.email],["핸드폰",sel.mobile||"-"],
-                      ["입사일",sel.joinDate||"-"],["퇴사일",sel.resignDate||"-"]].map(([l,v])=>(
-                      <div key={l} style={{display:"flex",gap:8}}>
-                        <span style={{color:"#9CA3AF",minWidth:44,flexShrink:0,fontWeight:600}}>{l}</span>
-                        <span style={{fontWeight:v&&v!=="-"?700:400}}>{v||"-"}</span>
-                      </div>
-                    ))}
-                  </div>
-                  <div style={{display:"flex",gap:8}}>
-                    <button onClick={()=>startEdit(sel)}
-                      style={{padding:"7px 16px",background:"#6366F1",color:"#fff",border:"none",borderRadius:9,fontSize:13.5,fontWeight:700,cursor:"pointer"}}>
-                      ✏ 정보 수정
-                    </button>
-                    <button onClick={()=>{if(window.confirm("삭제하시겠습니까?")){setStaffDB(p=>{const n={...p};delete n[sel.id];return n});setSelId(null)}}}
-                      style={{padding:"7px 16px",background:"#FEE2E2",color:"#DC2626",border:"none",borderRadius:9,fontSize:13.5,fontWeight:700,cursor:"pointer"}}>
-                      🗑 삭제
-                    </button>
-                  </div>
-                </div>
-              </div>
-
-              {/* 히스토리 */}
-              <div style={{background:"#fff",borderRadius:14,border:"1px solid #E5E7EB",overflow:"hidden"}}>
-                <div style={{padding:"14px 18px",borderBottom:"1px solid #E5E7EB",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-                  <div style={{fontSize:16,fontWeight:800,color:"#111827"}}>📋 {sel.name} 히스토리 ({(sel.memo||[]).length}건)</div>
-                </div>
-                <div style={{padding:"12px 16px",background:"#F9FAFB",borderBottom:"1px solid #E5E7EB"}}>
-                  <div style={{display:"flex",gap:6,marginBottom:8,flexWrap:"wrap"}}>
-                    {MEMO_TYPES.map(t=>(
-                      <button key={t} onClick={()=>setMemoType(t)}
-                        style={{padding:"4px 12px",border:`2px solid ${memoType===t?(MEMO_COLOR[t]||"#6366F1"):"#E5E7EB"}`,
-                          borderRadius:8,fontSize:12.5,cursor:"pointer",fontWeight:memoType===t?700:400,
-                          background:memoType===t?(MEMO_COLOR[t]||"#6366F1"):"#fff",
-                          color:memoType===t?"#fff":"#6B7280"}}>
-                        {t}
-                      </button>
-                    ))}
-                  </div>
-                  <div style={{display:"flex",gap:8}}>
-                    <input value={newMemo} onChange={e=>setNewMemo(e.target.value)}
-                      onKeyDown={e=>e.key==="Enter"&&addMemo()}
-                      placeholder={`[${memoType}] 내용 입력 (Enter)`}
-                      style={{...INP,flex:1}}/>
-                    <button onClick={addMemo}
-                      style={{padding:"8px 18px",background:"#6366F1",color:"#fff",border:"none",borderRadius:9,fontSize:14,fontWeight:700,cursor:"pointer",flexShrink:0}}>
-                      + 기록
-                    </button>
-                  </div>
-                </div>
-                <div style={{maxHeight:400,overflowY:"auto"}}>
-                  {(sel.memo||[]).length===0&&(
-                    <div style={{padding:"40px",textAlign:"center",color:"#9CA3AF",fontSize:14}}>아직 기록이 없습니다.</div>
-                  )}
-                  {[...(sel.memo||[])].reverse().map((m,i)=>(
-                    <div key={m.id||i} style={{padding:"12px 16px",borderBottom:"1px solid #F3F4F6",
-                      display:"flex",gap:12,alignItems:"flex-start",background:m.auto?"#FAFAFA":"#fff"}}>
-                      <div style={{width:3,background:MEMO_COLOR[m.type||"일반"]||"#6366F1",borderRadius:2,alignSelf:"stretch",flexShrink:0}}/>
-                      <div style={{flex:1}}>
-                        <div style={{display:"flex",gap:8,alignItems:"center",marginBottom:4,flexWrap:"wrap"}}>
-                          <span style={{fontSize:11,padding:"1px 7px",borderRadius:8,
-                            background:(MEMO_COLOR[m.type||"일반"]||"#6366F1")+"18",
-                            color:MEMO_COLOR[m.type||"일반"]||"#6366F1",fontWeight:700}}>
-                            {m.type||"일반"}
-                          </span>
-                          <span style={{fontSize:13,fontWeight:700,color:"#6366F1"}}>{m.date}</span>
-                          {m.author&&<span style={{fontSize:12,color:"#9CA3AF"}}>by {m.author}</span>}
-                          {m.auto&&<span style={{fontSize:10,background:"#EEF2FF",color:"#6366F1",padding:"1px 5px",borderRadius:5}}>자동기록</span>}
-                        </div>
-                        <div style={{fontSize:14,color:"#111827",lineHeight:1.65}}>{m.text}</div>
-                      </div>
-                      {!m.auto&&<button onClick={()=>setStaffDB(prev=>{
-                          const real=[...(sel.memo||[])]
-                          const realIdx=real.length-1-i
-                          real.splice(realIdx,1)
-                          return {...prev,[sel.id]:{...sel,memo:real}}
-                        })}
-                        style={{padding:"2px 8px",background:"#FEE2E2",color:"#DC2626",border:"none",borderRadius:5,fontSize:11,cursor:"pointer",flexShrink:0}}>
-                        ✕
-                      </button>}
+              <div style={{display:"flex",flexDirection:"column",gap:3,maxHeight:"calc(100vh-450px)",overflowY:"auto"}}>
+                {filtered.map(s=>(
+                  <div key={s.id} onClick={()=>{setSelId(s.id);setShowAdd(false)}}
+                    style={{background:selId===s.id?"#EEF2FF":"#fff",borderRadius:10,
+                      border:`1.5px solid ${selId===s.id?"#6366F1":"#E5E7EB"}`,
+                      padding:"9px 11px",cursor:"pointer",display:"flex",gap:9,alignItems:"center"}}>
+                    <div style={{width:40,height:40,borderRadius:"50%",flexShrink:0,background:s.photo?"transparent":"#E5E7EB",
+                      overflow:"hidden",display:"flex",alignItems:"center",justifyContent:"center"}}>
+                      {s.photo?<img src={s.photo} style={{width:"100%",height:"100%",objectFit:"cover"}}/>:<span style={{fontSize:17,color:"#9CA3AF"}}>👤</span>}
                     </div>
-                  ))}
-                </div>
+                    <div style={{flex:1,minWidth:0}}>
+                      <div style={{display:"flex",gap:4,alignItems:"center",marginBottom:1}}>
+                        <span style={{fontSize:14,fontWeight:800,color:"#111827"}}>{s.name}</span>
+                        <span style={{fontSize:9,padding:"1px 5px",borderRadius:7,background:STATUS_BG[s.status]||"#F3F4F6",color:STATUS_COLOR[s.status]||"#6B7280",fontWeight:700}}>{s.status}</span>
+                        {s.excludeCount&&<span style={{fontSize:9,padding:"1px 5px",borderRadius:7,background:"#F3F4F6",color:"#9CA3AF",fontWeight:700}}>제외</span>}
+                      </div>
+                      <div style={{fontSize:11.5,color:"#6B7280",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{s.dept}·{s.rank}</div>
+                    </div>
+                  </div>
+                ))}
               </div>
             </div>
-          )}
 
-          {!sel&&!showAdd&&(
-            <div style={{padding:"60px",textAlign:"center",color:"#9CA3AF",background:"#fff",borderRadius:14,border:"1px solid #E5E7EB"}}>
-              <div style={{fontSize:48,marginBottom:12}}>👤</div>
-              <div style={{fontSize:16,fontWeight:700,color:"#374151",marginBottom:6}}>직원을 선택하면 상세정보가 표시됩니다</div>
-              <div style={{fontSize:13}}>왼쪽 목록에서 이름을 클릭하세요</div>
+            {/* 상세 */}
+            <div style={{flex:1}}>
+              {showAdd&&draft&&(
+                <div style={{background:"#fff",borderRadius:14,border:"2px solid #6366F1",padding:"20px",marginBottom:12}}>
+                  <div style={{fontSize:16,fontWeight:800,color:"#312E81",marginBottom:14}}>{draft.id?"✏ 정보 수정":"+ 신규 등록"}</div>
+                  <div style={{display:"grid",gridTemplateColumns:"2fr 2fr 1fr",gap:9,marginBottom:9}}>
+                    {[["이름 *","name"],["영문","nameEn"],["이메일","email"]].map(([l,k])=>(
+                      <div key={k}><label style={LBL}>{l}</label><input value={draft[k]||""} onChange={e=>setDraft(p=>({...p,[k]:e.target.value}))} style={INP}/></div>
+                    ))}
+                  </div>
+                  <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr 1fr",gap:9,marginBottom:9}}>
+                    <div><label style={LBL}>본부</label>
+                      <select value={draft.dept||""} onChange={e=>setDraft(p=>({...p,dept:e.target.value}))} style={INP}>
+                        {["",...allDepts,...(DEPTS.filter(d=>!allDepts.includes(d)))].map(d=><option key={d} value={d}>{d||"미배정"}</option>)}
+                      </select></div>
+                    <div><label style={LBL}>직급</label>
+                      <select value={draft.rank||""} onChange={e=>setDraft(p=>({...p,rank:e.target.value}))} style={INP}>
+                        {RANK_ORDER.map(r=><option key={r} value={r}>{r||"없음"}</option>)}
+                      </select></div>
+                    <div><label style={LBL}>재직상태</label>
+                      <select value={draft.status||"재직"} onChange={e=>setDraft(p=>({...p,status:e.target.value}))} style={INP}>
+                        {STATUS_OPTIONS.map(s=><option key={s} value={s}>{s}</option>)}
+                      </select></div>
+                    <div><label style={LBL}>핸드폰</label><input value={draft.mobile||""} onChange={e=>setDraft(p=>({...p,mobile:e.target.value}))} style={INP}/></div>
+                  </div>
+                  <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:9,marginBottom:9}}>
+                    {[["입사일","joinDate"],["퇴사일","resignDate"]].map(([l,k])=>(
+                      <div key={k}><label style={LBL}>{l}</label><input value={draft[k]||""} placeholder="YYYY-MM-DD" onChange={e=>setDraft(p=>({...p,[k]:e.target.value}))} style={INP}/></div>
+                    ))}
+                  </div>
+                  <label style={{display:"flex",gap:8,alignItems:"center",marginBottom:12,cursor:"pointer",fontSize:13.5,fontWeight:600,color:"#374151"}}>
+                    <input type="checkbox" checked={draft.excludeCount||false} onChange={e=>setDraft(p=>({...p,excludeCount:e.target.checked}))} style={{width:16,height:16}}/>
+                    인원 집계에서 제외 (회장, 비카운트 등)
+                  </label>
+                  <div style={{display:"flex",gap:8,justifyContent:"flex-end"}}>
+                    <button onClick={()=>{setShowAdd(false);setDraft(null)}}
+                      style={{padding:"8px 16px",background:"#F3F4F6",color:"#6B7280",border:"none",borderRadius:9,fontSize:13,fontWeight:600,cursor:"pointer"}}>취소</button>
+                    <button onClick={saveDraft}
+                      style={{padding:"8px 20px",background:"#6366F1",color:"#fff",border:"none",borderRadius:9,fontSize:13,fontWeight:800,cursor:"pointer"}}>💾 저장</button>
+                  </div>
+                </div>
+              )}
+
+              {sel&&!showAdd&&(
+                <div style={{display:"flex",flexDirection:"column",gap:10}}>
+                  <div style={{background:"#fff",borderRadius:14,border:"1px solid #E5E7EB",padding:"18px",display:"flex",gap:18,alignItems:"flex-start"}}>
+                    <div style={{flexShrink:0,textAlign:"center"}}>
+                      <div style={{width:90,height:90,borderRadius:14,background:"#E5E7EB",overflow:"hidden",display:"flex",alignItems:"center",justifyContent:"center",border:"3px solid #E5E7EB",marginBottom:6}}>
+                        {sel.photo?<img src={sel.photo} style={{width:"100%",height:"100%",objectFit:"cover"}}/>:<span style={{fontSize:40}}>👤</span>}
+                      </div>
+                      <input type="file" ref={photoRef} accept="image/*" style={{display:"none"}} onChange={handlePhoto}/>
+                      <button onClick={()=>photoRef.current?.click()}
+                        style={{padding:"4px 10px",background:"#EEF2FF",color:"#6366F1",border:"none",borderRadius:6,fontSize:11.5,cursor:"pointer",fontWeight:700}}>📷 사진</button>
+                    </div>
+                    <div style={{flex:1}}>
+                      <div style={{display:"flex",gap:8,alignItems:"center",marginBottom:6,flexWrap:"wrap"}}>
+                        <span style={{fontSize:20,fontWeight:900,color:"#111827"}}>{sel.name}</span>
+                        {sel.nameEn&&<span style={{fontSize:13,color:"#9CA3AF"}}>{sel.nameEn}</span>}
+                        <span style={{fontSize:11,padding:"2px 9px",borderRadius:9,background:STATUS_BG[sel.status]||"#F3F4F6",color:STATUS_COLOR[sel.status]||"#6B7280",fontWeight:800}}>{sel.status}</span>
+                        {sel.excludeCount&&<span style={{fontSize:11,padding:"2px 9px",borderRadius:9,background:"#F3F4F6",color:"#9CA3AF",fontWeight:700}}>인원제외</span>}
+                      </div>
+                      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"5px 18px",fontSize:13.5,marginBottom:10}}>
+                        {[["본부",sel.dept],["직급",sel.rank],["이메일",sel.email],["핸드폰",sel.mobile||"-"],["입사일",sel.joinDate||"-"],["퇴사일",sel.resignDate||"-"]].map(([l,v])=>(
+                          <div key={l} style={{display:"flex",gap:8}}>
+                            <span style={{color:"#9CA3AF",minWidth:42,flexShrink:0,fontWeight:600}}>{l}</span>
+                            <span style={{fontWeight:v&&v!=="-"?700:400,color:"#111827"}}>{v||"-"}</span>
+                          </div>
+                        ))}
+                      </div>
+                      <div style={{display:"flex",gap:7}}>
+                        <button onClick={()=>startEdit(sel)}
+                          style={{padding:"6px 14px",background:"#6366F1",color:"#fff",border:"none",borderRadius:9,fontSize:13,fontWeight:700,cursor:"pointer"}}>✏ 수정</button>
+                        <button onClick={()=>{if(window.confirm("삭제?")){setStaffDB(p=>{const n={...p};delete n[sel.id];return n});setSelId(null)}}}
+                          style={{padding:"6px 14px",background:"#FEE2E2",color:"#DC2626",border:"none",borderRadius:9,fontSize:13,fontWeight:700,cursor:"pointer"}}>🗑 삭제</button>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* 히스토리 */}
+                  <div style={{background:"#fff",borderRadius:14,border:"1px solid #E5E7EB",overflow:"hidden"}}>
+                    <div style={{padding:"12px 16px",borderBottom:"1px solid #E5E7EB",fontSize:15,fontWeight:800,color:"#111827"}}>
+                      📋 히스토리 ({(sel.memo||[]).length}건)
+                    </div>
+                    <div style={{padding:"10px 14px",background:"#F9FAFB",borderBottom:"1px solid #E5E7EB"}}>
+                      <div style={{display:"flex",gap:5,marginBottom:7,flexWrap:"wrap"}}>
+                        {MEMO_TYPES.map(t=>(
+                          <button key={t} onClick={()=>setMemoType(t)}
+                            style={{padding:"3px 10px",border:`2px solid ${memoType===t?(MEMO_COLOR[t]||"#6366F1"):"#E5E7EB"}`,
+                              borderRadius:7,fontSize:12,cursor:"pointer",fontWeight:memoType===t?700:400,
+                              background:memoType===t?(MEMO_COLOR[t]||"#6366F1"):"#fff",
+                              color:memoType===t?"#fff":"#6B7280"}}>
+                            {t}
+                          </button>
+                        ))}
+                      </div>
+                      <div style={{display:"grid",gridTemplateColumns:"140px 1fr auto",gap:6,alignItems:"center"}}>
+                        <input type="date" value={memoDate} onChange={e=>setMemoDate(e.target.value)}
+                          style={{...INP,fontSize:12.5}}/>
+                        <input value={newMemo} onChange={e=>setNewMemo(e.target.value)}
+                          onKeyDown={e=>e.key==="Enter"&&addMemo()}
+                          placeholder={`[${memoType}] 내용 입력`}
+                          style={INP}/>
+                        <button onClick={addMemo}
+                          style={{padding:"8px 16px",background:"#6366F1",color:"#fff",border:"none",borderRadius:9,fontSize:13,fontWeight:700,cursor:"pointer",flexShrink:0,whiteSpace:"nowrap"}}>+ 기록</button>
+                      </div>
+                    </div>
+                    <div style={{maxHeight:360,overflowY:"auto"}}>
+                      {(sel.memo||[]).length===0&&(
+                        <div style={{padding:"36px",textAlign:"center",color:"#9CA3AF",fontSize:13}}>아직 기록이 없습니다.</div>
+                      )}
+                      {[...(sel.memo||[])].reverse().map((m,i)=>(
+                        <div key={m.id||i} style={{padding:"11px 14px",borderBottom:"1px solid #F3F4F6",display:"flex",gap:10,alignItems:"flex-start",background:m.auto?"#FAFAFA":"#fff"}}>
+                          <div style={{width:3,background:MEMO_COLOR[m.type||"일반"]||"#6366F1",borderRadius:2,alignSelf:"stretch",flexShrink:0}}/>
+                          <div style={{flex:1}}>
+                            <div style={{display:"flex",gap:7,alignItems:"center",marginBottom:3,flexWrap:"wrap"}}>
+                              <span style={{fontSize:11,padding:"1px 6px",borderRadius:7,background:(MEMO_COLOR[m.type||"일반"]||"#6366F1")+"18",color:MEMO_COLOR[m.type||"일반"]||"#6366F1",fontWeight:700}}>{m.type||"일반"}</span>
+                              <span style={{fontSize:13,fontWeight:800,color:"#374151"}}>{m.date}</span>
+                              {m.time&&<span style={{fontSize:11.5,color:"#9CA3AF"}}>{m.time}</span>}
+                              {m.author&&<span style={{fontSize:11,color:"#9CA3AF"}}>by {m.author}</span>}
+                              {m.auto&&<span style={{fontSize:9,background:"#EEF2FF",color:"#6366F1",padding:"1px 5px",borderRadius:4}}>자동</span>}
+                            </div>
+                            <div style={{fontSize:13.5,color:"#111827",lineHeight:1.6}}>{m.text}</div>
+                          </div>
+                          {!m.auto&&<button onClick={()=>{
+                            const real=[...(sel.memo||[])]; real.splice(real.length-1-i,1)
+                            setStaffDB(prev=>({...prev,[sel.id]:{...sel,memo:real}}))
+                          }} style={{padding:"2px 7px",background:"#FEE2E2",color:"#DC2626",border:"none",borderRadius:5,fontSize:11,cursor:"pointer",flexShrink:0}}>✕</button>}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {!sel&&!showAdd&&(
+                <div style={{padding:"60px",textAlign:"center",color:"#9CA3AF",background:"#fff",borderRadius:14,border:"1px solid #E5E7EB"}}>
+                  <div style={{fontSize:42,marginBottom:10}}>👤</div>
+                  <div style={{fontSize:15,fontWeight:700,color:"#374151",marginBottom:5}}>직원을 선택하면 상세정보가 표시됩니다</div>
+                  <div style={{fontSize:12.5}}>왼쪽 목록에서 이름을 클릭하세요</div>
+                </div>
+              )}
             </div>
-          )}
+          </div>
         </div>
-      </div>
+      )}
     </div>
   )
 }
