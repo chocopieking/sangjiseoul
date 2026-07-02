@@ -1118,7 +1118,7 @@ export default function App() {
         {tab==="optimize" && <OptimizeTab projects={projects} deptStaff={deptStaff} pnlData={pnlData}/>}
         {tab==="archive"   && <ArchiveTab currentUser={currentUser} projects={projects}/>}
         {tab==="docvault"  && <DocVaultPage currentUser={currentUser} projects={projects}/>}
-        {tab==="staffmgmt" && <StaffMgmtPage currentUser={currentUser} deptStaff={deptStaff} setDeptStaff={setDeptStaff} DEPTS={DEPTS} DEPT_COLORS={DEPT_COLORS}/>}}
+        {tab==="staffmgmt" && <StaffMgmtPage currentUser={currentUser} deptStaff={deptStaff} setDeptStaff={setDeptStaff} DEPTS={DEPTS} DEPT_COLORS={DEPT_COLORS} setTab={setTab}/>}
         {tab==="contract"  && <ContractTab projects={projects} currentUser={currentUser}/>}
         {tab==="history"   && <ProjectHistoryPage projects={projects} currentUser={currentUser} cashItems={cashItems}/>}
         {tab==="calendar"  && <SmartSchedulePage projects={projects} cashItems={cashItems} contractItems={contractItems} currentUser={currentUser} schedules={schedules} setSchedules={setSchedules}/>}
@@ -6613,14 +6613,20 @@ function AnalysisDashboard({projects, cashItems, saleItems, DEPTS, DEPT_COLORS, 
         if((item.depts||[]).includes(dept)) return 1/((item.depts||[]).length||1)
         return 0
       }
-      // contractItems 저장 단위: 원(Raw) 단위로 저장됨 (업로드 시 억원*1e8 변환)
-      // fA(v)와 동일한 방식으로 억원으로 환산해서 사용
+      // ══ 단위 변환 규칙 ══
+      // contractItems.serviceFeeExpect = 원(₩) 단위 저장
+      // 건축 설계 용역비 현실 범위: 1천만원 ~ 200억원
+      // → 1e7(1천만) ~ 2e10(200억) 원 범위
+      // → 억원 단위: 0.1 ~ 200 범위
+      // 반드시 /1e8 변환해서 억원으로 통일
       const toAmt = v => {
         const n = Math.abs(Number(v)||0)
         if(n === 0) return 0
-        // 1억(1e8) 이상 → 원 단위로 저장된 것 → 억원으로 환산
-        // 1억 미만 → 이미 억원 단위 (엣지케이스 대비)
-        return n >= 1e8 ? n/1e8 : n
+        // 0.001 미만: 잘못된 값 → 0 처리
+        // 1000 초과: 원 단위(≥1000원) → /1e8 변환
+        // 0.001~1000: 억원 단위 → 그대로
+        if(n > 1000) return n/1e8
+        return n
       }
 
       const myItems = contractItems.filter(i=>
@@ -6704,7 +6710,13 @@ function AnalysisDashboard({projects, cashItems, saleItems, DEPTS, DEPT_COLORS, 
   const salePie     = DEPTS.map((d,i)=>({name:d.replace("본부",""),value:+saleByDept[i].revCum.toFixed(2),color:DEPT_COLORS[d]||"#6B7280"}))
   const expPie      = DEPTS.map((d,i)=>({name:d.replace("본부",""),value:+expByDept[i].paid.toFixed(2),color:DEPT_COLORS[d]||"#6B7280"}))
 
-  const fA = v => v>0 ? `${v.toFixed(2)}억` : "-"
+  const fA = v => {
+    const n = Number(v)||0
+    if(n<=0) return "-"
+    // 1000억 초과는 원 단위로 간주해서 변환 (이중 보정)
+    const x = n > 1000 ? n/1e8 : n
+    return `${x.toFixed(2)}억`
+  }
   const tblH = {padding:"10px 12px",textAlign:"left",fontSize:12.5,fontWeight:700,color:"#6B7280",borderBottom:"2px solid #E5E7EB",whiteSpace:"nowrap",background:"#F8FAFC"}
   const tblD = (align="left",bold=false,color="#374151")=>({padding:"10px 12px",textAlign:align,fontSize:13,fontWeight:bold?700:400,color,borderBottom:"1px solid #F3F4F6",whiteSpace:"nowrap"})
 
@@ -8545,6 +8557,38 @@ function ContractStatusPage({contractItems=[], setContractItems, DEPTS, DEPT_COL
     const db = b.execTime||b.contractTime||"9999"
     return String(da).localeCompare(String(db))
   })
+
+  const sum = arr => arr.reduce((s,i)=>s+normFee(i.serviceFeeExpect||i.amount||0),0)
+  const 계약Sum = sum(계약Items)
+  const 확정Sum = sum(확정Items)
+  const 추진Sum = sum(추진Items)
+  const 합계    = 계약Sum + 확정Sum
+
+  // 본부 지분 헬퍼
+  const deptShare = (item, dept) => {
+    const ds = (item.deptShares||[]).find(s=>s.dept===dept)
+    if(ds) return ds.share/100
+    const depts = item.depts||[]
+    if(depts.includes(dept)) return 1/depts.length
+    return 0
+  }
+
+  // 본부별 집계
+  const byDept = DEPTS.map(dept=>{
+    const my = contractItems.filter(i=>(i.depts||[]).includes(dept)||(i.deptShares||[]).some(s=>s.dept===dept))
+    const feeOf = i => normFee(i.serviceFeeExpect||i.amount||0)
+    const items계약 = my.filter(i=>getType(i)==="계약")
+    const items확정 = my.filter(i=>getType(i)==="확정")
+    const items추진 = my.filter(i=>getType(i)==="추진")
+    const 계약 = items계약.reduce((s,i)=>s+feeOf(i)*deptShare(i,dept),0)
+    const 확정 = items확정.reduce((s,i)=>s+feeOf(i)*deptShare(i,dept),0)
+    const 추진 = items추진.reduce((s,i)=>s+feeOf(i)*deptShare(i,dept),0)
+    const 목표 = ((deptBiz||{})[dept]?.orderTarget||0)*1e8
+    return {dept,계약,확정,추진,합계:계약+확정,목표,color:DEPT_COLORS[dept]||"#6B7280",
+      items계약, items확정, items추진, items합계:[...items계약,...items확정]}
+  }).filter(d=>d.합계+d.추진+d.목표>0)
+
+  const [detailView, setDetailView] = useState(null)
 
   const startEdit = (item) => { setEditId(item.id); setDraft({...item}) }
   const saveEdit = () => {
