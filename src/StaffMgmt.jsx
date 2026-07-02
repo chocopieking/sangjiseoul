@@ -19,20 +19,35 @@ function normDept(d){ return DEPT_MAP[d?.trim()]||d?.trim()||"" }
 function initStaff(){
   try{
     const saved=localStorage.getItem("sjs_staff_db")
-    if(saved&&saved!=="{}") return JSON.parse(saved)
-    const db={}
-    INITIAL_STAFF_DB.forEach((u,i)=>{
-      const id=`S${i+1000}`
-      db[id]={
-        ...u, id,
-        dept: normDept(u.dept||""),
-        status: u.status==="사용"||!u.status?"재직":(u.resignDate?"퇴사":"미사용"),
-        photo:"", memo:[],
+    if(saved&&saved!=="{}"){
+      const parsed=JSON.parse(saved)
+      // 배열로 저장된 이전 버전 데이터 → 객체로 변환
+      if(Array.isArray(parsed)){
+        const db={}
+        parsed.forEach((u,i)=>{
+          const id=u.id||`S${i+1000}`
+          db[id]={...u,id}
+        })
+        localStorage.setItem("sjs_staff_db",JSON.stringify(db))
+        return db
       }
-    })
-    localStorage.setItem("sjs_staff_db",JSON.stringify(db))
-    return db
-  }catch{return{}}
+      // 정상 객체 형태
+      if(typeof parsed==="object"&&Object.keys(parsed).length>0) return parsed
+    }
+  }catch{}
+  // 초기 데이터 생성
+  const db={}
+  INITIAL_STAFF_DB.forEach((u,i)=>{
+    const id=`S${i+1000}`
+    db[id]={
+      ...u, id,
+      dept: normDept(u.dept||""),
+      status: u.status==="사용"||!u.status?"재직":(u.resignDate?"퇴사":"미사용"),
+      photo:"", memo:[],
+    }
+  })
+  try{ localStorage.setItem("sjs_staff_db",JSON.stringify(db)) }catch{}
+  return db
 }
 
 // 수정 시 히스토리 자동 기록 (부서이동/직급변경/이름변경 등)
@@ -76,8 +91,13 @@ export function StaffMgmtPage({currentUser,deptStaff,setDeptStaff,DEPTS=[],DEPT_
     }
   }
 
-  const staffList = useMemo(()=>Object.values(staffDB),[staffDB])
-  const sel = staffDB[selId]
+  const staffList = useMemo(()=>{
+    const vals = Object.values(staffDB)
+    // 혹시 staffDB 자체가 배열인 경우 방어
+    if(Array.isArray(staffDB)) return staffDB
+    return vals
+  },[staffDB])
+  const sel = selId ? (staffDB[selId] || staffList.find(s=>s.id===selId)) : null
 
   // 필터링 + 정렬
   const filtered = useMemo(()=>staffList.filter(s=>{
@@ -239,6 +259,14 @@ export function StaffMgmtPage({currentUser,deptStaff,setDeptStaff,DEPTS=[],DEPT_
           <button onClick={()=>setTab&&setTab("home")}
             style={{padding:"8px 16px",background:"rgba(255,255,255,.2)",color:"#fff",border:"2px solid rgba(255,255,255,.4)",borderRadius:10,fontSize:13,fontWeight:700,cursor:"pointer"}}>
             🏠 홈으로
+          </button>
+          <button onClick={()=>{
+            if(window.confirm("직원 데이터를 초기화하시겠습니까? (기존 수정사항 삭제됨)")) {
+              localStorage.removeItem("sjs_staff_db")
+              window.location.reload()
+            }
+          }} style={{padding:"8px 16px",background:"rgba(255,255,255,.1)",color:"rgba(255,255,255,.7)",border:"1px solid rgba(255,255,255,.2)",borderRadius:10,fontSize:12,fontWeight:600,cursor:"pointer"}}>
+            🔄 초기화
           </button>
           <button onClick={downloadTemplate}
             style={{padding:"8px 16px",background:"#D1FAE5",color:"#065F46",border:"none",borderRadius:10,fontSize:13,fontWeight:700,cursor:"pointer"}}>
