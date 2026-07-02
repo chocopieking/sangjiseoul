@@ -56,9 +56,70 @@ function buildDirectory(projects){
 
 export function VendorsTab({projects,setProjects,vendorsDB,setVendorsDB,vendorPayments,setVendorPayments,canWrite,currentUser,setTab,setSelProjId,setSelVerIdx}) {
   const directory = useMemo(()=>buildDirectory(projects),[projects])
-  const [view,setView]   = useState("list")   // list | detail | compare | draft
+  const [view,setView]   = useState("list")
   const [selVendor,setSelVendor] = useState(null)
   const [search,setSearch] = useState("")
+
+  // 엑셀 다운로드
+  const downloadVendors = () => {
+    try{
+      const XLSX = require("xlsx")
+      const rows = [
+        ["협력업체명","사업자번호","업무구분","대표자","전화번호","이메일","주소","참여프로젝트수"],
+        ...Object.values(vendorsDB).map(v=>[
+          v.name||"", v.bizNo||"", v.bizType||"",
+          v.rep||"", v.tel||"", v.repMail||"", v.addr||"",
+          (v.projects||[]).length
+        ])
+      ]
+      const ws = XLSX.utils.aoa_to_sheet(rows)
+      ws["!cols"] = [{wch:30},{wch:14},{wch:12},{wch:12},{wch:14},{wch:24},{wch:40},{wch:10}]
+      const wb = XLSX.utils.book_new()
+      XLSX.utils.book_append_sheet(wb, ws, "협력업체")
+      XLSX.writeFile(wb, `상지서울_협력업체_${new Date().toISOString().slice(0,10)}.xlsx`)
+    }catch(e){ alert("XLSX 라이브러리가 필요합니다: "+e.message) }
+  }
+
+  // 엑셀 업로드
+  const uploadVendors = (e) => {
+    const file = e.target.files?.[0]; if(!file) return
+    try{
+      const XLSX = require("xlsx")
+      const reader = new FileReader()
+      reader.onload = ev => {
+        const wb = XLSX.read(ev.target.result, {type:"binary"})
+        const ws = wb.Sheets[wb.SheetNames[0]]
+        const rows = XLSX.utils.sheet_to_json(ws, {header:1, defval:""})
+        const headers = rows[0].map(h=>String(h).trim())
+        const ni = (names) => { for(const n of names){ const i=headers.findIndex(h=>h.includes(n)); if(i>=0)return i }; return -1 }
+        const CI = { name:ni(["협력업체명","업체명","회사명"]), bizNo:ni(["사업자번호"]), bizType:ni(["업무구분","구분"]),
+                     rep:ni(["대표자"]), tel:ni(["전화번호","연락처"]), mail:ni(["이메일","메일"]), addr:ni(["주소"]) }
+        let added=0, updated=0
+        setVendorsDB(prev=>{
+          const next = {...prev}
+          rows.slice(1).forEach(r=>{
+            const name = CI.name>=0?String(r[CI.name]).trim():""
+            if(!name) return
+            const existing = Object.values(next).find(v=>v.name===name)
+            if(existing) {
+              next[existing.id] = {...existing, bizNo:r[CI.bizNo]||existing.bizNo, bizType:r[CI.bizType]||existing.bizType,
+                rep:r[CI.rep]||existing.rep, tel:r[CI.tel]||existing.tel, addr:r[CI.addr]||existing.addr}
+              updated++
+            } else {
+              const id = `V${Date.now()}_${added}`
+              next[id] = {id, name, bizNo:r[CI.bizNo]||"", bizType:r[CI.bizType]||"", rep:r[CI.rep]||"",
+                tel:r[CI.tel]||"", repMail:r[CI.mail]||"", addr:r[CI.addr]||"", projects:[], memo:[]}
+              added++
+            }
+          })
+          return next
+        })
+        alert(`✅ 완료: 신규 ${added}건 추가, 업데이트 ${updated}건`)
+      }
+      reader.readAsBinaryString(file)
+    }catch(e){ alert("업로드 오류: "+e.message) }
+    e.target.value=""
+  }
 
   const NAV = [
     {id:"list",    label:"📇 업체목록"},
@@ -68,7 +129,7 @@ export function VendorsTab({projects,setProjects,vendorsDB,setVendorsDB,vendorPa
 
   return (
     <div>
-      <div style={{display:"flex",gap:8,marginBottom:18,flexWrap:"wrap"}}>
+      <div style={{display:"flex",gap:8,marginBottom:14,flexWrap:"wrap",alignItems:"center"}}>
         {NAV.map(n=>(
           <button key={n.id} onClick={()=>{setView(n.id);if(n.id!=="list")setSelVendor(null)}} style={{
             padding:"11px 18px",border:"none",borderRadius:11,fontSize:14.5,fontWeight:700,cursor:"pointer",
@@ -77,6 +138,17 @@ export function VendorsTab({projects,setProjects,vendorsDB,setVendorsDB,vendorPa
             boxShadow:(view===n.id||(n.id==="list"&&view==="detail"))?"0 2px 10px rgba(12,68,124,.25)":"0 0 0 0.5px var(--color-border-tertiary,#e4e4e0)",
           }}>{n.label}</button>
         ))}
+        {/* 업다운로드 버튼 */}
+        <div style={{marginLeft:"auto",display:"flex",gap:6}}>
+          <button onClick={downloadVendors}
+            style={{...S.btn("var(--color-background-secondary,#f3f3f0)","var(--color-text-primary,#222)"),fontSize:12.5,padding:"7px 13px"}}>
+            ⬇ 전체 다운로드
+          </button>
+          {canWrite&&<label style={{...S.btn(C.navyM),fontSize:12.5,padding:"7px 13px",cursor:"pointer"}}>
+            ⬆ 엑셀 업로드
+            <input type="file" accept=".xlsx,.xls" style={{display:"none"}} onChange={uploadVendors}/>
+          </label>}
+        </div>
       </div>
 
       {view==="list" && (

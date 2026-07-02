@@ -207,7 +207,39 @@ export default function App() {
   const [dbReady, setDbReady]     = useState(!USE_DB)
   const [dbStatus, setDbStatus]   = useState(USE_DB ? "connecting" : "local")
 
-  const [projectsRaw, setProjectsRaw]   = useState(()=>lsGet("sjs_projects", PROJECTS_INIT).map(normalizeProject))
+  const [projectsRaw, setProjectsRaw]   = useState(()=>{
+    const saved = lsGet("sjs_projects", null)
+    if(saved && saved.length > 0) return saved.map(normalizeProject)
+    // 초기: PROJECTS_INIT + projectsInitData.json 병합
+    try{
+      const initList = require("./projectsInitData.json")
+      const baseProjs = PROJECTS_INIT.map(normalizeProject)
+      const baseNames = new Set(baseProjs.map(p=>(p.name||"").slice(0,12)))
+      const extra = initList
+        .filter(p=>p.name && !baseNames.has((p.name||"").slice(0,12)))
+        .map((p,i)=>normalizeProject({
+          id: `PI${Date.now()}_${i}`,
+          code: p.pjNo||"",
+          name: p.name||"",
+          depts: [p.dept].filter(Boolean),
+          pm: p.pm||"",
+          type: (p.status||"")==="완료"?"계약":"확정",
+          orderType: (p.type||"").includes("공공")?"공공":"민간",
+          usage: p.usage||"",
+          scale: p.scale||"",
+          totalFee: p.feeTotal||0,
+          serviceFee: p.feeTotal||0,
+          contractYear: p.pjNo?parseInt(p.pjNo.slice(0,4))||2024:2024,
+          contractDate: p.contractDate||"",
+          memo:[],
+        }))
+      const merged = [...baseProjs, ...extra]
+      try{ localStorage.setItem("sjs_projects", JSON.stringify(merged)) }catch{}
+      return merged
+    }catch{
+      return PROJECTS_INIT.map(normalizeProject)
+    }
+  })
   const setProjects = mkPersist(setProjectsRaw, "sjs_projects")
   const projects = projectsRaw
 
@@ -324,7 +356,26 @@ export default function App() {
 
   // ── 협력업체 정보(연락처) / 지급내역 ──────────────────────────
   const [vendorsDB, setVendorsDBRaw] = useState(()=>{
-    try{ return JSON.parse(localStorage.getItem("sjs_vendors")||"{}") }catch{ return {} }
+    try{
+      const saved = localStorage.getItem("sjs_vendors")
+      if(saved && saved !== "{}") return JSON.parse(saved)
+      // 초기 데이터 로드
+      const initData = require("./vendorsInitData.json")
+      // JSON 형태를 기존 vendorsDB 구조로 변환
+      const db = {}
+      Object.entries(initData).forEach(([name, v])=>{
+        if(!name || name==="미정업체") return
+        const id = `V${Object.keys(db).length+1000}`
+        db[id] = {
+          id, name, bizType:v.bizType||"", bizNo:v.bizNo||"",
+          rep:v.rep||"", repTel:v.repTel||"", repMail:v.repMail||"",
+          tel:v.tel||"", addr:v.addr||"",
+          projects: v.projects||[], memo:[]
+        }
+      })
+      localStorage.setItem("sjs_vendors", JSON.stringify(db))
+      return db
+    }catch{ return {} }
   })
   const setVendorsDB = updater => setVendorsDBRaw(prev=>{
     const next = typeof updater==="function" ? updater(prev) : updater
@@ -2374,11 +2425,59 @@ function ProjectsTab({projects,setProjects,selProjId,setSelProjId,selVerIdx,setS
 
   return (
     <div>
-      {/* 서브 탭 */}
-      <div style={{display:"flex",gap:2,background:"var(--color-background-secondary,#f0f0ee)",borderRadius:8,padding:3,marginBottom:14,width:"fit-content",flexWrap:"wrap"}}>
+      {/* 서브 탭 + 엑셀 업다운로드 */}
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14,flexWrap:"wrap",gap:8}}>
+      <div style={{display:"flex",gap:2,background:"var(--color-background-secondary,#f0f0ee)",borderRadius:8,padding:3,width:"fit-content",flexWrap:"wrap"}}>
         {[["list","📋 목록"],["detail","📐 실행계획서"],["compare","🔍 비교"],["bench","📊 평당단가"]].map(([v,l])=>(
           <button key={v} onClick={()=>setView(v)} style={{padding:"7px 14px",border:"none",borderRadius:6,fontSize:12,fontWeight:view===v?500:400,cursor:"pointer",background:view===v?"var(--color-background-primary,#fff)":"none",color:view===v?C.navyM:"var(--color-text-secondary,#888)",boxShadow:view===v?"0 0 0 0.5px var(--color-border-tertiary)":"none"}}>{l}</button>
         ))}
+      </div>
+      {/* 엑셀 업다운로드 */}
+      <div style={{display:"flex",gap:6,alignItems:"center"}}>
+        <button onClick={()=>{
+          try{
+            const rows = [["코드","프로젝트명","본부","PM","유형","용도","규모","계약일","상태"],
+              ...projects.map(p=>[p.code||p.id,p.name,p.depts?.join(","),p.pm,p.type,p.usage,p.scale,p.contractDate,p.status||"진행"])]
+            const ws=XLSX.utils.aoa_to_sheet(rows); ws["!cols"]=[{wch:14},{wch:50},{wch:16},{wch:10},{wch:10},{wch:20},{wch:18},{wch:12},{wch:8}]
+            const wb=XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb,ws,"프로젝트")
+            XLSX.writeFile(wb,`상지서울_프로젝트_${new Date().toISOString().slice(0,10)}.xlsx`)
+          }catch(e){alert(e.message)}
+        }} style={{padding:"6px 12px",background:"#EDE9FE",color:"#7C3AED",border:"none",borderRadius:8,fontSize:12,fontWeight:700,cursor:"pointer"}}>
+          ⬇ 전체 다운로드
+        </button>
+        {canWrite&&<label style={{padding:"6px 12px",background:"#D1FAE5",color:"#059669",border:"none",borderRadius:8,fontSize:12,fontWeight:700,cursor:"pointer",display:"inline-flex",alignItems:"center",gap:4}}>
+          ⬆ 엑셀 업로드
+          <input type="file" accept=".xlsx,.xls" style={{display:"none"}} onChange={e=>{
+            const file=e.target.files?.[0]; if(!file) return
+            const reader=new FileReader()
+            reader.onload=ev=>{
+              const wb=XLSX.read(ev.target.result,{type:"binary"})
+              const ws=wb.Sheets[wb.SheetNames[0]]
+              const rows=XLSX.utils.sheet_to_json(ws,{header:1,defval:""})
+              const headers=rows[0].map(h=>String(h).trim())
+              const ni=(ns)=>{for(const n of ns){const i=headers.findIndex(h=>h.includes(n));if(i>=0)return i};return -1}
+              const CI={code:ni(["코드","PJ","번호"]),name:ni(["프로젝트명","명칭"]),dept:ni(["본부","부서"]),pm:ni(["PM","담당자"]),type:ni(["유형","구분"]),usage:ni(["용도"]),scale:ni(["규모"]),contractDate:ni(["계약일"])}
+              let added=0,updated=0
+              setProjects(prev=>{
+                let next=[...prev]
+                rows.slice(1).forEach(r=>{
+                  const name=CI.name>=0?String(r[CI.name]).trim():""
+                  if(!name)return
+                  const existing=next.find(p=>p.name.trim()===name)
+                  if(existing){
+                    next=next.map(p=>p.name.trim()===name?{...p,type:r[CI.type]||p.type,pm:r[CI.pm]||p.pm}:p);updated++
+                  }else{
+                    next.push(normalizeProject({id:`PI${Date.now()}_${added}`,code:r[CI.code]||"",name,depts:[r[CI.dept]].filter(Boolean),pm:r[CI.pm]||"",type:r[CI.type]||"확정",usage:r[CI.usage]||"",scale:r[CI.scale]||"",contractDate:r[CI.contractDate]||"",contractYear:new Date().getFullYear(),versions:[],weeklyReport:{},memo:[]}));added++
+                  }
+                })
+                return next
+              })
+              alert(`✅ 완료: 신규 ${added}건 추가, 업데이트 ${updated}건`)
+            }
+            reader.readAsBinaryString(file); e.target.value=""
+          }}/>
+        </label>}
+      </div>
       </div>
 
       {/* ── 목록 ── */}
@@ -2473,7 +2572,7 @@ function ProjectsTab({projects,setProjects,selProjId,setSelProjId,selVerIdx,setS
             <>
               {/* 서브탭 네비게이션 */}
               <div style={{display:"flex",gap:4,marginBottom:14,borderBottom:`2px solid var(--color-border-tertiary,#eee)`,paddingBottom:0}}>
-                {[["info","📐 프로젝트 정보"],["weekly","📋 주간보고"],["cashflow","💧 월수금"],["contract","📝 계약"],["expense","💸 지출"]].map(([id,label])=>(
+                {[["info","📐 프로젝트 정보"],["weekly","📋 주간보고"],["cashflow","💧 월수금"],["contract","📝 계약"],["expense","💸 지출"],["memo","📋 히스토리"]].map(([id,label])=>(
                   <button key={id} onClick={()=>setDetailTab(id)} style={{padding:"9px 18px",border:"none",background:"none",fontSize:13.5,fontWeight:700,cursor:"pointer",color:detailTab===id?C.navyM:"var(--color-text-secondary,#888)",borderBottom:detailTab===id?`3px solid ${C.navyM}`:"3px solid transparent",marginBottom:-2,transition:"all .15s"}}>
                     {label}
                   </button>
@@ -2484,6 +2583,7 @@ function ProjectsTab({projects,setProjects,selProjId,setSelProjId,selVerIdx,setS
               {detailTab==="cashflow" && (selProj?.id ? <ProjectCashflowDetail proj={selProj} cashItems={cashItems} setCashItems={setCashItems} DEPTS={DEPTS} DEPT_COLORS={DEPT_COLORS} MONTH={MONTH} YEAR={YEAR} YR={YR} projBaseline={projBaseline} setProjBaseline={setProjBaseline}/> : <ProjTabError/>)}
               {detailTab==="contract" && (selProj?.id ? <ProjectContractDetailFull proj={selProj} setProjects={setProjects} canWrite={canWrite} projects={projects}/> : <ProjTabError/>)}
               {detailTab==="expense"  && (selProj?.id ? <ProjectExpenseDetail  proj={selProj} cashItems={cashItems} setCashItems={setCashItems} YEAR={YEAR} YR={YR}/> : <ProjTabError/>)}
+              {detailTab==="memo" && selProj?.id && <ProjectMemoTab proj={selProj} setProjects={setProjects} currentUser={currentUser}/>}
 
               {detailTab==="info" && <>
               <Card title={`📐 ${selProj.name}`} note={selProj.code} actions={<div style={{display:"flex",gap:6}}>
@@ -9445,6 +9545,68 @@ function DocVaultPage({currentUser, projects=[]}) {
           ))}
         </div>
       )}
+    </div>
+  )
+}
+
+// ══════════════════════════════════════════════════════════════
+// 📋 프로젝트 히스토리 메모 탭
+// ══════════════════════════════════════════════════════════════
+function ProjectMemoTab({proj, setProjects, currentUser}) {
+  const [newText, setNewText] = useState("")
+  const memos = proj.memo || []
+
+  const addMemo = () => {
+    if(!newText.trim()) return
+    const entry = {id:`M${Date.now()}`, date:new Date().toISOString().slice(0,10),
+                   text:newText.trim(), author:currentUser?.name||""}
+    setProjects(prev=>prev.map(p=>p.id===proj.id?{...p,memo:[...(p.memo||[]),entry]}:p))
+    setNewText("")
+  }
+  const delMemo = (id) => setProjects(prev=>prev.map(p=>p.id===proj.id?{...p,memo:(p.memo||[]).filter(m=>m.id!==id)}:p))
+
+  const INP = {padding:"9px 12px",border:"1.5px solid #E5E7EB",borderRadius:9,fontSize:13,fontFamily:"inherit",outline:"none",flex:1}
+
+  return (
+    <div style={{maxWidth:760}}>
+      <div style={{background:"#EEF2FF",borderRadius:12,padding:"14px 16px",marginBottom:14,border:"1px solid #C7D2FE"}}>
+        <div style={{fontSize:13.5,fontWeight:700,color:"#312E81",marginBottom:10}}>📋 {proj.name} — 히스토리 메모</div>
+        <div style={{display:"flex",gap:8}}>
+          <input value={newText} onChange={e=>setNewText(e.target.value)}
+            onKeyDown={e=>e.key==="Enter"&&addMemo()}
+            placeholder="특이사항, 이슈, 진행현황 등 메모 입력 (Enter)"
+            style={INP}/>
+          <button onClick={addMemo}
+            style={{padding:"9px 18px",background:"#6366F1",color:"#fff",border:"none",borderRadius:9,fontSize:13,fontWeight:700,cursor:"pointer",flexShrink:0}}>
+            + 기록
+          </button>
+        </div>
+      </div>
+
+      {memos.length===0 && (
+        <div style={{padding:"48px",textAlign:"center",color:"#9CA3AF",background:"#fff",borderRadius:12,border:"1px solid #E5E7EB"}}>
+          <div style={{fontSize:28,marginBottom:8}}>📋</div>
+          <div style={{fontSize:14,fontWeight:600,marginBottom:4,color:"#374151"}}>기록된 히스토리가 없습니다</div>
+          <div style={{fontSize:12}}>위 입력창에서 이슈, 진행사항, 특이사항 등을 날짜별로 기록하세요.</div>
+        </div>
+      )}
+
+      <div style={{background:"#fff",borderRadius:12,border:"1px solid #E5E7EB",overflow:"hidden"}}>
+        {[...memos].reverse().map((m,i)=>(
+          <div key={m.id||i} style={{padding:"13px 16px",borderBottom:"1px solid #F3F4F6",display:"flex",gap:12,alignItems:"flex-start",background:i%2===0?"#fff":"#FAFAFA"}}>
+            <div style={{width:3,background:"#6366F1",borderRadius:2,alignSelf:"stretch",flexShrink:0}}/>
+            <div style={{flex:1}}>
+              <div style={{display:"flex",gap:10,alignItems:"center",marginBottom:4}}>
+                <span style={{fontSize:12,fontWeight:700,color:"#6366F1"}}>{m.date}</span>
+                {m.author&&<span style={{fontSize:11,color:"#9CA3AF"}}>by {m.author}</span>}
+              </div>
+              <div style={{fontSize:13.5,color:"#111827",lineHeight:1.65,whiteSpace:"pre-wrap"}}>{m.text}</div>
+            </div>
+            <button onClick={()=>delMemo(m.id)}
+              style={{padding:"2px 9px",background:"#FEE2E2",color:"#DC2626",border:"none",borderRadius:6,fontSize:11,cursor:"pointer",flexShrink:0}}>✕</button>
+          </div>
+        ))}
+      </div>
     </div>
   )
 }
