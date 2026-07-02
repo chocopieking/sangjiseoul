@@ -23,6 +23,7 @@ import { WeeklyReportTab } from "./WeeklyReport.jsx"
 // import { SmartSearch, AIAssistant, AIFloatButton, WeeklyBriefing } from "./AIAssistant.jsx"
 import { ManualTab } from "./ManualTab.jsx"
 import { DeptContext, useDepts } from "./DeptContext.jsx"
+import { StaffMgmtPage } from "./StaffMgmt.jsx"
 import {
   hashPw, ALL_USERS, MASTER_PW, ROLE_BADGE,
   fE, fW, fP, fPy, fPct, toPy, PY, getAreaBasis, calcUP, calcPnlTotals,
@@ -860,6 +861,7 @@ export default function App() {
     {id:"contract",  label:"📄 계약서",       group:"관리"},
     {id:"archive",   label:"📁 아카이브",     group:"관리"},
     {id:"docvault",  label:"📂 문서보관소",    group:"관리"},
+    {id:"staffmgmt", label:"👤 직원관리",        group:"관리"},
     {id:"pnl",       label:"📉 손익분석",     group:"분석"},
     {id:"optimize",  label:"⚙️ 경영최적화",  group:"분석"},
     {id:"datahub",   label:"🗄️ 데이터관리",  group:"설정"},
@@ -1064,7 +1066,8 @@ export default function App() {
         {tab==="pnl"      && canReadTab("pnl")      && <PnlTab pnlData={pnlData} setPnlData={setPnlData} canWrite={canWrite&&canWriteTab("pnl")}/>}
         {tab==="optimize" && <OptimizeTab projects={projects} deptStaff={deptStaff} pnlData={pnlData}/>}
         {tab==="archive"   && <ArchiveTab currentUser={currentUser} projects={projects}/>}
-        {tab==="docvault"  && <DocVaultPage currentUser={currentUser} projects={projects}/>}}
+        {tab==="docvault"  && <DocVaultPage currentUser={currentUser} projects={projects}/>}
+        {tab==="staffmgmt" && <StaffMgmtPage currentUser={currentUser} deptStaff={deptStaff} setDeptStaff={setDeptStaff} DEPTS={DEPTS} DEPT_COLORS={DEPT_COLORS}/>}}
         {tab==="contract"  && <ContractTab projects={projects} currentUser={currentUser}/>}
         {tab==="history"   && <ProjectHistoryPage projects={projects} currentUser={currentUser} cashItems={cashItems}/>}
         {tab==="calendar"  && <SmartSchedulePage projects={projects} cashItems={cashItems} contractItems={contractItems} currentUser={currentUser} schedules={schedules} setSchedules={setSchedules}/>}
@@ -8435,84 +8438,14 @@ function ContractStatusPage({contractItems=[], setContractItems, DEPTS, DEPT_COL
 
   const 계약Items = contractItems.filter(i=>getType(i)==="계약")
   const 확정Items = contractItems.filter(i=>getType(i)==="확정")
-  const 추진Items = contractItems.filter(i=>getType(i)==="추진")
+  const 추진Items = contractItems.filter(i=>getType(i)==="추진").sort((a,b)=>{
+    if(a.important&&!b.important) return -1
+    if(!a.important&&b.important) return 1
+    const da = a.execTime||a.contractTime||"9999"
+    const db = b.execTime||b.contractTime||"9999"
+    return String(da).localeCompare(String(db))
+  })
 
-  const sum = arr => arr.reduce((s,i)=>s+normFee(i.serviceFeeExpect||i.amount||0),0)
-  const 계약Sum = sum(계약Items)
-  const 확정Sum = sum(확정Items)
-  const 추진Sum = sum(추진Items)
-  const 합계    = 계약Sum + 확정Sum
-
-  // 본부 지분 헬퍼
-  const deptShare = (item, dept) => {
-    const ds = (item.deptShares||[]).find(s=>s.dept===dept)
-    if(ds) return ds.share/100
-    const depts = item.depts||[]
-    if(depts.includes(dept)) return 1/depts.length
-    return 0
-  }
-
-  // 본부별 집계 (서비스비 예상 기준) + 클릭 상세를 위한 항목 리스트 포함
-  const byDept = DEPTS.map(dept=>{
-    const my = contractItems.filter(i=>(i.depts||[]).includes(dept)||(i.deptShares||[]).some(s=>s.dept===dept))
-    const feeOf = i => normFee(i.serviceFeeExpect || i.amount || 0)
-    const items계약 = my.filter(i=>getType(i)==="계약")
-    const items확정 = my.filter(i=>getType(i)==="확정")
-    const items추진 = my.filter(i=>getType(i)==="추진")
-    const 계약 = items계약.reduce((s,i)=>s+feeOf(i)*deptShare(i,dept),0)
-    const 확정 = items확정.reduce((s,i)=>s+feeOf(i)*deptShare(i,dept),0)
-    const 추진 = items추진.reduce((s,i)=>s+feeOf(i)*deptShare(i,dept),0)
-    const 목표 = ((deptBiz||{})[dept]?.orderTarget||0)*1e8
-    return {dept,계약,확정,추진,합계:계약+확정,목표,color:DEPT_COLORS[dept]||"#6B7280",
-      items계약, items확정, items추진, items합계:[...items계약,...items확정]}
-  }).filter(d=>d.합계+d.추진+d.목표>0)
-
-  // 클릭 상세보기 state: {dept, type, label, items, color}
-  const [detailView, setDetailView] = useState(null)
-
-  const SECS = [
-    {label:"✅ 계약 프로젝트", type:"계약", color:"#059669", bg:"#D1FAE5", border:"#059669", items:계약Items, sum:계약Sum},
-    {label:"📋 확정 프로젝트", type:"확정", color:"#6366F1", bg:"#EEF2FF", border:"#6366F1", items:확정Items, sum:확정Sum},
-    {label:"🔶 추진 프로젝트", type:"추진", color:"#D97706", bg:"#FEF3C7", border:"#D97706", items:추진Items, sum:추진Sum},
-  ].filter(s=>s.items.length>0)
-
-  const TH = (a="right",c="#6B7280") => ({padding:"8px 9px",textAlign:a,fontSize:11,fontWeight:700,color:c,borderBottom:"2px solid #E5E7EB",whiteSpace:"nowrap",background:"#F8FAFC"})
-  const TD = (a="right",c="#374151",bold=false) => ({padding:"8px 9px",textAlign:a,fontSize:12.5,fontWeight:bold?700:400,color:c,borderBottom:"1px solid #F3F4F6"})
-
-  // ── 항목 업데이트 ──────────────────────────────────────
-  const updateItem = (id, patch) => {
-    setContractItems(prev=>prev.map(i=>i.id===id?{...i,...patch}:i))
-  }
-
-  // ── 상태 이동 (계약 ↔ 확정 ↔ 추진) ────────────────────
-  const moveType = (item, newType) => {
-    updateItem(item.id, {type:newType})
-    toast&&toast(`"${item.name}" → ${newType}(으)로 이동했습니다.`,"success")
-  }
-
-  // ── 항목 삭제 ──────────────────────────────────────────
-  const deleteItem = (id) => {
-    if(!window.confirm("이 항목을 삭제하시겠습니까?")) return
-    setContractItems(prev=>prev.filter(i=>i.id!==id))
-  }
-
-  // ── 신규 항목 추가 ─────────────────────────────────────
-  const addItem = (type) => {
-    const newItem = {
-      id: `C${Date.now()}_${Math.random().toString(36).slice(2,6)}`,
-      name: "새 프로젝트", type, orderType:"민간",
-      depts: [DEPTS[0]], deptShares: [{dept:DEPTS[0], share:100}],
-      totalFeeExpect:0, shareRatioExpect:100, serviceFeeExpect:0,
-      bizCompPct:100, bizCompFee:0,
-      execTime:"", contractTime:"", consortium:"", note:"",
-      contractYear: YEAR, updatedAt: new Date().toISOString(), updatedBy: currentUser?.name||"",
-    }
-    setContractItems(prev=>[...prev, newItem])
-    setEditId(newItem.id)
-    setDraft(newItem)
-  }
-
-  // ── 편집 시작/저장 ─────────────────────────────────────
   const startEdit = (item) => { setEditId(item.id); setDraft({...item}) }
   const saveEdit = () => {
     if(!draft) return
@@ -8917,6 +8850,8 @@ function ContractStatusPage({contractItems=[], setContractItems, DEPTS, DEPT_COL
                       <td style={{...TD("left","#6B7280"),fontSize:11.5}}>{item.bidType||"-"}</td>
                       <td style={{...TD("left","#111827",true),minWidth:180,cursor:"pointer"}} onClick={()=>startEdit(item)}>
                         {item.name}
+                        {item.important&&
+                          <span style={{marginLeft:0,marginRight:5,fontSize:9,background:"#DC2626",color:"#fff",padding:"1px 6px",borderRadius:5,fontWeight:800}}>⭐중요</span>}
                         {item.contractYear&&String(item.contractYear)===YR&&
                           <span style={{marginLeft:5,fontSize:9,background:sec.color,color:"#fff",padding:"1px 5px",borderRadius:5}}>{YR}신규</span>}
                       </td>
@@ -8932,6 +8867,11 @@ function ContractStatusPage({contractItems=[], setContractItems, DEPTS, DEPT_COL
                       {isAdmin&&(
                         <td style={{...TD("center"),whiteSpace:"nowrap"}}>
                           <div style={{display:"flex",gap:3,justifyContent:"center"}}>
+                            <button onClick={()=>updateItem(item.id,{important:!item.important})}
+                              title={item.important?"⭐ 중요 해제":"☆ 중요 설정"}
+                              style={{padding:"3px 7px",background:item.important?"#FEF3C7":"#F3F4F6",color:item.important?"#D97706":"#9CA3AF",border:`1.5px solid ${item.important?"#FDE68A":"#E5E7EB"}`,borderRadius:5,fontSize:10.5,cursor:"pointer",fontWeight:800}}>
+                              {item.important?"⭐":"☆"}
+                            </button>
                             <button onClick={()=>startEdit(item)} title="편집"
                               style={{padding:"3px 7px",background:"#EEF2FF",color:"#6366F1",border:"none",borderRadius:5,fontSize:10.5,cursor:"pointer"}}>✏</button>
                             {sec.type!=="계약"&&<button onClick={()=>moveType(item,sec.type==="추진"?"확정":"계약")} title="상위 단계로 이동"
