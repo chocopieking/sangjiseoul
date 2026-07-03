@@ -47,6 +47,8 @@ export function DataHubTab({
   projTypes, setProjTypes,
   bidTypes, setBidTypes,
   allData, restoreAllData,
+  vendorsDB, setVendorsDB,
+  vendorPayments, setVendorPayments,
 }) {
   const {STAFF_DEPTS,DEPTS,DEPT_COLORS,departments,addDept,renameDept,deleteDept,setDeptColor,setDeptFinance,deptUsage} = useDepts()
   const isAdmin = currentUser.role === "admin"
@@ -104,7 +106,7 @@ export function DataHubTab({
       {section==="pnl"       && <PnlDeptSection pnlData={pnlData} setPnlData={setPnlData} DEPTS={DEPTS} canEditDept={canEditDept} currentUser={currentUser} isAdmin={isAdmin} saveVersion={saveVersion}/>}
       {section==="cashflow"  && <CashflowDeptSection cashflow={cashflow} setCashflow={setCashflow} DEPTS={DEPTS} DEPT_COLORS={DEPT_COLORS} canEditDept={canEditDept} currentUser={currentUser} isAdmin={isAdmin} saveVersion={saveVersion}/>}
       {section==="years"     && <YearsSection years={years} setYears={setYears} isAdmin={isAdmin} currentUser={currentUser} saveVersion={saveVersion}/>}
-      {section==="projects"  && <ProjectsShortcut projects={projects} currentUser={currentUser} isAdmin={isAdmin} setTab={setTab} setSelProjId={setSelProjId} setSelVerIdx={setSelVerIdx} setShowNewProj={setShowNewProj}/>}
+      {section==="projects"  && <ProjectsShortcut projects={projects} setProjects={setProjects} vendorsDB={vendorsDB} setVendorsDB={setVendorsDB} setVendorPayments={setVendorPayments} currentUser={currentUser} isAdmin={isAdmin} setTab={setTab} setSelProjId={setSelProjId} setSelVerIdx={setSelVerIdx} setShowNewProj={setShowNewProj}/>}
       {section==="depts"     && <DeptManageSection departments={departments} addDept={addDept} renameDept={renameDept} deleteDept={deleteDept} setDeptColor={setDeptColor} setDeptFinance={setDeptFinance} deptUsage={deptUsage} isAdmin={isAdmin}/>}
       {section==="ctypes"    && <ContractTypeSection contractTypes={contractTypes||[]} setContractTypes={setContractTypes} canManage={canManage}/>}
       {section==="ptypes"    && <SimpleListSection title="🏢 건물유형 관리" description="프로젝트 개설 시 선택하는 건물 유형 목록입니다." list={projTypes||[]} setList={setProjTypes} canManage={canManage}/>}
@@ -432,54 +434,285 @@ function YearsSection({years,setYears,isAdmin,currentUser,saveVersion}) {
 }
 
 // ════════════════════════════════════════════════════════════
-// 5) 프로젝트·협력업체 — 전용 화면 바로가기
+// 5) 프로젝트·협력업체 — 통합 업로드 마법사
 // ════════════════════════════════════════════════════════════
-function ProjectsShortcut({projects,currentUser,isAdmin,setTab,setSelProjId,setSelVerIdx,setShowNewProj}) {
-  const list = Array.isArray(projects) ? projects : []
-  const mine = isAdmin || currentUser.dept==="경영진"
-    ? list
-    : list.filter(p=>Array.isArray(p.depts) && p.depts.includes(currentUser.dept))
+import * as XLSX from "xlsx"
 
-  const goto = (id)=>{ setSelProjId?.(id); setSelVerIdx?.(0); setTab("projects") }
-  const goNew = ()=>{ setShowNewProj?.(true); setTab("projects") }
+function ProjectsShortcut({projects,setProjects,vendorsDB,setVendorsDB,setVendorPayments,currentUser,isAdmin,setTab,setSelProjId,setSelVerIdx,setShowNewProj}) {
+  const [step, setStep]   = useState(null) // null | 'wizard' | 'done'
+  const [files, setFiles] = useState({proj:null, vendor:null, payment:null})
+  const [progress, setProgress] = useState({proj:null, vendor:null, payment:null})
+  const [results, setResults]   = useState(null)
+  const [running, setRunning]   = useState(false)
+
+  const FILE_DEFS = [
+    { key:"proj",    icon:"🏗", label:"프로젝트 목록",      desc:"프로젝트_목록.xls / xlsx", accept:".xls,.xlsx,.html" },
+    { key:"vendor",  icon:"🤝", label:"협력업체 참여프로젝트", desc:"참여프로젝트_목록.xls / xlsx", accept:".xls,.xlsx,.html" },
+    { key:"payment", icon:"💰", label:"프로젝트별 외주비",   desc:"프로젝트별_외주비.xlsx", accept:".xlsx,.xls" },
+  ]
+
+  const handleFile = (key, file) => {
+    setFiles(p=>({...p,[key]:file}))
+    setProgress(p=>({...p,[key]:"대기"}))
+  }
+
+  // 프로젝트 목록 파싱 (HTML XLS 또는 xlsx)
+  const parseProjects = async (file) => {
+    const text = await file.text()
+    const isHTML = text.includes("<html") || text.includes("<!DOCTYPE")
+    let rows = []
+    if(isHTML) {
+      const parser = new DOMParser()
+      const doc = parser.parseFromString(text, "text/html")
+      const trs = doc.querySelectorAll("tr")
+      trs.forEach(tr=>{ rows.push([...tr.querySelectorAll("td,th")].map(td=>td.textContent.trim())) })
+    } else {
+      const buf = await file.arrayBuffer()
+      const wb = XLSX.read(buf); const ws = wb.Sheets[wb.SheetNames[0]]
+      rows = XLSX.utils.sheet_to_json(ws,{header:1,defval:""})
+    }
+    const result = []; let added=0, updated=0
+    const norm = n => { const m=n?.match(/^(\d{4}[-_]\d+)/); return m?m[1]:"" }
+    rows.forEach((r,i)=>{
+      if(i<3) return
+      const pjno=String(r[0]||"").trim(); const name=String(r[1]||"").trim()
+      if(!pjno || !name || pjno==="Pj No") return
+      const dept=String(r[6]||"").trim(); const pm=String(r[7]||"").trim()
+      const fee=parseFloat(String(r[15]||"0").replace(/,/g,""))||0
+      const existing=(Array.isArray(projects)?projects:[]).find(p=>p.code===pjno||norm(p.name)===norm(name))
+      if(existing){ result.push({...existing,code:pjno,pm:pm||existing.pm,totalFee:fee||existing.totalFee}); updated++ }
+      else { result.push({id:`PI_${pjno||Date.now()}_${i}`,code:pjno,name,depts:[dept].filter(Boolean),pm,totalFee:fee,contractYear:parseInt(pjno)||new Date().getFullYear(),type:"확정",versions:[],memo:[]}); added++ }
+    })
+    return {data:result, added, updated}
+  }
+
+  // 협력업체 목록 파싱
+  const parseVendors = async (file) => {
+    const text = await file.text()
+    const isHTML = text.includes("<html")
+    let rows = []
+    if(isHTML){
+      const doc = new DOMParser().parseFromString(text,"text/html")
+      doc.querySelectorAll("tr").forEach(tr=>rows.push([...tr.querySelectorAll("td,th")].map(td=>td.textContent.trim())))
+    } else {
+      const buf = await file.arrayBuffer()
+      const wb = XLSX.read(buf); rows = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{header:1,defval:""})
+    }
+    const db = {...(vendorsDB||{})}; let added=0, updated=0
+    const skips = new Set(["","nan","협력업체명","업무구분","이름","등록된 프로젝트가 없습니다."])
+    rows.forEach((r,i)=>{
+      if(i<3) return
+      const name=String(r[2]||"").trim(); if(!name||skips.has(name)) return
+      const existing=Object.values(db).find(v=>v.name===name)
+      const pjno=String(r[14]||"").trim(); const pjname=String(r[15]||"").trim()
+      const projEntry = pjno&&pjno.includes("[")?{pjNo:pjno,name:pjname,type:String(r[16]||""),dept:String(r[17]||""),contractField:String(r[20]||"")}:null
+      if(existing){
+        if(projEntry&&!existing.projects?.some(p=>p.pjNo===projEntry.pjNo))
+          db[existing.id]={...existing,projects:[...(existing.projects||[]),projEntry]}
+        updated++
+      } else {
+        const id=`V${Date.now()}_${i}`
+        db[id]={id,name,bizType:String(r[0]||""),bizNo:String(r[1]||""),rep:String(r[3]||""),repTel:String(r[4]||""),repMail:String(r[5]||""),addr:String(r[9]||""),projects:projEntry?[projEntry]:[],paymentHistory:[],memo:[]}
+        added++
+      }
+    })
+    return {data:db, added, updated}
+  }
+
+  // 외주비 파싱
+  const parsePayments = async (file) => {
+    const buf = await file.arrayBuffer()
+    const wb = XLSX.read(buf); const ws = wb.Sheets[wb.SheetNames[0]]
+    const rows = XLSX.utils.sheet_to_json(ws,{header:1,defval:""})
+    const records=[]; let currentProj=""
+    const toAmt=v=>{ try{const f=parseFloat(String(v).replace(/,/g,""));return Number.isFinite(f)&&f>0?Math.round(f):0}catch{return 0} }
+    const toDate=v=>{ const m=String(v).match(/(\d{4})-(\d{2})-(\d{2})/);return m?`${m[1]}-${m[2]}-${m[3]}`:""  }
+    for(let i=3;i<rows.length;i++){
+      const r=rows[i]; const c0=String(r[0]||"").trim(); const c4=String(r[4]||"").trim(); const c5=String(r[5]||"").trim(); const c6=String(r[6]||"").trim()
+      if(c0&&!c4&&!c5){currentProj=c0;continue}
+      if(c4&&c5&&toAmt(c6)>0&&currentProj){
+        const payments=[]
+        const condRow=rows[i]; const dateRow=rows[i+1]||[]; const amtRow=rows[i+2]||[]
+        for(let j=7;j<27;j++){
+          const cond=String(condRow[j]||"").trim(); const date=toDate(dateRow[j]); const amt=toAmt(amtRow[j])
+          if(cond||amt) payments.push({condition:cond,date,amount:amt})
+        }
+        records.push({project:currentProj,vendor:c5,type:c4,totalAmt:toAmt(c6),payments})
+        i+=2
+      }
+    }
+    return {data:records, count:records.length}
+  }
+
+  const runUpload = async () => {
+    setRunning(true)
+    const res = {}
+    try{
+      // 1. 프로젝트
+      if(files.proj){
+        setProgress(p=>({...p,proj:"처리중..."}))
+        const r = await parseProjects(files.proj)
+        setProjects(r.data); setProgress(p=>({...p,proj:"✅ 완료"})); res.proj=r
+      }
+      // 2. 협력업체
+      if(files.vendor){
+        setProgress(p=>({...p,vendor:"처리중..."}))
+        const r = await parseVendors(files.vendor)
+        setVendorsDB(r.data); setProgress(p=>({...p,vendor:"✅ 완료"})); res.vendor=r
+      }
+      // 3. 외주비
+      if(files.payment){
+        setProgress(p=>({...p,payment:"처리중..."}))
+        const r = await parsePayments(files.payment)
+        // 협력업체 DB에 paymentHistory 연결
+        setVendorsDB(prev=>{
+          const next={...prev}
+          const normN=n=>n.replace(/[\s\(\)\[\]㈜주식회사]/g,"").toLowerCase()
+          r.data.forEach(pay=>{
+            const pkey=normN(pay.vendor)
+            const match=Object.values(next).find(v=>normN(v.name||"")===pkey||normN(v.name||"").slice(0,4)===pkey.slice(0,4))
+            if(match){
+              const exists=(next[match.id].paymentHistory||[]).some(h=>h.project===pay.project&&h.vendor===pay.vendor&&h.totalAmt===pay.totalAmt)
+              if(!exists) next[match.id]={...next[match.id],paymentHistory:[...(next[match.id].paymentHistory||[]),pay]}
+            }
+          })
+          return next
+        })
+        if(setVendorPayments) setVendorPayments(r.data)
+        setProgress(p=>({...p,payment:"✅ 완료"})); res.payment=r
+      }
+      setResults(res); setStep("done")
+    }catch(e){
+      alert("업로드 오류: "+e.message)
+    }
+    setRunning(false)
+  }
+
+  const list = Array.isArray(projects)?projects:[]
+  const goto=(id)=>{ setSelProjId?.(id); setSelVerIdx?.(0); setTab("projects") }
 
   return (
-    <div style={S.card()}>
-      <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",flexWrap:"wrap",gap:10,marginBottom:6}}>
-        <div>
-          <div style={cardTitle}>🏗 프로젝트·협력업체 데이터</div>
-          <div style={cardNote}>프로젝트 정보·실행계획서 버전·협력업체 비용은 구조가 복잡해 전용 화면(프로젝트 탭)에서 관리합니다. 아래에서 바로 이동하세요.</div>
+    <div>
+      {/* 통합 업로드 마법사 카드 */}
+      <div style={{background:"linear-gradient(135deg,#312E81,#6366F1)",borderRadius:16,padding:"20px 24px",marginBottom:16,color:"#fff"}}>
+        <div style={{fontSize:18,fontWeight:900,marginBottom:4}}>📦 통합 데이터 업로드</div>
+        <div style={{fontSize:13,opacity:.85,marginBottom:16}}>
+          프로젝트 목록 · 협력업체 참여프로젝트 · 외주비 — 3개 파일을 동시에 업로드합니다
         </div>
-        <button onClick={goNew} style={S.btn(C.green)}><i className="ti ti-plus" aria-hidden="true"/> 신규 프로젝트 등록</button>
+
+        {step===null&&(
+          <button onClick={()=>setStep("wizard")}
+            style={{padding:"10px 22px",background:"#fff",color:"#6366F1",border:"none",borderRadius:10,fontSize:14,fontWeight:800,cursor:"pointer"}}>
+            🚀 업로드 마법사 시작
+          </button>
+        )}
+
+        {step==="wizard"&&(
+          <div>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:12,marginBottom:14}}>
+              {FILE_DEFS.map(({key,icon,label,desc,accept})=>(
+                <div key={key} style={{background:"rgba(255,255,255,.12)",borderRadius:12,padding:"14px 16px",border:`2px solid ${files[key]?"#34D399":"rgba(255,255,255,.25)"}`}}>
+                  <div style={{fontSize:22,marginBottom:6}}>{icon}</div>
+                  <div style={{fontSize:13.5,fontWeight:700,marginBottom:2}}>{label}</div>
+                  <div style={{fontSize:11,opacity:.75,marginBottom:10}}>{desc}</div>
+                  <label style={{display:"block",padding:"7px 12px",background:files[key]?"#D1FAE5":"rgba(255,255,255,.2)",
+                    color:files[key]?"#065F46":"#fff",borderRadius:8,fontSize:12.5,fontWeight:700,cursor:"pointer",textAlign:"center"}}>
+                    {files[key]?`✓ ${files[key].name.slice(0,18)}...`:"파일 선택"}
+                    <input type="file" accept={accept} style={{display:"none"}} onChange={e=>handleFile(key,e.target.files?.[0])}/>
+                  </label>
+                  {progress[key]&&<div style={{marginTop:6,fontSize:11.5,fontWeight:700,color:progress[key].includes("✅")?"#34D399":"#FDE68A"}}>{progress[key]}</div>}
+                </div>
+              ))}
+            </div>
+            <div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap"}}>
+              <div style={{fontSize:12.5,opacity:.8}}>
+                {Object.values(files).filter(Boolean).length}개 파일 선택됨 · 선택한 파일만 업로드됩니다 · 기존 데이터는 중복 체크 후 병합됩니다
+              </div>
+              <button onClick={()=>{setStep(null);setFiles({proj:null,vendor:null,payment:null});setProgress({proj:null,vendor:null,payment:null})}}
+                style={{padding:"7px 14px",background:"rgba(255,255,255,.2)",color:"#fff",border:"none",borderRadius:8,fontSize:12.5,cursor:"pointer"}}>취소</button>
+              <button onClick={runUpload} disabled={running||!Object.values(files).some(Boolean)}
+                style={{padding:"9px 22px",background:Object.values(files).some(Boolean)?"#34D399":"rgba(255,255,255,.3)",
+                  color:"#fff",border:"none",borderRadius:9,fontSize:14,fontWeight:800,cursor:"pointer",opacity:running?0.7:1}}>
+                {running?"⏳ 처리중...":"⬆ 업로드 실행"}
+              </button>
+            </div>
+          </div>
+        )}
+
+        {step==="done"&&results&&(
+          <div style={{background:"rgba(255,255,255,.15)",borderRadius:12,padding:"14px 16px"}}>
+            <div style={{fontSize:15,fontWeight:800,marginBottom:10}}>✅ 업로드 완료!</div>
+            <div style={{display:"flex",gap:12,flexWrap:"wrap"}}>
+              {results.proj&&<div style={{background:"rgba(255,255,255,.15)",borderRadius:9,padding:"10px 14px",fontSize:13}}>
+                🏗 프로젝트<br/><b style={{fontSize:17}}>{results.proj.data.length}</b>건 반영<br/>
+                <span style={{fontSize:11,opacity:.8}}>신규 {results.proj.added} · 업데이트 {results.proj.updated}</span>
+              </div>}
+              {results.vendor&&<div style={{background:"rgba(255,255,255,.15)",borderRadius:9,padding:"10px 14px",fontSize:13}}>
+                🤝 협력업체<br/><b style={{fontSize:17}}>{Object.keys(results.vendor.data).length}</b>개 반영<br/>
+                <span style={{fontSize:11,opacity:.8}}>신규 {results.vendor.added} · 업데이트 {results.vendor.updated}</span>
+              </div>}
+              {results.payment&&<div style={{background:"rgba(255,255,255,.15)",borderRadius:9,padding:"10px 14px",fontSize:13}}>
+                💰 외주비<br/><b style={{fontSize:17}}>{results.payment.count}</b>건 반영<br/>
+                <span style={{fontSize:11,opacity:.8}}>협력업체에 자동 연결</span>
+              </div>}
+            </div>
+            <div style={{display:"flex",gap:8,marginTop:12}}>
+              <button onClick={()=>{setStep(null);setFiles({proj:null,vendor:null,payment:null});setProgress({proj:null,vendor:null,payment:null});setResults(null)}}
+                style={{padding:"7px 16px",background:"rgba(255,255,255,.2)",color:"#fff",border:"none",borderRadius:8,fontSize:12.5,fontWeight:700,cursor:"pointer"}}>
+                🔄 재업로드
+              </button>
+              <button onClick={()=>setTab("projects")}
+                style={{padding:"7px 16px",background:"#fff",color:"#6366F1",border:"none",borderRadius:8,fontSize:12.5,fontWeight:800,cursor:"pointer"}}>
+                프로젝트 확인 →
+              </button>
+              <button onClick={()=>setTab("vendors")}
+                style={{padding:"7px 16px",background:"rgba(255,255,255,.2)",color:"#fff",border:"none",borderRadius:8,fontSize:12.5,fontWeight:700,cursor:"pointer"}}>
+                협력업체 확인 →
+              </button>
+            </div>
+          </div>
+        )}
       </div>
-      <div style={{...S.bdg(C.navyL,C.navyM),marginBottom:12,fontWeight:600}}>
-        {isAdmin||currentUser.dept==="경영진" ? "전체 프로젝트" : `${currentUser.dept} 관련 프로젝트`} {mine.length}건
+
+      {/* 현황 요약 */}
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:12,marginBottom:16}}>
+        {[
+          ["🏗 프로젝트",list.length+"건",C.navyL,C.navyM,()=>setTab("projects")],
+          ["🤝 협력업체",Object.keys(vendorsDB||{}).length+"개",C.greenL,C.green,()=>setTab("vendors")],
+          ["💰 외주비",Object.values(vendorsDB||{}).reduce((s,v)=>s+(v.paymentHistory||[]).length,0)+"건","#FEF3C7",C.amber,null],
+        ].map(([l,v,bg,fg,action])=>(
+          <div key={l} onClick={action||undefined}
+            style={{...S.card({background:bg,cursor:action?"pointer":"default",marginBottom:0}),display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+            <div style={{fontSize:14,fontWeight:700,color:fg}}>{l}</div>
+            <div style={{fontSize:26,fontWeight:900,color:fg}}>{v}</div>
+          </div>
+        ))}
       </div>
-      {mine.length===0
-        ? <div style={{padding:"14px 16px",borderRadius:10,background:C.grayL,color:C.gray,fontSize:13}}>관련 프로젝트가 없습니다.</div>
-        : <div style={{overflowX:"auto"}}>
-            <table style={{width:"100%",borderCollapse:"collapse",minWidth:760}}>
-              <thead><tr>
-                <th style={S.th()}>프로젝트명</th><th style={S.th()}>코드</th><th style={S.th()}>본부</th>
-                <th style={S.th("right")}>진행률</th><th style={S.th()}>협력업체</th><th style={S.th("center")}>이동</th>
-              </tr></thead>
-              <tbody>
-                {mine.map((p,i)=>{
-                  const last = p.versions?.[p.versions.length-1]
-                  return (
-                    <tr key={p.id} style={{background:i%2===0?"var(--color-background-primary,#fff)":"var(--color-background-secondary,#f8f8f6)"}}>
-                      <td style={{...S.td("left"),fontWeight:600,maxWidth:280,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{p.name}</td>
-                      <td style={S.td("left")}>{p.code}</td>
-                      <td style={S.td("left")}>{(p.depts||[]).join(", ")}</td>
-                      <td style={S.td()}>{p.prog||0}%</td>
-                      <td style={S.td()}>{last?.vendors?.length||0}개</td>
-                      <td style={S.td("center")}><button onClick={()=>goto(p.id)} style={{...S.btn(C.navyL,C.navyM),padding:"7px 14px",fontSize:12.5}}>편집 ›</button></td>
-                    </tr>
-                  )
-                })}
-              </tbody>
-            </table>
-          </div>}
+
+      {/* 최근 프로젝트 목록 */}
+      <div style={S.card()}>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
+          <div style={cardTitle}>최근 프로젝트 목록 (상위 10건)</div>
+          <button onClick={()=>setTab("projects")} style={S.btn(C.navyL,C.navyM)}>전체 보기 →</button>
+        </div>
+        <div style={{overflowX:"auto"}}>
+          <table style={{width:"100%",borderCollapse:"collapse"}}>
+            <thead><tr>
+              {["프로젝트명","코드","본부",""].map((h,i)=><th key={i} style={S.th(i===3?"center":"left")}>{h}</th>)}
+            </tr></thead>
+            <tbody>
+              {list.slice(0,10).map((p,i)=>(
+                <tr key={p.id} style={{background:i%2===0?"var(--color-background-primary,#fff)":"var(--color-background-secondary,#f8f8f6)"}}>
+                  <td style={{...S.td("left"),fontWeight:600,maxWidth:280,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{p.name}</td>
+                  <td style={S.td("left")}><span style={{fontSize:11.5,color:C.gray}}>{p.code}</span></td>
+                  <td style={S.td("left")}>{(p.depts||[]).join(", ")}</td>
+                  <td style={S.td("center")}><button onClick={()=>goto(p.id)} style={{...S.btn(C.navyL,C.navyM),padding:"5px 12px",fontSize:12}}>편집</button></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
     </div>
   )
 }

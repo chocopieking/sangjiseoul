@@ -2,6 +2,7 @@
 // 협력업체 탭 — 업체정보 · 수행 프로젝트/지급내역 · 외주비 비교 · 실행초안
 // ══════════════════════════════════════════════════════════════
 import { useState, useMemo, useRef } from "react"
+import * as XLSX from "xlsx"
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, LabelList } from "./ReChartsFallback.jsx"
 import { fW, fE, fPy, getAreaBasis, calcUP, VENDOR_EMPTY, BID_TYPES } from "./data.js"
 
@@ -62,31 +63,28 @@ export function VendorsTab({projects,setProjects,vendorsDB,setVendorsDB,vendorPa
 
   // 엑셀 다운로드
   const downloadVendors = () => {
-    try{
-      const XLSX = require("xlsx")
-      const rows = [
-        ["협력업체명","사업자번호","업무구분","대표자","전화번호","이메일","주소","참여프로젝트수"],
-        ...Object.values(vendorsDB).map(v=>[
-          v.name||"", v.bizNo||"", v.bizType||"",
-          v.rep||"", v.tel||"", v.repMail||"", v.addr||"",
-          (v.projects||[]).length
-        ])
-      ]
-      const ws = XLSX.utils.aoa_to_sheet(rows)
-      ws["!cols"] = [{wch:30},{wch:14},{wch:12},{wch:12},{wch:14},{wch:24},{wch:40},{wch:10}]
-      const wb = XLSX.utils.book_new()
-      XLSX.utils.book_append_sheet(wb, ws, "협력업체")
-      XLSX.writeFile(wb, `상지서울_협력업체_${new Date().toISOString().slice(0,10)}.xlsx`)
-    }catch(e){ alert("XLSX 라이브러리가 필요합니다: "+e.message) }
+    const rows = [
+      ["협력업체명","사업자번호","업무구분","대표자","전화번호","이메일","주소","참여프로젝트수","외주비지급이력수"],
+      ...Object.values(vendorsDB).map(v=>[
+        v.name||"", v.bizNo||"", v.bizType||"",
+        v.rep||"", v.tel||"", v.repMail||"", v.addr||"",
+        (v.projects||[]).length,
+        (v.paymentHistory||[]).length
+      ])
+    ]
+    const ws = XLSX.utils.aoa_to_sheet(rows)
+    ws["!cols"] = [{wch:30},{wch:14},{wch:12},{wch:12},{wch:14},{wch:24},{wch:40},{wch:12},{wch:12}]
+    const wb = XLSX.utils.book_new()
+    XLSX.utils.book_append_sheet(wb, ws, "협력업체")
+    XLSX.writeFile(wb, `상지서울_협력업체_${new Date().toISOString().slice(0,10)}.xlsx`)
   }
 
   // 엑셀 업로드
   const uploadVendors = (e) => {
     const file = e.target.files?.[0]; if(!file) return
-    try{
-      const XLSX = require("xlsx")
-      const reader = new FileReader()
-      reader.onload = ev => {
+    const reader = new FileReader()
+    reader.onload = ev => {
+      try{
         const wb = XLSX.read(ev.target.result, {type:"binary"})
         const ws = wb.Sheets[wb.SheetNames[0]]
         const rows = XLSX.utils.sheet_to_json(ws, {header:1, defval:""})
@@ -108,16 +106,16 @@ export function VendorsTab({projects,setProjects,vendorsDB,setVendorsDB,vendorPa
             } else {
               const id = `V${Date.now()}_${added}`
               next[id] = {id, name, bizNo:r[CI.bizNo]||"", bizType:r[CI.bizType]||"", rep:r[CI.rep]||"",
-                tel:r[CI.tel]||"", repMail:r[CI.mail]||"", addr:r[CI.addr]||"", projects:[], memo:[]}
+                tel:r[CI.tel]||"", repMail:r[CI.mail]||"", addr:r[CI.addr]||"", projects:[], paymentHistory:[], memo:[]}
               added++
             }
           })
           return next
         })
         alert(`✅ 완료: 신규 ${added}건 추가, 업데이트 ${updated}건`)
-      }
-      reader.readAsBinaryString(file)
-    }catch(e){ alert("업로드 오류: "+e.message) }
+      }catch(e){ alert("업로드 오류: "+e.message) }
+    }
+    reader.readAsBinaryString(file)
     e.target.value=""
   }
 
