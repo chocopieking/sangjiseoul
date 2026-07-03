@@ -121,6 +121,7 @@ export function VendorsTab({projects,setProjects,vendorsDB,setVendorsDB,vendorPa
 
   const NAV = [
     {id:"list",    label:"📇 업체목록"},
+    {id:"ai",      label:"🤖 AI 통합분석"},
     {id:"compare", label:"📊 외주비 비교(유형별)"},
     {id:"draft",   label:"📝 실행초안 생성"},
   ]
@@ -149,6 +150,7 @@ export function VendorsTab({projects,setProjects,vendorsDB,setVendorsDB,vendorPa
         </div>
       </div>
 
+      {view==="ai" && <VendorAIAnalysis projects={projects} vendorsDB={vendorsDB}/>}
       {view==="list" && (
         <VendorList directory={directory} search={search} setSearch={setSearch} vendorsDB={vendorsDB}
           onSelect={v=>{setSelVendor(v);setView("detail")}}/>
@@ -171,39 +173,202 @@ export function VendorsTab({projects,setProjects,vendorsDB,setVendorsDB,vendorPa
 // 1) 업체 목록
 // ════════════════════════════════════════════════════════════
 function VendorList({directory,search,setSearch,vendorsDB,onSelect}) {
-  const rows = directory.filter(d=>!search.trim()||d.name.includes(search.trim()))
+  const [filters, setFilters] = useState({name:"",field:"",rep:"",tel:"",addr:""})
+  const [sortBy,  setSortBy]  = useState("name")   // name | projects | payment
+  const [page,    setPage]    = useState(1)
+  const [showFilter, setShowFilter] = useState(false)
+  const PER_PAGE = 50
+
+  // vendorsDB 전체 + directory 병합
+  const allVendors = useMemo(()=>{
+    const map = {}
+    // vendorsDB (업로드한 750건)
+    Object.values(vendorsDB||{}).forEach(v=>{
+      if(!v.name) return
+      map[v.name] = {
+        id: v.id, name: v.name,
+        bizType: v.bizType||"", bizNo: v.bizNo||"",
+        rep: v.rep||v.ceoName||"", tel: v.tel||v.repTel||v.ceoPhone||"",
+        addr: v.addr||"", repMail: v.repMail||"",
+        contact: v.contact||v.contactName||"", contactTel: v.contactTel||v.contactPhone||"",
+        projects: v.projects||[],
+        paymentHistory: v.paymentHistory||[],
+        // directory에서 계산된 실행계획서 참여 정보
+        dirEntry: null
+      }
+    })
+    // directory (실행계획서 기반) 병합
+    directory.forEach(d=>{
+      if(map[d.name]) {
+        map[d.name].dirEntry = d
+        map[d.name].cats = d.cats
+        map[d.name].total = d.total
+        map[d.name].items = d.items
+      } else {
+        map[d.name] = {
+          id: null, name: d.name, bizType:"", bizNo:"", rep:"", tel:"", addr:"",
+          repMail:"", contact:"", contactTel:"",
+          projects:[], paymentHistory:[],
+          dirEntry:d, cats:d.cats, total:d.total, items:d.items
+        }
+      }
+    })
+    return Object.values(map)
+  },[vendorsDB, directory])
+
+  // 필터링
+  const filtered = useMemo(()=>{
+    const q = (s,v) => !s.trim() || String(v||"").toLowerCase().includes(s.toLowerCase())
+    return allVendors.filter(v=>
+      q(filters.name||search, v.name) &&
+      q(filters.field, (v.bizType||"")+" "+(v.cats||[]).join(" ")) &&
+      q(filters.rep, (v.rep||"")+" "+(v.contact||"")) &&
+      q(filters.tel, (v.tel||"")+" "+(v.contactTel||"")) &&
+      q(filters.addr, v.addr||"")
+    ).sort((a,b)=>{
+      if(sortBy==="projects") return (b.projects?.length||0)+(b.items?.length||0) - ((a.projects?.length||0)+(a.items?.length||0))
+      if(sortBy==="payment") return (b.paymentHistory?.length||0) - (a.paymentHistory?.length||0)
+      return (a.name||"").localeCompare(b.name||"","ko")
+    })
+  },[allVendors, filters, search, sortBy])
+
+  const totalPages = Math.ceil(filtered.length / PER_PAGE)
+  const pageData   = filtered.slice((page-1)*PER_PAGE, page*PER_PAGE)
+
+  const setF = (k,v) => { setFilters(p=>({...p,[k]:v})); setPage(1) }
+
   return (
-    <SCard title="📇 협력업체 목록" note="최근 버전 기준 참여 프로젝트·계약액을 집계합니다. 업체를 클릭하면 상세정보·지급내역을 확인/입력할 수 있습니다.">
-      <div style={{marginBottom:12}}>
-        <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="업체명 검색" style={{...S.inp(260)}}/>
+    <SCard title="📇 협력업체 목록" note="">
+      {/* 검색 바 */}
+      <div style={{marginBottom:10}}>
+        <div style={{display:"flex",gap:8,marginBottom:8,flexWrap:"wrap",alignItems:"center"}}>
+          <input value={search} onChange={e=>{setSearch(e.target.value);setF("name",e.target.value)}}
+            placeholder="🔍 업체명 검색..."
+            style={{...S.inp(220),textAlign:"left",padding:"9px 14px",fontSize:14,flex:1}}/>
+          <button onClick={()=>setShowFilter(v=>!v)}
+            style={{...S.btn(showFilter?C.navyM:C.navyL,showFilter?"#fff":C.navyM),padding:"8px 14px",fontSize:13}}>
+            {showFilter?"▲ 간단검색":"▼ 상세검색"}
+          </button>
+          <div style={{fontSize:13,color:C.gray,fontWeight:600,whiteSpace:"nowrap"}}>
+            전체 <b style={{color:C.navyM}}>{filtered.length}</b>개 / {allVendors.length}개
+          </div>
+        </div>
+
+        {showFilter&&(
+          <div style={{background:"#F8FAFC",borderRadius:12,border:"1px solid #E5E7EB",padding:"14px 16px",marginBottom:8}}>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10,marginBottom:10}}>
+              {[["업체명","name","업체명 검색"],["주요분야/업무구분","field","예: 건축, 구조, 기계"],["대표자/담당자","rep","이름 검색"]].map(([l,k,ph])=>(
+                <div key={k}>
+                  <label style={{fontSize:11.5,fontWeight:700,color:C.navyM,display:"block",marginBottom:3}}>{l}</label>
+                  <input value={filters[k]} onChange={e=>setF(k,e.target.value)} placeholder={ph}
+                    style={{...S.inp("100%"),textAlign:"left",padding:"7px 10px",fontSize:13,width:"100%",boxSizing:"border-box"}}/>
+                </div>
+              ))}
+            </div>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+              {[["전화번호","tel","010-xxxx"],["주소","addr","시/구 검색"]].map(([l,k,ph])=>(
+                <div key={k}>
+                  <label style={{fontSize:11.5,fontWeight:700,color:C.navyM,display:"block",marginBottom:3}}>{l}</label>
+                  <input value={filters[k]} onChange={e=>setF(k,e.target.value)} placeholder={ph}
+                    style={{...S.inp("100%"),textAlign:"left",padding:"7px 10px",fontSize:13,width:"100%",boxSizing:"border-box"}}/>
+                </div>
+              ))}
+            </div>
+            <button onClick={()=>{setFilters({name:"",field:"",rep:"",tel:"",addr:""});setSearch("");setPage(1)}}
+              style={{marginTop:10,padding:"5px 14px",background:"#F3F4F6",color:"#6B7280",border:"none",borderRadius:7,fontSize:12.5,cursor:"pointer"}}>
+              초기화
+            </button>
+          </div>
+        )}
+
+        {/* 정렬 */}
+        <div style={{display:"flex",gap:6,alignItems:"center"}}>
+          <span style={{fontSize:12.5,color:C.gray}}>정렬:</span>
+          {[["name","업체명순"],["projects","프로젝트 많은순"],["payment","외주비 많은순"]].map(([v,l])=>(
+            <button key={v} onClick={()=>setSortBy(v)}
+              style={{padding:"4px 12px",border:`1.5px solid ${sortBy===v?C.navyM:"#E5E7EB"}`,borderRadius:7,
+                fontSize:12,cursor:"pointer",background:sortBy===v?C.navyL:"#fff",color:sortBy===v?C.navyM:"#6B7280",fontWeight:sortBy===v?700:400}}>
+              {l}
+            </button>
+          ))}
+        </div>
       </div>
+
+      {/* 테이블 */}
       <div style={{overflowX:"auto"}}>
-        <table style={{width:"100%",borderCollapse:"collapse",minWidth:760}}>
-          <thead><tr>
-            <th style={S.th()}>업체명</th><th style={S.th()}>주요분야</th>
-            <th style={S.th("right")}>참여 프로젝트</th><th style={S.th("right")}>누적 계약액(억)</th>
-            <th style={S.th()}>대표자</th><th style={S.th()}>담당자</th>
+        <table style={{width:"100%",borderCollapse:"collapse",minWidth:800}}>
+          <thead><tr style={{background:"#F8FAFC"}}>
+            {["업체명","업무구분/분야","대표자","전화번호","프로젝트","외주비","주소"].map((h,i)=>(
+              <th key={h} style={S.th(i>=4?"right":"left")}>{h}</th>
+            ))}
           </tr></thead>
           <tbody>
-            {rows.length===0 && <tr><td colSpan={6} style={{...S.td("left"),color:C.gray}}>등록된 협력업체가 없습니다. 프로젝트 실행계획서의 협력업체 비용 항목에 업체명을 입력하면 여기에 표시됩니다.</td></tr>}
-            {rows.map((d,i)=>{
-              const info = vendorsDB?.[d.name]||VENDOR_EMPTY
-              return (
-                <tr key={d.name} onClick={()=>onSelect(d)} style={{cursor:"pointer",background:i%2===0?"var(--color-background-primary,#fff)":"var(--color-background-secondary,#f8f8f6)"}}
-                  onMouseEnter={e=>e.currentTarget.style.background="rgba(24,95,165,.05)"}
-                  onMouseLeave={e=>e.currentTarget.style.background=i%2===0?"var(--color-background-primary,#fff)":"var(--color-background-secondary,#f8f8f6)"}>
-                  <td style={{...S.td("left"),fontWeight:700,color:C.navyM}}>{d.name}</td>
-                  <td style={S.td("left")}>{d.cats.join(", ")}</td>
-                  <td style={S.td()}>{d.items.length}건</td>
-                  <td style={{...S.td(),fontWeight:700}}>{fE(d.total/1e8)}</td>
-                  <td style={{...S.td("left"),fontSize:12,color:C.gray}}>{info.ceoName||"-"}{info.ceoPhone?` · ${info.ceoPhone}`:""}</td>
-                  <td style={{...S.td("left"),fontSize:12,color:C.gray}}>{info.contactName||"-"}{info.contactPhone?` · ${info.contactPhone}`:""}</td>
-                </tr>
-              )
-            })}
+            {pageData.length===0&&(
+              <tr><td colSpan={7} style={{...S.td("center"),padding:"40px",color:C.gray,fontSize:14}}>
+                검색 결과가 없습니다.
+              </td></tr>
+            )}
+            {pageData.map((v,i)=>(
+              <tr key={v.id||v.name} onClick={()=>onSelect(v.dirEntry||v)}
+                style={{cursor:"pointer",background:i%2===0?"var(--color-background-primary,#fff)":"var(--color-background-secondary,#f8f8f6)"}}
+                onMouseEnter={e=>e.currentTarget.style.background="rgba(24,95,165,.06)"}
+                onMouseLeave={e=>e.currentTarget.style.background=i%2===0?"var(--color-background-primary,#fff)":"var(--color-background-secondary,#f8f8f6)"}>
+                <td style={{...S.td("left"),fontWeight:700,color:C.navyM,maxWidth:220,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
+                  {v.name}
+                </td>
+                <td style={{...S.td("left"),fontSize:12.5,color:C.gray}}>
+                  {v.bizType||((v.cats||[]).join(", "))||"-"}
+                </td>
+                <td style={{...S.td("left"),fontSize:12.5}}>
+                  {v.rep||"-"}
+                  {v.contact&&v.contact!==v.rep&&<span style={{fontSize:11,color:C.gray}}> / {v.contact}</span>}
+                </td>
+                <td style={{...S.td("left"),fontSize:12.5,color:C.gray}}>
+                  {v.tel||v.contactTel||"-"}
+                </td>
+                <td style={S.td()}>
+                  {(v.projects?.length||0)+(v.items?.length||0)}건
+                </td>
+                <td style={S.td()}>
+                  {(v.paymentHistory?.length||0)>0
+                    ? <span style={{color:"#059669",fontWeight:700}}>{v.paymentHistory.length}건</span>
+                    : <span style={{color:C.gray}}>-</span>}
+                </td>
+                <td style={{...S.td("left"),fontSize:11.5,color:C.gray,maxWidth:180,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
+                  {v.addr||"-"}
+                </td>
+              </tr>
+            ))}
           </tbody>
         </table>
       </div>
+
+      {/* 페이지네이션 */}
+      {totalPages>1&&(
+        <div style={{display:"flex",justifyContent:"center",gap:6,marginTop:14,flexWrap:"wrap"}}>
+          <button onClick={()=>setPage(1)} disabled={page===1}
+            style={{padding:"5px 10px",border:"1px solid #E5E7EB",borderRadius:7,fontSize:12,cursor:page===1?"not-allowed":"pointer",color:page===1?C.gray:C.navyM}}>«</button>
+          <button onClick={()=>setPage(p=>Math.max(1,p-1))} disabled={page===1}
+            style={{padding:"5px 10px",border:"1px solid #E5E7EB",borderRadius:7,fontSize:12,cursor:page===1?"not-allowed":"pointer",color:page===1?C.gray:C.navyM}}>‹</button>
+          {Array.from({length:Math.min(7,totalPages)},(_, i)=>{
+            const p = Math.max(1,Math.min(totalPages-6,page-3))+i
+            return p<=totalPages?(
+              <button key={p} onClick={()=>setPage(p)}
+                style={{padding:"5px 12px",border:`1.5px solid ${page===p?C.navyM:"#E5E7EB"}`,borderRadius:7,fontSize:12.5,
+                  cursor:"pointer",background:page===p?C.navyM:"#fff",color:page===p?"#fff":C.navyM,fontWeight:page===p?700:400}}>
+                {p}
+              </button>
+            ):null
+          })}
+          <button onClick={()=>setPage(p=>Math.min(totalPages,p+1))} disabled={page===totalPages}
+            style={{padding:"5px 10px",border:"1px solid #E5E7EB",borderRadius:7,fontSize:12,cursor:page===totalPages?"not-allowed":"pointer",color:page===totalPages?C.gray:C.navyM}}>›</button>
+          <button onClick={()=>setPage(totalPages)} disabled={page===totalPages}
+            style={{padding:"5px 10px",border:"1px solid #E5E7EB",borderRadius:7,fontSize:12,cursor:page===totalPages?"not-allowed":"pointer",color:page===totalPages?C.gray:C.navyM}}>»</button>
+          <span style={{fontSize:12.5,color:C.gray,padding:"5px 0",alignSelf:"center"}}>
+            {(page-1)*PER_PAGE+1}–{Math.min(page*PER_PAGE,filtered.length)} / {filtered.length}
+          </span>
+        </div>
+      )}
     </SCard>
   )
 }
@@ -730,6 +895,192 @@ function VendorDraft({projects,setProjects,directory,canWrite,setTab,setSelProjI
             : <div style={{fontSize:12,color:C.gray}}>초안 생성은 입력 권한이 있는 계정에서 가능합니다.</div>}
           <div style={{fontSize:11,color:C.gray,marginTop:8}}>초안 생성 시 프로젝트 탭의 새 버전으로 추가되며, 업체명은 "(업체 선택 필요)"로 표시되어 직접 지정해야 합니다.</div>
         </>}
+    </SCard>
+  )
+}
+
+// ════════════════════════════════════════════════════════════
+// 🤖 AI 통합 분석 — 협력업체·프로젝트 자연어 질의
+// ════════════════════════════════════════════════════════════
+function VendorAIAnalysis({projects=[], vendorsDB={}}) {
+  const [query,    setQuery]    = useState("")
+  const [history,  setHistory]  = useState([])
+  const [loading,  setLoading]  = useState(false)
+  const [examples] = useState([
+    "LH(한국토지주택공사) 프로젝트의 구조 분야 협력업체를 비교 분석해줘",
+    "LH 프로젝트의 평당 설계비를 비교 분석해줘",
+    "가장 많이 참여한 협력업체 상위 10개를 알려줘",
+    "공공 프로젝트에서 가장 많이 쓴 외주 공종은?",
+    "주거디자인본부 프로젝트의 외주비 현황을 분석해줘",
+  ])
+  const chatEndRef = useRef(null)
+
+  useEffect(()=>{ chatEndRef.current?.scrollIntoView({behavior:"smooth"}) },[history])
+
+  const buildContext = (q) => {
+    const projList = Array.isArray(projects) ? projects : []
+    const vendorList = Object.values(vendorsDB)
+
+    // 프로젝트 요약 데이터 (AI에 전달할 컨텍스트)
+    const projSummary = projList.map(p=>({
+      name: p.name, code: p.code,
+      depts: p.depts||[], client: p.client||p.clientName||"",
+      type: p.orderType||p.type||"", usage: p.usage||"",
+      scale: p.scale||"", totalFee: p.totalFee||p.serviceFee||0,
+      contractDate: p.contractDate||"",
+      // 실행계획서 최신 버전 협력업체
+      vendors: (p.versions?.[p.versions?.length-1]?.vendors||[]).map(v=>({
+        name:v.name, cat:v.cat, contract:v.contract||0, nego:v.nego2||v.nego1||v.contract||0
+      }))
+    })).slice(0, 200)  // 최대 200건
+
+    // 협력업체 외주비 요약
+    const vendorSummary = vendorList.slice(0,300).map(v=>({
+      name: v.name, bizType: v.bizType||"",
+      projectCount: (v.projects||[]).length,
+      paymentTotal: (v.paymentHistory||[]).reduce((s,p)=>s+(p.totalAmt||0),0),
+      paymentProjects: [...new Set((v.paymentHistory||[]).map(p=>p.project))].slice(0,5)
+    }))
+
+    return { projects: projSummary, vendors: vendorSummary }
+  }
+
+  const sendQuery = async (q) => {
+    if(!q.trim()||loading) return
+    setLoading(true)
+    const userMsg = {role:"user", content:q, time:new Date().toLocaleTimeString("ko-KR",{hour:"2-digit",minute:"2-digit"})}
+    setHistory(p=>[...p, userMsg])
+    setQuery("")
+
+    try {
+      const ctx = buildContext(q)
+      const systemPrompt = `당신은 상지서울건축사사무소의 통합경영시스템 AI 분석 어시스턴트입니다.
+아래 데이터를 기반으로 사용자의 질문에 한국어로 분석하고 답변하세요.
+
+## 시스템 데이터 요약
+- 전체 프로젝트: ${ctx.projects.length}건
+- 전체 협력업체: ${ctx.vendors.length}개
+
+## 프로젝트 데이터 (최대 200건)
+${JSON.stringify(ctx.projects, null, 0).slice(0,8000)}
+
+## 협력업체 데이터 (최대 300개)
+${JSON.stringify(ctx.vendors, null, 0).slice(0,6000)}
+
+답변 규칙:
+- 구체적인 수치와 업체명/프로젝트명을 포함해 분석하세요
+- 데이터에 없는 내용은 "데이터 없음"으로 명확히 표시하세요
+- 표나 목록으로 정리하면 더 좋습니다 (마크다운 사용)
+- 비교 분석 시 장단점, 특이사항도 포함하세요`
+
+      const res = await fetch("/api/chat", {
+        method:"POST", headers:{"Content-Type":"application/json"},
+        body: JSON.stringify({
+          model:"claude-sonnet-4-6", max_tokens:2000,
+          system: systemPrompt,
+          messages:[{role:"user", content:q}]
+        })
+      })
+      if(!res.ok) throw new Error(`서버 오류 (${res.status})`)
+      const data = await res.json()
+      const text = data.content?.[0]?.text || "응답을 받지 못했습니다."
+      setHistory(p=>[...p, {role:"assistant", content:text, time:new Date().toLocaleTimeString("ko-KR",{hour:"2-digit",minute:"2-digit"})}])
+    } catch(e) {
+      setHistory(p=>[...p, {role:"assistant", content:`⚠ 오류: ${e.message}`, time:""}])
+    }
+    setLoading(false)
+  }
+
+  // 마크다운 간단 렌더링
+  const renderMD = (text) => {
+    const lines = text.split("\n")
+    return lines.map((line,i)=>{
+      if(line.startsWith("## ")) return <div key={i} style={{fontSize:16,fontWeight:800,color:C.navyM,margin:"10px 0 4px"}}>{line.slice(3)}</div>
+      if(line.startsWith("# "))  return <div key={i} style={{fontSize:18,fontWeight:900,color:"#111827",margin:"12px 0 4px"}}>{line.slice(2)}</div>
+      if(line.startsWith("**")||line.match(/^\*\*.*\*\*$/)) return <div key={i} style={{fontWeight:700,color:"#111827"}}>{line.replace(/\*\*/g,"")}</div>
+      if(line.startsWith("- ")||line.startsWith("• ")) return <div key={i} style={{paddingLeft:16,margin:"2px 0",display:"flex",gap:6}}><span>•</span><span>{line.slice(2)}</span></div>
+      if(line.match(/^\d+\. /)) return <div key={i} style={{paddingLeft:16,margin:"2px 0"}}>{line}</div>
+      if(line.startsWith("|")&&line.includes("|")) {
+        const cells=line.split("|").filter(Boolean)
+        return <div key={i} style={{display:"flex",gap:0,borderBottom:"1px solid #E5E7EB"}}>
+          {cells.map((c,ci)=><div key={ci} style={{flex:1,padding:"5px 8px",fontSize:13,borderRight:"1px solid #E5E7EB",fontWeight:cells[0].includes("---")?"normal":ci===0?700:400}}>{c.trim()==="-".repeat(c.trim().length)?null:c.trim()}</div>)}
+        </div>
+      }
+      if(line==="---"||line.match(/^-{3,}$/)) return <hr key={i} style={{border:"none",borderTop:"1px solid #E5E7EB",margin:"8px 0"}}/>
+      return <div key={i} style={{lineHeight:1.7,color:"#374151"}}>{line||<br/>}</div>
+    })
+  }
+
+  return (
+    <SCard title="🤖 AI 통합 분석" note="프로젝트·협력업체·외주비 데이터를 자연어로 질의하여 분석합니다">
+      {/* 예시 질문 */}
+      <div style={{marginBottom:14}}>
+        <div style={{fontSize:13,fontWeight:700,color:C.gray,marginBottom:7}}>💡 예시 질문 (클릭하면 바로 질의)</div>
+        <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+          {examples.map((ex,i)=>(
+            <button key={i} onClick={()=>sendQuery(ex)}
+              style={{padding:"6px 12px",background:C.navyL,color:C.navyM,border:`1px solid ${C.navyM}40`,
+                borderRadius:8,fontSize:12.5,cursor:"pointer",fontWeight:500,textAlign:"left",lineHeight:1.4}}>
+              {ex}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* 대화 영역 */}
+      <div style={{background:"#F8FAFC",borderRadius:12,border:"1px solid #E5E7EB",minHeight:300,maxHeight:500,overflowY:"auto",padding:"14px 16px",marginBottom:12}}>
+        {history.length===0&&(
+          <div style={{textAlign:"center",padding:"60px 20px",color:C.gray}}>
+            <div style={{fontSize:36,marginBottom:10}}>🤖</div>
+            <div style={{fontSize:14,fontWeight:600,marginBottom:4}}>AI 분석 어시스턴트</div>
+            <div style={{fontSize:12.5}}>위 예시를 클릭하거나 아래 입력창에 질문을 입력하세요</div>
+          </div>
+        )}
+        {history.map((msg,i)=>(
+          <div key={i} style={{marginBottom:14,display:"flex",flexDirection:"column",
+            alignItems:msg.role==="user"?"flex-end":"flex-start"}}>
+            <div style={{
+              maxWidth:"85%",padding:"12px 16px",borderRadius:msg.role==="user"?"12px 12px 4px 12px":"12px 12px 12px 4px",
+              background:msg.role==="user"?C.navyM:"#fff",
+              color:msg.role==="user"?"#fff":"#111827",
+              boxShadow:"0 1px 4px rgba(0,0,0,.08)",
+              border:msg.role==="assistant"?"1px solid #E5E7EB":"none",
+              fontSize:13.5,lineHeight:1.65
+            }}>
+              {msg.role==="assistant" ? renderMD(msg.content) : msg.content}
+            </div>
+            {msg.time&&<div style={{fontSize:11,color:C.gray,marginTop:3}}>{msg.time}</div>}
+          </div>
+        ))}
+        {loading&&(
+          <div style={{display:"flex",alignItems:"center",gap:8,padding:"10px 14px",background:"#fff",borderRadius:12,border:"1px solid #E5E7EB",width:"fit-content"}}>
+            <div style={{fontSize:18}}>🤖</div>
+            <div style={{fontSize:13,color:C.gray}}>분석 중...</div>
+            <div style={{display:"flex",gap:3}}>
+              {[0,1,2].map(i=><div key={i} style={{width:6,height:6,borderRadius:"50%",background:C.navyM,animation:`pulse 1.2s ${i*0.4}s infinite`}}/>)}
+            </div>
+          </div>
+        )}
+        <div ref={chatEndRef}/>
+      </div>
+
+      {/* 입력창 */}
+      <div style={{display:"flex",gap:8}}>
+        <input value={query} onChange={e=>setQuery(e.target.value)}
+          onKeyDown={e=>e.key==="Enter"&&!e.shiftKey&&sendQuery(query)}
+          placeholder="예: LH 프로젝트에서 구조 분야 협력업체 비교해줘 (Enter)"
+          style={{flex:1,padding:"11px 16px",border:`1.5px solid ${C.navyM}`,borderRadius:10,fontSize:14,fontFamily:"inherit",outline:"none"}}
+          disabled={loading}/>
+        <button onClick={()=>sendQuery(query)} disabled={loading||!query.trim()}
+          style={{...S.btn(loading?C.gray:C.navyM),padding:"11px 22px",fontSize:14,opacity:loading||!query.trim()?0.6:1}}>
+          전송
+        </button>
+        {history.length>0&&<button onClick={()=>setHistory([])}
+          style={{...S.btn(C.grayL,C.gray),padding:"11px 14px",fontSize:13}}>
+          초기화
+        </button>}
+      </div>
+      <style>{`@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}`}</style>
     </SCard>
   )
 }
