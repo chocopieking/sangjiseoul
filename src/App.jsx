@@ -2392,27 +2392,57 @@ const cardNote2 = {fontSize:12.5,color:C.gray,marginBottom:8}
 // ════════════════════════════════════════════════════════════
 function ProjectsTab({projects,setProjects,selProjId,setSelProjId,selVerIdx,setSelVerIdx,cmpIds,setCmpIds,showNewVer,setShowNewVer,canWrite,contractTypes,currentUser,setDetailTab:_extSetDetailTab,detailTab:_extDetailTab}) {
   const [view, setView] = useState("list")
-  const [deptFilter, setDeptFilter] = useState("")
-  const [typeFilter, setTypeFilter] = useState("")
+  const [deptFilter,     setDeptFilter]     = useState("")
+  const [typeFilter,     setTypeFilter]     = useState("")
+  const [searchQuery,    setSearchQuery]    = useState("")
+  const [pmFilter,       setPmFilter]       = useState("")
+  const [dateFromFilter, setDateFromFilter] = useState("")
+  const [dateToFilter,   setDateToFilter]   = useState("")
+  const [areaMinFilter,  setAreaMinFilter]  = useState("")
+  const [showAdvFilter,  setShowAdvFilter]  = useState(false)
+  const [projPage,       setProjPage]       = useState(1)
+  const PROJ_PER_PAGE = 30
   const [editVend, setEditVend]     = useState(false)
   const [vDraft, setVDraft]         = useState(null)
   const [editProj, setEditProj]     = useState(false)
   const [cfEditing, setCfEditing]   = useState(false)
   const [cfDraft, setCfDraft]       = useState(null)
-  // detailTab은 로컬에서만 관리 (외부 의존 없음 → 에러 없음)
   const [detailTab, setDetailTab]   = useState("info")
   const NOW  = new Date()
   const YEAR = NOW.getFullYear()
   const YR   = String(YEAR)
 
-  // 프로젝트 선택 시 상세탭 초기화
   useEffect(()=>{ if(selProjId) setDetailTab("info") }, [selProjId])
 
   const selProj = projects.find(p=>p.id===selProjId)
   const selVer  = selProj?.versions?.[selVerIdx]
   const allCats = useMemo(()=>[...new Set(projects.flatMap(p=>p.versions.flatMap(v=>v.vendors.map(vd=>vd.cat))))].sort(),[projects])
 
-  const filtered = projects.filter(p=>(!deptFilter||p.depts.some(d=>d.includes(deptFilter)))&&(!typeFilter||p.type===typeFilter))
+  // 상세 필터링
+  const filtered = useMemo(()=>{
+    const q = searchQuery.toLowerCase().trim()
+    return projects.filter(p=>{
+      if(deptFilter && !p.depts?.some(d=>d.includes(deptFilter))) return false
+      if(typeFilter && p.type!==typeFilter) return false
+      if(pmFilter && !(p.pm||"").toLowerCase().includes(pmFilter.toLowerCase())) return false
+      if(dateFromFilter && (p.contractDate||"") < dateFromFilter) return false
+      if(dateToFilter   && (p.contractDate||"") > dateToFilter)   return false
+      if(areaMinFilter) {
+        const minM2 = parseFloat(areaMinFilter)*3.3
+        if((p.floorArea||0) < minM2) return false
+      }
+      if(q && !`${p.name||""} ${p.code||""} ${p.pm||""} ${(p.depts||[]).join(" ")} ${p.clientName||p.client||""}`.toLowerCase().includes(q)) return false
+      return true
+    })
+  },[projects,deptFilter,typeFilter,searchQuery,pmFilter,dateFromFilter,dateToFilter,areaMinFilter])
+
+  const totalProjPages = Math.ceil(filtered.length / PROJ_PER_PAGE)
+  const pagedProjects  = filtered.slice((projPage-1)*PROJ_PER_PAGE, projPage*PROJ_PER_PAGE)
+
+  const resetFilters = () => {
+    setDeptFilter(""); setTypeFilter(""); setSearchQuery(""); setPmFilter("")
+    setDateFromFilter(""); setDateToFilter(""); setAreaMinFilter(""); setProjPage(1)
+  }
 
   const pyF = selProj ? toPy(selProj.floorArea||0) : 0
   const pyS = selProj ? toPy(selProj.siteArea||0)  : 0
@@ -2483,17 +2513,61 @@ function ProjectsTab({projects,setProjects,selProjId,setSelProjId,selVerIdx,setS
       {/* ── 목록 ── */}
       {view==="list" && (
         <>
-          <div style={{display:"flex",gap:7,marginBottom:12,flexWrap:"wrap",alignItems:"center"}}>
-            {[["deptFilter",setDeptFilter,[["","전체 본부"],["설계1","설계1본부"],["설계2","설계2본부"],["디자인","디자인본부"],["주거","주거디자인"],["해외","해외사업부"]]],
-              ["typeFilter",setTypeFilter,[["","전체 구분"],["계약","계약"],["확정","확정"],["추진","추진"],["기성","기성"]]]
-            ].map(([id,setter,opts])=>(
-              <select key={id} onChange={e=>setter(e.target.value)} style={{padding:"6px 9px",border:"0.5px solid var(--color-border-secondary,#ccc)",borderRadius:8,fontSize:12,background:"var(--color-background-primary,#fff)",color:"var(--color-text-primary,#333)"}}>
-                {opts.map(([v,l])=><option key={v} value={v}>{l}</option>)}
+          {/* 검색 바 */}
+          <div style={{background:"#fff",borderRadius:12,border:"1px solid #E5E7EB",padding:"12px 14px",marginBottom:12}}>
+            <div style={{display:"flex",gap:8,marginBottom:8,flexWrap:"wrap",alignItems:"center"}}>
+              <input value={searchQuery} onChange={e=>{setSearchQuery(e.target.value);setProjPage(1)}}
+                placeholder="🔍 프로젝트명·코드·PM·발주처 검색"
+                style={{flex:1,padding:"8px 14px",border:"1.5px solid #6366F1",borderRadius:9,fontSize:13.5,fontFamily:"inherit",outline:"none"}}/>
+              <select value={deptFilter} onChange={e=>{setDeptFilter(e.target.value);setProjPage(1)}}
+                style={{padding:"8px 10px",border:"1px solid #E5E7EB",borderRadius:8,fontSize:13,fontFamily:"inherit",outline:"none"}}>
+                {[["","전체 본부"],["설계1","설계1본부"],["설계2","설계2본부"],["디자인","디자인본부"],["주거","주거디자인"],["해외","해외사업부"]].map(([v,l])=><option key={v} value={v}>{l}</option>)}
               </select>
-            ))}
-            <span style={{fontSize:11,color:C.gray}}>{filtered.length}건</span>
+              <select value={typeFilter} onChange={e=>{setTypeFilter(e.target.value);setProjPage(1)}}
+                style={{padding:"8px 10px",border:"1px solid #E5E7EB",borderRadius:8,fontSize:13,fontFamily:"inherit",outline:"none"}}>
+                {[["","전체 구분"],["계약","계약"],["확정","확정"],["추진","추진"],["기성","기성"]].map(([v,l])=><option key={v} value={v}>{l}</option>)}
+              </select>
+              <button onClick={()=>setShowAdvFilter(v=>!v)}
+                style={{padding:"8px 14px",background:showAdvFilter?"#6366F1":"#F3F4F6",color:showAdvFilter?"#fff":"#6B7280",border:"none",borderRadius:8,fontSize:13,fontWeight:600,cursor:"pointer"}}>
+                {showAdvFilter?"▲ 간단":"▼ 상세검색"}
+              </button>
+              {(searchQuery||deptFilter||typeFilter||pmFilter||dateFromFilter||dateToFilter||areaMinFilter)&&(
+                <button onClick={resetFilters}
+                  style={{padding:"8px 12px",background:"#FEE2E2",color:"#DC2626",border:"none",borderRadius:8,fontSize:12.5,fontWeight:700,cursor:"pointer"}}>
+                  ✕ 초기화
+                </button>
+              )}
+              <span style={{fontSize:13,color:"#6B7280",fontWeight:600,whiteSpace:"nowrap"}}>
+                <b style={{color:"#6366F1"}}>{filtered.length}</b>건 / {projects.length}건
+              </span>
+            </div>
+            {showAdvFilter&&(
+              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr 1fr",gap:8,paddingTop:8,borderTop:"1px solid #F3F4F6"}}>
+                <div>
+                  <label style={{fontSize:11,fontWeight:700,color:"#6366F1",display:"block",marginBottom:3}}>PM / 본부장</label>
+                  <input value={pmFilter} onChange={e=>{setPmFilter(e.target.value);setProjPage(1)}}
+                    placeholder="이름 검색" style={{width:"100%",padding:"7px 10px",border:"1px solid #E5E7EB",borderRadius:7,fontSize:13,fontFamily:"inherit",outline:"none",boxSizing:"border-box"}}/>
+                </div>
+                <div>
+                  <label style={{fontSize:11,fontWeight:700,color:"#6366F1",display:"block",marginBottom:3}}>계약일 (시작)</label>
+                  <input type="date" value={dateFromFilter} onChange={e=>{setDateFromFilter(e.target.value);setProjPage(1)}}
+                    style={{width:"100%",padding:"7px 10px",border:"1px solid #E5E7EB",borderRadius:7,fontSize:13,fontFamily:"inherit",outline:"none",boxSizing:"border-box"}}/>
+                </div>
+                <div>
+                  <label style={{fontSize:11,fontWeight:700,color:"#6366F1",display:"block",marginBottom:3}}>계약일 (종료)</label>
+                  <input type="date" value={dateToFilter} onChange={e=>{setDateToFilter(e.target.value);setProjPage(1)}}
+                    style={{width:"100%",padding:"7px 10px",border:"1px solid #E5E7EB",borderRadius:7,fontSize:13,fontFamily:"inherit",outline:"none",boxSizing:"border-box"}}/>
+                </div>
+                <div>
+                  <label style={{fontSize:11,fontWeight:700,color:"#6366F1",display:"block",marginBottom:3}}>연면적 최소(평)</label>
+                  <input type="number" value={areaMinFilter} onChange={e=>{setAreaMinFilter(e.target.value);setProjPage(1)}}
+                    placeholder="예: 500" style={{width:"100%",padding:"7px 10px",border:"1px solid #E5E7EB",borderRadius:7,fontSize:13,fontFamily:"inherit",outline:"none",boxSizing:"border-box"}}/>
+                </div>
+              </div>
+            )}
           </div>
-          <Card title="프로젝트 목록" note="행 클릭 → 실행계획서 상세">
+
+          <Card title="프로젝트 목록" note={`행 클릭 → 실행계획서 상세 · ${PROJ_PER_PAGE}건씩 표시`}>
             <div style={{overflowX:"auto"}}>
               <table style={{width:"100%",borderCollapse:"collapse"}}>
                 <thead><tr>
@@ -2502,7 +2576,8 @@ function ProjectsTab({projects,setProjects,selProjId,setSelProjId,selVerIdx,setS
                   {["구분","코드","프로젝트명","본부","PM","용역비(억)","평당단가","지분%","연면적㎡","진행%","계약일","다운"].map((h,i)=><th key={h+i} style={S.th(i>=5&&i<=10?"right":"left")}>{h}</th>)}
                 </tr></thead>
                 <tbody>
-                  {filtered.map((p,i)=>{
+                  {pagedProjects.map((p,i)=>{
+                    const globalIdx = (projPage-1)*PROJ_PER_PAGE + i
                     const tb=TYPE_BADGE[p.type]||{bg:C.grayL,fg:C.gray}
                     const bc=p.prog>=70?C.green:p.prog>=30?C.navyM:C.gray
                     return <tr key={p.id} style={{background:i%2===0?"var(--color-background-primary,#fff)":"var(--color-background-secondary,#f8f8f6)",cursor:"pointer"}}
@@ -2510,7 +2585,7 @@ function ProjectsTab({projects,setProjects,selProjId,setSelProjId,selVerIdx,setS
                       onMouseLeave={e=>e.currentTarget.style.background=i%2===0?"var(--color-background-primary,#fff)":"var(--color-background-secondary,#f8f8f6)"}
                       onClick={()=>{setSelProjId(p.id);setSelVerIdx(p.versions.length-1);setView("detail")}}>
                       <td style={S.td("center")} onClick={e=>e.stopPropagation()}><input type="checkbox" checked={cmpIds.includes(p.id)} onChange={e=>setCmpIds(prev=>e.target.checked?[...prev,p.id]:prev.filter(id=>id!==p.id))}/></td>
-                      <td style={{...S.td("center"),fontSize:12,color:"#9CA3AF",fontWeight:600}}>{i+1}</td>
+                      <td style={{...S.td("center"),fontSize:12,color:"#9CA3AF",fontWeight:600}}>{globalIdx+1}</td>
                       <td style={S.td("left")}><span style={S.bdg(tb.bg,tb.fg)}>{p.type}</span></td>
                       <td style={{...S.td("left"),fontFamily:"monospace",fontSize:11,color:C.navyM}}>{p.code}</td>
                       <td style={{...S.td("left"),maxWidth:190,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}} title={p.name}>{p.name}</td>
@@ -2546,6 +2621,32 @@ function ProjectsTab({projects,setProjects,selProjId,setSelProjId,selVerIdx,setS
                 </tbody>
               </table>
             </div>
+            {/* 페이지네이션 */}
+            {totalProjPages>1&&(
+              <div style={{display:"flex",justifyContent:"center",alignItems:"center",gap:6,marginTop:14,flexWrap:"wrap"}}>
+                <button onClick={()=>setProjPage(1)} disabled={projPage===1}
+                  style={{padding:"5px 10px",border:"1px solid #E5E7EB",borderRadius:7,fontSize:12.5,cursor:projPage===1?"not-allowed":"pointer",color:projPage===1?C.gray:C.navyM,background:"#fff"}}>«</button>
+                <button onClick={()=>setProjPage(p=>Math.max(1,p-1))} disabled={projPage===1}
+                  style={{padding:"5px 10px",border:"1px solid #E5E7EB",borderRadius:7,fontSize:12.5,cursor:projPage===1?"not-allowed":"pointer",color:projPage===1?C.gray:C.navyM,background:"#fff"}}>‹</button>
+                {Array.from({length:Math.min(7,totalProjPages)},(_,i)=>{
+                  const p=Math.max(1,Math.min(totalProjPages-6,projPage-3))+i
+                  return p<=totalProjPages?(
+                    <button key={p} onClick={()=>setProjPage(p)}
+                      style={{padding:"5px 12px",border:`1.5px solid ${projPage===p?C.navyM:"#E5E7EB"}`,borderRadius:7,fontSize:13,
+                        cursor:"pointer",background:projPage===p?C.navyM:"#fff",color:projPage===p?"#fff":C.navyM,fontWeight:projPage===p?700:400}}>
+                      {p}
+                    </button>
+                  ):null
+                })}
+                <button onClick={()=>setProjPage(p=>Math.min(totalProjPages,p+1))} disabled={projPage===totalProjPages}
+                  style={{padding:"5px 10px",border:"1px solid #E5E7EB",borderRadius:7,fontSize:12.5,cursor:projPage===totalProjPages?"not-allowed":"pointer",color:projPage===totalProjPages?C.gray:C.navyM,background:"#fff"}}>›</button>
+                <button onClick={()=>setProjPage(totalProjPages)} disabled={projPage===totalProjPages}
+                  style={{padding:"5px 10px",border:"1px solid #E5E7EB",borderRadius:7,fontSize:12.5,cursor:projPage===totalProjPages?"not-allowed":"pointer",color:projPage===totalProjPages?C.gray:C.navyM,background:"#fff"}}>»</button>
+                <span style={{fontSize:12.5,color:C.gray,padding:"5px 0"}}>
+                  {(projPage-1)*PROJ_PER_PAGE+1}–{Math.min(projPage*PROJ_PER_PAGE,filtered.length)} / {filtered.length}건
+                </span>
+              </div>
+            )}
           </Card>
           {cmpIds.length>=2&&<div style={{background:C.greenL,border:`1px solid ${C.green}`,borderRadius:10,padding:"10px 14px",display:"flex",alignItems:"center",justifyContent:"space-between",flexWrap:"wrap",gap:8}}>
             <span style={{fontSize:13,color:"#27500A"}}><strong>{cmpIds.length}개 프로젝트</strong> 선택됨</span>
@@ -3425,17 +3526,30 @@ function BenchProjects({projects,cmpIds,setCmpIds,allCats}) {
     return cats.map(cat=>{
       const items=[]
       selPs.forEach(p=>{
-        const ver=p.versions[p.versions.length-1];const vd=ver?.vendors.find(v=>v.cat===cat)
+        const ver=p.versions[p.versions.length-1]; const vd=ver?.vendors.find(v=>v.cat===cat)
         if(!vd||!vd.contract) return
-        const basis=getAreaBasis(cat);if(basis==="1식") return
-        const py=basis==="대지"?toPy(p.siteArea||0):toPy(p.floorArea||0)
+        const basis=getAreaBasis(cat); if(basis==="1식") return
+        const areaM2 = basis==="대지" ? (p.siteArea||0) : (p.floorArea||0)
+        const py = toPy(areaM2)
         if(py<=0) return
-        items.push({projId:p.id,up:vd.contract/py,up2:vd.nego2?(vd.nego2/py):null,basis:basis==="대지"?"대지면적":"연면적",vendor:vd.name})
+        items.push({
+          projId:p.id, projName:p.name,
+          areaM2, py,
+          basis: basis==="대지"?"대지면적":"연면적",
+          vendor: vd.name,
+          contract: vd.contract,
+          nego2: vd.nego2||null,
+          up:  vd.contract/py,
+          up2: vd.nego2 ? vd.nego2/py : null,
+          totalFee: p.serviceFee||p.totalFee||0,
+        })
       })
       return {cat,items}
     }).filter(r=>r.items.length>0)
   },[selPs,allCats,selCat])
   const barData=benchData.map(row=>({name:row.cat.length>5?row.cat.slice(0,5)+"…":row.cat,...Object.fromEntries(row.items.map(i=>[i.projId,+i.up.toFixed(0)]))}))
+  const fAmt = v => v>=1e8?`${(v/1e8).toFixed(2)}억`:v>=1e4?`${Math.round(v/1e4)}만`:`${v.toLocaleString()}`
+  const fPy  = v => `${Math.round(v).toLocaleString()}평`
   return (
     <div>
       <div style={{background:C.navyL,borderLeft:`3px solid ${C.navyM}`,borderRadius:"0 8px 8px 0",padding:"9px 13px",fontSize:12,color:C.navyM,marginBottom:13,lineHeight:1.7}}>
@@ -3474,30 +3588,67 @@ function BenchProjects({projects,cmpIds,setCmpIds,allCats}) {
           </BarChart>
         </ResponsiveContainer>
       </Card>
-      <Card title="공종별 평당단가 상세 (초록=최저 · 빨강=최고)">
+      <Card title="공종별 상세 (연면적 · 공종금액 · 평당단가)">
         <div style={{overflowX:"auto"}}>
-          <table style={{width:"100%",borderCollapse:"collapse"}}>
-            <thead><tr>
-              <th style={S.th("left")}>분야</th><th style={S.th("center")}>기준</th>
-              {selPs.map(p=><th key={p.id} style={S.th("right")}>{p.name.length>10?p.name.slice(0,10)+"…":p.name}<br/><span style={{fontSize:9,fontWeight:400,color:C.gray}}>원/평 (업체)</span></th>)}
-              <th style={S.th("right")}>최저</th><th style={S.th("right")}>최고</th><th style={S.th("right")}>차이</th>
-            </tr></thead>
+          <table style={{width:"100%",borderCollapse:"collapse",minWidth:700}}>
+            <thead>
+              <tr style={{background:"#F8FAFC"}}>
+                <th style={S.th("left")} rowSpan={2}>분야</th>
+                <th style={S.th("center")} rowSpan={2}>기준</th>
+                {selPs.map(p=>(
+                  <th key={p.id} style={{...S.th("center"),borderLeft:"2px solid #E5E7EB"}} colSpan={4}>
+                    <div style={{fontSize:11,maxWidth:140,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{p.name}</div>
+                  </th>
+                ))}
+                <th style={{...S.th("right"),fontSize:10}} rowSpan={2}>최저<br/>평단</th>
+                <th style={{...S.th("right"),fontSize:10}} rowSpan={2}>최고<br/>평단</th>
+                <th style={{...S.th("right"),fontSize:10}} rowSpan={2}>차이</th>
+              </tr>
+              <tr style={{background:"#EEF2FF"}}>
+                {selPs.map(p=>(
+                  <React.Fragment key={p.id}>
+                    <th style={{...S.th("right"),fontSize:10,color:"#6B7280",borderLeft:"2px solid #E5E7EB"}}>연면적㎡</th>
+                    <th style={{...S.th("right"),fontSize:10,color:"#6B7280"}}>평수</th>
+                    <th style={{...S.th("right"),fontSize:10,color:"#059669"}}>공종금액</th>
+                    <th style={{...S.th("right"),fontSize:10,color:"#6366F1",fontWeight:800}}>평당단가</th>
+                  </React.Fragment>
+                ))}
+              </tr>
+            </thead>
             <tbody>
               {benchData.map((row,i)=>{
-                const ups=row.items.map(it=>it.up),min=Math.min(...ups),max=Math.max(...ups)
+                const ups=row.items.map(it=>it.up).filter(v=>v>0)
+                const min=ups.length?Math.min(...ups):0, max=ups.length?Math.max(...ups):0
                 const basis=row.items[0]?.basis
-                return <tr key={row.cat} style={{background:i%2===0?"var(--color-background-primary,#fff)":"var(--color-background-secondary,#f8f8f6)"}}>
-                  <td style={S.td("left")}><span style={S.bdg(C.navyL,C.navyM)}>{row.cat}</span></td>
-                  <td style={S.td("center")}><span style={S.bdg(basis==="대지면적"?C.amberL:C.greenL,basis==="대지면적"?C.amber:C.green)}>{basis}</span></td>
-                  {selPs.map(p=>{const it=row.items.find(it=>it.projId===p.id);return(
-                    <td key={p.id} style={{...S.td("right"),color:it?.up===min&&selPs.length>1?C.green:it?.up===max&&selPs.length>1?C.red:"inherit",fontWeight:it?.up===min&&selPs.length>1?600:400}}>
-                      {it?<>{it.up.toLocaleString()+"원"}<br/><span style={{fontSize:10,color:C.gray}}>{it.vendor?.slice(0,8)}</span></>:"-"}
-                    </td>
-                  )})}
-                  <td style={{...S.td("right"),color:C.green,fontWeight:600}}>{min.toLocaleString()}원</td>
-                  <td style={{...S.td("right"),color:C.red}}>{max.toLocaleString()}원</td>
-                  <td style={S.td("right")}>{min>0?((max-min)/min*100).toFixed(0)+"%":"-"}</td>
-                </tr>
+                return (
+                  <tr key={row.cat} style={{background:i%2===0?"var(--color-background-primary,#fff)":"var(--color-background-secondary,#f8f8f6)"}}>
+                    <td style={S.td("left")}><span style={S.bdg(C.navyL,C.navyM)}>{row.cat}</span></td>
+                    <td style={S.td("center")}><span style={S.bdg(basis==="대지면적"?C.amberL:C.greenL,basis==="대지면적"?C.amber:C.green)}>{basis}</span></td>
+                    {selPs.map(p=>{
+                      const it=row.items.find(it=>it.projId===p.id)
+                      const isMin=it&&it.up===min&&selPs.length>1, isMax=it&&it.up===max&&selPs.length>1
+                      return (
+                        <React.Fragment key={p.id}>
+                          <td style={{...S.td("right"),fontSize:12,color:"#9CA3AF",borderLeft:"2px solid #E5E7EB"}}>{it?it.areaM2.toLocaleString():"-"}</td>
+                          <td style={{...S.td("right"),fontSize:12,color:"#9CA3AF"}}>{it?fPy(it.py):"-"}</td>
+                          <td style={{...S.td("right"),fontSize:12.5,color:"#059669",fontWeight:600}}>
+                            {it?<>{fAmt(it.contract)}{it.nego2&&<div style={{fontSize:10,color:"#D97706"}}>↓{fAmt(it.nego2)}</div>}</>:"-"}
+                          </td>
+                          <td style={{...S.td("right"),fontWeight:isMin||isMax?700:500,color:isMin?"#059669":isMax?"#DC2626":"inherit",background:isMin?"#D1FAE5":isMax?"#FEE2E2":"transparent"}}>
+                            {it?<>
+                              <div style={{fontSize:13.5}}>{Math.round(it.up).toLocaleString()}<span style={{fontSize:10,fontWeight:400}}>원/평</span></div>
+                              {it.up2&&<div style={{fontSize:10,color:"#D97706"}}>→{Math.round(it.up2).toLocaleString()}원/평</div>}
+                              {it.vendor&&<div style={{fontSize:10,color:"#9CA3AF"}}>{it.vendor.slice(0,8)}</div>}
+                            </>:"-"}
+                          </td>
+                        </React.Fragment>
+                      )
+                    })}
+                    <td style={{...S.td("right"),color:"#059669",fontWeight:700,fontSize:12}}>{min>0?Math.round(min).toLocaleString()+"원":"-"}</td>
+                    <td style={{...S.td("right"),color:"#DC2626",fontWeight:700,fontSize:12}}>{max>0?Math.round(max).toLocaleString()+"원":"-"}</td>
+                    <td style={S.td("right")}>{min>0?((max-min)/min*100).toFixed(0)+"%":"-"}</td>
+                  </tr>
+                )
               })}
             </tbody>
           </table>

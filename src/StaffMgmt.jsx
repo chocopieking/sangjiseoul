@@ -52,14 +52,14 @@ function initStaff(){
 const DEFAULT_ORG = {
   id:"root", title:"오철호", role:"회장", color:"#312E81",
   children:[
+    { id:"strat", title:"전략기획본부", role:"본부장", color:"#6B7280", children:[] },
     { id:"ceo1", title:"강순일", role:"사장", color:"#6366F1",
       children:[
-        {id:"d1",title:"설계1본부",role:"본부장",color:"#059669",children:[]},
-        {id:"d2",title:"설계2본부",role:"본부장",color:"#D97706",children:[]},
+        {id:"d1",title:"설계1본부",  role:"본부장",color:"#059669",children:[]},
+        {id:"d2",title:"설계2본부",  role:"본부장",color:"#D97706",children:[]},
         {id:"d3",title:"주거디자인본부",role:"본부장",color:"#7C3AED",children:[]},
-        {id:"d4",title:"디자인본부",role:"본부장",color:"#0891B2",children:[]},
+        {id:"d4",title:"디자인본부", role:"본부장",color:"#0891B2",children:[]},
         {id:"d5",title:"운영지원본부",role:"본부장",color:"#DC2626",children:[]},
-        {id:"d6",title:"전략기획본부",role:"본부장",color:"#6B7280",children:[]},
       ]
     }
   ]
@@ -99,28 +99,50 @@ function buildChangeLogs(prev, next, author){
   return logs
 }
 
-// ── 조직도 컴포넌트 ─────────────────────────────────────────
-function OrgNode({node, onEdit, onAdd, onDelete, depth=0}){
-  const [collapsed, setCollapsed] = useState(false)
-  const hasChildren = node.children&&node.children.length>0
+// ── 조직도 노드 ──────────────────────────────────────────────
+function OrgNode({node, onEdit, onAdd, onDelete, onMove, depth=0, isFirst, isLast, staffList=[]}) {
+  const [collapsed,    setCollapsed]    = useState(false)
+  const [showMembers,  setShowMembers]  = useState(false)
+  const hasChildren = node.children && node.children.length > 0
+
+  // 이 노드에 해당하는 직원 찾기 (title이 본부명이면 해당 본부 직원)
+  const members = staffList.filter(s=>{
+    const t = node.title
+    // 본부명 매칭
+    if(s.dept && s.dept.includes(t.replace("본부장","").trim())) return true
+    if(s.name === t) return true  // 개인 노드 (회장, 사장 등)
+    return false
+  }).filter(s=>!["퇴사","비카운트"].includes(s.status))
+
+  const hasDeptMembers = members.length > 0
 
   return (
     <div style={{display:"flex",flexDirection:"column",alignItems:"center",gap:0}}>
-      {/* 노드 박스 */}
       <div style={{position:"relative",display:"flex",flexDirection:"column",alignItems:"center"}}>
         {depth>0&&<div style={{width:2,height:20,background:"#CBD5E1"}}/>}
+
+        {/* 메인 노드 박스 */}
         <div style={{
           background:node.color||"#6366F1",color:"#fff",borderRadius:12,
-          padding:"10px 18px",minWidth:110,textAlign:"center",
-          boxShadow:"0 4px 12px rgba(0,0,0,.15)",position:"relative",cursor:"pointer",
-          border:"2px solid transparent",transition:"all .15s",
-        }}
-          onMouseEnter={e=>e.currentTarget.style.border="2px solid rgba(255,255,255,.5)"}
-          onMouseLeave={e=>e.currentTarget.style.border="2px solid transparent"}
-        >
-          <div style={{fontSize:13.5,fontWeight:800}}>{node.title}</div>
+          padding:"10px 18px",minWidth:120,textAlign:"center",
+          boxShadow:"0 4px 14px rgba(0,0,0,.18)",position:"relative",
+          border:"2px solid rgba(255,255,255,.2)",transition:"all .15s",
+        }}>
+          <div style={{fontSize:14,fontWeight:800}}>{node.title}</div>
           <div style={{fontSize:11,opacity:.85,marginTop:2}}>{node.role}</div>
-          {/* 편집 버튼 */}
+
+          {/* 직원 수 뱃지 */}
+          {hasDeptMembers&&(
+            <div onClick={e=>{e.stopPropagation();setShowMembers(v=>!v)}}
+              style={{position:"absolute",top:-8,left:-8,minWidth:20,height:20,borderRadius:10,
+                background:showMembers?"#FDE68A":"#fff",color:node.color||"#6366F1",
+                fontSize:10.5,fontWeight:800,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",
+                border:`2px solid ${node.color||"#6366F1"}`,padding:"0 4px",zIndex:2}}>
+              {members.length}
+            </div>
+          )}
+
+          {/* 편집 버튼들 */}
           <div style={{position:"absolute",top:-8,right:-8,display:"flex",gap:2}}>
             <button onClick={e=>{e.stopPropagation();onEdit(node)}}
               style={{width:18,height:18,border:"none",borderRadius:"50%",background:"#FEF3C7",color:"#D97706",fontSize:9,cursor:"pointer",fontWeight:900,display:"flex",alignItems:"center",justifyContent:"center"}}>✏</button>
@@ -129,26 +151,91 @@ function OrgNode({node, onEdit, onAdd, onDelete, depth=0}){
             {depth>0&&<button onClick={e=>{e.stopPropagation();onDelete(node.id)}}
               style={{width:18,height:18,border:"none",borderRadius:"50%",background:"#FEE2E2",color:"#DC2626",fontSize:9,cursor:"pointer",fontWeight:900,display:"flex",alignItems:"center",justifyContent:"center"}}>✕</button>}
           </div>
-          {hasChildren&&<div onClick={e=>{e.stopPropagation();setCollapsed(v=>!v)}}
-            style={{position:"absolute",bottom:-10,left:"50%",transform:"translateX(-50%)",
-              width:18,height:18,borderRadius:"50%",background:"#fff",color:"#6366F1",
-              fontSize:10,fontWeight:900,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",
-              border:"2px solid #6366F1",zIndex:1}}>
-            {collapsed?"▶":"▼"}
-          </div>}
+
+          {/* 좌우 이동 버튼 (형제 노드 순서 변경) */}
+          {depth>0&&(
+            <div style={{position:"absolute",bottom:-8,left:"50%",transform:"translateX(-50%)",display:"flex",gap:2,zIndex:2}}>
+              {!isFirst&&<button onClick={e=>{e.stopPropagation();onMove(node.id,"left")}}
+                style={{width:16,height:16,border:"none",borderRadius:"50%",background:"#EEF2FF",color:"#6366F1",fontSize:8,cursor:"pointer",fontWeight:900,display:"flex",alignItems:"center",justifyContent:"center"}}>←</button>}
+              {!isLast&&<button onClick={e=>{e.stopPropagation();onMove(node.id,"right")}}
+                style={{width:16,height:16,border:"none",borderRadius:"50%",background:"#EEF2FF",color:"#6366F1",fontSize:8,cursor:"pointer",fontWeight:900,display:"flex",alignItems:"center",justifyContent:"center"}}>→</button>}
+            </div>
+          )}
+
+          {/* 접기/펼치기 */}
+          {hasChildren&&(
+            <div onClick={e=>{e.stopPropagation();setCollapsed(v=>!v)}}
+              style={{position:"absolute",bottom:depth>0?-22:-10,left:"50%",transform:"translateX(-50%)",
+                width:18,height:18,borderRadius:"50%",background:"#fff",color:"#6366F1",
+                fontSize:10,fontWeight:900,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",
+                border:"2px solid #6366F1",zIndex:1}}>
+              {collapsed?"▶":"▼"}
+            </div>
+          )}
         </div>
-        {hasChildren&&!collapsed&&<div style={{width:2,height:20,background:"#CBD5E1"}}/>}
+
+        {/* 소속 직원 팝업 */}
+        {showMembers&&hasDeptMembers&&(
+          <div style={{position:"absolute",top:"100%",left:"50%",transform:"translateX(-50%)",
+            marginTop:12,background:"#fff",borderRadius:12,border:"2px solid "+node.color,
+            boxShadow:"0 8px 24px rgba(0,0,0,.15)",zIndex:100,minWidth:260,maxWidth:320,
+            padding:"10px 0"}}>
+            <div style={{padding:"6px 14px 8px",borderBottom:"1px solid #F3F4F6",
+              fontSize:13,fontWeight:800,color:node.color,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+              <span>👥 {node.title} ({members.length}명)</span>
+              <button onClick={e=>{e.stopPropagation();setShowMembers(false)}}
+                style={{border:"none",background:"none",cursor:"pointer",fontSize:14,color:"#9CA3AF"}}>✕</button>
+            </div>
+            <div style={{maxHeight:300,overflowY:"auto"}}>
+              {members.sort((a,b)=>{
+                const ra=RANK_ORDER.indexOf(a.rank||""),rb=RANK_ORDER.indexOf(b.rank||"")
+                return (ra<0?99:ra)-(rb<0?99:rb)
+              }).map((m,i)=>(
+                <div key={m.id||i} style={{padding:"8px 14px",borderBottom:"1px solid #F9FAFB",
+                  display:"flex",gap:10,alignItems:"center",
+                  background:i%2===0?"#fff":"#FAFAFA"}}>
+                  {/* 사진 */}
+                  <div style={{width:36,height:36,borderRadius:"50%",flexShrink:0,
+                    background:m.photo?"transparent":"#E5E7EB",overflow:"hidden",
+                    display:"flex",alignItems:"center",justifyContent:"center"}}>
+                    {m.photo
+                      ? <img src={m.photo} style={{width:"100%",height:"100%",objectFit:"cover"}}/>
+                      : <span style={{fontSize:16}}>👤</span>}
+                  </div>
+                  <div style={{flex:1,minWidth:0}}>
+                    <div style={{display:"flex",gap:5,alignItems:"center",marginBottom:2}}>
+                      <span style={{fontSize:14,fontWeight:800,color:"#111827"}}>{m.name}</span>
+                      <span style={{fontSize:10,padding:"1px 5px",borderRadius:6,
+                        background:(STATUS_BG[m.status]||"#F3F4F6"),
+                        color:(STATUS_COLOR[m.status]||"#6B7280"),fontWeight:700}}>
+                        {m.status}
+                      </span>
+                    </div>
+                    <div style={{fontSize:12,color:"#6B7280",fontWeight:500}}>{m.rank}</div>
+                    {m.mobile&&<div style={{fontSize:12,color:"#6366F1",fontWeight:600}}>{m.mobile}</div>}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {(hasChildren&&!collapsed||hasDeptMembers&&!showMembers)&&<div style={{width:2,height:depth>0?26:20,background:"#CBD5E1",marginTop:depth>0&&!hasChildren?0:0}}/>}
+        {hasChildren&&!collapsed&&<div style={{width:2,height:0,background:"#CBD5E1"}}/>}
       </div>
 
       {/* 자식 노드 */}
       {hasChildren&&!collapsed&&(
         <div style={{display:"flex",gap:16,alignItems:"flex-start",position:"relative"}}>
-          {/* 수평 연결선 */}
           {node.children.length>1&&(
             <div style={{position:"absolute",top:0,left:0,right:0,height:2,background:"#CBD5E1",zIndex:0}}/>
           )}
-          {node.children.map(child=>(
-            <OrgNode key={child.id} node={child} onEdit={onEdit} onAdd={onAdd} onDelete={onDelete} depth={depth+1}/>
+          {node.children.map((child,ci)=>(
+            <OrgNode key={child.id} node={child}
+              onEdit={onEdit} onAdd={onAdd} onDelete={onDelete} onMove={onMove}
+              depth={depth+1}
+              isFirst={ci===0} isLast={ci===node.children.length-1}
+              staffList={staffList}/>
           ))}
         </div>
       )}
@@ -156,11 +243,12 @@ function OrgNode({node, onEdit, onAdd, onDelete, depth=0}){
   )
 }
 
-function OrgChart({org, setOrg}){
-  const [editNode, setEditNode] = useState(null)
+function OrgChart({org, setOrg, staffList=[]}) {
+  const [editNode,    setEditNode]    = useState(null)
   const [addParentId, setAddParentId] = useState(null)
-  const [draftNode, setDraftNode] = useState(null)
+  const [draftNode,   setDraftNode]   = useState(null)
 
+  // 트리 헬퍼 함수들
   const updateNode = (tree, id, patch) => {
     if(tree.id===id) return {...tree,...patch}
     return {...tree, children:(tree.children||[]).map(c=>updateNode(c,id,patch))}
@@ -169,32 +257,48 @@ function OrgChart({org, setOrg}){
     if(tree.id===parentId) return {...tree,children:[...(tree.children||[]),newNode]}
     return {...tree,children:(tree.children||[]).map(c=>addChildNode(c,parentId,newNode))}
   }
-  const deleteNode = (tree, id) => {
-    return {...tree,children:(tree.children||[]).filter(c=>c.id!==id).map(c=>deleteNode(c,id))}
+  const deleteNode = (tree, id) => ({
+    ...tree,children:(tree.children||[]).filter(c=>c.id!==id).map(c=>deleteNode(c,id))
+  })
+  // 형제 노드 순서 이동
+  const moveNode = (tree, id, dir) => {
+    const children = tree.children||[]
+    const idx = children.findIndex(c=>c.id===id)
+    if(idx<0) return {...tree,children:children.map(c=>moveNode(c,id,dir))}
+    const newChildren = [...children]
+    if(dir==="left"&&idx>0) {
+      [newChildren[idx-1],newChildren[idx]]=[newChildren[idx],newChildren[idx-1]]
+    } else if(dir==="right"&&idx<newChildren.length-1) {
+      [newChildren[idx],newChildren[idx+1]]=[newChildren[idx+1],newChildren[idx]]
+    }
+    return {...tree,children:newChildren}
   }
 
-  const handleEdit = (node) => { setEditNode(node); setDraftNode({...node}); setAddParentId(null) }
-  const handleAdd  = (node) => { setAddParentId(node.id); setDraftNode({id:`N${Date.now()}`,title:"",role:"",color:"#6366F1",children:[]}); setEditNode(null) }
-  const handleDelete = (id) => { if(window.confirm("삭제하시겠습니까?")){ const next=deleteNode(org,id); setOrg(next); localStorage.setItem("sjs_org_chart",JSON.stringify(next)) } }
+  const save = (next) => { setOrg(next); localStorage.setItem("sjs_org_chart",JSON.stringify(next)) }
+
+  const handleEdit   = (node) => { setEditNode(node); setDraftNode({...node}); setAddParentId(null) }
+  const handleAdd    = (node) => { setAddParentId(node.id); setDraftNode({id:`N${Date.now()}`,title:"",role:"",color:"#6366F1",children:[]}); setEditNode(null) }
+  const handleDelete = (id)   => { if(window.confirm("삭제하시겠습니까?")) save(deleteNode(org,id)) }
+  const handleMove   = (id, dir) => save(moveNode(org, id, dir))
 
   const saveNode = () => {
     if(!draftNode?.title) return
-    let next
-    if(editNode) next=updateNode(org,editNode.id,draftNode)
-    else if(addParentId) next=addChildNode(org,addParentId,draftNode)
-    else return
-    setOrg(next); localStorage.setItem("sjs_org_chart",JSON.stringify(next))
+    if(editNode)     save(updateNode(org,editNode.id,draftNode))
+    else if(addParentId) save(addChildNode(org,addParentId,draftNode))
     setEditNode(null); setAddParentId(null); setDraftNode(null)
   }
 
-  const COLORS=["#312E81","#6366F1","#059669","#D97706","#DC2626","#7C3AED","#0891B2","#374151","#9CA3AF"]
+  const COLORS=["#312E81","#6366F1","#059669","#D97706","#DC2626","#7C3AED","#0891B2","#374151","#9CA3AF","#B45309","#047857"]
   const INP={padding:"7px 10px",border:"1.5px solid #E5E7EB",borderRadius:7,fontSize:13,width:"100%",boxSizing:"border-box",fontFamily:"inherit",outline:"none"}
 
   return (
     <div>
-      <div style={{display:"flex",gap:8,marginBottom:14,alignItems:"center"}}>
-        <div style={{fontSize:17,fontWeight:800,color:"#312E81"}}>🏢 조직도</div>
-        <button onClick={()=>{if(window.confirm("조직도를 초기화하시겠습니까?")){setOrg(DEFAULT_ORG);localStorage.setItem("sjs_org_chart",JSON.stringify(DEFAULT_ORG))}}}
+      <div style={{display:"flex",gap:8,marginBottom:12,alignItems:"center",flexWrap:"wrap"}}>
+        <div style={{fontSize:16,fontWeight:800,color:"#312E81"}}>🏢 조직도</div>
+        <div style={{fontSize:12,color:"#9CA3AF",marginLeft:4}}>
+          ← → 버튼으로 노드 순서 이동 · 숫자 뱃지 클릭으로 소속 직원 확인
+        </div>
+        <button onClick={()=>{if(window.confirm("조직도를 초기화하시겠습니까?")) save(DEFAULT_ORG)}}
           style={{marginLeft:"auto",padding:"5px 12px",background:"#F3F4F6",color:"#6B7280",border:"none",borderRadius:7,fontSize:12,cursor:"pointer"}}>
           🔄 초기화
         </button>
@@ -217,13 +321,13 @@ function OrgChart({org, setOrg}){
             </div>
           </div>
           <div style={{marginBottom:10}}>
-            <label style={{fontSize:11,fontWeight:700,color:"#6366F1",display:"block",marginBottom:3}}>색상</label>
+            <label style={{fontSize:11,fontWeight:700,color:"#6366F1",display:"block",marginBottom:4}}>색상</label>
             <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
               {COLORS.map(c=>(
                 <div key={c} onClick={()=>setDraftNode(p=>({...p,color:c}))}
-                  style={{width:28,height:28,borderRadius:"50%",background:c,cursor:"pointer",
+                  style={{width:26,height:26,borderRadius:"50%",background:c,cursor:"pointer",
                     border:`3px solid ${draftNode.color===c?"#fff":"transparent"}`,
-                    boxShadow:draftNode.color===c?"0 0 0 2px "+c:"none"}}/>
+                    boxShadow:draftNode.color===c?`0 0 0 2px ${c}`:"none",transition:"all .1s"}}/>
               ))}
             </div>
           </div>
@@ -237,9 +341,11 @@ function OrgChart({org, setOrg}){
       )}
 
       {/* 조직도 렌더 */}
-      <div style={{overflowX:"auto",padding:"20px",background:"#F8FAFC",borderRadius:14,border:"1px solid #E5E7EB",minHeight:300}}>
-        <div style={{display:"inline-flex",flexDirection:"column",alignItems:"center",minWidth:"100%"}}>
-          <OrgNode node={org} onEdit={handleEdit} onAdd={handleAdd} onDelete={handleDelete}/>
+      <div style={{overflowX:"auto",padding:"24px",background:"linear-gradient(135deg,#F8FAFC,#EEF2FF)",borderRadius:14,border:"1px solid #E5E7EB",minHeight:300}}>
+        <div style={{display:"inline-flex",flexDirection:"column",alignItems:"center",minWidth:"100%",position:"relative"}}>
+          <OrgNode node={org}
+            onEdit={handleEdit} onAdd={handleAdd} onDelete={handleDelete} onMove={handleMove}
+            depth={0} isFirst={true} isLast={true} staffList={staffList}/>
         </div>
       </div>
     </div>
@@ -485,7 +591,7 @@ export function StaffMgmtPage({currentUser,deptStaff,setDeptStaff,DEPTS=[],DEPT_
       </div>
 
       {/* 조직도 뷰 */}
-      {view==="org"&&<OrgChart org={org} setOrg={setOrg}/>}
+      {view==="org"&&<OrgChart org={org} setOrg={setOrg} staffList={staffList}/>}
 
       {/* 직원 목록 뷰 */}
       {view==="list"&&(
