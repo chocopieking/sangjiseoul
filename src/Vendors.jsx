@@ -119,6 +119,83 @@ export function VendorsTab({projects,setProjects,vendorsDB,setVendorsDB,vendorPa
     e.target.value=""
   }
 
+  // ── 외주비 엑셀 업로드 (프로젝트별_외주비.xlsx)
+  const uploadPayments = (e) => {
+    const file = e.target.files?.[0]; if(!file) return
+    const reader = new FileReader()
+    reader.onload = ev => {
+      try{
+        const wb = XLSX.read(ev.target.result, {type:"binary"})
+        const ws = wb.Sheets[wb.SheetNames[0]]
+        const rows = XLSX.utils.sheet_to_json(ws, {header:1, defval:""})
+
+        const toAmt = v => { try{const f=parseFloat(String(v).replace(/,/g,"")); return Number.isFinite(f)&&f>0?Math.round(f):0}catch{return 0} }
+        const toDate = v => { const m=String(v).match(/(\d{4})-(\d{2})-(\d{2})/); return m?`${m[1]}-${m[2]}-${m[3]}`:""  }
+
+        // 파싱: 프로젝트명(col0) → 공종/업체/금액(col4,5,6) → 3행씩 (조건/날짜/금액)
+        const records = []
+        let currentProj = ""
+        for(let i=3; i<rows.length; i++){
+          const r=rows[i]
+          const c0=String(r[0]||"").trim()
+          const c4=String(r[4]||"").trim()
+          const c5=String(r[5]||"").trim()
+          const c6=String(r[6]||"").trim()
+          if(c0&&!c4&&!c5){ currentProj=c0; continue }
+          if(c4&&c5&&toAmt(c6)>0&&currentProj){
+            const payments=[]
+            const condRow=rows[i]||[], dateRow=rows[i+1]||[], amtRow=rows[i+2]||[]
+            for(let j=7;j<27;j++){
+              const cond=String(condRow[j]||"").trim()
+              const date=toDate(dateRow[j])
+              const amt=toAmt(amtRow[j])
+              if(cond||amt) payments.push({condition:cond,date,amount:amt})
+            }
+            records.push({project:currentProj, vendor:c5, type:c4, totalAmt:toAmt(c6), payments})
+            i+=2
+          }
+        }
+
+        if(records.length===0){ alert("파싱된 데이터가 없습니다.\n프로젝트별_외주비.xlsx 형식인지 확인하세요."); return }
+
+        // vendorsDB에 paymentHistory 연결
+        const normN = n => n.replace(/[\s\(\)\[\]㈜주식회사]/g,"").toLowerCase()
+        setVendorsDB(prev=>{
+          const next={...prev}
+          records.forEach(pay=>{
+            const pkey=normN(pay.vendor)
+            const match=Object.values(next).find(v=>normN(v.name||"")===pkey||
+              (pkey.length>=4&&normN(v.name||"").slice(0,4)===pkey.slice(0,4)))
+            if(match){
+              const exists=(next[match.id].paymentHistory||[]).some(
+                h=>h.project===pay.project&&h.vendor===pay.vendor&&h.totalAmt===pay.totalAmt)
+              if(!exists){
+                next[match.id]={...next[match.id], paymentHistory:[...(next[match.id].paymentHistory||[]),pay]}
+              }
+            } else {
+              // 매칭 안 되면 새 업체로 등록
+              const id=`VP${Date.now()}_${Math.random().toString(36).slice(2,5)}`
+              next[id]={id,name:pay.vendor,bizType:pay.type,bizNo:"",rep:"",repTel:"",repMail:"",tel:"",addr:"",projects:[],paymentHistory:[pay],memo:[]}
+            }
+          })
+          return next
+        })
+
+        if(setVendorPayments) setVendorPayments(records)
+
+        // 프로젝트별 요약
+        const projSet = [...new Set(records.map(r=>r.project))]
+        const totalAmt = records.reduce((s,r)=>s+r.totalAmt,0)
+        alert(`✅ 외주비 업로드 완료!\n` +
+          `프로젝트 ${projSet.length}개 / 외주 항목 ${records.length}건\n` +
+          `총 금액: ${(totalAmt/1e8).toFixed(2)}억원\n\n` +
+          `협력업체 DB의 외주비 이력에 자동 연결됩니다.`)
+      }catch(err){ alert("외주비 업로드 오류: "+err.message) }
+    }
+    reader.readAsBinaryString(file)
+    e.target.value=""
+  }
+
   const NAV = [
     {id:"list",    label:"📇 업체목록"},
     {id:"ai",      label:"🤖 AI 통합분석"},
@@ -138,14 +215,18 @@ export function VendorsTab({projects,setProjects,vendorsDB,setVendorsDB,vendorPa
           }}>{n.label}</button>
         ))}
         {/* 업다운로드 버튼 */}
-        <div style={{marginLeft:"auto",display:"flex",gap:6}}>
+        <div style={{marginLeft:"auto",display:"flex",gap:6,flexWrap:"wrap"}}>
           <button onClick={downloadVendors}
             style={{...S.btn("var(--color-background-secondary,#f3f3f0)","var(--color-text-primary,#222)"),fontSize:12.5,padding:"7px 13px"}}>
             ⬇ 전체 다운로드
           </button>
           {canWrite&&<label style={{...S.btn(C.navyM),fontSize:12.5,padding:"7px 13px",cursor:"pointer"}}>
-            ⬆ 엑셀 업로드
+            ⬆ 협력업체 업로드
             <input type="file" accept=".xlsx,.xls" style={{display:"none"}} onChange={uploadVendors}/>
+          </label>}
+          {canWrite&&<label style={{...S.btn("var(--color-background-secondary,#f3f3f0)","#D97706"),fontSize:12.5,padding:"7px 13px",cursor:"pointer",border:"1.5px solid #D97706"}}>
+            ⬆ 💰 외주비 업로드
+            <input type="file" accept=".xlsx,.xls" style={{display:"none"}} onChange={uploadPayments}/>
           </label>}
         </div>
       </div>
@@ -377,7 +458,16 @@ function VendorList({directory,search,setSearch,vendorsDB,onSelect}) {
 // 2) 업체 상세 — 기본정보 / 수행 프로젝트 / 지급내역
 // ════════════════════════════════════════════════════════════
 function VendorDetail({entry,vendorsDB,setVendorsDB,vendorPayments,setVendorPayments,canWrite,currentUser,onBack}) {
-  const info = vendorsDB?.[entry.name]||VENDOR_EMPTY
+  // vendorsDB에서 이름 또는 id로 매칭
+  const info = useMemo(()=>{
+    if(!vendorsDB) return VENDOR_EMPTY
+    // id로 먼저 찾기
+    if(entry.id && vendorsDB[entry.id]) return vendorsDB[entry.id]
+    // 이름으로 찾기
+    const byName = Object.values(vendorsDB).find(v=>v.name===entry.name)
+    if(byName) return byName
+    return VENDOR_EMPTY
+  },[vendorsDB, entry])
   const [editing,setEditing] = useState(false)
   const [draft,setDraft]     = useState({...VENDOR_EMPTY,...info})
   const [subTab,setSubTab]   = useState("info")  // info | docs | history | payments
@@ -474,7 +564,7 @@ function VendorDetail({entry,vendorsDB,setVendorsDB,vendorPayments,setVendorPaym
 
       {/* 서브탭 */}
       <div style={{display:"flex",gap:4,marginBottom:14,borderBottom:"2px solid #E5E7EB"}}>
-        {[["info","🏗 프로젝트·지급"],["docs","📎 문서보관"],["history","📅 사안기록"],["payments","💰 지급내역"]].map(([id,lbl])=>(
+        {[["info","🏗 프로젝트·지급"],["plan","📅 지급계획 편집"],["docs","📎 문서보관"],["history","📅 사안기록"],["payments","💰 지급내역"]].map(([id,lbl])=>(
           <button key={id} onClick={()=>setSubTab(id)} style={{padding:"9px 18px",border:"none",background:"none",fontSize:13.5,fontWeight:700,cursor:"pointer",
             color:subTab===id?C.navyM:"#6B7280",borderBottom:subTab===id?`3px solid ${C.navyM}`:"3px solid transparent",marginBottom:-2}}>
             {lbl}
@@ -514,6 +604,11 @@ function VendorDetail({entry,vendorsDB,setVendorsDB,vendorPayments,setVendorPaym
       )}
 
       {/* ── 문서 보관 탭 ── */}
+      {subTab==="plan"&&(
+        <SCard title="📅 지급 계획 편집" note="차수별 지급 조건·날짜·금액을 수정하거나 새 차수를 추가합니다">
+          <VendorPaymentPlanEditor vendorsDB={vendorsDB} setVendorsDB={setVendorsDB} entry={entry} canWrite={canWrite}/>
+        </SCard>
+      )}
       {subTab==="docs"&&(
         <SCard title="📎 문서 보관" note="사업자등록증·통장사본·계약서 등 협력업체 관련 문서를 보관합니다">
           {canWrite&&(
@@ -604,38 +699,134 @@ function VendorDetail({entry,vendorsDB,setVendorsDB,vendorPayments,setVendorPaym
 
       {/* ── 지급내역 탭 ── */}
       {subTab==="payments"&&(
-        <SCard title="💰 지급내역">
-          {canWrite&&entry.items.length>0&&(
-            <div style={{background:"#F8FAFC",borderRadius:10,padding:"12px 14px",marginBottom:12,border:"1px solid #E5E7EB",display:"flex",gap:7,flexWrap:"wrap",alignItems:"flex-end"}}>
-              <div><label style={S.lbl()}>프로젝트</label><select value={pProj} onChange={e=>setPProj(e.target.value)} style={S.inp(160)}>{entry.items.map(it=><option key={it.projId} value={it.projId}>{it.projName?.slice(0,14)}</option>)}</select></div>
-              <div><label style={S.lbl()}>공종</label><input value={pCat} onChange={e=>setPCat(e.target.value)} style={S.inp(90)} placeholder="구조"/></div>
-              <div><label style={S.lbl()}>금액(원)</label><input type="number" value={pAmt} onChange={e=>setPAmt(e.target.value)} style={S.inp(130)}/></div>
-              <div><label style={S.lbl()}>지급일</label><input type="date" value={pDate} onChange={e=>setPDate(e.target.value)} style={S.inp(140)}/></div>
-              <div style={{flex:1}}><label style={S.lbl()}>메모</label><input value={pNote} onChange={e=>setPNote(e.target.value)} style={{...S.inp(),width:"100%"}} placeholder="세금계산서 수취 등"/></div>
-              <button onClick={addPayment} style={{...S.btn(C.green),padding:"9px 14px"}}>+ 지급 등록</button>
-            </div>
+        <div>
+          {/* vendorsDB의 paymentHistory (외주비 엑셀 기반) */}
+          {(info.paymentHistory||[]).length > 0 && (
+            <SCard title="💰 프로젝트별 외주비 지급 이력" note="프로젝트별_외주비.xlsx 기반">
+              {(info.paymentHistory||[]).map((ph,pi)=>{
+                const paidAmt   = (ph.payments||[]).reduce((s,p)=>s+(p.amount||0),0)
+                const paidRate  = ph.totalAmt>0 ? (ph.paidSum/ph.totalAmt*100).toFixed(1) : 0
+                return (
+                  <details key={pi} style={{marginBottom:10,border:"1px solid #E5E7EB",borderRadius:10,overflow:"hidden"}}>
+                    <summary style={{padding:"12px 16px",cursor:"pointer",background:"#F8FAFC",display:"flex",gap:10,alignItems:"center",justifyContent:"space-between",listStyle:"none"}}>
+                      <div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap"}}>
+                        <span style={{fontSize:11.5,padding:"2px 8px",borderRadius:7,background:"#EEF2FF",color:"#6366F1",fontWeight:700}}>{ph.type}</span>
+                        <span style={{fontSize:14,fontWeight:700,color:"#111827"}}>{ph.project?.slice(0,35)}</span>
+                      </div>
+                      <div style={{display:"flex",gap:14,alignItems:"center",flexShrink:0}}>
+                        <div style={{textAlign:"right"}}>
+                          <div style={{fontSize:11,color:"#9CA3AF"}}>총 용역금액</div>
+                          <div style={{fontSize:13.5,fontWeight:800,color:"#185FA5"}}>{(ph.totalAmt/1e6).toFixed(1)}백만원</div>
+                        </div>
+                        <div style={{textAlign:"right"}}>
+                          <div style={{fontSize:11,color:"#9CA3AF"}}>지급 합계</div>
+                          <div style={{fontSize:13.5,fontWeight:800,color:"#059669"}}>{ph.paidSum>0?(ph.paidSum/1e6).toFixed(1)+"백만원":"-"}</div>
+                        </div>
+                        <div style={{textAlign:"right"}}>
+                          <div style={{fontSize:11,color:"#9CA3AF"}}>잔액</div>
+                          <div style={{fontSize:13.5,fontWeight:800,color:ph.remain>0?"#DC2626":"#9CA3AF"}}>{ph.remain>0?(ph.remain/1e6).toFixed(1)+"백만원":"-"}</div>
+                        </div>
+                        {paidRate>0&&(
+                          <div style={{width:44,height:44,position:"relative",flexShrink:0}}>
+                            <svg viewBox="0 0 36 36" style={{transform:"rotate(-90deg)"}}>
+                              <circle cx="18" cy="18" r="15.9" fill="none" stroke="#E5E7EB" strokeWidth="3"/>
+                              <circle cx="18" cy="18" r="15.9" fill="none" stroke="#059669" strokeWidth="3"
+                                strokeDasharray={`${Math.min(paidRate,100)} 100`}/>
+                            </svg>
+                            <div style={{position:"absolute",inset:0,display:"flex",alignItems:"center",justifyContent:"center",fontSize:9.5,fontWeight:800,color:"#059669"}}>{paidRate}%</div>
+                          </div>
+                        )}
+                        <span style={{fontSize:12,color:"#9CA3AF"}}>▼</span>
+                      </div>
+                    </summary>
+                    {/* 차수별 지급 상세 */}
+                    <div style={{padding:"12px 16px"}}>
+                      {(ph.payments||[]).length===0 ? (
+                        <div style={{color:"#9CA3AF",fontSize:13}}>차수별 지급 정보 없음</div>
+                      ) : (
+                        <table style={{width:"100%",borderCollapse:"collapse"}}>
+                          <thead>
+                            <tr style={{background:"#F8FAFC"}}>
+                              <th style={{padding:"8px 12px",textAlign:"center",fontSize:12,fontWeight:700,color:"#6B7280",borderBottom:"1px solid #E5E7EB"}}>차수</th>
+                              <th style={{padding:"8px 12px",textAlign:"left",fontSize:12,fontWeight:700,color:"#6B7280",borderBottom:"1px solid #E5E7EB"}}>지급 조건</th>
+                              <th style={{padding:"8px 12px",textAlign:"center",fontSize:12,fontWeight:700,color:"#6B7280",borderBottom:"1px solid #E5E7EB"}}>지급일</th>
+                              <th style={{padding:"8px 12px",textAlign:"right",fontSize:12,fontWeight:700,color:"#6B7280",borderBottom:"1px solid #E5E7EB"}}>금액(원)</th>
+                              <th style={{padding:"8px 12px",textAlign:"right",fontSize:12,fontWeight:700,color:"#6B7280",borderBottom:"1px solid #E5E7EB"}}>비율</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {(ph.payments||[]).map((p,pj)=>(
+                              <tr key={pj} style={{background:pj%2===0?"#fff":"#F9FAFB"}}>
+                                <td style={{padding:"8px 12px",textAlign:"center",fontSize:13,fontWeight:700,color:"#6366F1"}}>
+                                  <span style={{background:"#EEF2FF",padding:"2px 8px",borderRadius:6}}>{p.round}차</span>
+                                </td>
+                                <td style={{padding:"8px 12px",fontSize:13,color:"#374151"}}>{p.condition||"-"}</td>
+                                <td style={{padding:"8px 12px",textAlign:"center",fontSize:13,color:p.date?"#059669":"#9CA3AF",fontWeight:p.date?600:400}}>
+                                  {p.date||"미정"}
+                                </td>
+                                <td style={{padding:"8px 12px",textAlign:"right",fontSize:13.5,fontWeight:700,color:p.amount>0?"#185FA5":"#9CA3AF"}}>
+                                  {p.amount>0?p.amount.toLocaleString():"-"}
+                                </td>
+                                <td style={{padding:"8px 12px",textAlign:"right",fontSize:12,color:"#9CA3AF"}}>
+                                  {ph.totalAmt>0&&p.amount>0?(p.amount/ph.totalAmt*100).toFixed(1)+"%":"-"}
+                                </td>
+                              </tr>
+                            ))}
+                            {/* 합계 */}
+                            <tr style={{background:"#EEF2FF",borderTop:"2px solid #6366F1"}}>
+                              <td style={{padding:"9px 12px",textAlign:"center",fontSize:13,fontWeight:800,color:"#312E81"}} colSpan={3}>합계</td>
+                              <td style={{padding:"9px 12px",textAlign:"right",fontSize:14,fontWeight:900,color:"#185FA5"}}>
+                                {ph.paidSum>0?ph.paidSum.toLocaleString():paidAmt>0?paidAmt.toLocaleString():"-"}
+                              </td>
+                              <td style={{padding:"9px 12px",textAlign:"right",fontSize:13,fontWeight:700,color:"#185FA5"}}>
+                                {ph.totalAmt>0?paidRate+"%":"-"}
+                              </td>
+                            </tr>
+                          </tbody>
+                        </table>
+                      )}
+                      {ph.note&&<div style={{marginTop:8,fontSize:12,color:"#9CA3AF"}}>비고: {ph.note}</div>}
+                    </div>
+                  </details>
+                )
+              })}
+            </SCard>
           )}
-          {myPayments.length===0
-            ?<div style={{padding:"24px",textAlign:"center",color:"#9CA3AF",fontSize:13}}>지급 기록이 없습니다.</div>
-            :<table style={{width:"100%",borderCollapse:"collapse"}}>
-              <thead><tr>
-                <th style={S.th()}>날짜</th><th style={S.th()}>프로젝트</th><th style={S.th()}>공종</th>
-                <th style={S.th("right")}>금액(원)</th><th style={S.th()}>메모</th><th style={S.th()}>등록자</th><th style={S.th()}></th>
-              </tr></thead>
-              <tbody>{myPayments.map((p,i)=>(
-                <tr key={p.id} style={{background:i%2===0?"#fff":"#FAFAFA"}}>
-                  <td style={S.td("left")}>{p.date}</td>
-                  <td style={S.td("left")}>{p.projName?.slice(0,14)||"-"}</td>
-                  <td style={S.td("left")}>{p.cat||"-"}</td>
-                  <td style={{...S.td(),fontWeight:700,color:"#0EA86E"}}>{num(p.amount).toLocaleString()}</td>
-                  <td style={S.td("left")}>{p.note||"-"}</td>
-                  <td style={S.td("left")}>{p.by||"-"}</td>
-                  <td style={S.td("center")}>{canWrite&&<button onClick={()=>setVendorPayments(prev=>(prev||[]).filter(x=>x.id!==p.id))} style={{background:"none",border:"none",cursor:"pointer",color:"#EF4444",fontSize:14}}>✕</button>}</td>
-                </tr>
-              ))}</tbody>
-            </table>
-          }
-        </SCard>
+
+          {/* 수동 지급 등록 */}
+          <SCard title="📝 수동 지급 등록" note="직접 입력한 지급 내역">
+            {canWrite&&entry.items.length>0&&(
+              <div style={{background:"#F8FAFC",borderRadius:10,padding:"12px 14px",marginBottom:12,border:"1px solid #E5E7EB",display:"flex",gap:7,flexWrap:"wrap",alignItems:"flex-end"}}>
+                <div><label style={S.lbl()}>프로젝트</label><select value={pProj} onChange={e=>setPProj(e.target.value)} style={S.inp(160)}>{entry.items.map(it=><option key={it.projId} value={it.projId}>{it.projName?.slice(0,14)}</option>)}</select></div>
+                <div><label style={S.lbl()}>공종</label><input value={pCat} onChange={e=>setPCat(e.target.value)} style={S.inp(90)} placeholder="구조"/></div>
+                <div><label style={S.lbl()}>금액(원)</label><input type="number" value={pAmt} onChange={e=>setPAmt(e.target.value)} style={S.inp(130)}/></div>
+                <div><label style={S.lbl()}>지급일</label><input type="date" value={pDate} onChange={e=>setPDate(e.target.value)} style={S.inp(140)}/></div>
+                <div style={{flex:1}}><label style={S.lbl()}>메모</label><input value={pNote} onChange={e=>setPNote(e.target.value)} style={{...S.inp(),width:"100%"}} placeholder="세금계산서 수취 등"/></div>
+                <button onClick={addPayment} style={{...S.btn(C.green),padding:"9px 14px"}}>+ 지급 등록</button>
+              </div>
+            )}
+            {myPayments.length===0
+              ?<div style={{padding:"20px",textAlign:"center",color:"#9CA3AF",fontSize:13}}>수동 등록된 지급 기록이 없습니다.</div>
+              :<table style={{width:"100%",borderCollapse:"collapse"}}>
+                <thead><tr>
+                  <th style={S.th()}>날짜</th><th style={S.th()}>프로젝트</th><th style={S.th()}>공종</th>
+                  <th style={S.th("right")}>금액(원)</th><th style={S.th()}>메모</th><th style={S.th()}>등록자</th><th style={S.th()}></th>
+                </tr></thead>
+                <tbody>{myPayments.map((p,i)=>(
+                  <tr key={p.id} style={{background:i%2===0?"#fff":"#FAFAFA"}}>
+                    <td style={S.td("left")}>{p.date}</td>
+                    <td style={S.td("left")}>{p.projName?.slice(0,14)||"-"}</td>
+                    <td style={S.td("left")}>{p.cat||"-"}</td>
+                    <td style={{...S.td(),fontWeight:700,color:"#0EA86E"}}>{num(p.amount).toLocaleString()}</td>
+                    <td style={S.td("left")}>{p.note||"-"}</td>
+                    <td style={S.td("left")}>{p.by||"-"}</td>
+                    <td style={S.td("center")}>{canWrite&&<button onClick={()=>setVendorPayments(prev=>(prev||[]).filter(x=>x.id!==p.id))} style={{background:"none",border:"none",cursor:"pointer",color:"#EF4444",fontSize:14}}>✕</button>}</td>
+                  </tr>
+                ))}</tbody>
+              </table>
+            }
+          </SCard>
+        </div>
       )}
     </div>
   )
@@ -1082,5 +1273,213 @@ ${JSON.stringify(ctx.vendors, null, 0).slice(0,6000)}
       </div>
       <style>{`@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}`}</style>
     </SCard>
+  )
+}
+
+// ════════════════════════════════════════════════════════════
+// 💰 협력업체 향후 지급 계획 편집기
+// ════════════════════════════════════════════════════════════
+export function VendorPaymentPlanEditor({vendorsDB, setVendorsDB, entry, canWrite}) {
+  const info = useMemo(()=>{
+    if(!vendorsDB) return null
+    if(entry?.id && vendorsDB[entry.id]) return vendorsDB[entry.id]
+    return Object.values(vendorsDB).find(v=>v.name===entry?.name) || null
+  },[vendorsDB, entry])
+
+  const [selProjIdx, setSelProjIdx] = useState(0)
+  const [editingIdx,  setEditingIdx]  = useState(null) // paymentHistory 인덱스
+  const [draft,       setDraft]       = useState(null)
+  const [newPay,      setNewPay]      = useState({round:"", condition:"", date:"", amount:"", note:""})
+  const [showAdd,     setShowAdd]     = useState(false)
+
+  if(!info) return <div style={{padding:24,color:"#9CA3AF",textAlign:"center"}}>협력업체 정보 없음</div>
+
+  const history = info.paymentHistory || []
+  const ph = history[selProjIdx]
+
+  const savePaymentPlan = (phIdx, updatedPayments) => {
+    setVendorsDB(prev=>{
+      const next = {...prev}
+      const vid  = Object.keys(next).find(k=>next[k].name===info.name || k===info.id)
+      if(!vid) return prev
+      const updHist = [...(next[vid].paymentHistory||[])]
+      updHist[phIdx] = {...updHist[phIdx], payments: updatedPayments}
+      next[vid] = {...next[vid], paymentHistory: updHist}
+      return next
+    })
+  }
+
+  const INP = {padding:"7px 10px",border:"1.5px solid #E5E7EB",borderRadius:7,fontSize:13,
+               width:"100%",boxSizing:"border-box",fontFamily:"inherit",outline:"none"}
+
+  return (
+    <div>
+      {/* 프로젝트 선택 */}
+      {history.length > 1 && (
+        <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:14}}>
+          {history.map((h,i)=>(
+            <button key={i} onClick={()=>setSelProjIdx(i)}
+              style={{padding:"6px 12px",border:`1.5px solid ${selProjIdx===i?"#6366F1":"#E5E7EB"}`,
+                borderRadius:8,fontSize:12.5,cursor:"pointer",fontWeight:selProjIdx===i?700:400,
+                background:selProjIdx===i?"#EEF2FF":"#fff",color:selProjIdx===i?"#6366F1":"#6B7280"}}>
+              {h.project?.slice(0,20)} ({h.type})
+            </button>
+          ))}
+        </div>
+      )}
+
+      {!ph && <div style={{padding:24,color:"#9CA3AF",textAlign:"center"}}>외주비 지급 이력이 없습니다.</div>}
+      {ph && (
+        <div>
+          {/* 프로젝트·공종 요약 */}
+          <div style={{background:"linear-gradient(135deg,#0C447C,#185FA5)",borderRadius:12,padding:"14px 18px",marginBottom:14,color:"#fff",display:"flex",gap:16,flexWrap:"wrap",alignItems:"center"}}>
+            <div style={{flex:1}}>
+              <div style={{fontSize:11.5,opacity:.8,marginBottom:3}}>[{ph.type}] {ph.project?.slice(0,40)}</div>
+              <div style={{display:"flex",gap:16}}>
+                <div><div style={{fontSize:10,opacity:.7}}>총 용역금액</div><div style={{fontSize:15,fontWeight:800}}>{(ph.totalAmt/1e8).toFixed(2)}억</div></div>
+                <div><div style={{fontSize:10,opacity:.7}}>지급 합계</div><div style={{fontSize:15,fontWeight:800,color:"#34D399"}}>{ph.paidSum>0?(ph.paidSum/1e8).toFixed(2)+"억":"-"}</div></div>
+                <div><div style={{fontSize:10,opacity:.7}}>잔액</div><div style={{fontSize:15,fontWeight:800,color:ph.remain>0?"#FDE68A":"#9CA3AF"}}>{ph.remain>0?(ph.remain/1e8).toFixed(2)+"억":"-"}</div></div>
+              </div>
+            </div>
+          </div>
+
+          {/* 차수별 지급 계획 테이블 */}
+          <table style={{width:"100%",borderCollapse:"collapse",marginBottom:12}}>
+            <thead>
+              <tr style={{background:"#F8FAFC"}}>
+                {["차수","지급 조건/단계","지급 예정일","금액(원)","지급 여부","비고",""].map((h,i)=>(
+                  <th key={h+i} style={{padding:"9px 12px",textAlign:i>=2?"center":"left",fontSize:12.5,fontWeight:700,color:"#6B7280",borderBottom:"2px solid #E5E7EB"}}>{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {(ph.payments||[]).map((p,pi)=>{
+                const isEdit = editingIdx===pi && draft
+                const isPaid = !!p.date && p.date <= new Date().toISOString().slice(0,10)
+                return (
+                  <tr key={pi} style={{background:isPaid?"#F0FDF4":pi%2===0?"#fff":"#F9FAFB"}}>
+                    <td style={{padding:"9px 12px",textAlign:"center",fontWeight:700,color:"#6366F1",fontSize:13}}>
+                      <span style={{background:"#EEF2FF",padding:"2px 8px",borderRadius:6}}>{p.round}차</span>
+                    </td>
+                    <td style={{padding:"9px 12px",fontSize:13,color:"#374151",minWidth:120}}>
+                      {isEdit
+                        ? <input value={draft.condition} onChange={e=>setDraft(d=>({...d,condition:e.target.value}))} style={INP}/>
+                        : p.condition||"-"}
+                    </td>
+                    <td style={{padding:"9px 12px",textAlign:"center",minWidth:130}}>
+                      {isEdit
+                        ? <input type="date" value={draft.date} onChange={e=>setDraft(d=>({...d,date:e.target.value}))} style={INP}/>
+                        : <span style={{fontSize:13,fontWeight:p.date?700:400,color:p.date?"#059669":"#9CA3AF"}}>{p.date||"미정"}</span>}
+                    </td>
+                    <td style={{padding:"9px 12px",textAlign:"right",minWidth:120}}>
+                      {isEdit
+                        ? <input type="number" value={draft.amount} onChange={e=>setDraft(d=>({...d,amount:e.target.value}))} style={{...INP,textAlign:"right"}}/>
+                        : <span style={{fontSize:13.5,fontWeight:700,color:p.amount>0?"#185FA5":"#9CA3AF"}}>{p.amount>0?p.amount.toLocaleString():"-"}</span>}
+                    </td>
+                    <td style={{padding:"9px 12px",textAlign:"center"}}>
+                      <span style={{fontSize:11,padding:"2px 8px",borderRadius:8,fontWeight:700,
+                        background:isPaid?"#D1FAE5":"#FEF3C7",color:isPaid?"#059669":"#D97706"}}>
+                        {isPaid?"✅ 지급완료":"⏳ 예정"}
+                      </span>
+                    </td>
+                    <td style={{padding:"9px 12px",fontSize:12,color:"#9CA3AF",minWidth:100}}>
+                      {isEdit
+                        ? <input value={draft.note||""} onChange={e=>setDraft(d=>({...d,note:e.target.value}))} placeholder="비고" style={INP}/>
+                        : p.note||""}
+                    </td>
+                    <td style={{padding:"6px 8px",textAlign:"center",whiteSpace:"nowrap"}}>
+                      {canWrite && !isEdit && (
+                        <button onClick={()=>{setEditingIdx(pi);setDraft({...p})}}
+                          style={{padding:"4px 10px",background:"#EEF2FF",color:"#6366F1",border:"none",borderRadius:6,fontSize:11.5,cursor:"pointer",fontWeight:700}}>✏</button>
+                      )}
+                      {canWrite && isEdit && (
+                        <div style={{display:"flex",gap:4}}>
+                          <button onClick={()=>{
+                            const updated=[...(ph.payments||[])]
+                            updated[pi]={...p,...draft,amount:parseInt(draft.amount)||p.amount}
+                            savePaymentPlan(selProjIdx,updated)
+                            setEditingIdx(null); setDraft(null)
+                          }} style={{padding:"4px 10px",background:"#D1FAE5",color:"#059669",border:"none",borderRadius:6,fontSize:11.5,cursor:"pointer",fontWeight:700}}>✓</button>
+                          <button onClick={()=>{setEditingIdx(null);setDraft(null)}}
+                            style={{padding:"4px 8px",background:"#F3F4F6",color:"#6B7280",border:"none",borderRadius:6,fontSize:11.5,cursor:"pointer"}}>✕</button>
+                          <button onClick={()=>{
+                            if(!window.confirm("이 차수를 삭제하시겠습니까?")) return
+                            const updated=(ph.payments||[]).filter((_,i)=>i!==pi)
+                            savePaymentPlan(selProjIdx,updated)
+                            setEditingIdx(null); setDraft(null)
+                          }} style={{padding:"4px 8px",background:"#FEE2E2",color:"#DC2626",border:"none",borderRadius:6,fontSize:11.5,cursor:"pointer"}}>🗑</button>
+                        </div>
+                      )}
+                    </td>
+                  </tr>
+                )
+              })}
+              {/* 합계 행 */}
+              <tr style={{background:"#EEF2FF",borderTop:"2px solid #6366F1"}}>
+                <td style={{padding:"9px 12px",fontWeight:800,color:"#312E81",textAlign:"center",fontSize:13}} colSpan={3}>합계</td>
+                <td style={{padding:"9px 12px",textAlign:"right",fontWeight:900,color:"#185FA5",fontSize:14}}>
+                  {(ph.payments||[]).reduce((s,p)=>s+(p.amount||0),0).toLocaleString()}원
+                </td>
+                <td colSpan={3}/>
+              </tr>
+            </tbody>
+          </table>
+
+          {/* 새 차수 추가 */}
+          {canWrite && (
+            <div>
+              {!showAdd
+                ? <button onClick={()=>setShowAdd(true)}
+                    style={{padding:"8px 18px",background:"#6366F1",color:"#fff",border:"none",borderRadius:9,fontSize:13,fontWeight:700,cursor:"pointer"}}>
+                    + 새 차수 추가
+                  </button>
+                : <div style={{background:"#EEF2FF",borderRadius:12,border:"2px solid #6366F1",padding:"14px 16px"}}>
+                    <div style={{fontSize:13.5,fontWeight:700,color:"#312E81",marginBottom:10}}>+ 지급 차수 추가</div>
+                    <div style={{display:"grid",gridTemplateColumns:"1fr 2fr 1fr 1fr 1fr",gap:10,marginBottom:10}}>
+                      <div>
+                        <label style={{fontSize:11,fontWeight:700,color:"#6366F1",display:"block",marginBottom:3}}>차수</label>
+                        <input type="number" value={newPay.round} onChange={e=>setNewPay(p=>({...p,round:e.target.value}))}
+                          placeholder={((ph.payments||[]).length+1)+"차"}
+                          style={INP}/>
+                      </div>
+                      <div>
+                        <label style={{fontSize:11,fontWeight:700,color:"#6366F1",display:"block",marginBottom:3}}>지급 조건/단계</label>
+                        <input value={newPay.condition} onChange={e=>setNewPay(p=>({...p,condition:e.target.value}))}
+                          placeholder="예: 실시설계 완료 후" style={INP}/>
+                      </div>
+                      <div>
+                        <label style={{fontSize:11,fontWeight:700,color:"#6366F1",display:"block",marginBottom:3}}>지급 예정일</label>
+                        <input type="date" value={newPay.date} onChange={e=>setNewPay(p=>({...p,date:e.target.value}))} style={INP}/>
+                      </div>
+                      <div>
+                        <label style={{fontSize:11,fontWeight:700,color:"#6366F1",display:"block",marginBottom:3}}>금액(원)</label>
+                        <input type="number" value={newPay.amount} onChange={e=>setNewPay(p=>({...p,amount:e.target.value}))}
+                          placeholder="10000000" style={INP}/>
+                      </div>
+                      <div>
+                        <label style={{fontSize:11,fontWeight:700,color:"#6366F1",display:"block",marginBottom:3}}>비고</label>
+                        <input value={newPay.note} onChange={e=>setNewPay(p=>({...p,note:e.target.value}))} style={INP}/>
+                      </div>
+                    </div>
+                    <div style={{display:"flex",gap:8}}>
+                      <button onClick={()=>{
+                        if(!newPay.condition&&!newPay.date&&!newPay.amount) return
+                        const roundNum = parseInt(newPay.round)||((ph.payments||[]).length+1)
+                        const newEntry = {round:roundNum,condition:newPay.condition,date:newPay.date,amount:parseInt(newPay.amount)||0,note:newPay.note}
+                        const updated = [...(ph.payments||[]),newEntry].sort((a,b)=>a.round-b.round)
+                        savePaymentPlan(selProjIdx,updated)
+                        setNewPay({round:"",condition:"",date:"",amount:"",note:""})
+                        setShowAdd(false)
+                      }} style={{padding:"7px 18px",background:"#059669",color:"#fff",border:"none",borderRadius:9,fontSize:13,fontWeight:700,cursor:"pointer"}}>💾 추가</button>
+                      <button onClick={()=>setShowAdd(false)}
+                        style={{padding:"7px 14px",background:"#F3F4F6",color:"#6B7280",border:"none",borderRadius:9,fontSize:13,cursor:"pointer"}}>취소</button>
+                    </div>
+                  </div>
+              }
+            </div>
+          )}
+        </div>
+      )}
+    </div>
   )
 }

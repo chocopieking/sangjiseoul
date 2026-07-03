@@ -1112,7 +1112,7 @@ export default function App() {
         {tab==="analysis"  && (canReadTab("analysis") ? <AnalysisHub deptStaff={deptStaff} setDeptStaff={setDeptStaff} years={years} setYears={setYears} canWrite={canWrite} isAdmin={currentUser?.role==="admin"} cashflow={effectiveCashflow} cashItems={cashItems} setCashItems={setCashItems} saleItems={saleItems} setSaleItems={setSaleItems} contractItems={contractItems} setContractItems={setContractItems} projects={projects} setProjects={setProjects} setTab={setTab} setSelProjId={setSelProjId} setDetailTab={setDetailTab} selProjId={selProjId} selVerIdx={selVerIdx} setSelVerIdx={setSelVerIdx} currentUser={currentUser} yearTargets={yearTargets} setYearTargets={setYearTargets} deptBiz={deptBiz} staffMonthly={staffMonthly} staffTarget={staffTarget} deptStaff={deptStaff}/> : <NoPermScreen tabId="analysis"/>)}
         {tab==="datahub" && canReadTab("datahub") && <DataHubTab currentUser={currentUser} deptStaff={deptStaff} setDeptStaff={setDeptStaff} staffTarget={staffTarget} setStaffTarget={setStaffTarget} staffMonthly={staffMonthly} setStaffMonthly={setStaffMonthly} pnlData={pnlData} setPnlData={setPnlData} cashflow={cashflow} setCashflow={setCashflow} years={years} setYears={setYears} projects={projects} setProjects={setProjects} setTab={setTab} setSelProjId={setSelProjId} setSelVerIdx={setSelVerIdx} setShowNewProj={setShowNewProj} versions={versions} saveVersion={saveVersion} restoreVersion={restoreVersion} deleteVersion={deleteVersion} contractTypes={contractTypes} setContractTypes={setContractTypes} projTypes={projTypes} setProjTypes={setProjTypes} bidTypes={bidTypes} setBidTypes={setBidTypes} allData={null} restoreAllData={(entries)=>dbSetAll(entries, userEmail.current)} dbStatus={dbStatus} vendorsDB={vendorsDB} setVendorsDB={setVendorsDB} vendorPayments={vendorPayments} setVendorPayments={setVendorPayments}/>}
         {tab==="cashflow" && canReadTab("cashflow") && <CashflowTab cashflow={effectiveCashflow} setCashflow={setCashflow} currentUser={currentUser} projects={projects} setProjects={setProjects} projectCashflowByDept={projectCashflowByDept} cashItems={cashItems} setCashItems={setCashItems} saleItems={saleItems} setSaleItems={setSaleItems} setTab={setTab} setSelProjId={setSelProjId} setDetailTab={setDetailTab} yearTargets={yearTargets} setYearTargets={setYearTargets} deptBiz={deptBiz} deptStaff={deptStaff} staffMonthly={staffMonthly} staffTarget={staffTarget} contractItems={contractItems} setContractItems={setContractItems}/>}
-        {tab==="projects" && canReadTab("projects") && <ProjectsTab projects={projects} setProjects={setProjects} selProjId={selProjId} setSelProjId={setSelProjId} selVerIdx={selVerIdx} setSelVerIdx={setSelVerIdx} cmpIds={cmpIds} setCmpIds={setCmpIds} showNewVer={showNewVer} setShowNewVer={setShowNewVer} canWrite={canWrite&&canWriteTab("projects")} contractTypes={contractTypes} currentUser={currentUser} setDetailTab={setDetailTab} detailTab={detailTab}/>}
+        {tab==="projects" && canReadTab("projects") && <ProjectsTab projects={projects} setProjects={setProjects} selProjId={selProjId} setSelProjId={setSelProjId} selVerIdx={selVerIdx} setSelVerIdx={setSelVerIdx} cmpIds={cmpIds} setCmpIds={setCmpIds} showNewVer={showNewVer} setShowNewVer={setShowNewVer} canWrite={canWrite&&canWriteTab("projects")} contractTypes={contractTypes} currentUser={currentUser} setDetailTab={setDetailTab} detailTab={detailTab} cashItems={cashItems} setCashItems={setCashItems} vendorsDB={vendorsDB} projBaseline={projBaseline} setProjBaseline={setProjBaseline}/>}
         {tab==="vendors" && canReadTab("vendors") && <VendorsTab projects={projects} setProjects={setProjects} vendorsDB={vendorsDB} setVendorsDB={setVendorsDB} vendorPayments={vendorPayments} setVendorPayments={setVendorPayments} canWrite={canWrite&&canWriteTab("vendors")} currentUser={currentUser} setTab={setTab} setSelProjId={setSelProjId} setSelVerIdx={setSelVerIdx}/>}
         {tab==="pnl"      && canReadTab("pnl")      && <PnlTab pnlData={pnlData} setPnlData={setPnlData} canWrite={canWrite&&canWriteTab("pnl")}/>}
         {tab==="optimize" && <OptimizeTab projects={projects} deptStaff={deptStaff} pnlData={pnlData}/>}
@@ -2390,7 +2390,7 @@ const cardNote2 = {fontSize:12.5,color:C.gray,marginBottom:8}
 // ════════════════════════════════════════════════════════════
 // 프로젝트 탭
 // ════════════════════════════════════════════════════════════
-function ProjectsTab({projects,setProjects,selProjId,setSelProjId,selVerIdx,setSelVerIdx,cmpIds,setCmpIds,showNewVer,setShowNewVer,canWrite,contractTypes,currentUser,setDetailTab:_extSetDetailTab,detailTab:_extDetailTab}) {
+function ProjectsTab({projects,setProjects,selProjId,setSelProjId,selVerIdx,setSelVerIdx,cmpIds,setCmpIds,showNewVer,setShowNewVer,canWrite,contractTypes,currentUser,setDetailTab:_extSetDetailTab,detailTab:_extDetailTab,cashItems=[],setCashItems,vendorsDB={},projBaseline={},setProjBaseline}) {
   const [view, setView] = useState("list")
   const [deptFilter,     setDeptFilter]     = useState("")
   const [typeFilter,     setTypeFilter]     = useState("")
@@ -7544,6 +7544,187 @@ function ProjectExpenseDetail({proj, cashItems, YEAR, YR}) {
           </table>
         </div>
       )}
+
+      {/* ── 기성 수금 계획 등록 ── */}
+      <CashPlanEditor proj={proj} cashItems={cashItems} setCashItems={setCashItems} currentUser={undefined}/>
+    </div>
+  )
+}
+
+// ── 기성 수금 계획 등록 컴포넌트 ─────────────────────────────
+function CashPlanEditor({proj, cashItems, setCashItems}) {
+  const STAGES = ["제안설계","계획설계","기본설계","중간설계","실시설계","준공설계","납품","사업완료","기타"]
+  const [showAdd, setShowAdd] = useState(false)
+  const [form,    setForm]    = useState({stage:"제안설계",expectedDate:"",amount:"",note:"",isPaid:false,paidDate:""})
+
+  const myItems = (cashItems||[]).filter(i=>{
+    const n1=(i.projectName||"").replace(/[\s\-_]/g,"").toLowerCase()
+    const n2=(proj.name||"").replace(/[\s\-_]/g,"").toLowerCase().slice(0,8)
+    return n1.includes(n2)||n2.includes(n1.slice(0,8))
+  })
+
+  const fAmt = v => v>=1e8?`${(v/1e8).toFixed(2)}억`:v>=1e4?`${Math.round(v/1e4).toLocaleString()}만`:v.toLocaleString()+"원"
+  const INP = {padding:"8px 10px",border:"1.5px solid #E5E7EB",borderRadius:8,fontSize:13,width:"100%",boxSizing:"border-box",fontFamily:"inherit",outline:"none"}
+
+  const addPlan = () => {
+    if(!form.amount||!form.expectedDate) return alert("금액과 예정일을 입력하세요")
+    const newItem = {
+      id: `CF${Date.now()}`,
+      projectName: proj.name,
+      dept: (proj.depts||[])[0]||"",
+      itemType: "기성",
+      stage: form.stage,
+      expectedDate: form.expectedDate,
+      amount: parseInt(form.amount)||0,
+      note: form.note,
+      paidDate: form.isPaid ? (form.paidDate||form.expectedDate) : "",
+      createdAt: new Date().toISOString(),
+    }
+    setCashItems(prev=>[...(prev||[]),newItem])
+    setForm({stage:"기본설계",expectedDate:"",amount:"",note:"",isPaid:false,paidDate:""})
+    setShowAdd(false)
+  }
+
+  const delItem = (id) => {
+    if(!window.confirm("삭제하시겠습니까?")) return
+    setCashItems(prev=>(prev||[]).filter(i=>i.id!==id))
+  }
+
+  const totalPlanned = myItems.filter(i=>i.itemType==="기성").reduce((s,i)=>s+(i.amount||0),0)
+  const totalPaid    = myItems.filter(i=>i.itemType==="기성"&&i.paidDate).reduce((s,i)=>s+(i.amount||0),0)
+  const remain       = (proj.serviceFee||0) - totalPaid
+
+  return (
+    <div style={{marginTop:16,background:"#fff",borderRadius:14,border:"1px solid #E5E7EB",overflow:"hidden"}}>
+      {/* 헤더 */}
+      <div style={{background:"linear-gradient(135deg,#059669,#10B981)",padding:"14px 18px",color:"#fff",display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:8}}>
+        <div>
+          <div style={{fontSize:15,fontWeight:800,marginBottom:2}}>💧 기성 수금 계획</div>
+          <div style={{fontSize:12,opacity:.8}}>단계별 기성 청구·수금 일정을 등록합니다</div>
+        </div>
+        <div style={{display:"flex",gap:12}}>
+          {[["계획합계",totalPlanned,"#D1FAE5","#059669"],["수금완료",totalPaid,"#A7F3D0","#065F46"],["잔액",remain,"#FEF3C7","#D97706"]].map(([l,v,bg,c])=>(
+            <div key={l} style={{background:"rgba(255,255,255,.15)",borderRadius:9,padding:"8px 14px",textAlign:"center"}}>
+              <div style={{fontSize:10.5,opacity:.8,marginBottom:2}}>{l}</div>
+              <div style={{fontSize:14,fontWeight:800}}>{fAmt(v)}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* 기성 목록 */}
+      <div style={{padding:"14px 16px"}}>
+        {myItems.filter(i=>i.itemType==="기성").length===0 && !showAdd && (
+          <div style={{textAlign:"center",padding:"24px",color:"#9CA3AF",fontSize:13.5}}>
+            아직 등록된 기성 수금 계획이 없습니다.
+          </div>
+        )}
+        {myItems.filter(i=>i.itemType==="기성").length > 0 && (
+          <div style={{overflowX:"auto",marginBottom:12}}>
+            <table style={{width:"100%",borderCollapse:"collapse"}}>
+              <thead>
+                <tr style={{background:"#F0FDF4"}}>
+                  {["단계","수금 예정일","금액","수금 완료일","메모",""].map((h,i)=>(
+                    <th key={h+i} style={{padding:"8px 12px",textAlign:i>=1&&i<=2?"center":"left",fontSize:12.5,fontWeight:700,color:"#059669",borderBottom:"2px solid #D1FAE5"}}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {myItems.filter(i=>i.itemType==="기성")
+                  .sort((a,b)=>(a.expectedDate||"").localeCompare(b.expectedDate||""))
+                  .map((item,i)=>{
+                    const isPaid = !!item.paidDate
+                    return (
+                      <tr key={item.id} style={{background:isPaid?"#F0FDF4":i%2===0?"#fff":"#F9FAFB"}}>
+                        <td style={{padding:"9px 12px",fontSize:13}}>
+                          <span style={{background:isPaid?"#D1FAE5":"#EEF2FF",color:isPaid?"#059669":"#6366F1",padding:"2px 8px",borderRadius:6,fontSize:12,fontWeight:700}}>
+                            {item.stage||"기타"}
+                          </span>
+                        </td>
+                        <td style={{padding:"9px 12px",textAlign:"center",fontSize:13,fontWeight:600,color:"#374151"}}>{item.expectedDate||"-"}</td>
+                        <td style={{padding:"9px 12px",textAlign:"right",fontSize:14,fontWeight:800,color:"#185FA5"}}>{fAmt(item.amount||0)}</td>
+                        <td style={{padding:"9px 12px",textAlign:"center"}}>
+                          {isPaid
+                            ? <span style={{fontSize:12.5,fontWeight:700,color:"#059669"}}>✅ {item.paidDate}</span>
+                            : <span style={{fontSize:12,color:"#9CA3AF"}}>미수금</span>}
+                        </td>
+                        <td style={{padding:"9px 12px",fontSize:12.5,color:"#6B7280"}}>{item.note||""}</td>
+                        <td style={{padding:"6px 8px",textAlign:"center"}}>
+                          {!isPaid&&(
+                            <button onClick={()=>setCashItems(prev=>(prev||[]).map(ci=>ci.id===item.id?{...ci,paidDate:new Date().toISOString().slice(0,10)}:ci))}
+                              style={{padding:"3px 8px",background:"#D1FAE5",color:"#059669",border:"none",borderRadius:6,fontSize:11.5,cursor:"pointer",fontWeight:700,marginRight:4}}>
+                              수금처리
+                            </button>
+                          )}
+                          <button onClick={()=>delItem(item.id)}
+                            style={{padding:"3px 8px",background:"#FEE2E2",color:"#DC2626",border:"none",borderRadius:6,fontSize:11.5,cursor:"pointer"}}>🗑</button>
+                        </td>
+                      </tr>
+                    )
+                  })}
+                  <tr style={{background:"#ECFDF5",borderTop:"2px solid #059669"}}>
+                    <td style={{padding:"9px 12px",fontWeight:800,color:"#059669",fontSize:13}} colSpan={2}>합계</td>
+                    <td style={{padding:"9px 12px",textAlign:"right",fontWeight:900,color:"#059669",fontSize:14}}>{fAmt(totalPlanned)}</td>
+                    <td style={{padding:"9px 12px",textAlign:"center",fontWeight:700,color:"#065F46",fontSize:13}}>{fAmt(totalPaid)} 수금</td>
+                    <td colSpan={2}/>
+                  </tr>
+              </tbody>
+            </table>
+          </div>
+        )}
+
+        {/* 추가 폼 */}
+        {showAdd && (
+          <div style={{background:"#F0FDF4",borderRadius:12,border:"2px solid #059669",padding:"14px 16px",marginBottom:12}}>
+            <div style={{fontSize:13.5,fontWeight:700,color:"#065F46",marginBottom:10}}>+ 기성 수금 계획 등록</div>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr 1fr",gap:10,marginBottom:10}}>
+              <div>
+                <label style={{fontSize:11,fontWeight:700,color:"#059669",display:"block",marginBottom:3}}>설계 단계</label>
+                <select value={form.stage} onChange={e=>setForm(f=>({...f,stage:e.target.value}))} style={INP}>
+                  {STAGES.map(s=><option key={s} value={s}>{s}</option>)}
+                </select>
+              </div>
+              <div>
+                <label style={{fontSize:11,fontWeight:700,color:"#059669",display:"block",marginBottom:3}}>수금 예정일 *</label>
+                <input type="date" value={form.expectedDate} onChange={e=>setForm(f=>({...f,expectedDate:e.target.value}))} style={INP}/>
+              </div>
+              <div>
+                <label style={{fontSize:11,fontWeight:700,color:"#059669",display:"block",marginBottom:3}}>금액(원) *</label>
+                <input type="number" value={form.amount} onChange={e=>setForm(f=>({...f,amount:e.target.value}))} placeholder="100000000" style={INP}/>
+              </div>
+              <div>
+                <label style={{fontSize:11,fontWeight:700,color:"#059669",display:"block",marginBottom:3}}>메모</label>
+                <input value={form.note} onChange={e=>setForm(f=>({...f,note:e.target.value}))} placeholder="기성 1회차 등" style={INP}/>
+              </div>
+            </div>
+            <div style={{display:"flex",gap:12,alignItems:"center",marginBottom:10}}>
+              <label style={{display:"flex",gap:6,alignItems:"center",cursor:"pointer",fontSize:13,fontWeight:600}}>
+                <input type="checkbox" checked={form.isPaid} onChange={e=>setForm(f=>({...f,isPaid:e.target.checked}))} style={{width:15,height:15}}/>
+                이미 수금 완료됨
+              </label>
+              {form.isPaid&&(
+                <div style={{display:"flex",gap:6,alignItems:"center"}}>
+                  <label style={{fontSize:12,fontWeight:600,color:"#059669"}}>수금일:</label>
+                  <input type="date" value={form.paidDate} onChange={e=>setForm(f=>({...f,paidDate:e.target.value}))} style={{...INP,width:150}}/>
+                </div>
+              )}
+            </div>
+            <div style={{display:"flex",gap:8}}>
+              <button onClick={addPlan}
+                style={{padding:"8px 20px",background:"#059669",color:"#fff",border:"none",borderRadius:9,fontSize:13,fontWeight:700,cursor:"pointer"}}>💾 등록</button>
+              <button onClick={()=>setShowAdd(false)}
+                style={{padding:"8px 14px",background:"#F3F4F6",color:"#6B7280",border:"none",borderRadius:9,fontSize:13,cursor:"pointer"}}>취소</button>
+            </div>
+          </div>
+        )}
+
+        {!showAdd&&(
+          <button onClick={()=>setShowAdd(true)}
+            style={{padding:"8px 18px",background:"#059669",color:"#fff",border:"none",borderRadius:9,fontSize:13,fontWeight:700,cursor:"pointer"}}>
+            + 기성 수금 계획 등록
+          </button>
+        )}
+      </div>
     </div>
   )
 }
@@ -7609,7 +7790,7 @@ function AnalysisHub({deptStaff,setDeptStaff,years,setYears,canWrite,isAdmin,cas
 
       {subTab==="staff" && <StaffStatusPanel DEPT_COLORS={DEPT_COLORS} deptStaff={deptStaff} staffMonthly={staffMonthly} staffTarget={staffTarget}/>}
 
-      {subTab==="projects" && <ProjectsTab projects={projects} setProjects={setProjects} selProjId={selProjId} setSelProjId={setSelProjId} selVerIdx={selVerIdx||0} setSelVerIdx={setSelVerIdx||((v)=>{})} cmpIds={[]} setCmpIds={()=>{}} showNewVer={false} setShowNewVer={()=>{}} canWrite={canWrite} contractTypes={[]} currentUser={currentUser} setDetailTab={setDetailTab} detailTab={undefined}/>}
+      {subTab==="projects" && <ProjectsTab projects={projects} setProjects={setProjects} selProjId={selProjId} setSelProjId={setSelProjId} selVerIdx={selVerIdx||0} setSelVerIdx={setSelVerIdx||((v)=>{})} cmpIds={[]} setCmpIds={()=>{}} showNewVer={false} setShowNewVer={()=>{}} canWrite={canWrite} contractTypes={[]} currentUser={currentUser} setDetailTab={setDetailTab} detailTab={undefined} cashItems={cashItems} setCashItems={setCashItems} vendorsDB={{}}/>}
     </div>
   )
 }
