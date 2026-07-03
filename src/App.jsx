@@ -2902,56 +2902,16 @@ function ProjectsTab({projects,setProjects,selProjId,setSelProjId,selVerIdx,setS
                   {/* ── 회차별 비교 분석 ── */}
                   <VersionCompareCard proj={selProj} selVerIdx={selVerIdx}/>
 
-                  {/* 협력업체 상세 */}
-                  <Card title="협력업체 상세" note="토목·조경·지반·흙막이·현황측량·부대토목 → 대지면적 기준 | 친환경·교통·BIM·인테리어·외부특화·경관 → 1식">
-                    <div style={{display:"flex",gap:5,marginBottom:9,flexWrap:"wrap"}}>
-                      {canWrite&&(!editVend
-                        ?<button onClick={()=>{setVDraft(selVer.vendors.map(v=>({...v})));setEditVend(true)}} style={S.btn(C.navyM)}>✏ 수정</button>
-                        :<><button onClick={saveVend} style={S.btn(C.green)}>✓ 저장</button>
-                          <button onClick={()=>setVDraft(prev=>[...prev,{cat:"",name:"",contract:0,nego1:0,nego2:0}])} style={S.btn(C.navyL,C.navyM)}>+ 행</button>
-                          <button onClick={()=>{setEditVend(false);setVDraft(null)}} style={S.btn(C.grayL,C.gray)}>취소</button></>
-                      )}
-                    </div>
-                    <div style={{overflowX:"auto"}}>
-                      <table style={{width:"100%",borderCollapse:"collapse"}}>
-                        <thead><tr>
-                          {["분야","업체명","원가견적(원)","1차NEGO","2차NEGO","면적기준","평당단가(원가)","평당단가(2차)","비율%"].map((h,i)=>(
-                            <th key={h} style={S.th(i>=2?"right":"left")}>{h}</th>
-                          ))}
-                          {editVend&&<th style={S.th("center")}>삭제</th>}
-                        </tr></thead>
-                        <tbody>
-                          {(editVend?vDraft:selVer.vendors).map((v,i)=>{
-                            const basis=getAreaBasis(v.cat)
-                            const py=basis==="대지"?pyS:basis==="연면적"?pyF:0
-                            const up1=py>0?v.contract/py:null, up2=py>0&&v.nego2?v.nego2/py:null
-                            const bLabel=basis==="대지"?"대지면적":basis==="연면적"?"연면적":"1식"
-                            const bColor=basis==="대지"?C.amber:basis==="연면적"?C.green:C.gray
-                            return <tr key={i} style={{background:i%2===0?"var(--color-background-primary,#fff)":"var(--color-background-secondary,#f8f8f6)"}}>
-                              <td style={S.td("left")}>{editVend?<input value={v.cat} onChange={e=>upd(i,"cat",e.target.value)} style={{...S.inp(),width:90,padding:"3px 5px"}}/>:<span style={S.bdg(C.navyL,C.navyM)}>{v.cat}</span>}</td>
-                              <td style={S.td("left")}>{editVend?<input value={v.name} onChange={e=>upd(i,"name",e.target.value)} style={{...S.inp(),width:150,padding:"3px 5px"}}/>:v.name}</td>
-                              <td style={S.td("right")}>{editVend?<input type="number" value={v.contract} onChange={e=>upd(i,"contract",e.target.value)} style={{...S.inp(),width:110,padding:"3px 5px",textAlign:"right"}}/>:fW(v.contract)}</td>
-                              <td style={{...S.td("right"),color:C.gray}}>{editVend?<input type="number" value={v.nego1||0} onChange={e=>upd(i,"nego1",e.target.value)} style={{...S.inp(),width:90,padding:"3px 5px",textAlign:"right"}}/>:v.nego1?fW(v.nego1):"-"}</td>
-                              <td style={{...S.td("right"),color:C.green,fontWeight:v.nego2?500:400}}>{editVend?<input type="number" value={v.nego2||0} onChange={e=>upd(i,"nego2",e.target.value)} style={{...S.inp(),width:90,padding:"3px 5px",textAlign:"right"}}/>:v.nego2?fW(v.nego2):"-"}</td>
-                              <td style={S.td("center")}><span style={S.bdg(basis==="대지"?C.amberL:basis==="1식"?C.grayL:C.greenL,bColor)}>{bLabel}</span></td>
-                              <td style={{...S.td("right"),color:C.navyM,fontWeight:500}}>{up1?fPy(up1):"1식"}</td>
-                              <td style={{...S.td("right"),color:C.green,fontWeight:up2?500:400}}>{up2?fPy(up2):"-"}</td>
-                              <td style={S.td("right")}>{selProj.serviceFee>0?(v.contract/selProj.serviceFee*100).toFixed(2)+"%":"-"}</td>
-                              {editVend&&<td style={S.td("center")}><button onClick={()=>setVDraft(prev=>prev.filter((_,ri)=>ri!==i))} style={{...S.btn(C.redL,C.red),padding:"2px 6px",fontSize:11}}>✕</button></td>}
-                            </tr>
-                          })}
-                          <tr style={{background:"var(--color-background-secondary,#f5f5f3)",fontWeight:600}}>
-                            <td style={{...S.td("left"),fontSize:13}} colSpan={2}>합계</td>
-                            <td style={{...S.td("right"),color:C.navyM}}>{fW((editVend?vDraft:selVer.vendors).reduce((s,v)=>s+v.contract,0))}</td>
-                            <td style={{...S.td("right"),color:C.gray}}>{fW((editVend?vDraft:selVer.vendors).reduce((s,v)=>s+(v.nego1||0),0))}</td>
-                            <td style={{...S.td("right"),color:C.green}}>{fW((editVend?vDraft:selVer.vendors).reduce((s,v)=>s+(v.nego2||0),0))}</td>
-                            <td colSpan={3}/><td style={{...S.td("right"),color:C.navyM}}>{selProj.serviceFee>0?((editVend?vDraft:selVer.vendors).reduce((s,v)=>s+v.contract,0)/selProj.serviceFee*100).toFixed(1)+"%":"-"}</td>
-                            {editVend&&<td/>}
-                          </tr>
-                        </tbody>
-                      </table>
-                    </div>
-                  </Card>
+                  {/* 협력업체 비용 + 실행계획서 작성 워크플로우 */}
+                  <PlanWorkflow
+                    proj={selProj} selVer={selVer} selVerIdx={selVerIdx}
+                    pyF={pyF} pyS={pyS}
+                    editVend={editVend} setEditVend={setEditVend}
+                    vDraft={vDraft} setVDraft={setVDraft}
+                    saveVend={saveVend} upd={upd}
+                    projects={projects} vendorsDB={vendorsDB}
+                    canWrite={canWrite}
+                  />
                 </>
               )}
               {showNewVer&&<NewVerModal proj={selProj} onClose={()=>setShowNewVer(false)} onSave={v=>{setProjects(prev=>prev.map(p=>p.id===selProj.id?{...p,versions:[...p.versions,v]}:p));setSelVerIdx(selProj.versions.length);setShowNewVer(false)}}/>}
@@ -9801,6 +9761,445 @@ function ProjectMemoTab({proj, setProjects, currentUser}) {
               style={{padding:"2px 9px",background:"#FEE2E2",color:"#DC2626",border:"none",borderRadius:6,fontSize:11,cursor:"pointer",flexShrink:0}}>✕</button>
           </div>
         ))}
+      </div>
+    </div>
+  )
+}
+
+// ══════════════════════════════════════════════════════════════
+// 📋 실행계획서 워크플로우 — 협력업체 비용 비교 + 기안 시스템
+// ══════════════════════════════════════════════════════════════
+function PlanWorkflow({proj, selVer, selVerIdx, pyF, pyS, editVend, setEditVend, vDraft, setVDraft, saveVend, upd, projects, vendorsDB, canWrite}) {
+  const [activeTab,   setActiveTab]   = useState("compare") // compare | draft | payment
+  const [selCatFocus, setSelCatFocus] = useState(null)      // 공종 포커스
+  const [showVendorPool, setShowVendorPool] = useState(false)
+
+  if(!selVer) return null
+
+  const vendors = editVend ? vDraft : (selVer.vendors || [])
+  const fW2 = v => v>=1e8?`${(v/1e8).toFixed(2)}억`:`${Math.round(v).toLocaleString()}원`
+  const fPy2 = v => v>0?`${Math.round(v).toLocaleString()}원/평`:"-"
+
+  // 공종별로 그룹화
+  const byCAT = {}
+  vendors.forEach((v,i)=>{
+    if(!byCAT[v.cat]) byCAT[v.cat]=[]
+    byCAT[v.cat].push({...v, _idx:i})
+  })
+
+  // vendorsDB에서 같은 공종의 다른 프로젝트 실적 가져오기
+  const getHistoricalData = (cat) => {
+    const results = []
+    projects.forEach(p=>{
+      if(p.id===proj.id) return
+      p.versions?.forEach(ver=>{
+        const match = ver.vendors?.find(v=>v.cat===cat&&v.contract>0)
+        if(!match) return
+        const basis=getAreaBasis(cat)
+        const py = basis==="대지"?toPy(p.siteArea||0):toPy(p.floorArea||0)
+        const up = py>0 ? match.contract/py : 0
+        results.push({
+          projName: p.name, projCode: p.code, ver: ver.ver,
+          areaM2: basis==="대지"?(p.siteArea||0):(p.floorArea||0),
+          py, contract: match.contract, nego2: match.nego2||0,
+          up, up2: match.nego2&&py>0?match.nego2/py:0,
+          vendorName: match.name
+        })
+      })
+    })
+    return results.sort((a,b)=>b.contract-a.contract).slice(0,10)
+  }
+
+  // 전체 비교 엑셀 다운로드
+  const downloadCompareExcel = () => {
+    const wb = XLSX.utils.book_new()
+
+    // ① 표지 / 기본 정보
+    const coverRows = [
+      [`실행계획서 협력업체 비용 비교표`],
+      [],
+      [`프로젝트명`, proj.name],
+      [`프로젝트코드`, proj.code||""],
+      [`주관본부`, (proj.depts||[]).join(", ")],
+      [`담당PM`, proj.pm||""],
+      [`용역비(VAT별도)`, proj.serviceFee||0],
+      [`연면적`, `${(proj.floorArea||0).toLocaleString()}㎡ (${Math.round(toPy(proj.floorArea||0)).toLocaleString()}평)`],
+      [`대지면적`, `${(proj.siteArea||0).toLocaleString()}㎡ (${Math.round(toPy(proj.siteArea||0)).toLocaleString()}평)`],
+      [`작성일`, new Date().toISOString().slice(0,10)],
+      [`회차`, selVer.ver||""],
+    ]
+    const wsCover = XLSX.utils.aoa_to_sheet(coverRows)
+    wsCover["!cols"] = [{wch:18},{wch:40}]
+    XLSX.utils.book_append_sheet(wb, wsCover, "① 기본정보")
+
+    // ② 협력업체 비용 현황
+    const vendorRows = [
+      [`분야`, `업체명`, `원가견적(원)`, `1차NEGO(원)`, `2차NEGO(원)`, `면적기준`, `평당단가(원가)`, `평당단가(2차)`, `용역비대비(%)`, `비고`],
+    ]
+    let totalContract=0, totalNego2=0
+    vendors.forEach(v=>{
+      const basis=getAreaBasis(v.cat)
+      const py = basis==="대지"?pyS:basis==="연면적"?pyF:0
+      const up1 = py>0?Math.round(v.contract/py):"-"
+      const up2 = py>0&&v.nego2?Math.round(v.nego2/py):"-"
+      const ratio = proj.serviceFee>0?(v.contract/proj.serviceFee*100).toFixed(2)+"%":"-"
+      vendorRows.push([v.cat, v.name, v.contract, v.nego1||0, v.nego2||0,
+        basis==="대지"?"대지면적":basis==="연면적"?"연면적":"1식",
+        up1, up2, ratio, ""])
+      totalContract += v.contract
+      totalNego2 += v.nego2||0
+    })
+    const totalRatio = proj.serviceFee>0?(totalContract/proj.serviceFee*100).toFixed(1)+"%":"-"
+    vendorRows.push([`합계`, "", totalContract, "", totalNego2, "", "", "", totalRatio, ""])
+    const wsVend = XLSX.utils.aoa_to_sheet(vendorRows)
+    wsVend["!cols"] = [{wch:14},{wch:24},{wch:16},{wch:14},{wch:14},{wch:10},{wch:14},{wch:14},{wch:12},{wch:20}]
+    XLSX.utils.book_append_sheet(wb, wsVend, "② 협력업체비용현황")
+
+    // ③ 공종별 유사 프로젝트 비교 (평당단가)
+    const UP_CATS=["구조","토목","조경","기계","전기통신소방","전기통신","기계소방","CG","견적","건축외주","부대토목","흙막이","지반조사","현황측량","소방"]
+    const compRows = [`공종`, `프로젝트명`, `연면적(㎡)`, `연면적(평)`, `공종금액(원)`, `2차NEGO`, `평당단가(원가)`, `평당단가(2차)`, `업체명`]
+    const allCompRows = [compRows]
+
+    vendors.filter(v=>UP_CATS.some(u=>v.cat.includes(u)||u.includes(v.cat))).forEach(v=>{
+      // 현재 프로젝트
+      const basis=getAreaBasis(v.cat)
+      const py = basis==="대지"?pyS:basis==="연면적"?pyF:0
+      allCompRows.push([
+        v.cat, `▶ ${proj.name}(현재)`,
+        basis==="대지"?proj.siteArea||0:proj.floorArea||0,
+        py>0?Math.round(py):"-",
+        v.contract, v.nego2||0,
+        py>0?Math.round(v.contract/py):"-",
+        py>0&&v.nego2?Math.round(v.nego2/py):"-",
+        v.name
+      ])
+      // 유사 프로젝트
+      getHistoricalData(v.cat).forEach(h=>{
+        allCompRows.push([
+          "", h.projName,
+          Math.round(h.areaM2), Math.round(h.py),
+          h.contract, h.nego2||0,
+          h.up>0?Math.round(h.up):"-",
+          h.up2>0?Math.round(h.up2):"-",
+          h.vendorName
+        ])
+      })
+      allCompRows.push([]) // 공종 구분 빈줄
+    })
+    const wsComp = XLSX.utils.aoa_to_sheet(allCompRows)
+    wsComp["!cols"] = [{wch:14},{wch:36},{wch:12},{wch:10},{wch:16},{wch:14},{wch:14},{wch:14},{wch:24}]
+    XLSX.utils.book_append_sheet(wb, wsComp, "③ 유사프로젝트비교")
+
+    // ④ 지급계획 (단계별)
+    const STAGES = ["제안·계획설계","기본설계","중간설계","실시설계","준공설계","납품"]
+    const payRows = [
+      [`분야`, `업체명`, `최종금액(원)`, ...STAGES, `합계`]
+    ]
+    vendors.forEach(v=>{
+      const finalAmt = v.nego2||v.contract
+      const stageAmt = Math.round(finalAmt/STAGES.length)
+      payRows.push([v.cat, v.name, finalAmt, ...STAGES.map(()=>stageAmt), finalAmt])
+    })
+    payRows.push([`합계`, "", vendors.reduce((s,v)=>s+(v.nego2||v.contract),0),
+      ...STAGES.map(()=>""), vendors.reduce((s,v)=>s+(v.nego2||v.contract),0)])
+    const wsPay = XLSX.utils.aoa_to_sheet(payRows)
+    wsPay["!cols"] = [{wch:14},{wch:24},{wch:16},...STAGES.map(()=>({wch:14})),{wch:16}]
+    XLSX.utils.book_append_sheet(wb, wsPay, "④ 단계별지급계획")
+
+    XLSX.writeFile(wb, `실행계획서_협력업체비교_${proj.code||proj.name}_${selVer.ver||""}_${new Date().toISOString().slice(0,10)}.xlsx`)
+  }
+
+  const C2 = {navyM:"#185FA5",navyL:"#E6F1FB",green:"#1D9E75",greenL:"#EAF3DE",amber:"#BA7517",amberL:"#FAEEDA",red:"#A32D2D",redL:"#FCEBEB",gray:"#888780",grayL:"#F1EFE8"}
+  const th = (a="left") => ({padding:"9px 12px",textAlign:a,fontSize:12.5,fontWeight:700,color:"#6B7280",background:"#F8FAFC",borderBottom:"2px solid #E5E7EB",whiteSpace:"nowrap"})
+  const td = (a="left",bold=false,color="#374151") => ({padding:"9px 12px",textAlign:a,fontSize:13,fontWeight:bold?700:400,color,borderBottom:"1px solid #F3F4F6"})
+
+  return (
+    <div style={{background:"#fff",borderRadius:14,border:"1px solid #E5E7EB",overflow:"hidden",marginTop:16}}>
+      {/* 워크플로우 헤더 */}
+      <div style={{background:"linear-gradient(135deg,#0C447C,#185FA5)",padding:"16px 20px",color:"#fff",display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:10}}>
+        <div>
+          <div style={{fontSize:16,fontWeight:900,marginBottom:3}}>📋 실행계획서 — 협력업체 비용 비교 · 기안</div>
+          <div style={{fontSize:12.5,opacity:.8}}>공종별 단가 비교 → NEGO → 지급계획 → 엑셀 다운로드</div>
+        </div>
+        <button onClick={downloadCompareExcel}
+          style={{padding:"9px 20px",background:"#34D399",color:"#fff",border:"none",borderRadius:10,fontSize:13.5,fontWeight:800,cursor:"pointer",display:"flex",alignItems:"center",gap:6}}>
+          ⬇ 비교표 엑셀 다운로드
+        </button>
+      </div>
+
+      {/* 탭 */}
+      <div style={{display:"flex",borderBottom:"2px solid #E5E7EB",background:"#F8FAFC"}}>
+        {[["compare","📊 공종별 비교표"],["draft","✏ 비용 편집"],["payment","📅 단계별 지급계획"]].map(([id,label])=>(
+          <button key={id} onClick={()=>setActiveTab(id)}
+            style={{padding:"11px 20px",border:"none",background:"none",fontSize:13.5,fontWeight:700,cursor:"pointer",
+              color:activeTab===id?"#185FA5":"#6B7280",
+              borderBottom:activeTab===id?"3px solid #185FA5":"3px solid transparent",
+              marginBottom:-2,transition:"all .15s"}}>
+            {label}
+          </button>
+        ))}
+      </div>
+
+      <div style={{padding:"16px 20px"}}>
+
+        {/* ── ① 공종별 비교표 ── */}
+        {activeTab==="compare"&&(
+          <div>
+            <div style={{marginBottom:14,padding:"10px 14px",background:"#EEF2FF",borderRadius:10,fontSize:12.5,color:"#312E81",lineHeight:1.7}}>
+              💡 각 공종의 현재 입력 금액과 <strong>유사 프로젝트 실적</strong>을 비교합니다.
+              공종명을 클릭하면 해당 공종 상세 비교가 펼쳐집니다.
+              비교 후 <strong>엑셀 다운로드</strong>하여 기안 자료로 활용하세요.
+            </div>
+
+            {/* 전체 요약 */}
+            <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:10,marginBottom:16}}>
+              {[
+                ["공종 수",vendors.length+"개","#6366F1"],
+                ["원가 합계",fW2(vendors.reduce((s,v)=>s+v.contract,0)),"#185FA5"],
+                ["NEGO 합계",fW2(vendors.reduce((s,v)=>s+(v.nego2||0),0)),"#059669"],
+                ["용역비 대비",proj.serviceFee>0?(vendors.reduce((s,v)=>s+v.contract,0)/proj.serviceFee*100).toFixed(1)+"%":"-","#D97706"],
+              ].map(([l,v,c])=>(
+                <div key={l} style={{background:"#F8FAFC",borderRadius:10,padding:"12px 14px",border:"1px solid #E5E7EB"}}>
+                  <div style={{fontSize:12,color:"#9CA3AF",marginBottom:4}}>{l}</div>
+                  <div style={{fontSize:18,fontWeight:800,color:c}}>{v}</div>
+                </div>
+              ))}
+            </div>
+
+            {/* 공종별 비교 테이블 */}
+            <div style={{overflowX:"auto"}}>
+              <table style={{width:"100%",borderCollapse:"collapse"}}>
+                <thead>
+                  <tr>
+                    <th style={th()}>공종</th>
+                    <th style={th()}>업체명</th>
+                    <th style={th("right")}>연면적(㎡)</th>
+                    <th style={th("right")}>평수</th>
+                    <th style={th("right")}>원가견적</th>
+                    <th style={th("right")}>2차NEGO</th>
+                    <th style={th("right")}>평당단가(원가)</th>
+                    <th style={th("right")}>평당단가(NEGO)</th>
+                    <th style={th("right")}>용역비 대비</th>
+                    <th style={th("center")}>유사실적</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {vendors.map((v,i)=>{
+                    const basis=getAreaBasis(v.cat)
+                    const areaM2 = basis==="대지"?(proj.siteArea||0):(proj.floorArea||0)
+                    const py = basis==="대지"?pyS:basis==="연면적"?pyF:0
+                    const up1 = py>0?v.contract/py:null
+                    const up2 = py>0&&v.nego2?v.nego2/py:null
+                    const hist = getHistoricalData(v.cat)
+                    const avgUp = hist.length>0 ? hist.reduce((s,h)=>s+h.up,0)/hist.length : 0
+                    const diffPct = up1&&avgUp>0 ? ((up1-avgUp)/avgUp*100) : null
+                    const isExpanded = selCatFocus===`${v.cat}_${i}`
+                    return (
+                      <>
+                        <tr key={`${v.cat}_${i}`}
+                          style={{background:i%2===0?"#fff":"#F9FAFB",cursor:"pointer"}}
+                          onClick={()=>setSelCatFocus(isExpanded?null:`${v.cat}_${i}`)}>
+                          <td style={td("left",true,"#185FA5")}>
+                            <span style={{display:"inline-flex",alignItems:"center",gap:5}}>
+                              {v.cat}
+                              {hist.length>0&&<span style={{fontSize:10,background:"#EEF2FF",color:"#6366F1",padding:"1px 5px",borderRadius:5}}>{hist.length}건</span>}
+                            </span>
+                          </td>
+                          <td style={td()}>{v.name||"-"}</td>
+                          <td style={td("right",false,"#9CA3AF")}>{areaM2>0?areaM2.toLocaleString():"-"}</td>
+                          <td style={td("right",false,"#9CA3AF")}>{py>0?Math.round(py).toLocaleString():"-"}</td>
+                          <td style={td("right",true,"#185FA5")}>{v.contract>0?fW2(v.contract):"-"}</td>
+                          <td style={td("right",true,"#059669")}>{v.nego2>0?fW2(v.nego2):"-"}</td>
+                          <td style={td("right")}>
+                            {up1?<div>
+                              <div style={{fontSize:13.5,fontWeight:700}}>{Math.round(up1).toLocaleString()}<span style={{fontSize:10,fontWeight:400}}>원/평</span></div>
+                              {avgUp>0&&diffPct!==null&&<div style={{fontSize:10.5,color:diffPct>20?"#DC2626":diffPct<-20?"#059669":"#6B7280",fontWeight:600}}>
+                                평균대비 {diffPct>0?"+":""}{diffPct.toFixed(0)}%
+                              </div>}
+                            </div>:"-"}
+                          </td>
+                          <td style={td("right",false,"#059669")}>
+                            {up2?<>{Math.round(up2).toLocaleString()}<span style={{fontSize:10}}>원/평</span></>:"-"}
+                          </td>
+                          <td style={td("right")}>
+                            {proj.serviceFee>0?(v.contract/proj.serviceFee*100).toFixed(2)+"%":"-"}
+                          </td>
+                          <td style={td("center")}>
+                            <span style={{fontSize:12,color:"#6366F1",fontWeight:600}}>
+                              {isExpanded?"▲ 접기":hist.length>0?`▼ ${hist.length}건 보기`:"-"}
+                            </span>
+                          </td>
+                        </tr>
+                        {/* 유사 프로젝트 실적 펼침 */}
+                        {isExpanded&&hist.map((h,hi)=>(
+                          <tr key={`hist_${i}_${hi}`} style={{background:"#EEF2FF"}}>
+                            <td style={{...td("left"),paddingLeft:24,fontSize:12,color:"#6B7280"}}>└ 유사실적</td>
+                            <td style={{...td(),fontSize:12,color:"#6366F1"}}>{h.vendorName}</td>
+                            <td style={{...td("right"),fontSize:12,color:"#9CA3AF"}}>{Math.round(h.areaM2).toLocaleString()}</td>
+                            <td style={{...td("right"),fontSize:12,color:"#9CA3AF"}}>{Math.round(h.py).toLocaleString()}</td>
+                            <td style={{...td("right"),fontSize:12}}>{fW2(h.contract)}</td>
+                            <td style={{...td("right"),fontSize:12,color:"#059669"}}>{h.nego2>0?fW2(h.nego2):"-"}</td>
+                            <td style={{...td("right"),fontSize:12,fontWeight:600}}>{h.up>0?Math.round(h.up).toLocaleString()+"원/평":"-"}</td>
+                            <td style={{...td("right"),fontSize:12,color:"#059669"}}>{h.up2>0?Math.round(h.up2).toLocaleString()+"원/평":"-"}</td>
+                            <td style={td("right",false,"#9CA3AF")} colSpan={2}>
+                              <span style={{fontSize:11}}>{h.projCode} {h.projName.slice(0,20)}</span>
+                            </td>
+                          </tr>
+                        ))}
+                      </>
+                    )
+                  })}
+                  {/* 합계 행 */}
+                  <tr style={{background:"#EEF2FF",borderTop:"2px solid #6366F1"}}>
+                    <td style={td("left",true,"#312E81")} colSpan={4}>합계</td>
+                    <td style={td("right",true,"#185FA5")}>{fW2(vendors.reduce((s,v)=>s+v.contract,0))}</td>
+                    <td style={td("right",true,"#059669")}>{fW2(vendors.reduce((s,v)=>s+(v.nego2||0),0))}</td>
+                    <td colSpan={2}/>
+                    <td style={td("right",true,"#D97706")}>
+                      {proj.serviceFee>0?(vendors.reduce((s,v)=>s+v.contract,0)/proj.serviceFee*100).toFixed(1)+"%":"-"}
+                    </td>
+                    <td/>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+        {/* ── ② 비용 편집 ── */}
+        {activeTab==="draft"&&(
+          <div>
+            <div style={{display:"flex",gap:6,marginBottom:12,flexWrap:"wrap",alignItems:"center"}}>
+              {canWrite&&(!editVend
+                ?<button onClick={()=>{setVDraft(selVer.vendors.map(v=>({...v})));setEditVend(true)}}
+                  style={{padding:"8px 16px",background:"#185FA5",color:"#fff",border:"none",borderRadius:9,fontSize:13,fontWeight:700,cursor:"pointer"}}>
+                  ✏ 편집 시작
+                </button>
+                :<>
+                  <button onClick={saveVend}
+                    style={{padding:"8px 16px",background:"#059669",color:"#fff",border:"none",borderRadius:9,fontSize:13,fontWeight:700,cursor:"pointer"}}>✓ 저장</button>
+                  <button onClick={()=>setVDraft(prev=>[...prev,{cat:"",name:"",contract:0,nego1:0,nego2:0}])}
+                    style={{padding:"8px 14px",background:"#EEF2FF",color:"#6366F1",border:"none",borderRadius:9,fontSize:13,fontWeight:700,cursor:"pointer"}}>+ 행 추가</button>
+                  <button onClick={()=>{setEditVend(false);setVDraft(null)}}
+                    style={{padding:"8px 14px",background:"#F3F4F6",color:"#6B7280",border:"none",borderRadius:9,fontSize:13,cursor:"pointer"}}>취소</button>
+                </>
+              )}
+              <div style={{fontSize:12.5,color:"#9CA3AF",marginLeft:"auto"}}>
+                토목·조경·흙막이·지반조사 → 대지면적 | 구조·기계·전기·소방·CG·건축외주 → 연면적 | 친환경·BIM·인테리어 → 1식
+              </div>
+            </div>
+            <div style={{overflowX:"auto"}}>
+              <table style={{width:"100%",borderCollapse:"collapse"}}>
+                <thead><tr>
+                  {["분야","업체명","원가견적(원)","1차NEGO","2차NEGO","면적기준","평당단가(원가)","평당단가(2차)","비율%"].map((h,i)=>(
+                    <th key={h} style={th(i>=2?"right":"left")}>{h}</th>
+                  ))}
+                  {editVend&&<th style={th("center")}>삭제</th>}
+                </tr></thead>
+                <tbody>
+                  {vendors.map((v,i)=>{
+                    const basis=getAreaBasis(v.cat)
+                    const py=basis==="대지"?pyS:basis==="연면적"?pyF:0
+                    const up1=py>0?v.contract/py:null, up2=py>0&&v.nego2?v.nego2/py:null
+                    const bLabel=basis==="대지"?"대지면적":basis==="연면적"?"연면적":"1식"
+                    return <tr key={i} style={{background:i%2===0?"#fff":"#F9FAFB"}}>
+                      <td style={td()}>{editVend?<input value={v.cat} onChange={e=>upd(i,"cat",e.target.value)} style={{padding:"5px 8px",border:"1px solid #E5E7EB",borderRadius:6,fontSize:13,width:90,fontFamily:"inherit"}}/>:<span style={{padding:"2px 8px",background:"#EEF2FF",color:"#185FA5",borderRadius:6,fontSize:12.5,fontWeight:700}}>{v.cat}</span>}</td>
+                      <td style={td()}>{editVend?<input value={v.name} onChange={e=>upd(i,"name",e.target.value)} style={{padding:"5px 8px",border:"1px solid #E5E7EB",borderRadius:6,fontSize:13,width:160,fontFamily:"inherit"}}/>:v.name}</td>
+                      <td style={td("right",true,"#185FA5")}>{editVend?<input type="number" value={v.contract} onChange={e=>upd(i,"contract",e.target.value)} style={{padding:"5px 8px",border:"1px solid #E5E7EB",borderRadius:6,fontSize:13,width:120,textAlign:"right",fontFamily:"inherit"}}/>:fW2(v.contract)}</td>
+                      <td style={td("right",false,"#9CA3AF")}>{editVend?<input type="number" value={v.nego1||0} onChange={e=>upd(i,"nego1",e.target.value)} style={{padding:"5px 8px",border:"1px solid #E5E7EB",borderRadius:6,fontSize:13,width:100,textAlign:"right",fontFamily:"inherit"}}/>:v.nego1?fW2(v.nego1):"-"}</td>
+                      <td style={td("right",true,"#059669")}>{editVend?<input type="number" value={v.nego2||0} onChange={e=>upd(i,"nego2",e.target.value)} style={{padding:"5px 8px",border:"1px solid #6366F1",borderRadius:6,fontSize:13,width:100,textAlign:"right",fontFamily:"inherit"}}/>:v.nego2?fW2(v.nego2):"-"}</td>
+                      <td style={td("center")}><span style={{fontSize:11,padding:"2px 6px",borderRadius:5,background:basis==="대지"?"#FEF3C7":basis==="1식"?"#F3F4F6":"#D1FAE5",color:basis==="대지"?"#D97706":basis==="1식"?"#6B7280":"#059669"}}>{bLabel}</span></td>
+                      <td style={td("right",false,"#185FA5")}>{up1?`${Math.round(up1).toLocaleString()}원/평`:"1식"}</td>
+                      <td style={td("right",false,"#059669")}>{up2?`${Math.round(up2).toLocaleString()}원/평`:"-"}</td>
+                      <td style={td("right")}>{proj.serviceFee>0?(v.contract/proj.serviceFee*100).toFixed(2)+"%":"-"}</td>
+                      {editVend&&<td style={td("center")}><button onClick={()=>setVDraft(prev=>prev.filter((_,ri)=>ri!==i))} style={{padding:"3px 8px",background:"#FEE2E2",color:"#DC2626",border:"none",borderRadius:6,fontSize:12,cursor:"pointer"}}>✕</button></td>}
+                    </tr>
+                  })}
+                  <tr style={{background:"#EEF2FF",borderTop:"2px solid #185FA5"}}>
+                    <td style={td("left",true,"#0C447C")} colSpan={2}>합계</td>
+                    <td style={td("right",true,"#185FA5")}>{fW2(vendors.reduce((s,v)=>s+v.contract,0))}</td>
+                    <td style={td("right",false,"#9CA3AF")}>{fW2(vendors.reduce((s,v)=>s+(v.nego1||0),0))}</td>
+                    <td style={td("right",true,"#059669")}>{fW2(vendors.reduce((s,v)=>s+(v.nego2||0),0))}</td>
+                    <td colSpan={3}/>
+                    <td style={td("right",true,"#D97706")}>{proj.serviceFee>0?(vendors.reduce((s,v)=>s+v.contract,0)/proj.serviceFee*100).toFixed(1)+"%":"-"}</td>
+                    {editVend&&<td/>}
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+        {/* ── ③ 단계별 지급계획 ── */}
+        {activeTab==="payment"&&(
+          <div>
+            <div style={{marginBottom:12,padding:"10px 14px",background:"#FEF3C7",borderRadius:10,fontSize:12.5,color:"#92400E"}}>
+              💡 수주 후 계약체결 → 실행계획서 작성 → 단계별 수금에 맞춰 협력업체 지급 계획을 수립합니다.
+              각 단계별 지급 비율을 조정하고 엑셀로 내보낼 수 있습니다.
+            </div>
+            {(() => {
+              const STAGES = [
+                {id:"plan", label:"제안·계획설계", default:15},
+                {id:"basic", label:"기본설계", default:20},
+                {id:"mid", label:"중간설계", default:20},
+                {id:"exec", label:"실시설계", default:30},
+                {id:"final", label:"준공설계", default:10},
+                {id:"deliver", label:"납품완료", default:5},
+              ]
+              return (
+                <div>
+                  <div style={{display:"flex",gap:8,marginBottom:14,flexWrap:"wrap"}}>
+                    {STAGES.map(s=>(
+                      <div key={s.id} style={{flex:1,minWidth:100,background:"#F8FAFC",borderRadius:9,padding:"10px 12px",border:"1px solid #E5E7EB",textAlign:"center"}}>
+                        <div style={{fontSize:11.5,fontWeight:700,color:"#6366F1",marginBottom:4}}>{s.label}</div>
+                        <div style={{fontSize:16,fontWeight:900,color:"#374151"}}>{s.default}%</div>
+                      </div>
+                    ))}
+                  </div>
+                  <div style={{overflowX:"auto"}}>
+                    <table style={{width:"100%",borderCollapse:"collapse",minWidth:800}}>
+                      <thead>
+                        <tr style={{background:"#F8FAFC"}}>
+                          <th style={th()}>공종</th>
+                          <th style={th()}>업체명</th>
+                          <th style={th("right")}>최종금액(원)</th>
+                          {STAGES.map(s=><th key={s.id} style={th("right")}>{s.label}<br/><span style={{fontSize:10,fontWeight:400,color:"#9CA3AF"}}>{s.default}%</span></th>)}
+                          <th style={th("right")}>합계</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {vendors.map((v,i)=>{
+                          const final = v.nego2||v.contract
+                          return (
+                            <tr key={i} style={{background:i%2===0?"#fff":"#F9FAFB"}}>
+                              <td style={td("left",true,"#185FA5")}>
+                                <span style={{padding:"2px 7px",background:"#EEF2FF",color:"#185FA5",borderRadius:5,fontSize:12}}>{v.cat}</span>
+                              </td>
+                              <td style={td()}>{v.name||"-"}</td>
+                              <td style={td("right",true)}>{fW2(final)}</td>
+                              {STAGES.map(s=><td key={s.id} style={td("right",false,"#374151")}>
+                                {fW2(Math.round(final*s.default/100))}
+                              </td>)}
+                              <td style={td("right",true,"#185FA5")}>{fW2(final)}</td>
+                            </tr>
+                          )
+                        })}
+                        <tr style={{background:"#EEF2FF",borderTop:"2px solid #185FA5"}}>
+                          <td style={td("left",true,"#0C447C")} colSpan={2}>합계</td>
+                          <td style={td("right",true,"#185FA5")}>{fW2(vendors.reduce((s,v)=>s+(v.nego2||v.contract),0))}</td>
+                          {STAGES.map(s=><td key={s.id} style={td("right",true,"#374151")}>
+                            {fW2(vendors.reduce((s2,v)=>s2+Math.round((v.nego2||v.contract)*s.default/100),0))}
+                          </td>)}
+                          <td style={td("right",true,"#185FA5")}>{fW2(vendors.reduce((s,v)=>s+(v.nego2||v.contract),0))}</td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )
+            })()}
+          </div>
+        )}
       </div>
     </div>
   )
