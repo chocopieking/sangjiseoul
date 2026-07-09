@@ -203,6 +203,14 @@ export default function App() {
   })
 
   // ── 앱 상태 (state 먼저 선언 → useEffect에서 setter 참조 가능) ──
+  // ── 모바일 반응형 ──────────────────────────────────────────
+  const [isMobile, setIsMobile] = useState(()=>window.innerWidth<768)
+  const [sideOpen, setSideOpen] = useState(()=>window.innerWidth>=768)
+  useEffect(()=>{
+    const fn=()=>{ const m=window.innerWidth<768; setIsMobile(m); if(m) setSideOpen(false) }
+    window.addEventListener('resize',fn)
+    return ()=>window.removeEventListener('resize',fn)
+  },[])
   const [tab, setTab]             = useState("home")
   const [dbReady, setDbReady]     = useState(!USE_DB)
   const [dbStatus, setDbStatus]   = useState(USE_DB ? "connecting" : "local")
@@ -953,10 +961,15 @@ export default function App() {
       {/* ── 사이드바 레이아웃 ── */}
       <div style={{display:"flex",minHeight:"100vh"}}>
 
+      {/* ── 모바일 오버레이 배경 ── */}
+      {isMobile&&sideOpen&&<div onClick={()=>setSideOpen(false)} style={{position:"fixed",inset:0,background:"rgba(0,0,0,.45)",zIndex:99}}/>}
+
       {/* ── 사이드바 ── */}
-      <div style={{width:220,flexShrink:0,background:"#fff",borderRight:"1px solid #E5E7EB",display:"flex",flexDirection:"column",position:"fixed",top:0,left:0,bottom:0,zIndex:100}}>
+      <div style={{width:220,flexShrink:0,background:"#fff",borderRight:"1px solid #E5E7EB",display:"flex",flexDirection:"column",position:"fixed",top:0,left:0,bottom:0,zIndex:100,
+        transform:(!isMobile||sideOpen)?"translateX(0)":"translateX(-220px)",
+        transition:"transform .25s cubic-bezier(.4,0,.2,1)"}}>
         {/* 로고 */}
-        <div onClick={()=>setTab("analysis")} style={{padding:"22px 20px 18px",cursor:"pointer",borderBottom:"1px solid #F3F4F6"}}>
+        <div onClick={()=>setTabAndClose("analysis")} style={{padding:"22px 20px 18px",cursor:"pointer",borderBottom:"1px solid #F3F4F6"}}>
           <div style={{display:"flex",alignItems:"center",gap:10}}>
             <div style={{width:38,height:38,background:"linear-gradient(135deg,#6366F1,#312E81)",borderRadius:10,display:"flex",alignItems:"center",justifyContent:"center",fontSize:18}}>📐</div>
             <div>
@@ -1043,7 +1056,7 @@ export default function App() {
                 {grpTabs.map(t=>{
                   const active=tab===t.id
                   return (
-                    <button key={t.id} onClick={()=>setTab(t.id)} style={{
+                    <button key={t.id} onClick={()=>setTabAndClose(t.id)} style={{
                       width:"100%",textAlign:"left",padding:"9px 12px",border:"none",borderRadius:9,
                       marginBottom:1,cursor:"pointer",fontSize:13.5,fontWeight:active?700:500,
                       background:active?"#EEF2FF":"transparent",color:active?"#6366F1":"#374151",
@@ -1090,19 +1103,24 @@ export default function App() {
       </div>
 
       {/* ── 메인 콘텐츠 ── */}
-      <div style={{marginLeft:220,flex:1,minWidth:0}}>
+      <div style={{marginLeft:isMobile?0:220,flex:1,minWidth:0,transition:"margin .25s"}}>
         {/* 탑바 */}
-        <div style={{background:"#fff",borderBottom:"1px solid #E5E7EB",padding:"14px 24px",display:"flex",alignItems:"center",justifyContent:"space-between",position:"sticky",top:0,zIndex:90}}>
-          <div>
-            <div style={{fontSize:20,fontWeight:800,color:"#111827",letterSpacing:"-0.03em"}}>
+        <div style={{background:"#fff",borderBottom:"1px solid #E5E7EB",padding:isMobile?"11px 14px":"14px 24px",display:"flex",alignItems:"center",gap:12,position:"sticky",top:0,zIndex:90}}>
+          {/* 모바일 햄버거 */}
+          {isMobile&&<button onClick={()=>setSideOpen(v=>!v)}
+            style={{padding:"6px",background:"none",border:"none",cursor:"pointer",color:"#374151",flexShrink:0,fontSize:22,lineHeight:1,display:"flex",alignItems:"center"}}>
+            ☰
+          </button>}
+          <div style={{flex:1,minWidth:0}}>
+            <div style={{fontSize:isMobile?16:20,fontWeight:800,color:"#111827",letterSpacing:"-0.03em",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
               {TABS.find(t=>t.id===tab)?.label || "대시보드"}
             </div>
-            <div style={{fontSize:12,color:"#6B7280",marginTop:1}}>기준 2026-06-09 · 5월 누계 · 억원(수주:VAT별도 / 매출·지출:VAT포함)</div>
+            {!isMobile&&<div style={{fontSize:12,color:"#6B7280",marginTop:1}}>기준 2026-06-09 · 5월 누계 · 억원(수주:VAT별도 / 매출·지출:VAT포함)</div>}
           </div>
         </div>
 
         {/* 바디 */}
-        <div style={{padding:"20px 24px",maxWidth:1440}}>
+        <div style={{padding:isMobile?"12px 10px":"20px 24px",maxWidth:1440}}>
 
         {tab==="notice"    && (canReadTab("notice") ? <NoticeBoardTab currentUser={currentUser} canWrite={canWrite&&canWriteTab("notice")}/> : <NoPermScreen tabId="notice"/>)}
         {tab==="stats"     && (canReadTab("stats")  ? <StatsTab projects={projects}/> : <NoPermScreen tabId="stats"/>)}
@@ -1223,11 +1241,12 @@ function AnalysisTab({deptStaff,setDeptStaff,years,setYears,canWrite,cashflow,ca
   return (
     <div>
       {/* 상단 탭 */}
-      <div style={{display:"flex",gap:0,marginBottom:16,borderBottom:"2px solid #E5E7EB"}}>
-        {[["dashboard","📊 경영 대시보드"],["total","📈 통합 분석"],["dept","🏢 본부별 분석"]].map(([v,l])=>(
-          <button key={v} onClick={()=>{setAView(v);if(v!=="dashboard")setView(v)}}
+      <div style={{display:"flex",gap:0,marginBottom:16,borderBottom:"2px solid #E5E7EB",overflowX:"auto"}}>
+        {[["dashboard","📊 경영 대시보드"],["total","📈 통합 분석"],["dept","🏢 본부별 분석"],["forecast","🔭 연말 손익 예상"]].map(([v,l])=>(
+          <button key={v} onClick={()=>{setAView(v);if(v!=="dashboard"&&v!=="forecast")setView(v)}}
             style={{padding:"10px 18px",border:"none",background:"none",fontSize:14,fontWeight:aView===v?800:500,cursor:"pointer",
-              color:aView===v?"#6366F1":"#6B7280",borderBottom:aView===v?"3px solid #6366F1":"3px solid transparent",marginBottom:-2}}>
+              color:aView===v?"#6366F1":"#6B7280",borderBottom:aView===v?"3px solid #6366F1":"3px solid transparent",
+              marginBottom:-2,whiteSpace:"nowrap",flexShrink:0}}>
             {l}
           </button>
         ))}
@@ -1247,6 +1266,8 @@ function AnalysisTab({deptStaff,setDeptStaff,years,setYears,canWrite,cashflow,ca
           ))}
         </div>
       )}
+
+      {aView==="forecast" && <YearEndForecast cashItems={cashItems} saleItems={saleItems} contractItems={contractItems} deptBiz={deptBiz} years={years} DEPTS={DEPTS} DEPT_COLORS={DEPT_COLORS}/>}
 
       {/* 경영 대시보드 */}
       {aView==="dashboard" && <AnalysisDashboard projects={projects} cashItems={cashItems} saleItems={saleItems} DEPTS={DEPTS} DEPT_COLORS={DEPT_COLORS} DEPT_BIZ={DEPT_BIZ} deptStaff={deptStaff} years={years} contractItems={contractItems}/>}
@@ -10382,6 +10403,260 @@ function PlanWorkflow({proj, selVer, selVerIdx, pyF, pyS, editVend, setEditVend,
           </div>
         )}
       </div>
+    </div>
+  )
+}
+
+// ══════════════════════════════════════════════════════════════
+// 🔭 연말 손익 예상 분석 리포트
+// ══════════════════════════════════════════════════════════════
+function YearEndForecast({cashItems=[],saleItems=[],contractItems=[],deptBiz={},years=[],DEPTS=[],DEPT_COLORS={}}) {
+  const NOW   = new Date()
+  const YEAR  = NOW.getFullYear()
+  const MONTH = NOW.getMonth() + 1  // 현재 월
+  const REMAINING = 12 - MONTH      // 남은 개월
+
+  // ── 수금 현황 분석 ───────────────────────────────────────────
+  const cashThisYear = cashItems.filter(i => String(i.expectedDate||"").startsWith(YEAR))
+  const cashPaid     = cashThisYear.filter(i => i.paidDate).reduce((s,i)=>s+(i.amount||0),0)
+  const cashConf     = cashThisYear.filter(i => !i.paidDate && i.itemType!=="미정").reduce((s,i)=>s+(i.amount||0),0)
+  const cashUnconf   = cashThisYear.filter(i => i.itemType==="미정").reduce((s,i)=>s+(i.amount||0),0)
+  const cashTotal    = cashPaid + cashConf
+
+  // 월별 수금 실적 (1~MONTH)
+  const cashByMonth  = Array.from({length:12},(_,mi)=>{
+    const m = String(mi+1).padStart(2,"0")
+    const paid = cashItems.filter(i=>i.paidDate?.startsWith(`${YEAR}-${m}`)).reduce((s,i)=>s+(i.amount||0),0)
+    const plan = cashItems.filter(i=>i.expectedDate?.startsWith(`${YEAR}-${m}`)&&!i.paidDate).reduce((s,i)=>s+(i.amount||0),0)
+    return {month:mi+1,paid,plan,total:paid+plan}
+  })
+  const avgMonthly = MONTH > 0 ? cashPaid / MONTH : 0
+  const forecastCash = cashPaid + cashConf + (avgMonthly * REMAINING * 0.7) // 70% 실현율 가정
+
+  // ── 계약 현황 분석 ───────────────────────────────────────────
+  const thisYearContracts = contractItems.filter(i=>String(i.contractYear||"").startsWith(YEAR))
+  const normFee = v => { const n=Math.abs(Number(v)||0); return n>1000?n/1e8:n }
+  const contractDone = thisYearContracts.filter(i=>(i.type||"").includes("계약")).reduce((s,i)=>s+normFee(i.serviceFeeExpect||i.amount||0),0)
+  const contractConf = thisYearContracts.filter(i=>i.type==="확정").reduce((s,i)=>s+normFee(i.serviceFeeExpect||i.amount||0),0)
+  const contractPush = thisYearContracts.filter(i=>i.type==="추진").reduce((s,i)=>s+normFee(i.serviceFeeExpect||i.amount||0),0)
+  const contractTotal= contractDone + contractConf
+
+  // 목표 (years에서 가져오기)
+  const yearTarget = years.find(y=>String(y.yr)===String(YEAR))
+  const targetCash = (yearTarget?.목표매출||0)
+  const targetOrder= (yearTarget?.목표수주||0)
+
+  // ── 지출 현황 ────────────────────────────────────────────────
+  const saleThisYear = saleItems.filter(i=>String(i.date||"").startsWith(YEAR))
+  const expTotal     = saleThisYear.reduce((s,i)=>s+(i.amount||0),0)
+  const avgMonthlyExp= MONTH > 0 ? expTotal / MONTH / 1e8 : 0
+
+  // ── 손익 예상 ────────────────────────────────────────────────
+  const fA = v => v>=1e8?`${(v/1e8).toFixed(2)}억`:v>=1e4?`${(v/1e4).toFixed(0)}만`:"-"
+  const fB = v => typeof v==="number" ? `${v.toFixed(2)}억` : "-"
+
+  const forecastCashAmt = forecastCash / 1e8
+  const forecastExpAmt  = avgMonthlyExp * 12
+  const forecastProfitAmt = forecastCashAmt - forecastExpAmt
+  const profitRate      = forecastCashAmt > 0 ? (forecastProfitAmt/forecastCashAmt*100).toFixed(1) : 0
+
+  // 월별 수금 실현율 계산
+  const realizationMonths = cashByMonth.filter(m=>m.month<=MONTH&&m.total>0)
+  const realizationRate   = realizationMonths.length>0
+    ? realizationMonths.reduce((s,m)=>s+(m.paid/Math.max(m.total,1)),0)/realizationMonths.length*100 : 70
+
+  // ── 본부별 수주 달성률 ────────────────────────────────────────
+  const deptStats = DEPTS.map(dept=>{
+    const db = deptBiz[dept]||{}
+    const done  = (db.orderDone||0)
+    const conf  = (db.orderConfirmed||0)
+    const push  = (db.orderPush||0)
+    const target= (db.orderTarget||0)
+    const rate  = target>0 ? ((done+conf)/target*100).toFixed(0) : 0
+    return {dept, done, conf, push, target, rate}
+  }).filter(d=>d.target>0||d.done>0)
+
+  // 시나리오 3가지
+  const scenarios = [
+    {label:"보수적 (현 기조 유지)", icon:"🔵", color:"#6366F1",
+     cash: cashPaid/1e8 + cashConf/1e8 * 0.6 + avgMonthly/1e8 * REMAINING * 0.5,
+     desc:"확정 수금 60% 실현, 월평균 수금의 50%만 추가 발생"},
+    {label:"기준 (현재 예상)", icon:"🟢", color:"#059669",
+     cash: cashPaid/1e8 + cashConf/1e8 + avgMonthly/1e8 * REMAINING * 0.7,
+     desc:"확정 수금 전부 실현, 월평균 수금의 70% 추가 발생"},
+    {label:"낙관적 (적극 수금)", icon:"🟡", color:"#D97706",
+     cash: cashPaid/1e8 + cashConf/1e8 + cashUnconf/1e8*0.4 + avgMonthly/1e8 * REMAINING,
+     desc:"미확정 40% 추가 실현, 월평균 수금 100% 달성"},
+  ]
+
+  const Card2 = ({title,children,color="#6366F1"}) => (
+    <div style={{background:"#fff",borderRadius:14,border:"1px solid #E5E7EB",overflow:"hidden",marginBottom:14}}>
+      <div style={{padding:"12px 16px",borderBottom:"2px solid "+color,display:"flex",alignItems:"center",gap:8}}>
+        <div style={{width:4,height:20,background:color,borderRadius:2}}/>
+        <div style={{fontSize:14.5,fontWeight:800,color:"#111827"}}>{title}</div>
+      </div>
+      <div style={{padding:"14px 16px"}}>{children}</div>
+    </div>
+  )
+
+  const StatRow = ({label,value,sub,color="#374151",badge}) => (
+    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"8px 0",borderBottom:"1px solid #F3F4F6"}}>
+      <div style={{fontSize:13.5,color:"#6B7280"}}>{label}</div>
+      <div style={{display:"flex",gap:8,alignItems:"center"}}>
+        {badge&&<span style={{fontSize:10.5,padding:"1px 7px",borderRadius:8,background:badge.bg,color:badge.fg,fontWeight:700}}>{badge.text}</span>}
+        <div style={{fontSize:14.5,fontWeight:700,color}}>{value}</div>
+        {sub&&<div style={{fontSize:11.5,color:"#9CA3AF"}}>{sub}</div>}
+      </div>
+    </div>
+  )
+
+  // 수금 달성율 진행바
+  const CashBar = ({label,pct,color,value}) => (
+    <div style={{marginBottom:10}}>
+      <div style={{display:"flex",justifyContent:"space-between",marginBottom:3}}>
+        <span style={{fontSize:12.5,color:"#6B7280"}}>{label}</span>
+        <span style={{fontSize:12.5,fontWeight:700,color}}>{value}</span>
+      </div>
+      <div style={{height:8,background:"#F3F4F6",borderRadius:4,overflow:"hidden"}}>
+        <div style={{height:"100%",width:`${Math.min(pct,100)}%`,background:color,borderRadius:4,transition:"width .5s"}}/>
+      </div>
+    </div>
+  )
+
+  return (
+    <div>
+      {/* 헤더 */}
+      <div style={{background:"linear-gradient(135deg,#312E81,#6366F1)",borderRadius:16,padding:"18px 20px",marginBottom:16,color:"#fff"}}>
+        <div style={{fontSize:17,fontWeight:900,marginBottom:4}}>🔭 {YEAR}년 연말 손익 예상 분석 리포트</div>
+        <div style={{fontSize:12.5,opacity:.8}}>
+          기준: {YEAR}.{MONTH}월 현재 · 잔여 {REMAINING}개월 · 수금 실현율 {realizationRate.toFixed(0)}%
+        </div>
+        <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:10,marginTop:14}}>
+          {[
+            ["실제 수금(YTD)",fA(cashPaid),"#34D399"],
+            ["연말 예상 수금",fB(forecastCashAmt),"#FDE68A"],
+            ["수금 목표",`${targetCash}억`,"#C4B5FD"],
+          ].map(([l,v,c])=>(
+            <div key={l} style={{background:"rgba(255,255,255,.12)",borderRadius:10,padding:"10px 12px",textAlign:"center"}}>
+              <div style={{fontSize:11,opacity:.8,marginBottom:3}}>{l}</div>
+              <div style={{fontSize:16,fontWeight:800,color:c}}>{v}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* 시나리오 3가지 */}
+      <Card2 title="📊 연말 수금 시나리오" color="#6366F1">
+        {scenarios.map((sc,i)=>(
+          <div key={i} style={{padding:"12px 14px",marginBottom:8,borderRadius:10,background:i===1?"#EEF2FF":"#F9FAFB",border:`1.5px solid ${i===1?"#6366F1":"#E5E7EB"}`}}>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:4}}>
+              <div style={{fontSize:13.5,fontWeight:700,color:sc.color}}>{sc.icon} {sc.label}</div>
+              <div style={{fontSize:17,fontWeight:900,color:sc.color}}>{sc.cash.toFixed(2)}억</div>
+            </div>
+            <div style={{fontSize:11.5,color:"#9CA3AF"}}>{sc.desc}</div>
+            {targetCash>0&&(
+              <div style={{marginTop:6}}>
+                <CashBar label="" pct={sc.cash/targetCash*100} color={sc.color} value={`목표 ${(sc.cash/targetCash*100).toFixed(0)}%`}/>
+              </div>
+            )}
+          </div>
+        ))}
+      </Card2>
+
+      {/* 수금 · 지출 현황 */}
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:14}}>
+        <Card2 title="💧 수금 현황" color="#059669">
+          <StatRow label="실제 수금 완료" value={fA(cashPaid)} color="#059669"/>
+          <StatRow label="확정 예정" value={fA(cashConf)} color="#6366F1"/>
+          <StatRow label="미확정" value={fA(cashUnconf)} color="#D97706"
+            badge={{text:"가능성↑",bg:"#FEF3C7",fg:"#D97706"}}/>
+          <div style={{marginTop:10,paddingTop:10,borderTop:"1px solid #E5E7EB"}}>
+            <div style={{fontSize:12,color:"#6B7280",marginBottom:6}}>월평균 수금 실적</div>
+            <div style={{fontSize:18,fontWeight:900,color:"#059669"}}>{(avgMonthly/1e8).toFixed(2)}억/월</div>
+          </div>
+        </Card2>
+        <Card2 title="💸 지출 현황" color="#DC2626">
+          <StatRow label="YTD 지출 합계" value={`${(expTotal/1e8).toFixed(2)}억`} color="#DC2626"/>
+          <StatRow label="월평균 지출" value={`${avgMonthlyExp.toFixed(2)}억`} color="#D97706"/>
+          <StatRow label="연말 추정 지출" value={`${forecastExpAmt.toFixed(2)}억`} color="#374151"/>
+          <div style={{marginTop:10,paddingTop:10,borderTop:"1px solid #E5E7EB"}}>
+            <div style={{fontSize:12,color:"#6B7280",marginBottom:6}}>예상 손익률</div>
+            <div style={{fontSize:18,fontWeight:900,color:Number(profitRate)>=0?"#059669":"#DC2626"}}>
+              {profitRate}%
+            </div>
+          </div>
+        </Card2>
+      </div>
+
+      {/* 계약 수주 현황 */}
+      <Card2 title="📝 계약 수주 현황" color="#185FA5">
+        <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:8,marginBottom:12}}>
+          {[
+            ["계약 완료",`${contractDone.toFixed(2)}억`,"#059669"],
+            ["확정",`${contractConf.toFixed(2)}억`,"#6366F1"],
+            ["추진",`${contractPush.toFixed(2)}억`,"#D97706"],
+            ["합계",`${contractTotal.toFixed(2)}억`,"#185FA5"],
+          ].map(([l,v,c])=>(
+            <div key={l} style={{textAlign:"center",background:"#F8FAFC",borderRadius:9,padding:"10px 6px",border:"1px solid #E5E7EB"}}>
+              <div style={{fontSize:11.5,color:"#9CA3AF",marginBottom:4}}>{l}</div>
+              <div style={{fontSize:14,fontWeight:800,color:c}}>{v}</div>
+            </div>
+          ))}
+        </div>
+        {targetOrder>0&&(
+          <CashBar label={`수주 목표 달성률 (목표: ${targetOrder}억)`} pct={contractTotal/targetOrder*100} color="#185FA5" value={`${(contractTotal/targetOrder*100).toFixed(0)}%`}/>
+        )}
+      </Card2>
+
+      {/* 본부별 달성 현황 */}
+      {deptStats.length>0&&(
+        <Card2 title="🏢 본부별 수주 달성률" color="#7C3AED">
+          {deptStats.map(d=>(
+            <div key={d.dept} style={{marginBottom:12}}>
+              <div style={{display:"flex",justifyContent:"space-between",marginBottom:4}}>
+                <div style={{display:"flex",gap:6,alignItems:"center"}}>
+                  <div style={{width:8,height:8,borderRadius:"50%",background:DEPT_COLORS[d.dept]||"#6366F1"}}/>
+                  <span style={{fontSize:13.5,fontWeight:600,color:"#374151"}}>{d.dept}</span>
+                </div>
+                <div style={{display:"flex",gap:10,alignItems:"center"}}>
+                  <span style={{fontSize:12,color:"#9CA3AF"}}>{d.done+d.conf}억/{d.target}억</span>
+                  <span style={{fontSize:13,fontWeight:800,color:Number(d.rate)>=100?"#059669":Number(d.rate)>=70?"#185FA5":"#D97706"}}>{d.rate}%</span>
+                </div>
+              </div>
+              <div style={{height:7,background:"#F3F4F6",borderRadius:4,overflow:"hidden"}}>
+                <div style={{height:"100%",width:`${Math.min(Number(d.rate),100)}%`,
+                  background:Number(d.rate)>=100?"#059669":Number(d.rate)>=70?"#185FA5":"#D97706",
+                  borderRadius:4,transition:"width .5s"}}/>
+              </div>
+            </div>
+          ))}
+        </Card2>
+      )}
+
+      {/* 종합 의견 */}
+      <Card2 title="📋 종합 분석 의견" color="#374151">
+        <div style={{fontSize:13.5,lineHeight:1.8,color:"#374151"}}>
+          <div style={{marginBottom:8}}>
+            <strong>수금:</strong> {MONTH}월 기준 실제 수금 <strong style={{color:"#059669"}}>{(cashPaid/1e8).toFixed(2)}억원</strong>으로,
+            월평균 <strong>{(avgMonthly/1e8).toFixed(2)}억원</strong> 속도입니다.
+            {targetCash>0 && ` 연간 목표 ${targetCash}억 대비 현재 달성률은 ${(cashPaid/1e8/targetCash*100).toFixed(0)}%입니다.`}
+          </div>
+          <div style={{marginBottom:8}}>
+            <strong>수주:</strong> 계약 완료 <strong style={{color:"#059669"}}>{contractDone.toFixed(2)}억</strong> + 확정 <strong style={{color:"#6366F1"}}>{contractConf.toFixed(2)}억</strong>으로
+            {targetOrder>0&&` 목표 ${targetOrder}억 대비 ${(contractTotal/targetOrder*100).toFixed(0)}% 달성 중입니다.`}
+            {contractPush>0&&` 추진 중 ${contractPush.toFixed(2)}억이 추가 전환 가능합니다.`}
+          </div>
+          <div style={{marginBottom:8}}>
+            <strong>손익:</strong> 현재 기조 유지 시 연말 예상 수금 <strong style={{color:"#6366F1"}}>{forecastCashAmt.toFixed(2)}억</strong>,
+            지출 <strong style={{color:"#DC2626"}}>{forecastExpAmt.toFixed(2)}억</strong>으로
+            예상 손익률 <strong style={{color:Number(profitRate)>=0?"#059669":"#DC2626"}}>{profitRate}%</strong>입니다.
+          </div>
+          <div style={{background:"#FEF3C7",borderRadius:8,padding:"10px 12px",marginTop:10,fontSize:12.5,color:"#92400E"}}>
+            ⚠ 본 리포트는 입력된 월수금계획·계약현황·지출현황 데이터 기반 예측입니다.
+            실제 수금 실현율, 신규 수주 등에 따라 달라질 수 있습니다.
+          </div>
+        </div>
+      </Card2>
     </div>
   )
 }
