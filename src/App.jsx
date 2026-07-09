@@ -76,6 +76,11 @@ const S = {
   lbl:()=>({display:"block",fontSize:13,color:"#6B7280",fontWeight:700,marginBottom:5,letterSpacing:"0.01em"}),
   bdg:(bg,fg)=>({display:"inline-flex",alignItems:"center",padding:"4px 12px",borderRadius:20,fontSize:12.5,fontWeight:700,background:bg,color:fg,letterSpacing:"0.01em"}),
 }
+// 전역 TH 헬퍼 — 테이블 헤더 스타일 (여러 컴포넌트에서 공통 사용)
+const TH = (align="right", color="#6B7280", bg="#F8FAFC") => ({
+  padding:"9px 11px", textAlign:align, fontSize:11.5, fontWeight:700,
+  color, borderBottom:"2px solid #E5E7EB", whiteSpace:"nowrap", background:bg
+})
 
 // ════════════════════════════════════════════════════════════
 // 메인 앱
@@ -1273,7 +1278,7 @@ function AnalysisTab({deptStaff,setDeptStaff,years,setYears,canWrite,cashflow,ca
       {aView==="dashboard" && <AnalysisDashboard projects={projects} cashItems={cashItems} saleItems={saleItems} DEPTS={DEPTS} DEPT_COLORS={DEPT_COLORS} DEPT_BIZ={DEPT_BIZ} deptStaff={deptStaff} years={years} contractItems={contractItems}/>}
 
       {/* 기존 통합/본부별 분석 */}
-      {aView!=="dashboard" && (
+      {aView!=="dashboard" && aView!=="forecast" && (
         <div>
           <div style={{display:"flex",gap:6,marginBottom:14,alignItems:"center",flexWrap:"wrap"}}>
             <div style={{display:"flex",gap:2,background:"var(--color-background-secondary,#f0f0ee)",borderRadius:8,padding:3}}>
