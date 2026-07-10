@@ -49,6 +49,9 @@ export function DataHubTab({
   allData, restoreAllData,
   vendorsDB, setVendorsDB,
   vendorPayments, setVendorPayments,
+  cashItems, setCashItems,
+  saleItems, setSaleItems,
+  contractItems, setContractItems,
 }) {
   const {STAFF_DEPTS,DEPTS,DEPT_COLORS,departments,addDept,renameDept,deleteDept,setDeptColor,setDeptFinance,deptUsage} = useDepts()
   const isAdmin = currentUser.role === "admin"
@@ -111,7 +114,7 @@ export function DataHubTab({
       {section==="ctypes"    && <ContractTypeSection contractTypes={contractTypes||[]} setContractTypes={setContractTypes} canManage={canManage}/>}
       {section==="ptypes"    && <SimpleListSection title="🏢 건물유형 관리" description="프로젝트 개설 시 선택하는 건물 유형 목록입니다." list={projTypes||[]} setList={setProjTypes} canManage={canManage}/>}
       {section==="btypes"    && <SimpleListSection title="📋 수주형태 관리" description="프로젝트 수주형태(외주비 비교 기준) 목록입니다." list={bidTypes||[]} setList={setBidTypes} canManage={canManage}/>}
-      {section==="backup"    && <BackupSection allData={allData} restoreAllData={restoreAllData} isAdmin={isAdmin}/>}
+      {section==="backup"    && <BackupSection allData={allData} restoreAllData={restoreAllData} isAdmin={isAdmin} cashItems={cashItems} setCashItems={setCashItems} saleItems={saleItems} setSaleItems={setSaleItems} contractItems={contractItems} setContractItems={setContractItems}/>}
       {section==="history"   && <VersionHistorySection versions={versions} restoreVersion={restoreVersion} deleteVersion={deleteVersion} saveVersion={saveVersion}
                                     currentUser={currentUser} canManage={canManage} STAFF_DEPTS={STAFF_DEPTS} DEPTS={DEPTS} DEPT_COLORS={DEPT_COLORS}
                                     deptStaff={deptStaff} staffTarget={staffTarget} staffMonthly={staffMonthly} pnlData={pnlData} cashflow={cashflow} years={years}/>}
@@ -1308,10 +1311,28 @@ function ContractTypeSection({contractTypes, setContractTypes, canManage}) {
 }
 
 // ── 데이터 백업·복구 ────────────────────────────────────────────
-function BackupSection({allData, restoreAllData, isAdmin}) {
+function BackupSection({allData, restoreAllData, isAdmin, cashItems=[], setCashItems, saleItems=[], setSaleItems, contractItems=[], setContractItems}) {
   const [msg, setMsg] = useState("")
   const [importing, setImporting] = useState(false)
   const flash = (m,ok=true) => { setMsg({text:m,ok}); setTimeout(()=>setMsg(""),4000) }
+
+  const resetData = (type) => {
+    const labels = {cash:"월수금계획", contract:"계약현황", sale:"지출현황", all:"전체(월수금+계약현황+지출현황)"}
+    if(!window.confirm(`⚠️ ${labels[type]} 데이터를 전체 삭제하시겠습니까?\n\n이 작업은 되돌릴 수 없습니다.`)) return
+    if(type==="cash"||type==="all") {
+      setCashItems&&setCashItems([])
+      try{ localStorage.removeItem("sjs_cash_items") }catch{}
+    }
+    if(type==="contract"||type==="all") {
+      setContractItems&&setContractItems([])
+      try{ localStorage.removeItem("sjs_contract_items") }catch{}
+    }
+    if(type==="sale"||type==="all") {
+      setSaleItems&&setSaleItems([])
+      try{ localStorage.removeItem("sjs_sale_items") }catch{}
+    }
+    flash(`✅ ${labels[type]} 데이터가 삭제됐습니다. 새 데이터를 업로드하세요.`)
+  }
 
   const SJS_KEYS = [
     "sjs_projects","sjs_pnl","sjs_years","sjs_cashflow",
@@ -1360,6 +1381,38 @@ function BackupSection({allData, restoreAllData, isAdmin}) {
 
   return (
     <div>
+      {/* 🔴 데이터 리셋 */}
+      <div style={{...card2, border:"2px solid #DC2626", background:"#FEF2F2", marginBottom:16}}>
+        <div style={{fontSize:15,fontWeight:800,color:"#DC2626",marginBottom:10}}>
+          🗑 경영 데이터 리셋 (월수금·계약현황·지출현황)
+        </div>
+        <div style={{fontSize:13,color:"#7f1d1d",lineHeight:1.7,marginBottom:14}}>
+          기존 데이터를 모두 지우고 새 엑셀을 업로드할 때 사용합니다.<br/>
+          삭제 후 <b>경영분석 → 각 탭의 ⬆ 엑셀 업로드</b>로 새 데이터를 올리세요.
+        </div>
+        {msg && <div style={{marginBottom:10,padding:"8px 12px",borderRadius:8,background:msg.ok?"#D1FAE5":"#FEE2E2",color:msg.ok?"#065F46":"#7f1d1d",fontSize:13,fontWeight:600}}>{msg.text}</div>}
+        <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:10}}>
+          {[
+            ["💧 월수금계획 리셋", "cash",     cashItems?.length||0,    "#0891B2","#E0F7FA"],
+            ["📝 계약현황 리셋",   "contract",  contractItems?.length||0, "#6366F1","#EEF2FF"],
+            ["💸 지출현황 리셋",   "sale",      saleItems?.length||0,     "#D97706","#FEF3C7"],
+            ["⚠️ 전체 리셋",      "all",       (cashItems?.length||0)+(contractItems?.length||0)+(saleItems?.length||0), "#DC2626","#FEE2E2"],
+          ].map(([label, type, count, color, bg])=>(
+            <div key={type} style={{background:bg,borderRadius:10,padding:"12px 14px",border:`1.5px solid ${color}30`}}>
+              <div style={{fontSize:12.5,fontWeight:700,color,marginBottom:4}}>{label}</div>
+              <div style={{fontSize:20,fontWeight:900,color,marginBottom:8}}>{count}<span style={{fontSize:12,fontWeight:400}}>건</span></div>
+              <button onClick={()=>resetData(type)} disabled={count===0&&type!=="all"}
+                style={{width:"100%",padding:"7px",background:count>0||type==="all"?color:"#D1D5DB",color:"#fff",border:"none",borderRadius:7,fontSize:12.5,fontWeight:700,cursor:count>0||type==="all"?"pointer":"not-allowed",opacity:count===0&&type!=="all"?0.5:1}}>
+                {type==="all"?"전체 삭제":"삭제"}
+              </button>
+            </div>
+          ))}
+        </div>
+        <div style={{marginTop:10,fontSize:11.5,color:"#9CA3AF"}}>
+          ⚠ 삭제된 데이터는 복구되지 않습니다. 중요한 데이터는 아래 <b>전체 백업 내보내기</b>를 먼저 실행하세요.
+        </div>
+      </div>
+
       {/* 안내 배너 */}
       <div style={{...card2,background:C2.amberL,border:`1px solid ${C2.amber}44`}}>
         <div style={{fontSize:15,fontWeight:700,color:C2.amber,marginBottom:6}}>💾 데이터 백업·복구 안내</div>

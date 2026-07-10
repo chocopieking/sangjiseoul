@@ -945,7 +945,41 @@ export default function App() {
     {id:"manual",    label:"📚 업무매뉴얼",   group:"설정"},
     {id:"auth_mgmt", label:"🔐 권한관리",     group:"설정"},
   ]
-  const [tabOrder,  setTabOrderRaw]  = useState(()=>{ try{ const s=JSON.parse(localStorage.getItem("sjs_tab_order")||"null"); return Array.isArray(s)&&s.length>0?s:TAB_DEFAULTS }catch{ return TAB_DEFAULTS } })
+  const [tabOrder,  setTabOrderRaw]  = useState(()=>{
+    try{
+      const s=JSON.parse(localStorage.getItem("sjs_tab_order")||"null")
+      if(Array.isArray(s)&&s.length>0){
+        // TAB_DEFAULTS에 있는데 저장된 목록에 없는 탭 자동 추가 (버전 업그레이드 대응)
+        const TAB_IDS_DEFAULT = ["home","analysis","notice","stats","gamify","deptdash","projects","history","calendar","vendors","contract","archive","docvault","staffmgmt","pnl","optimize","datahub","manual","auth_mgmt"]
+        const savedIds = new Set(s.map(t=>t.id))
+        const merged = [...s]
+        const DEFAULT_MAP = {
+          home:{id:"home",label:"🏠 홈",group:"경영"},
+          analysis:{id:"analysis",label:"📊 경영분석",group:"경영"},
+          notice:{id:"notice",label:"📢 공지사항",group:"경영"},
+          stats:{id:"stats",label:"📈 사용 통계",group:"경영"},
+          gamify:{id:"gamify",label:"🎮 포인트·랭킹",group:"경영"},
+          deptdash:{id:"deptdash",label:"🏢 본부별 현황",group:"경영"},
+          projects:{id:"projects",label:"🏗 프로젝트",group:"프로젝트"},
+          history:{id:"history",label:"📜 히스토리",group:"프로젝트"},
+          calendar:{id:"calendar",label:"📅 일정 캘린더",group:"프로젝트"},
+          vendors:{id:"vendors",label:"🤝 협력업체",group:"관리"},
+          contract:{id:"contract",label:"📄 계약서",group:"관리"},
+          archive:{id:"archive",label:"📁 아카이브",group:"관리"},
+          docvault:{id:"docvault",label:"📂 문서보관소",group:"관리"},
+          staffmgmt:{id:"staffmgmt",label:"👤 직원관리",group:"관리"},
+          pnl:{id:"pnl",label:"📉 손익분석",group:"분석"},
+          optimize:{id:"optimize",label:"⚙️ 경영최적화",group:"분석"},
+          datahub:{id:"datahub",label:"🗄️ 데이터관리",group:"설정"},
+          manual:{id:"manual",label:"📚 업무매뉴얼",group:"설정"},
+          auth_mgmt:{id:"auth_mgmt",label:"🔐 권한관리",group:"설정"},
+        }
+        TAB_IDS_DEFAULT.forEach(id=>{ if(!savedIds.has(id)&&DEFAULT_MAP[id]) merged.push(DEFAULT_MAP[id]) })
+        return merged
+      }
+    }catch{}
+    return TAB_DEFAULTS
+  })
   const [tabGroups, setTabGroupsRaw] = useState(()=>{ try{ const s=JSON.parse(localStorage.getItem("sjs_tab_groups")||"null"); return Array.isArray(s)&&s.length>0?s:["경영","프로젝트","관리","분석","설정"] }catch{ return ["경영","프로젝트","관리","분석","설정"] } })
   const [showMenuEdit, setShowMenuEdit] = useState(false)
   const setTabOrder  = v=>{ const n=typeof v==="function"?v(tabOrder):v; try{localStorage.setItem("sjs_tab_order",JSON.stringify(n))}catch{}; setTabOrderRaw(n) }
@@ -1146,7 +1180,7 @@ export default function App() {
         {tab==="deptdash"  && <DeptDashTab projects={projects} vendorPayments={vendorPayments} years={years}/>}
         {tab==="home" && <MobileHub setTab={setTab} tabOrder={tabOrder} currentUser={currentUser} projects={projects} cashItems={cashItems}/>}
         {tab==="analysis"  && (canReadTab("analysis") ? <AnalysisHub deptStaff={deptStaff} setDeptStaff={setDeptStaff} years={years} setYears={setYears} canWrite={canWrite} isAdmin={currentUser?.role==="admin"} cashflow={effectiveCashflow} cashItems={cashItems} setCashItems={setCashItems} saleItems={saleItems} setSaleItems={setSaleItems} contractItems={contractItems} setContractItems={setContractItems} projects={projects} setProjects={setProjects} setTab={setTab} setSelProjId={setSelProjId} setDetailTab={setDetailTab} selProjId={selProjId} selVerIdx={selVerIdx} setSelVerIdx={setSelVerIdx} currentUser={currentUser} yearTargets={yearTargets} setYearTargets={setYearTargets} deptBiz={deptBiz} staffMonthly={staffMonthly} staffTarget={staffTarget} deptStaff={deptStaff}/> : <NoPermScreen tabId="analysis"/>)}
-        {tab==="datahub" && canReadTab("datahub") && <DataHubTab currentUser={currentUser} deptStaff={deptStaff} setDeptStaff={setDeptStaff} staffTarget={staffTarget} setStaffTarget={setStaffTarget} staffMonthly={staffMonthly} setStaffMonthly={setStaffMonthly} pnlData={pnlData} setPnlData={setPnlData} cashflow={cashflow} setCashflow={setCashflow} years={years} setYears={setYears} projects={projects} setProjects={setProjects} setTab={setTab} setSelProjId={setSelProjId} setSelVerIdx={setSelVerIdx} setShowNewProj={setShowNewProj} versions={versions} saveVersion={saveVersion} restoreVersion={restoreVersion} deleteVersion={deleteVersion} contractTypes={contractTypes} setContractTypes={setContractTypes} projTypes={projTypes} setProjTypes={setProjTypes} bidTypes={bidTypes} setBidTypes={setBidTypes} allData={null} restoreAllData={(entries)=>dbSetAll(entries, userEmail.current)} dbStatus={dbStatus} vendorsDB={vendorsDB} setVendorsDB={setVendorsDB} vendorPayments={vendorPayments} setVendorPayments={setVendorPayments}/>}
+        {tab==="datahub" && canReadTab("datahub") && <DataHubTab currentUser={currentUser} deptStaff={deptStaff} setDeptStaff={setDeptStaff} staffTarget={staffTarget} setStaffTarget={setStaffTarget} staffMonthly={staffMonthly} setStaffMonthly={setStaffMonthly} pnlData={pnlData} setPnlData={setPnlData} cashflow={cashflow} setCashflow={setCashflow} years={years} setYears={setYears} projects={projects} setProjects={setProjects} setTab={setTab} setSelProjId={setSelProjId} setSelVerIdx={setSelVerIdx} setShowNewProj={setShowNewProj} versions={versions} saveVersion={saveVersion} restoreVersion={restoreVersion} deleteVersion={deleteVersion} contractTypes={contractTypes} setContractTypes={setContractTypes} projTypes={projTypes} setProjTypes={setProjTypes} bidTypes={bidTypes} setBidTypes={setBidTypes} allData={null} restoreAllData={(entries)=>dbSetAll(entries, userEmail.current)} dbStatus={dbStatus} vendorsDB={vendorsDB} setVendorsDB={setVendorsDB} vendorPayments={vendorPayments} setVendorPayments={setVendorPayments} cashItems={cashItems} setCashItems={setCashItems} saleItems={saleItems} setSaleItems={setSaleItems} contractItems={contractItems} setContractItems={setContractItems}/>}
         {tab==="cashflow" && canReadTab("cashflow") && <CashflowTab cashflow={effectiveCashflow} setCashflow={setCashflow} currentUser={currentUser} projects={projects} setProjects={setProjects} projectCashflowByDept={projectCashflowByDept} cashItems={cashItems} setCashItems={setCashItems} saleItems={saleItems} setSaleItems={setSaleItems} setTab={setTab} setSelProjId={setSelProjId} setDetailTab={setDetailTab} yearTargets={yearTargets} setYearTargets={setYearTargets} deptBiz={deptBiz} deptStaff={deptStaff} staffMonthly={staffMonthly} staffTarget={staffTarget} contractItems={contractItems} setContractItems={setContractItems}/>}
         {tab==="projects" && canReadTab("projects") && <ProjectsTab projects={projects} setProjects={setProjects} selProjId={selProjId} setSelProjId={setSelProjId} selVerIdx={selVerIdx} setSelVerIdx={setSelVerIdx} cmpIds={cmpIds} setCmpIds={setCmpIds} showNewVer={showNewVer} setShowNewVer={setShowNewVer} canWrite={canWrite&&canWriteTab("projects")} contractTypes={contractTypes} currentUser={currentUser} setDetailTab={setDetailTab} detailTab={detailTab} cashItems={cashItems} setCashItems={setCashItems} vendorsDB={vendorsDB} projBaseline={projBaseline} setProjBaseline={setProjBaseline}/>}
         {tab==="vendors" && canReadTab("vendors") && <VendorsTab projects={projects} setProjects={setProjects} vendorsDB={vendorsDB} setVendorsDB={setVendorsDB} vendorPayments={vendorPayments} setVendorPayments={setVendorPayments} canWrite={canWrite&&canWriteTab("vendors")} currentUser={currentUser} setTab={setTab} setSelProjId={setSelProjId} setSelVerIdx={setSelVerIdx}/>}
@@ -1259,11 +1293,14 @@ function AnalysisTab({deptStaff,setDeptStaff,years,setYears,canWrite,cashflow,ca
   return (
     <div>
       {/* 상단 탭 */}
-      <div style={{display:"flex",gap:0,marginBottom:16,borderBottom:"2px solid #E5E7EB",overflowX:"auto"}}>
+      <div style={{display:"flex",gap:0,marginBottom:16,borderBottom:"2px solid #E5E7EB",overflowX:"auto",WebkitOverflowScrolling:"touch"}}>
         {[["dashboard","📊 경영 대시보드"],["total","📈 통합 분석"],["dept","🏢 본부별 분석"],["forecast","🔭 연말 손익 예상"]].map(([v,l])=>(
           <button key={v} onClick={()=>{setAView(v);if(v!=="dashboard"&&v!=="forecast")setView(v)}}
-            style={{padding:"10px 18px",border:"none",background:"none",fontSize:14,fontWeight:aView===v?800:500,cursor:"pointer",
-              color:aView===v?"#6366F1":"#6B7280",borderBottom:aView===v?"3px solid #6366F1":"3px solid transparent",
+            style={{padding:"10px 18px",border:"none",
+              background:v==="forecast"&&aView!==v?"#FEF9C3":"none",
+              fontSize:14,fontWeight:aView===v?800:500,cursor:"pointer",
+              color:aView===v?"#6366F1":v==="forecast"?"#D97706":"#6B7280",
+              borderBottom:aView===v?"3px solid #6366F1":"3px solid transparent",
               marginBottom:-2,whiteSpace:"nowrap",flexShrink:0}}>
             {l}
           </button>
@@ -7137,77 +7174,85 @@ function AnalysisDashboard({projects, cashItems, saleItems, DEPTS, DEPT_COLORS, 
   const totPush   = contractByDept.reduce((s,d)=>s+d.push,0)
   const totSaleConf = saleByDept.reduce((s,d)=>s+d.revConf,0)
   const totSalePush = saleByDept.reduce((s,d)=>s+d.revPush,0)
-  const contractRate = totTarget>0 ? Math.round((totDone+totConf)/totTarget*100) : 0
-  const saleRate     = totSaleTarget>0 ? Math.round(totSale/totSaleTarget*100) : 0
+  const contractRate = totTarget>0&&!isNaN(totDone+totConf) ? Math.round((totDone+totConf)/totTarget*100) : 0
+  const saleRate     = totSaleTarget>0&&totSale>=0 ? Math.round(totSale/totSaleTarget*100) : 0
 
   return (
     <div>
-      {/* 전사 KPI — 묶음 형태 */}
+      {/* 전사 KPI — 현재값 크게, 달성률 부가 표시 */}
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:12,marginBottom:20}}>
 
-        {/* 계약 묶음: 완료 + 확정 + 추진 */}
+        {/* ── 계약현황: 완료(계약) 금액 메인 ── */}
         <div style={{background:"linear-gradient(135deg,#312E81,#6366F1)",borderRadius:14,padding:"18px 20px",color:"#fff"}}>
-          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
-            <div style={{fontSize:14,fontWeight:700,opacity:.85}}>📝 계약현황</div>
-            <div style={{fontSize:22,fontWeight:900}}>{contractRate}%</div>
-          </div>
-          <div style={{marginBottom:8}}>
-            <div style={{display:"flex",justifyContent:"space-between",fontSize:11.5,opacity:.75,marginBottom:3}}>
-              <span>달성률 ({totTarget>0?fA(totTarget):"목표미설정"} 목표)</span>
-              <span>{fA(totDone+totConf)} / {fA(totTarget)}</span>
+          <div style={{fontSize:13,fontWeight:700,opacity:.8,marginBottom:6}}>📝 계약현황</div>
+          {/* 현재값(완료계약) 메인 크게 */}
+          <div style={{fontSize:34,fontWeight:900,letterSpacing:"-0.03em",marginBottom:2}}>{fA(totDone)}</div>
+          <div style={{fontSize:12,opacity:.7,marginBottom:10}}>완료(계약) 기준</div>
+          {/* 달성률 바 */}
+          <div style={{marginBottom:10}}>
+            <div style={{display:"flex",justifyContent:"space-between",fontSize:11.5,opacity:.8,marginBottom:4}}>
+              <span>달성률 {totTarget>0?`(목표 ${fA(totTarget)})`:"(목표 미설정)"}</span>
+              <span style={{fontWeight:800,fontSize:14,color:"#34D399"}}>
+                {totTarget>0 ? `${contractRate}%` : "-"}
+              </span>
             </div>
-            <div style={{height:6,background:"rgba(255,255,255,.2)",borderRadius:3}}>
-              <div style={{height:"100%",background:"#34D399",borderRadius:3,width:`${Math.min(contractRate,100)}%`}}/>
+            <div style={{height:7,background:"rgba(255,255,255,.2)",borderRadius:4}}>
+              <div style={{height:"100%",background:"#34D399",borderRadius:4,width:totTarget>0?`${Math.min(contractRate,100)}%`:"0%"}}/>
             </div>
           </div>
-          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8}}>
-            {[["✅ 완료",fA(totDone),"#34D399"],["📋 확정",fA(totConf),"#A5B4FC"],["🔶 추진",fA(totPush),"#FDE68A"]].map(([l,v,c])=>(
-              <div key={l} style={{background:"rgba(255,255,255,.1)",borderRadius:9,padding:"8px 10px",textAlign:"center"}}>
-                <div style={{fontSize:10,color:c,fontWeight:600,marginBottom:3}}>{l}</div>
-                <div style={{fontSize:14,fontWeight:800,color:"#fff"}}>{v}</div>
+          {/* 완료/확정/추진 3단 */}
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:6}}>
+            {[["✅ 완료",fA(totDone),"#34D399",true],["📋 확정",fA(totConf),"#A5B4FC",false],["🔶 추진",fA(totPush),"#FDE68A",false]].map(([l,v,c,bold])=>(
+              <div key={l} style={{background:"rgba(255,255,255,.12)",borderRadius:8,padding:"8px 6px",textAlign:"center",border:bold?"1.5px solid rgba(255,255,255,.4)":"none"}}>
+                <div style={{fontSize:10,color:c,fontWeight:600,marginBottom:2}}>{l}</div>
+                <div style={{fontSize:bold?15:13,fontWeight:bold?900:600,color:"#fff"}}>{v}</div>
               </div>
             ))}
           </div>
         </div>
 
-        {/* 매출 묶음: 현누계 + 확정 + 미정 */}
+        {/* ── 매출현황: 현누계(입금완료) 메인 크게 ── */}
         <div style={{background:"linear-gradient(135deg,#065F46,#059669)",borderRadius:14,padding:"18px 20px",color:"#fff"}}>
-          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
-            <div style={{fontSize:14,fontWeight:700,opacity:.85}}>💧 매출현황</div>
-            <div style={{fontSize:22,fontWeight:900}}>{saleRate}%</div>
-          </div>
-          <div style={{marginBottom:8}}>
-            <div style={{display:"flex",justifyContent:"space-between",fontSize:11.5,opacity:.75,marginBottom:3}}>
-              <span>달성률 ({totSaleTarget>0?totSaleTarget+"억":"목표미설정"} 목표)</span>
-              <span>{fA(totSale)} / {fA(totSaleTarget)}</span>
+          <div style={{fontSize:13,fontWeight:700,opacity:.8,marginBottom:6}}>💧 매출현황</div>
+          {/* 현누계 메인 크게 */}
+          <div style={{fontSize:34,fontWeight:900,letterSpacing:"-0.03em",marginBottom:2}}>{fA(totSale)}</div>
+          <div style={{fontSize:12,opacity:.7,marginBottom:10}}>현누계 (입금완료) 기준</div>
+          {/* 달성률 바 */}
+          <div style={{marginBottom:10}}>
+            <div style={{display:"flex",justifyContent:"space-between",fontSize:11.5,opacity:.8,marginBottom:4}}>
+              <span>달성률 {totSaleTarget>0?`(목표 ${totSaleTarget}억)`:"(목표 미설정)"}</span>
+              <span style={{fontWeight:800,fontSize:14,color:"#34D399"}}>
+                {totSaleTarget>0 ? `${saleRate}%` : "-"}
+              </span>
             </div>
-            <div style={{height:6,background:"rgba(255,255,255,.2)",borderRadius:3}}>
-              <div style={{height:"100%",background:"#34D399",borderRadius:3,width:`${Math.min(saleRate,100)}%`}}/>
+            <div style={{height:7,background:"rgba(255,255,255,.2)",borderRadius:4}}>
+              <div style={{height:"100%",background:"#34D399",borderRadius:4,width:totSaleTarget>0?`${Math.min(saleRate,100)}%`:"0%"}}/>
             </div>
           </div>
-          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8}}>
-            {[["✅ 현누계",fA(totSale),"#34D399"],["📋 확정",fA(totSaleConf),"#A5B4FC"],["❓ 미정",fA(totSalePush),"#FDE68A"]].map(([l,v,c])=>(
-              <div key={l} style={{background:"rgba(255,255,255,.1)",borderRadius:9,padding:"8px 10px",textAlign:"center"}}>
-                <div style={{fontSize:10,color:c,fontWeight:600,marginBottom:3}}>{l}</div>
-                <div style={{fontSize:14,fontWeight:800,color:"#fff"}}>{v}</div>
+          {/* 현누계/확정/미정 3단 */}
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:6}}>
+            {[["✅ 현누계",fA(totSale),"#34D399",true],["📋 확정",fA(totSaleConf),"#A5B4FC",false],["❓ 미정",fA(totSalePush),"#FDE68A",false]].map(([l,v,c,bold])=>(
+              <div key={l} style={{background:"rgba(255,255,255,.12)",borderRadius:8,padding:"8px 6px",textAlign:"center",border:bold?"1.5px solid rgba(255,255,255,.4)":"none"}}>
+                <div style={{fontSize:10,color:c,fontWeight:600,marginBottom:2}}>{l}</div>
+                <div style={{fontSize:bold?15:13,fontWeight:bold?900:600,color:"#fff"}}>{v}</div>
               </div>
             ))}
           </div>
         </div>
 
-        {/* 지출 + 인원 */}
+        {/* ── 지출 + 인원 ── */}
         <div style={{display:"grid",gridTemplateRows:"1fr 1fr",gap:10}}>
-          <div style={{background:"linear-gradient(135deg,#7C1D1D,#DC2626)",borderRadius:12,padding:"14px 18px",color:"#fff",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-            <div>
-              <div style={{fontSize:12,opacity:.8,marginBottom:4}}>💸 지출 합계</div>
-              <div style={{fontSize:22,fontWeight:800}}>{fA(totExp)}</div>
+          <div style={{background:"linear-gradient(135deg,#7C1D1D,#DC2626)",borderRadius:12,padding:"14px 18px",color:"#fff"}}>
+            <div style={{fontSize:12,opacity:.8,marginBottom:4}}>💸 지출 합계 (현재 기준)</div>
+            <div style={{fontSize:28,fontWeight:900,marginBottom:2}}>{fA(totExp)}</div>
+            <div style={{fontSize:11,opacity:.7}}>
+              {totSale>0 ? `수금 대비 ${Math.round(totExp/totSale*100)}%` : ""}
             </div>
-            <div style={{fontSize:32,opacity:.4}}>📤</div>
           </div>
           <div style={{background:"linear-gradient(135deg,#374151,#6B7280)",borderRadius:12,padding:"14px 18px",color:"#fff",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
             <div>
               <div style={{fontSize:12,opacity:.8,marginBottom:4}}>👥 총 인원</div>
-              <div style={{fontSize:22,fontWeight:800}}>{totalStaff}명</div>
+              <div style={{fontSize:28,fontWeight:800}}>{totalStaff}명</div>
             </div>
             <div style={{fontSize:32,opacity:.4}}>👤</div>
           </div>
@@ -7243,7 +7288,7 @@ function AnalysisDashboard({projects, cashItems, saleItems, DEPTS, DEPT_COLORS, 
                     <td style={tblD("right",false,"#D97706")}>{fA(d.push)}</td>
                     <td style={tblD("right",true,"#312E81")}>{fA(d.done+d.conf+d.push)}</td>
                     <td style={{...tblD("right",true),color:d.rate>=100?"#059669":d.rate>=70?"#D97706":"#DC2626"}}>
-                      {d.rate!=null?d.rate+"%":"-"}
+                      {d.rate!=null&&!isNaN(d.rate)?d.rate+"%":"-"}
                     </td>
                     <td style={tblD("right")}>{d.perCapita>0?fA(d.perCapita):"-"}</td>
                     <td style={tblD("right")}>{d.projects}건</td>
@@ -7304,7 +7349,7 @@ function AnalysisDashboard({projects, cashItems, saleItems, DEPTS, DEPT_COLORS, 
                     <td style={tblD("right",false,"#D97706")}>{fA(d.revPush)}</td>
                     <td style={tblD("right",true,"#312E81","#ECFDF5")}>{fA(d.revCum+d.revConf)}</td>
                     <td style={{...tblD("right",true),color:d.rate>=100?"#059669":d.rate>=70?"#D97706":"#DC2626"}}>
-                      {d.rate!=null?(
+                      {d.rate!=null&&!isNaN(d.rate)?(
                         <div>
                           <div style={{fontSize:14,fontWeight:800}}>{d.rate}%</div>
                           <div style={{fontSize:10,color:"#9CA3AF",fontWeight:400,marginTop:1}}>+확정 {d.rateWithConf??"-"}%</div>
@@ -9180,6 +9225,10 @@ function ContractStatusPage({contractItems=[], setContractItems, DEPTS, DEPT_COL
     setEditId(null); setDraft(null)
   }
   const cancelEdit = () => { setEditId(null); setDraft(null) }
+  const deleteItem = (id) => {
+    if(!window.confirm("이 항목을 삭제하시겠습니까?")) return
+    setContractItems(prev => (prev||[]).filter(i => i.id !== id))
+  }
 
   const goProj = (item) => { if(setTab) setTab("projects") }
 
