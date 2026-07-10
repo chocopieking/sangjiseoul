@@ -1796,31 +1796,31 @@ function CashflowTab({cashflow,setCashflow,currentUser,projects,setProjects,proj
       {/* ══ 월수금계획 탭 ══ */}
       {mainTab==="cash"&&(
         <div>
-          {/* 타이틀 KPI — 월수금(예정) vs 매출목표 */}
-          <div style={{background:"linear-gradient(135deg,#312E81,#6366F1)",borderRadius:16,padding:"22px 28px",marginBottom:20,color:"#fff"}}>
+          {/* 타이틀 KPI — 현누계 메인 표시 */}
+          <div style={{background:"linear-gradient(135deg,#065F46,#059669)",borderRadius:16,padding:"22px 28px",marginBottom:20,color:"#fff"}}>
             <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",flexWrap:"wrap",gap:16}}>
               <div>
-                <div style={{fontSize:13,opacity:.75,marginBottom:4}}>{YEAR}년 월수금(예정) 금액</div>
-                <div style={{fontSize:34,fontWeight:800,marginBottom:6}}>{fAmt(totalCash)}</div>
-                <div style={{display:"flex",gap:10,fontSize:13,flexWrap:"wrap"}}>
-                  <span style={{background:"rgba(255,255,255,.2)",padding:"4px 12px",borderRadius:20}}>현누계 {fAmt(totalPaid)}</span>
-                  <span style={{background:"rgba(255,255,255,.15)",padding:"4px 12px",borderRadius:20}}>기성+확정 {fAmt(totalCash)}</span>
+                <div style={{fontSize:13,opacity:.75,marginBottom:4}}>💧 {YEAR}년 현누계 (입금 완료)</div>
+                <div style={{fontSize:38,fontWeight:900,marginBottom:8,letterSpacing:"-0.03em"}}>{fAmt(totalPaid)}</div>
+                <div style={{display:"flex",gap:8,fontSize:12.5,flexWrap:"wrap"}}>
+                  <span style={{background:"rgba(255,255,255,.2)",padding:"4px 12px",borderRadius:20}}>기성+확정 {fAmt(totalCash)}</span>
                   <span style={{background:"rgba(255,255,255,.1)",padding:"4px 12px",borderRadius:20}}>미정 {fAmt(totalPush)}</span>
                 </div>
               </div>
               <div style={{textAlign:"right"}}>
                 <div style={{fontSize:13,opacity:.75,marginBottom:4}}>{YEAR}년 매출 목표</div>
                 <div style={{fontSize:28,fontWeight:800,marginBottom:8}}>{tSales}억</div>
-                <div style={{background:"rgba(255,255,255,.15)",borderRadius:12,padding:"10px 16px",minWidth:180}}>
+                <div style={{background:"rgba(255,255,255,.15)",borderRadius:12,padding:"12px 16px",minWidth:210}}>
                   <div style={{display:"flex",justifyContent:"space-between",fontSize:12,marginBottom:6}}>
-                    <span>달성률</span>
-                    <span style={{fontWeight:700}}>{pct(totalCash,tSales*1e8)}%</span>
+                    <span>현누계 달성률</span>
+                    <span style={{fontWeight:900,fontSize:16,color:"#34D399"}}>{pct(totalPaid,tSales*1e8)}%</span>
                   </div>
-                  <div style={{height:10,background:"rgba(255,255,255,.2)",borderRadius:5,overflow:"hidden"}}>
-                    <div style={{height:"100%",background:"#34D399",borderRadius:5,width:`${Math.min(pct(totalCash,tSales*1e8),100)}%`}}/>
+                  <div style={{height:10,background:"rgba(255,255,255,.2)",borderRadius:5,overflow:"hidden",marginBottom:6}}>
+                    <div style={{height:"100%",background:"#34D399",borderRadius:5,width:`${Math.min(pct(totalPaid,tSales*1e8),100)}%`,transition:"width .5s"}}/>
                   </div>
-                  <div style={{fontSize:11,opacity:.7,marginTop:5}}>
-                    잔여 {fAmt(Math.max(tSales*1e8-totalCash,0))}
+                  <div style={{display:"flex",justifyContent:"space-between",fontSize:11,opacity:.8}}>
+                    <span>기성+확정 {pct(totalCash,tSales*1e8)}%</span>
+                    <span>잔여 {fAmt(Math.max(tSales*1e8-totalPaid,0))}</span>
                   </div>
                 </div>
               </div>
@@ -7096,7 +7096,8 @@ function AnalysisDashboard({projects, cashItems, saleItems, DEPTS, DEPT_COLORS, 
         return s+(p.serviceFee||0)*(share/100)/1e8
       },0)
       const carryOver = Math.max(0, totalContract - revCum - revConf)
-      const rate  = revTarget > 0 ? Math.round((revCum+revConf)/revTarget*100) : null
+      const rate  = revTarget > 0 ? Math.round(revCum/revTarget*100) : null   // 현누계 기준
+      const rateWithConf = revTarget > 0 ? Math.round((revCum+revConf)/revTarget*100) : null
 
       return {dept, revTarget, revCum, revConf, revPush, rate, staff,
         perCapita:staff>0?(revCum+revConf)/staff:0, carryOver}
@@ -7282,7 +7283,7 @@ function AnalysisDashboard({projects, cashItems, saleItems, DEPTS, DEPT_COLORS, 
           <div style={{overflowX:"auto"}}>
             <table style={{width:"100%",borderCollapse:"collapse"}}>
               <thead><tr>
-                {["본부","목표","현누계","확정","미정","합계(기성+확정)","달성률","인당(기성+확정)","이월잔액"].map((h,i)=>(
+                {["본부","목표","현누계","확정","미정","합계(기성+확정)","달성률(현누계)","인당(기성+확정)","이월잔액"].map((h,i)=>(
                   <th key={i} style={{...tblH,textAlign:i===0?"left":"right",
                     color:i===5?"#312E81":i===6||i===7?"#059669":"#6B7280",
                     background:i===5?"#DCFCE7":i===7?"#D1FAE5":"#F8FAFC"}}>{h}</th>
@@ -7303,7 +7304,12 @@ function AnalysisDashboard({projects, cashItems, saleItems, DEPTS, DEPT_COLORS, 
                     <td style={tblD("right",false,"#D97706")}>{fA(d.revPush)}</td>
                     <td style={tblD("right",true,"#312E81","#ECFDF5")}>{fA(d.revCum+d.revConf)}</td>
                     <td style={{...tblD("right",true),color:d.rate>=100?"#059669":d.rate>=70?"#D97706":"#DC2626"}}>
-                      {d.rate!=null?d.rate+"%":"-"}
+                      {d.rate!=null?(
+                        <div>
+                          <div style={{fontSize:14,fontWeight:800}}>{d.rate}%</div>
+                          <div style={{fontSize:10,color:"#9CA3AF",fontWeight:400,marginTop:1}}>+확정 {d.rateWithConf??"-"}%</div>
+                        </div>
+                      ):"-"}
                     </td>
                     <td style={tblD("right",false,"#059669","#D1FAE5")}>{d.perCapita>0?fA(d.perCapita):"-"}</td>
                     <td style={tblD("right",false,"#6B7280")}>{d.carryOver>0?fA(d.carryOver):"-"}</td>
