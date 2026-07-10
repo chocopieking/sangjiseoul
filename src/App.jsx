@@ -1325,7 +1325,7 @@ function AnalysisTab({deptStaff,setDeptStaff,years,setYears,canWrite,cashflow,ca
       {aView==="forecast" && <YearEndForecast cashItems={cashItems} saleItems={saleItems} contractItems={contractItems} deptBiz={deptBiz} years={years} DEPTS={DEPTS} DEPT_COLORS={DEPT_COLORS}/>}
 
       {/* 경영 대시보드 */}
-      {aView==="dashboard" && <AnalysisDashboard projects={projects} cashItems={cashItems} saleItems={saleItems} DEPTS={DEPTS} DEPT_COLORS={DEPT_COLORS} DEPT_BIZ={DEPT_BIZ} deptStaff={deptStaff} years={years} contractItems={contractItems}/>}
+      {aView==="dashboard" && <AnalysisDashboard projects={projects} cashItems={cashItems} saleItems={saleItems} DEPTS={DEPTS} DEPT_COLORS={DEPT_COLORS} DEPT_BIZ={DEPT_BIZ} deptStaff={deptStaff} years={years} contractItems={contractItems} yearTargets={yearTargets}/>}
 
       {/* 기존 통합/본부별 분석 */}
       {aView!=="dashboard" && aView!=="forecast" && (
@@ -7027,7 +7027,7 @@ function uploadCashExcel(e, type, cashItems, setCashItems, saleItems, setSaleIte
 // ══════════════════════════════════════════════════════════════
 // 📊 경영 대시보드 — 계약·매출·지출 현황
 // ══════════════════════════════════════════════════════════════
-function AnalysisDashboard({projects, cashItems, saleItems, DEPTS, DEPT_COLORS, DEPT_BIZ, deptStaff, years, contractItems=[]}) {
+function AnalysisDashboard({projects, cashItems, saleItems, DEPTS, DEPT_COLORS, DEPT_BIZ, deptStaff, years, contractItems=[], yearTargets={}}) {
   /* ═══════════════════════════════════════════════════════════
    * 단위 규칙 (UNIT RULES) — 절대 변경 금지
    * ───────────────────────────────────────────────────────────
@@ -7047,10 +7047,14 @@ function AnalysisDashboard({projects, cashItems, saleItems, DEPTS, DEPT_COLORS, 
   const {STAFF_DEPTS} = useDepts()
   const now      = new Date()
   const thisYear = String(now.getFullYear())
-  const thisMonth= now.getMonth() + 1  // 1-indexed
+  const thisMonth= now.getMonth() + 1
   const MONTHS   = ["1월","2월","3월","4월","5월","6월","7월","8월","9월","10월","11월","12월"]
 
-  // 전체 인원 = STAFF_DEPTS 기준 (비계약 부서 포함)
+  // ── yearTargets에서 연간 목표 (월수금현황과 동일한 소스) ──
+  const YR_TARGETS = yearTargets[Number(thisYear)] || yearTargets[thisYear] || {salesTarget:145, contractTarget:170}
+  const SALES_TARGET    = (YR_TARGETS.salesTarget    || 0)       // 억원
+  const CONTRACT_TARGET = (YR_TARGETS.contractTarget || 0)       // 억원
+
   const totalStaff = (STAFF_DEPTS||DEPTS).reduce((s,d)=>s+((deptStaff||{})[d]?.total||0), 0)
 
   // ── 계약현황 집계 (contractItems 기반) ──────────────────────
@@ -7160,22 +7164,35 @@ function AnalysisDashboard({projects, cashItems, saleItems, DEPTS, DEPT_COLORS, 
   const totSaleTarget = saleByDept.reduce((s,d)=>s+d.revTarget,0)
   const totExp      = expByDept.reduce((s,d)=>s+d.paid,0)
 
+  // ── 전사 현누계 (월수금현황과 동일: cashItems paidDate 기준) ──
+  const totPaid_YTD = cashItems
+    .filter(i => i.paidDate && String(i.paidDate).startsWith(thisYear))
+    .reduce((s,i) => s + (i.amount||0), 0) / 1e8
+
   // 파이차트 데이터
-  const contractPie = DEPTS.map((d,i)=>({name:d.replace("본부",""),value:+(contractByDept[i].done+contractByDept[i].conf).toFixed(2),color:DEPT_COLORS[d]||"#6B7280"}))
+  const contractPie = DEPTS.map((d,i)=>({name:d.replace("본부",""),value:+(contractByDept[i].done).toFixed(2),color:DEPT_COLORS[d]||"#6B7280"}))
   const salePie     = DEPTS.map((d,i)=>({name:d.replace("본부",""),value:+saleByDept[i].revCum.toFixed(2),color:DEPT_COLORS[d]||"#6B7280"}))
   const expPie      = DEPTS.map((d,i)=>({name:d.replace("본부",""),value:+expByDept[i].paid.toFixed(2),color:DEPT_COLORS[d]||"#6B7280"}))
 
   const tblH = {padding:"10px 12px",textAlign:"left",fontSize:12.5,fontWeight:700,color:"#6B7280",borderBottom:"2px solid #E5E7EB",whiteSpace:"nowrap",background:"#F8FAFC"}
   const tblD = (align="left",bold=false,color="#374151")=>({padding:"10px 12px",textAlign:align,fontSize:13,fontWeight:bold?700:400,color,borderBottom:"1px solid #F3F4F6",whiteSpace:"nowrap"})
 
-  // 계약 추진 합계
-  const totDone   = contractByDept.reduce((s,d)=>s+d.done,0)
+  // 계약·매출 합계
+  const totDone   = contractByDept.reduce((s,d)=>s+d.done,0)  // 계약 완료만
   const totConf   = contractByDept.reduce((s,d)=>s+d.conf,0)
   const totPush   = contractByDept.reduce((s,d)=>s+d.push,0)
   const totSaleConf = saleByDept.reduce((s,d)=>s+d.revConf,0)
   const totSalePush = saleByDept.reduce((s,d)=>s+d.revPush,0)
-  const contractRate = totTarget>0&&!isNaN(totDone+totConf) ? Math.round((totDone+totConf)/totTarget*100) : 0
-  const saleRate     = totSaleTarget>0&&totSale>=0 ? Math.round(totSale/totSaleTarget*100) : 0
+
+  // 목표: yearTargets 우선, 없으면 DEPT_BIZ 합산 폴백
+  const effectiveContractTarget = CONTRACT_TARGET > 0 ? CONTRACT_TARGET
+    : contractByDept.reduce((s,d)=>s+d.target,0)
+  const effectiveSaleTarget     = SALES_TARGET > 0 ? SALES_TARGET
+    : saleByDept.reduce((s,d)=>s+d.revTarget,0)
+
+  // 달성률: 계약완료만 / 현누계(입금완료)만
+  const contractRate = effectiveContractTarget>0 ? Math.round(totDone/effectiveContractTarget*100) : 0
+  const saleRate     = effectiveSaleTarget>0     ? Math.round(totPaid_YTD/effectiveSaleTarget*100) : 0
 
   return (
     <div>
@@ -7185,22 +7202,19 @@ function AnalysisDashboard({projects, cashItems, saleItems, DEPTS, DEPT_COLORS, 
         {/* ── 계약현황: 완료(계약) 금액 메인 ── */}
         <div style={{background:"linear-gradient(135deg,#312E81,#6366F1)",borderRadius:14,padding:"18px 20px",color:"#fff"}}>
           <div style={{fontSize:13,fontWeight:700,opacity:.8,marginBottom:6}}>📝 계약현황</div>
-          {/* 현재값(완료계약) 메인 크게 */}
           <div style={{fontSize:34,fontWeight:900,letterSpacing:"-0.03em",marginBottom:2}}>{fA(totDone)}</div>
-          <div style={{fontSize:12,opacity:.7,marginBottom:10}}>완료(계약) 기준</div>
-          {/* 달성률 바 */}
+          <div style={{fontSize:12,opacity:.7,marginBottom:10}}>계약 완료 기준</div>
           <div style={{marginBottom:10}}>
             <div style={{display:"flex",justifyContent:"space-between",fontSize:11.5,opacity:.8,marginBottom:4}}>
-              <span>달성률 {totTarget>0?`(목표 ${fA(totTarget)})`:"(목표 미설정)"}</span>
+              <span>달성률 {effectiveContractTarget>0?`(목표 ${effectiveContractTarget}억)`:"(목표 미설정)"}</span>
               <span style={{fontWeight:800,fontSize:14,color:"#34D399"}}>
-                {totTarget>0 ? `${contractRate}%` : "-"}
+                {effectiveContractTarget>0 ? `${contractRate}%` : "-"}
               </span>
             </div>
             <div style={{height:7,background:"rgba(255,255,255,.2)",borderRadius:4}}>
-              <div style={{height:"100%",background:"#34D399",borderRadius:4,width:totTarget>0?`${Math.min(contractRate,100)}%`:"0%"}}/>
+              <div style={{height:"100%",background:"#34D399",borderRadius:4,width:effectiveContractTarget>0?`${Math.min(contractRate,100)}%`:"0%"}}/>
             </div>
           </div>
-          {/* 완료/확정/추진 3단 */}
           <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:6}}>
             {[["✅ 완료",fA(totDone),"#34D399",true],["📋 확정",fA(totConf),"#A5B4FC",false],["🔶 추진",fA(totPush),"#FDE68A",false]].map(([l,v,c,bold])=>(
               <div key={l} style={{background:"rgba(255,255,255,.12)",borderRadius:8,padding:"8px 6px",textAlign:"center",border:bold?"1.5px solid rgba(255,255,255,.4)":"none"}}>
@@ -7214,24 +7228,21 @@ function AnalysisDashboard({projects, cashItems, saleItems, DEPTS, DEPT_COLORS, 
         {/* ── 매출현황: 현누계(입금완료) 메인 크게 ── */}
         <div style={{background:"linear-gradient(135deg,#065F46,#059669)",borderRadius:14,padding:"18px 20px",color:"#fff"}}>
           <div style={{fontSize:13,fontWeight:700,opacity:.8,marginBottom:6}}>💧 매출현황</div>
-          {/* 현누계 메인 크게 */}
-          <div style={{fontSize:34,fontWeight:900,letterSpacing:"-0.03em",marginBottom:2}}>{fA(totSale)}</div>
+          <div style={{fontSize:34,fontWeight:900,letterSpacing:"-0.03em",marginBottom:2}}>{fA(totPaid_YTD)}</div>
           <div style={{fontSize:12,opacity:.7,marginBottom:10}}>현누계 (입금완료) 기준</div>
-          {/* 달성률 바 */}
           <div style={{marginBottom:10}}>
             <div style={{display:"flex",justifyContent:"space-between",fontSize:11.5,opacity:.8,marginBottom:4}}>
-              <span>달성률 {totSaleTarget>0?`(목표 ${totSaleTarget}억)`:"(목표 미설정)"}</span>
+              <span>달성률 {effectiveSaleTarget>0?`(목표 ${effectiveSaleTarget}억)`:"(목표 미설정)"}</span>
               <span style={{fontWeight:800,fontSize:14,color:"#34D399"}}>
-                {totSaleTarget>0 ? `${saleRate}%` : "-"}
+                {effectiveSaleTarget>0 ? `${saleRate}%` : "-"}
               </span>
             </div>
             <div style={{height:7,background:"rgba(255,255,255,.2)",borderRadius:4}}>
-              <div style={{height:"100%",background:"#34D399",borderRadius:4,width:totSaleTarget>0?`${Math.min(saleRate,100)}%`:"0%"}}/>
+              <div style={{height:"100%",background:"#34D399",borderRadius:4,width:effectiveSaleTarget>0?`${Math.min(saleRate,100)}%`:"0%"}}/>
             </div>
           </div>
-          {/* 현누계/확정/미정 3단 */}
           <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:6}}>
-            {[["✅ 현누계",fA(totSale),"#34D399",true],["📋 확정",fA(totSaleConf),"#A5B4FC",false],["❓ 미정",fA(totSalePush),"#FDE68A",false]].map(([l,v,c,bold])=>(
+            {[["✅ 현누계",fA(totPaid_YTD),"#34D399",true],["📋 확정",fA(totSaleConf),"#A5B4FC",false],["❓ 미정",fA(totSalePush),"#FDE68A",false]].map(([l,v,c,bold])=>(
               <div key={l} style={{background:"rgba(255,255,255,.12)",borderRadius:8,padding:"8px 6px",textAlign:"center",border:bold?"1.5px solid rgba(255,255,255,.4)":"none"}}>
                 <div style={{fontSize:10,color:c,fontWeight:600,marginBottom:2}}>{l}</div>
                 <div style={{fontSize:bold?15:13,fontWeight:bold?900:600,color:"#fff"}}>{v}</div>
@@ -7246,7 +7257,7 @@ function AnalysisDashboard({projects, cashItems, saleItems, DEPTS, DEPT_COLORS, 
             <div style={{fontSize:12,opacity:.8,marginBottom:4}}>💸 지출 합계 (현재 기준)</div>
             <div style={{fontSize:28,fontWeight:900,marginBottom:2}}>{fA(totExp)}</div>
             <div style={{fontSize:11,opacity:.7}}>
-              {totSale>0 ? `수금 대비 ${Math.round(totExp/totSale*100)}%` : ""}
+              {totPaid_YTD>0 ? `수금 대비 ${Math.round(totExp/totPaid_YTD*100)}%` : ""}
             </div>
           </div>
           <div style={{background:"linear-gradient(135deg,#374151,#6B7280)",borderRadius:12,padding:"14px 18px",color:"#fff",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
