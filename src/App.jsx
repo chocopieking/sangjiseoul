@@ -3216,6 +3216,9 @@ function VendorVersionCompare({versions,proj}) {
 
 function ProjectCashflowCard({proj,setProjects,canWrite}) {
   const plan = proj.cashflowPlan||[]
+  const NOW_C=new Date(); const MONTH=NOW_C.getMonth()+1; const YEAR=NOW_C.getFullYear(); const YR=String(YEAR)
+  const MONTHS=Array.from({length:12},(_,i)=>String(i+1).padStart(2,"0"))
+
   const [editing,setEditing]   = useState(false)
   const [draft,setDraft]       = useState(null)
   const [extraYears,setExtraYears] = useState([])
@@ -9128,6 +9131,13 @@ function ContractStatusPage({contractItems=[], setContractItems, DEPTS, DEPT_COL
   const 확정Sum = sum(확정Items)
   const 추진Sum = sum(추진Items)
   const 합계    = 계약Sum + 확정Sum
+
+  // 구분별 섹션 (SECS) - CashItemsView와 독립적으로 선언
+  const SECS = [
+    {type:"계약", label:"✅ 완료(계약)", color:"#059669", bg:"#F0FDF4", border:"#059669", items:계약Items, sum:계약Sum},
+    {type:"확정", label:"🔵 확정",       color:"#6366F1", bg:"#EEF2FF", border:"#6366F1", items:확정Items, sum:확정Sum},
+    {type:"추진", label:"🟡 추진",       color:"#D97706", bg:"#FFFBEB", border:"#D97706", items:추진Items, sum:추진Sum},
+  ]
 
   // 본부 지분 헬퍼
   const deptShare = (item, dept) => {
