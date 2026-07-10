@@ -81,6 +81,21 @@ const TH = (align="right", color="#6B7280", bg="#F8FAFC") => ({
   padding:"9px 11px", textAlign:align, fontSize:11.5, fontWeight:700,
   color, borderBottom:"2px solid #E5E7EB", whiteSpace:"nowrap", background:bg
 })
+// 전역 TD 헬퍼 — 테이블 셀 스타일
+const TD = (color="#374151", bold=false, bg="transparent") => ({
+  padding:"9px 11px", textAlign:"right", fontSize:12.5,
+  fontWeight:bold?700:400, color, background:bg,
+  borderBottom:"1px solid #F3F4F6", verticalAlign:"middle"
+})
+// 전역 포맷 함수들
+const fA  = v => { const n=Number(v)||0; return n>0?`${(n/1e8).toFixed(2)}억`:n<0?`(${(-n/1e8).toFixed(2)}억)`:"-" }
+const fB  = v => typeof v==="number"?`${v.toFixed(2)}억`:"-"
+const fC  = n => n>0?`${(n/1e8).toFixed(2)}`:n<0?`(${(-n/1e8).toFixed(2)})`:"-"
+const fCa = n => n>0?`${(n/1e8).toFixed(2)}억`:"-"
+const fW2 = v => v>=1e8?`${(v/1e8).toFixed(2)}억`:v>0?`${Math.round(v).toLocaleString()}원`:"-"
+const fP2 = (n,t) => t>0?(n/t*100).toFixed(2)+"%":"-"
+// 전역 INP 함수 — 인라인 input 스타일
+const INP = (err) => ({padding:"8px 10px",border:`1.5px solid ${err?"#EF4444":"#E5E7EB"}`,borderRadius:8,fontSize:13,fontFamily:"inherit",outline:"none",width:"100%",boxSizing:"border-box"})
 
 // ════════════════════════════════════════════════════════════
 // 메인 앱
@@ -806,9 +821,7 @@ export default function App() {
     const ver = proj.versions?.[proj.versions.length-1]
     const vendors = ver?.vendors || []
     const toPy = m => m>0 ? `${(m/3.3058).toFixed(1)}평` : "-"
-    const fW2 = n => n>0 ? n.toLocaleString()+"원" : "-"
-    const fP2 = (n,t) => t>0 ? (n/t*100).toFixed(2)+"%" : "-"
-    const W2 = 9360
+        const W2 = 9360
     const NAVY2="1E3F6E", NAVYL2="D6E4F0", GRAY2="F2F2F2", WHITE2="FFFFFF"
     const BD = {style:BorderStyle.SINGLE,size:6,color:"999999"}
     const BDS = {top:BD,bottom:BD,left:BD,right:BD}
@@ -1569,9 +1582,7 @@ function CashflowTab({cashflow,setCashflow,currentUser,projects,setProjects,proj
     const grandCarry   = projRows.reduce((s,r)=>s+r.carryOver,0)
     const grandCumToNow= projRows.reduce((s,r)=>s+r.cumToNow,0)
 
-    const fC = n => n>0?`${(n/1e8).toFixed(2)}`:n<0?`(${(-n/1e8).toFixed(2)})`:"-"
-    const fCa= n => n>0?`${(n/1e8).toFixed(2)}억`:"-"
-
+    
     return (
       <div>
         <button onClick={goBack} style={{display:"flex",alignItems:"center",gap:6,padding:"8px 16px",background:sc.bg,color:sc.text,border:`1px solid ${sc.border}`,borderRadius:9,fontSize:13.5,fontWeight:700,cursor:"pointer",marginBottom:16}}>
@@ -4548,6 +4559,7 @@ function ContractTab({projects, currentUser}) {
   const [selProjId, setSelProjId] = useState(projects[0]?.id||"")
   const proj = projects.find(p=>p.id===selProjId)
   const noProj = !proj
+  const [contractView, setContractView] = useState("form") // "form" | "checklist"
   const [form, setForm] = useState({
     contractDate:"",
     contractTitle:"",
@@ -4829,10 +4841,18 @@ function ContractTab({projects, currentUser}) {
             style={{padding:"10px 20px",background:"linear-gradient(135deg,#6366F1,#8B5CF6)",color:"#fff",border:"none",borderRadius:10,fontSize:13.5,fontWeight:800,cursor:"pointer",whiteSpace:"nowrap",boxShadow:"0 2px 8px rgba(99,102,241,.3)"}}>
             🤖 계약서 AI 분석
           </button>
+          <button onClick={()=>setContractView(v=>v==="checklist"?"form":"checklist")}
+            style={{padding:"10px 20px",background:contractView==="checklist"?"#DC2626":"linear-gradient(135deg,#DC2626,#EF4444)",color:"#fff",border:"none",borderRadius:10,fontSize:13.5,fontWeight:800,cursor:"pointer",whiteSpace:"nowrap",boxShadow:"0 2px 8px rgba(220,38,38,.3)"}}>
+            {contractView==="checklist"?"✏ 계약서 작성":"✅ 체크리스트 검토"}
+          </button>
         </div>
       </div>
 
-      {/* 계약 기본정보 */}
+      {/* ── 체크리스트 뷰 ── */}
+      {contractView==="checklist" && <ContractChecklist form={form} currentUser={currentUser}/>}
+
+      {/* ── 계약서 작성 뷰 ── */}
+      <div style={{display:contractView!=="checklist"?"block":"none"}}>
       <div style={card2}>
         <div style={{fontSize:16,fontWeight:800,color:"#111827",marginBottom:16}}>1. 계약 기본정보</div>
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14}}>
@@ -4934,10 +4954,271 @@ function ContractTab({projects, currentUser}) {
         />
       )}
     </div>
+    </div>
   )
 }
 
-// ── 🤖 계약서 작성용 AI 분석 모달 (ContractTab 전용) ──────────────────
+// ══════════════════════════════════════════════════════════════
+// ✅ 계약서 체크리스트 검토 시스템
+// ══════════════════════════════════════════════════════════════
+const CONTRACT_CHECKLIST = [
+  {
+    category:"📋 기본 계약 정보",
+    items:[
+      {id:"c1", text:"계약 당사자(갑/을) 명칭, 대표자, 사업자번호, 주소가 모두 기재되어 있는가?", required:true},
+      {id:"c2", text:"계약일자가 명시되어 있는가?", required:true},
+      {id:"c3", text:"용역 범위(설계 단계: 계획/기본/실시설계 등)가 명확히 정의되어 있는가?", required:true},
+      {id:"c4", text:"대지위치, 용도, 규모(층수), 연면적이 기재되어 있는가?", required:true},
+    ]
+  },
+  {
+    category:"💰 계약 금액 및 대가 기준",
+    items:[
+      {id:"c5", text:"계약금액(VAT 별도 표기)이 명확히 기재되어 있는가?", required:true},
+      {id:"c6", text:"건축사 용역의 범위와 대가기준(국토부 고시)을 준수하는가?", required:true},
+      {id:"c7", text:"단계별 대가 지급 비율과 시기가 명시되어 있는가?", required:true},
+      {id:"c8", text:"VAT(부가가치세) 포함 여부가 명시되어 있는가?", required:true},
+      {id:"c9", text:"계약금액 변경 조건(설계변경 등)이 규정되어 있는가?", required:false},
+    ]
+  },
+  {
+    category:"📅 납기 및 업무 범위",
+    items:[
+      {id:"c10", text:"각 설계 단계별 납품 기한이 명시되어 있는가?", required:true},
+      {id:"c11", text:"납품 도서 목록(도면 종류, 수량)이 첨부 또는 기재되어 있는가?", required:false},
+      {id:"c12", text:"설계 변경 시 추가 용역비 청구 조항이 있는가?", required:true},
+      {id:"c13", text:"공동도급(JV) 시 지분율과 분담 업무가 명시되어 있는가?", required:false},
+    ]
+  },
+  {
+    category:"⚖️ 권리·의무 및 법적 사항",
+    items:[
+      {id:"c14", text:"저작권(설계도서) 귀속 조항이 명시되어 있는가?", required:true},
+      {id:"c15", text:"허가 불허 또는 설계 변경 요구 시 책임 한계가 규정되어 있는가?", required:true},
+      {id:"c16", text:"계약 해제·해지 조건 및 절차가 규정되어 있는가?", required:true},
+      {id:"c17", text:"건축사 법적 책임(하자담보) 범위가 명시되어 있는가?", required:false},
+      {id:"c18", text:"분쟁 해결 방법(재판 관할, 조정 등)이 규정되어 있는가?", required:false},
+    ]
+  },
+  {
+    category:"🏗️ 건축사 표준계약서 필수 조항",
+    items:[
+      {id:"c19", text:"건축법 제9조의2 및 건축사법 제19조의3 근거 조항이 포함되어 있는가?", required:true},
+      {id:"c20", text:"건축사 업무 신고 확인서(또는 건축사 자격 명시) 조항이 있는가?", required:true},
+      {id:"c21", text:"공공 발주: 계약예규·국가계약법 준수 여부가 확인되었는가?", required:false},
+      {id:"c22", text:"민간 발주: 갑의 자금 조달 능력 확인 조항 또는 선급금 규정이 있는가?", required:false},
+    ]
+  },
+  {
+    category:"📎 첨부 서류",
+    items:[
+      {id:"c23", text:"설계업무 범위 명세서(업무 내용)가 첨부되어 있는가?", required:false},
+      {id:"c24", text:"인감증명서 첨부 및 서명 날인이 완료되었는가?", required:true},
+      {id:"c25", text:"건축사 업무 신고 확인서가 첨부되어 있는가?", required:true},
+    ]
+  },
+]
+
+function ContractChecklist({form, currentUser}) {
+  const [checks, setChecks] = useState(()=>{
+    const saved = localStorage.getItem("sjs_contract_checklist")
+    return saved ? JSON.parse(saved) : {}
+  })
+  const [notes, setNotes] = useState({})
+  const [uploadedText, setUploadedText] = useState("") // 계약서 텍스트
+  const [aiReview, setAiReview] = useState("")
+  const [aiLoading, setAiLoading] = useState(false)
+  const [activeFile, setActiveFile] = useState(null)
+
+  const allItems = CONTRACT_CHECKLIST.flatMap(c=>c.items)
+  const required = allItems.filter(i=>i.required)
+  const checkedRequired = required.filter(i=>checks[i.id]==="ok")
+  const uncheckedRequired = required.filter(i=>!checks[i.id]||checks[i.id]==="no")
+  const totalChecked = allItems.filter(i=>checks[i.id]==="ok").length
+  const completionRate = Math.round(totalChecked/allItems.length*100)
+  const requiredRate   = Math.round(checkedRequired.length/required.length*100)
+
+  const toggle = (id, val) => {
+    const next = {...checks, [id]: checks[id]===val ? undefined : val}
+    setChecks(next)
+    localStorage.setItem("sjs_contract_checklist", JSON.stringify(next))
+  }
+
+  // AI 계약서 검토
+  const runAIReview = async () => {
+    setAiLoading(true)
+    const unchecked = uncheckedRequired.map(i=>i.text).join("\n")
+    const formSummary = form ? `
+용역명: ${form.contractTitle||"미입력"}
+발주처: ${form.gabName||"미입력"}
+계약금액: ${form.totalFee||"미입력"}
+대지위치: ${form.siteAddr||"미입력"}
+` : ""
+
+    const prompt = `당신은 건축설계 계약 전문가입니다.
+아래 계약서 정보와 미체크 항목을 검토하고, 위험 요소와 개선 사항을 분석해주세요.
+
+## 현재 계약서 정보
+${formSummary}
+
+## 미체크(미확인) 필수 항목
+${unchecked||"없음 (모든 필수항목 확인됨)"}
+
+## 업로드된 계약서 내용 (일부)
+${uploadedText ? uploadedText.slice(0,2000) : "업로드 없음"}
+
+분석 요청:
+1. 누락된 필수 조항의 위험도 평가 (상/중/하)
+2. 계약서에서 발견된 불리한 조항
+3. 추가 권고 사항
+4. 종합 의견
+
+한국어로 간결하게 답변해주세요.`
+
+    try {
+      const res = await fetch("https://api.anthropic.com/v1/messages", {
+        method:"POST", headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({model:"claude-sonnet-4-6",max_tokens:1500,
+          messages:[{role:"user",content:prompt}]})
+      })
+      const data = await res.json()
+      setAiReview(data.content?.[0]?.text||"응답 없음")
+    } catch(e) { setAiReview("AI 검토 오류: "+e.message) }
+    setAiLoading(false)
+  }
+
+  // 계약서 파일 업로드
+  const handleFileUpload = (e) => {
+    const file = e.target.files?.[0]; if(!file) return
+    setActiveFile(file.name)
+    const reader = new FileReader()
+    reader.onload = ev => setUploadedText(ev.target.result?.slice(0,5000)||"")
+    reader.readAsText(file, "utf-8")
+  }
+
+  const INP2 = {padding:"6px 10px",border:"1.5px solid #E5E7EB",borderRadius:7,fontSize:12.5,width:"100%",boxSizing:"border-box",fontFamily:"inherit",outline:"none",background:"#fff"}
+
+  return (
+    <div>
+      {/* 진행률 헤더 */}
+      <div style={{background:"linear-gradient(135deg,#DC2626,#EF4444)",borderRadius:14,padding:"18px 20px",marginBottom:16,color:"#fff",display:"flex",gap:20,flexWrap:"wrap",alignItems:"center"}}>
+        <div style={{flex:1}}>
+          <div style={{fontSize:16,fontWeight:900,marginBottom:4}}>✅ 계약서 체크리스트 검토</div>
+          <div style={{fontSize:12.5,opacity:.8}}>표준계약서 기준 · 필수 {required.length}항목 · 전체 {allItems.length}항목</div>
+        </div>
+        <div style={{display:"flex",gap:14}}>
+          {[["필수 완료",`${checkedRequired.length}/${required.length}`,`${requiredRate}%`,"#FDE68A"],
+            ["전체 달성",`${totalChecked}/${allItems.length}`,`${completionRate}%`,"#A7F3D0"]].map(([l,v,r,c])=>(
+            <div key={l} style={{textAlign:"center",background:"rgba(255,255,255,.15)",borderRadius:10,padding:"10px 16px"}}>
+              <div style={{fontSize:10.5,opacity:.8}}>{l}</div>
+              <div style={{fontSize:18,fontWeight:900,color:c}}>{r}</div>
+              <div style={{fontSize:11,opacity:.7}}>{v}</div>
+            </div>
+          ))}
+        </div>
+        {/* 전체 진행바 */}
+        <div style={{width:"100%",background:"rgba(255,255,255,.2)",borderRadius:4,height:6}}>
+          <div style={{width:`${requiredRate}%`,height:"100%",background:"#FDE68A",borderRadius:4,transition:"width .5s"}}/>
+        </div>
+      </div>
+
+      {/* 계약서 업로드 + AI 검토 */}
+      <div style={{background:"#EEF2FF",borderRadius:12,border:"2px solid #6366F1",padding:"14px 16px",marginBottom:16,display:"flex",gap:10,alignItems:"center",flexWrap:"wrap"}}>
+        <div style={{fontSize:13.5,fontWeight:700,color:"#312E81",flex:1}}>
+          📄 계약서 파일 업로드 후 AI 자동 검토
+          {activeFile&&<span style={{fontSize:12,fontWeight:400,color:"#6366F1",marginLeft:8}}>({activeFile})</span>}
+        </div>
+        <label style={{padding:"7px 14px",background:"#6366F1",color:"#fff",border:"none",borderRadius:9,fontSize:13,fontWeight:700,cursor:"pointer",display:"inline-flex",alignItems:"center",gap:5}}>
+          📎 파일 선택
+          <input type="file" accept=".txt,.pdf,.docx,.hwp" style={{display:"none"}} onChange={handleFileUpload}/>
+        </label>
+        <button onClick={runAIReview} disabled={aiLoading}
+          style={{padding:"7px 18px",background:aiLoading?"#9CA3AF":"#DC2626",color:"#fff",border:"none",borderRadius:9,fontSize:13,fontWeight:700,cursor:"pointer"}}>
+          {aiLoading?"⏳ 검토 중...":"🤖 AI 검토 실행"}
+        </button>
+        <button onClick={()=>{setChecks({});localStorage.removeItem("sjs_contract_checklist")}}
+          style={{padding:"7px 12px",background:"#F3F4F6",color:"#6B7280",border:"none",borderRadius:9,fontSize:12,cursor:"pointer"}}>
+          🔄 초기화
+        </button>
+      </div>
+
+      {/* AI 검토 결과 */}
+      {aiReview&&(
+        <div style={{background:"#fff",borderRadius:12,border:"2px solid #6366F1",padding:"16px 18px",marginBottom:16}}>
+          <div style={{fontSize:14,fontWeight:800,color:"#312E81",marginBottom:10}}>🤖 AI 계약서 검토 결과</div>
+          <div style={{fontSize:13.5,lineHeight:1.8,color:"#374151",whiteSpace:"pre-wrap"}}>{aiReview}</div>
+        </div>
+      )}
+
+      {/* 체크리스트 카테고리별 */}
+      {CONTRACT_CHECKLIST.map(cat=>(
+        <div key={cat.category} style={{background:"#fff",borderRadius:12,border:"1px solid #E5E7EB",marginBottom:12,overflow:"hidden"}}>
+          <div style={{padding:"12px 16px",background:"#F8FAFC",borderBottom:"1px solid #E5E7EB",fontSize:14,fontWeight:800,color:"#111827",display:"flex",justifyContent:"space-between"}}>
+            <span>{cat.category}</span>
+            <span style={{fontSize:12,fontWeight:600,color:"#6B7280"}}>
+              {cat.items.filter(i=>checks[i.id]==="ok").length}/{cat.items.length} 확인
+            </span>
+          </div>
+          <div>
+            {cat.items.map((item,ii)=>{
+              const status = checks[item.id]
+              return (
+                <div key={item.id} style={{padding:"12px 16px",borderBottom:ii<cat.items.length-1?"1px solid #F3F4F6":"none",
+                  background:status==="ok"?"#F0FDF4":status==="no"?"#FEF2F2":status==="na"?"#F9FAFB":"#fff"}}>
+                  <div style={{display:"flex",gap:10,alignItems:"flex-start"}}>
+                    {/* 상태 버튼 */}
+                    <div style={{display:"flex",gap:4,flexShrink:0,marginTop:1}}>
+                      {[["ok","✅","#059669","#D1FAE5"],["no","❌","#DC2626","#FEE2E2"],["na","➖","#9CA3AF","#F3F4F6"]].map(([v,icon,fg,bg])=>(
+                        <button key={v} onClick={()=>toggle(item.id,v)}
+                          style={{width:28,height:28,border:`2px solid ${status===v?fg:"#E5E7EB"}`,borderRadius:7,background:status===v?bg:"#fff",cursor:"pointer",fontSize:13,display:"flex",alignItems:"center",justifyContent:"center",transition:"all .15s"}}>
+                          {icon}
+                        </button>
+                      ))}
+                    </div>
+                    <div style={{flex:1}}>
+                      <div style={{fontSize:13.5,color:"#111827",lineHeight:1.6,marginBottom:status?4:0}}>
+                        {item.required&&<span style={{fontSize:10,background:"#FEE2E2",color:"#DC2626",padding:"1px 5px",borderRadius:5,fontWeight:700,marginRight:5}}>필수</span>}
+                        {item.text}
+                      </div>
+                      {/* 비고 입력 */}
+                      {status&&status!=="na"&&(
+                        <input value={notes[item.id]||""} onChange={e=>setNotes(n=>({...n,[item.id]:e.target.value}))}
+                          placeholder={status==="ok"?"확인 내용 메모...":"미비 사항 메모..."}
+                          style={{...INP2,marginTop:4}}/>
+                      )}
+                    </div>
+                    <div style={{flexShrink:0,fontSize:11.5,fontWeight:700,
+                      color:status==="ok"?"#059669":status==="no"?"#DC2626":status==="na"?"#9CA3AF":"#D1D5DB"}}>
+                      {status==="ok"?"확인":status==="no"?"미비":status==="na"?"해당없음":"미확인"}
+                    </div>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      ))}
+
+      {/* 최종 의견 요약 */}
+      {uncheckedRequired.length>0&&(
+        <div style={{background:"#FEF2F2",borderRadius:12,border:"2px solid #DC2626",padding:"14px 16px",marginBottom:12}}>
+          <div style={{fontSize:14,fontWeight:800,color:"#DC2626",marginBottom:8}}>⚠️ 미확인 필수 항목 ({uncheckedRequired.length}건)</div>
+          {uncheckedRequired.map(i=>(
+            <div key={i.id} style={{fontSize:13,color:"#374151",padding:"4px 0",borderBottom:"1px solid #FEE2E2",display:"flex",gap:8}}>
+              <span style={{color:"#DC2626"}}>•</span>{i.text}
+            </div>
+          ))}
+        </div>
+      )}
+      {requiredRate===100&&(
+        <div style={{background:"#F0FDF4",borderRadius:12,border:"2px solid #059669",padding:"14px 16px",textAlign:"center"}}>
+          <div style={{fontSize:16,fontWeight:900,color:"#059669"}}>✅ 모든 필수 항목 확인 완료!</div>
+          <div style={{fontSize:13,color:"#6B7280",marginTop:4}}>계약서 검토가 완료되었습니다. AI 검토를 추가로 실행하면 더 상세한 분석을 받을 수 있습니다.</div>
+        </div>
+      )}
+    </div>
+  )
+}
 function ContractFormAIFill({currentUser, onApply, onClose}) {
   const [file, setFile] = useState(null)
   const [preview, setPreview] = useState(null)
@@ -5019,7 +5300,6 @@ function ContractFormAIFill({currentUser, onApply, onClose}) {
     }
   }
 
-  const fA = v => v>0 ? `${(Number(v)/1e8).toFixed(2)}억` : "-"
 
   return (
     <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.5)",zIndex:2000,display:"flex",alignItems:"center",justifyContent:"center",padding:20}}
@@ -5193,7 +5473,6 @@ function ProjectHistoryPage({projects, currentUser, cashItems=[]}) {
     return map
   },[allEvts])
 
-  const INP = {padding:"8px 12px",border:"1.5px solid #E5E7EB",borderRadius:9,fontSize:13,fontFamily:"inherit",outline:"none",background:"#fff",width:"100%",boxSizing:"border-box"}
 
   if(!proj) return <div style={{padding:60,textAlign:"center",color:"#9CA3AF"}}>프로젝트를 선택하세요.</div>
 
@@ -5264,22 +5543,22 @@ function ProjectHistoryPage({projects, currentUser, cashItems=[]}) {
           <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:12,marginBottom:12}}>
             <div>
               <label style={{fontSize:12,fontWeight:700,color:"#374151",display:"block",marginBottom:5}}>날짜 *</label>
-              <input type="date" value={addForm.date} onChange={e=>setAddForm(p=>({...p,date:e.target.value}))} style={INP}/>
+              <input type="date" value={addForm.date} onChange={e=>setAddForm(p=>({...p,date:e.target.value}))} style={INP()}/>
             </div>
             <div>
               <label style={{fontSize:12,fontWeight:700,color:"#374151",display:"block",marginBottom:5}}>카테고리</label>
-              <select value={addForm.category} onChange={e=>setAddForm(p=>({...p,category:e.target.value}))} style={INP}>
+              <select value={addForm.category} onChange={e=>setAddForm(p=>({...p,category:e.target.value}))} style={INP()}>
                 {CATEGORIES.map(c=><option key={c} value={c}>{CAT_ICON[c]} {c}</option>)}
               </select>
             </div>
             <div>
               <label style={{fontSize:12,fontWeight:700,color:"#374151",display:"block",marginBottom:5}}>제목 *</label>
-              <input value={addForm.title} onChange={e=>setAddForm(p=>({...p,title:e.target.value}))} placeholder="히스토리 내용" style={INP}/>
+              <input value={addForm.title} onChange={e=>setAddForm(p=>({...p,title:e.target.value}))} placeholder="히스토리 내용" style={INP()}/>
             </div>
           </div>
           <div style={{marginBottom:12}}>
             <label style={{fontSize:12,fontWeight:700,color:"#374151",display:"block",marginBottom:5}}>메모</label>
-            <input value={addForm.memo} onChange={e=>setAddForm(p=>({...p,memo:e.target.value}))} placeholder="상세 내용 (선택)" style={INP}/>
+            <input value={addForm.memo} onChange={e=>setAddForm(p=>({...p,memo:e.target.value}))} placeholder="상세 내용 (선택)" style={INP()}/>
           </div>
           <button onClick={addHistory}
             style={{padding:"9px 22px",background:"#6366F1",color:"#fff",border:"none",borderRadius:9,fontSize:14,fontWeight:700,cursor:"pointer"}}>
@@ -5793,7 +6072,6 @@ function DeptDashTab({projects, vendorPayments, years}) {
   const totalContract = deptStats.reduce((s,d)=>s+d.contract,0)
   const totalCash     = deptStats.reduce((s,d)=>s+d.cashActual,0)
 
-  const fA = v => v>0 ? `${(v/1e8).toFixed(2)}억` : "-"
 
   return (
     <div>
@@ -6105,7 +6383,6 @@ function CashItemsView({cashItems, setCashItems, projects, setProjects, DEPTS, c
 
   const ORDER_COLOR = {민간:"#6366F1", 공공:"#059669", 해외:"#D97706"}
   const TYPE_COLOR  = {신규:"#D97706", 기성:"#6B7280", 정산:"#4F46E5", 세금계산서:"#059669", 확정:"#6366F1", 추진:"#D97706", 미정:"#9CA3AF", 선급금:"#0891B2", 어음:"#7C3AED"}
-  const INP = {padding:"8px 11px",border:"1.5px solid #E5E7EB",borderRadius:9,fontSize:13.5,fontFamily:"inherit",outline:"none",width:"100%",boxSizing:"border-box"}
 
   const goToProj = (item) => {
     const proj = findMatchedProj(item.projectName)
@@ -6138,16 +6415,16 @@ function CashItemsView({cashItems, setCashItems, projects, setProjects, DEPTS, c
           ))}
         </div>
         {/* 필터 */}
-        <select value={filterDept} onChange={e=>setFilterDept(e.target.value)} style={{...INP,width:120,padding:"6px 10px",fontSize:12.5}}>
+        <select value={filterDept} onChange={e=>setFilterDept(e.target.value)} style={{...INP(),width:120,padding:"6px 10px",fontSize:12.5}}>
           <option value="">전체 본부</option>
           {DEPTS.map(d=><option key={d} value={d}>{d}</option>)}
         </select>
-        <select value={filterType} onChange={e=>setFilterType(e.target.value)} style={{...INP,width:100,padding:"6px 10px",fontSize:12.5}}>
+        <select value={filterType} onChange={e=>setFilterType(e.target.value)} style={{...INP(),width:100,padding:"6px 10px",fontSize:12.5}}>
           <option value="">전체 구분</option>
           {(isSale?["세금계산서","선급금"]:["기성","확정","미정","추진","신규","정산","선급금","어음"]).map(t=><option key={t} value={t}>{t}</option>)}
         </select>
         {/* 정렬 */}
-        <select value={sortBy} onChange={e=>setSortBy(e.target.value)} style={{...INP,width:110,padding:"6px 10px",fontSize:12.5}}>
+        <select value={sortBy} onChange={e=>setSortBy(e.target.value)} style={{...INP(),width:110,padding:"6px 10px",fontSize:12.5}}>
           <option value="date">날짜순</option>
           <option value="project">프로젝트순</option>
           <option value="dept">본부순</option>
@@ -6186,34 +6463,34 @@ function CashItemsView({cashItems, setCashItems, projects, setProjects, DEPTS, c
           <div style={{fontSize:15,fontWeight:800,color:"#6366F1",marginBottom:14}}>{editId?"✏ 수정":"+ 추가"}</div>
           <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:10,marginBottom:10}}>
             <div><label style={{fontSize:12,fontWeight:700,color:"#6B7280",display:"block",marginBottom:4}}>본부 *</label>
-              <select value={form.dept} onChange={e=>u("dept",e.target.value)} style={INP}><option value="">선택</option>{DEPTS.map(d=><option key={d} value={d}>{d}</option>)}</select></div>
+              <select value={form.dept} onChange={e=>u("dept",e.target.value)} style={INP()}><option value="">선택</option>{DEPTS.map(d=><option key={d} value={d}>{d}</option>)}</select></div>
             <div><label style={{fontSize:12,fontWeight:700,color:"#6B7280",display:"block",marginBottom:4}}>발주구분</label>
-              <select value={form.orderType} onChange={e=>u("orderType",e.target.value)} style={INP}>{["민간","공공","해외"].map(t=><option key={t} value={t}>{t}</option>)}</select></div>
+              <select value={form.orderType} onChange={e=>u("orderType",e.target.value)} style={INP()}>{["민간","공공","해외"].map(t=><option key={t} value={t}>{t}</option>)}</select></div>
             <div><label style={{fontSize:12,fontWeight:700,color:"#6B7280",display:"block",marginBottom:4}}>구분</label>
-              <select value={form.itemType} onChange={e=>u("itemType",e.target.value)} style={INP}>
+              <select value={form.itemType} onChange={e=>u("itemType",e.target.value)} style={INP()}>
                 {(isSale?["세금계산서","선급금"]:["기성","확정","미정","추진","신규","정산","선급금","어음"]).map(t=><option key={t} value={t}>{t}</option>)}
               </select></div>
           </div>
           <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:10}}>
             <div><label style={{fontSize:12,fontWeight:700,color:"#6B7280",display:"block",marginBottom:4}}>프로젝트명 *</label>
-              <input list="proj-list-ci" value={form.projectName} onChange={e=>u("projectName",e.target.value)} placeholder="프로젝트명" style={INP}/>
+              <input list="proj-list-ci" value={form.projectName} onChange={e=>u("projectName",e.target.value)} placeholder="프로젝트명" style={INP()}/>
               <datalist id="proj-list-ci">{projNames.map(n=><option key={n} value={n}/>)}</datalist>
               {form.projectName&&!findMatchedProj(form.projectName)&&<div style={{fontSize:11,color:"#D97706",marginTop:3}}>⚠ 프로젝트 목록에 없는 이름 — 유사명 자동매칭 시도됩니다</div>}
             </div>
             <div><label style={{fontSize:12,fontWeight:700,color:"#6B7280",display:"block",marginBottom:4}}>기성단계</label>
-              <input value={form.stage} onChange={e=>u("stage",e.target.value)} placeholder="예: 1차 기성, 준공후" style={INP}/></div>
+              <input value={form.stage} onChange={e=>u("stage",e.target.value)} placeholder="예: 1차 기성, 준공후" style={INP()}/></div>
           </div>
           <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10,marginBottom:10}}>
             <div><label style={{fontSize:12,fontWeight:700,color:"#059669",display:"block",marginBottom:4}}>✅ 입금완료일</label>
-              <input type="date" value={form.paidDate} onChange={e=>u("paidDate",e.target.value)} style={INP}/></div>
+              <input type="date" value={form.paidDate} onChange={e=>u("paidDate",e.target.value)} style={INP()}/></div>
             <div><label style={{fontSize:12,fontWeight:700,color:"#D97706",display:"block",marginBottom:4}}>📅 입금예상일</label>
-              <input type="date" value={form.expectedDate} onChange={e=>u("expectedDate",e.target.value)} style={INP}/></div>
+              <input type="date" value={form.expectedDate} onChange={e=>u("expectedDate",e.target.value)} style={INP()}/></div>
             <div><label style={{fontSize:12,fontWeight:700,color:"#6B7280",display:"block",marginBottom:4}}>금액 (원) *</label>
-              <input type="number" value={form.amount||""} onChange={e=>u("amount",parseInt(e.target.value)||0)} placeholder="예: 3900000" style={INP}/>
+              <input type="number" value={form.amount||""} onChange={e=>u("amount",parseInt(e.target.value)||0)} placeholder="예: 3900000" style={INP()}/>
               {form.amount>0&&<div style={{fontSize:12,color:"#6366F1",marginTop:3}}>= {fAmt(form.amount)}</div>}</div>
           </div>
           <div style={{marginBottom:12}}><label style={{fontSize:12,fontWeight:700,color:"#6B7280",display:"block",marginBottom:4}}>메모</label>
-            <input value={form.memo} onChange={e=>u("memo",e.target.value)} placeholder="추가 메모" style={INP}/></div>
+            <input value={form.memo} onChange={e=>u("memo",e.target.value)} placeholder="추가 메모" style={INP()}/></div>
           <div style={{display:"flex",gap:8}}>
             <button onClick={save} style={{padding:"10px 22px",background:"#6366F1",color:"#fff",border:"none",borderRadius:10,fontSize:14,fontWeight:700,cursor:"pointer"}}>{editId?"수정 저장":"저장"}</button>
             <button onClick={()=>{setShowForm(false);setEditId(null);setForm(EMPTY)}} style={{padding:"10px 16px",background:"#F3F4F6",color:"#374151",border:"none",borderRadius:10,fontSize:14,fontWeight:700,cursor:"pointer"}}>취소</button>
@@ -6847,13 +7124,6 @@ function AnalysisDashboard({projects, cashItems, saleItems, DEPTS, DEPT_COLORS, 
   const salePie     = DEPTS.map((d,i)=>({name:d.replace("본부",""),value:+saleByDept[i].revCum.toFixed(2),color:DEPT_COLORS[d]||"#6B7280"}))
   const expPie      = DEPTS.map((d,i)=>({name:d.replace("본부",""),value:+expByDept[i].paid.toFixed(2),color:DEPT_COLORS[d]||"#6B7280"}))
 
-  const fA = v => {
-    const n = Number(v)||0
-    if(n<=0) return "-"
-    // 1000억 초과는 원 단위로 간주해서 변환 (이중 보정)
-    const x = n > 1000 ? n/1e8 : n
-    return `${x.toFixed(2)}억`
-  }
   const tblH = {padding:"10px 12px",textAlign:"left",fontSize:12.5,fontWeight:700,color:"#6B7280",borderBottom:"2px solid #E5E7EB",whiteSpace:"nowrap",background:"#F8FAFC"}
   const tblD = (align="left",bold=false,color="#374151")=>({padding:"10px 12px",textAlign:align,fontSize:13,fontWeight:bold?700:400,color,borderBottom:"1px solid #F3F4F6",whiteSpace:"nowrap"})
 
@@ -7173,9 +7443,7 @@ function ProjectCashflowDetail({proj, cashItems, setCashItems, DEPTS, DEPT_COLOR
     if(!isNaN(n)&&n>40000&&n<60000){const d=new Date((n-25569)*86400*1000);return `${d.getUTCFullYear()}-${String(d.getUTCMonth()+1).padStart(2,"0")}-${String(d.getUTCDate()).padStart(2,"0")}`}
     return String(s).trim()
   }
-  const fC   = n => n>0?`${(n/1e8).toFixed(2)}`:n<0?`(${(-n/1e8).toFixed(2)})`:"-"
   const fAmt = n => n>=1e8?`${(n/1e8).toFixed(2)}억`:n>=1e4?`${(n/1e4).toFixed(0)}만`:n>0?n.toLocaleString()+"원":"-"
-  const INP  = {padding:"9px 12px",border:"1.5px solid #E5E7EB",borderRadius:9,fontSize:13.5,width:"100%",boxSizing:"border-box",fontFamily:"inherit",outline:"none",background:"#fff"}
 
   // ── 기준일 잔금 상태 ─────────────────────────────────────
   const bl = projBaseline[proj.id] || {}
@@ -7303,12 +7571,12 @@ function ProjectCashflowDetail({proj, cashItems, setCashItems, DEPTS, DEPT_COLOR
           <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:12,marginBottom:12}}>
             <div>
               <label style={{fontSize:12,fontWeight:700,color:"#374151",display:"block",marginBottom:5}}>기준일 *</label>
-              <input type="date" value={blDraft.baseDate||""} onChange={e=>u("baseDate",e.target.value)} style={INP}/>
+              <input type="date" value={blDraft.baseDate||""} onChange={e=>u("baseDate",e.target.value)} style={INP()}/>
             </div>
             <div>
               <label style={{fontSize:12,fontWeight:700,color:"#374151",display:"block",marginBottom:5}}>설계비(용역비) — 억원</label>
               <input type="number" step="0.01" value={blDraft.serviceFee||""} onChange={e=>u("serviceFee",e.target.value)}
-                placeholder={proj.serviceFee>0?(proj.serviceFee/1e8).toFixed(4):""} style={INP}/>
+                placeholder={proj.serviceFee>0?(proj.serviceFee/1e8).toFixed(4):""} style={INP()}/>
               {proj.serviceFee>0&&<div style={{fontSize:11,color:"#6B7280",marginTop:3}}>
                 프로젝트 등록 용역비: {fAmt(proj.serviceFee)}
               </div>}
@@ -7318,7 +7586,7 @@ function ProjectCashflowDetail({proj, cashItems, setCashItems, DEPTS, DEPT_COLOR
                 기수령액 (기준일 이전 누계) — 억원
               </label>
               <input type="number" step="0.01" value={blDraft.prevReceived||""} onChange={e=>u("prevReceived",e.target.value)}
-                placeholder="예: 5.23" style={{...INP,borderColor:"#059669"}}/>
+                placeholder="예: 5.23" style={{...INP(),borderColor:"#059669"}}/>
               {blDraft.serviceFee&&blDraft.prevReceived&&(
                 <div style={{fontSize:12,fontWeight:700,color:"#6366F1",marginTop:4}}>
                   잔금: {(parseFloat(blDraft.serviceFee||0)-parseFloat(blDraft.prevReceived||0)).toFixed(2)}억
@@ -7328,7 +7596,7 @@ function ProjectCashflowDetail({proj, cashItems, setCashItems, DEPTS, DEPT_COLOR
           </div>
           <div style={{marginBottom:12}}>
             <label style={{fontSize:12,fontWeight:700,color:"#374151",display:"block",marginBottom:5}}>메모</label>
-            <input value={blDraft.memo||""} onChange={e=>u("memo",e.target.value)} placeholder="특이사항, 계약조건 등" style={INP}/>
+            <input value={blDraft.memo||""} onChange={e=>u("memo",e.target.value)} placeholder="특이사항, 계약조건 등" style={INP()}/>
           </div>
           <div style={{display:"flex",gap:8}}>
             <button onClick={saveBL} style={{padding:"10px 22px",background:"#6366F1",color:"#fff",border:"none",borderRadius:10,fontSize:14,fontWeight:700,cursor:"pointer"}}>저장</button>
@@ -7590,7 +7858,6 @@ function CashPlanEditor({proj, cashItems, setCashItems}) {
   })
 
   const fAmt = v => v>=1e8?`${(v/1e8).toFixed(2)}억`:v>=1e4?`${Math.round(v/1e4).toLocaleString()}만`:v.toLocaleString()+"원"
-  const INP = {padding:"8px 10px",border:"1.5px solid #E5E7EB",borderRadius:8,fontSize:13,width:"100%",boxSizing:"border-box",fontFamily:"inherit",outline:"none"}
 
   const addPlan = () => {
     if(!form.amount||!form.expectedDate) return alert("금액과 예정일을 입력하세요")
@@ -7706,21 +7973,21 @@ function CashPlanEditor({proj, cashItems, setCashItems}) {
             <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr 1fr",gap:10,marginBottom:10}}>
               <div>
                 <label style={{fontSize:11,fontWeight:700,color:"#059669",display:"block",marginBottom:3}}>설계 단계</label>
-                <select value={form.stage} onChange={e=>setForm(f=>({...f,stage:e.target.value}))} style={INP}>
+                <select value={form.stage} onChange={e=>setForm(f=>({...f,stage:e.target.value}))} style={INP()}>
                   {STAGES.map(s=><option key={s} value={s}>{s}</option>)}
                 </select>
               </div>
               <div>
                 <label style={{fontSize:11,fontWeight:700,color:"#059669",display:"block",marginBottom:3}}>수금 예정일 *</label>
-                <input type="date" value={form.expectedDate} onChange={e=>setForm(f=>({...f,expectedDate:e.target.value}))} style={INP}/>
+                <input type="date" value={form.expectedDate} onChange={e=>setForm(f=>({...f,expectedDate:e.target.value}))} style={INP()}/>
               </div>
               <div>
                 <label style={{fontSize:11,fontWeight:700,color:"#059669",display:"block",marginBottom:3}}>금액(원) *</label>
-                <input type="number" value={form.amount} onChange={e=>setForm(f=>({...f,amount:e.target.value}))} placeholder="100000000" style={INP}/>
+                <input type="number" value={form.amount} onChange={e=>setForm(f=>({...f,amount:e.target.value}))} placeholder="100000000" style={INP()}/>
               </div>
               <div>
                 <label style={{fontSize:11,fontWeight:700,color:"#059669",display:"block",marginBottom:3}}>메모</label>
-                <input value={form.note} onChange={e=>setForm(f=>({...f,note:e.target.value}))} placeholder="기성 1회차 등" style={INP}/>
+                <input value={form.note} onChange={e=>setForm(f=>({...f,note:e.target.value}))} placeholder="기성 1회차 등" style={INP()}/>
               </div>
             </div>
             <div style={{display:"flex",gap:12,alignItems:"center",marginBottom:10}}>
@@ -7731,7 +7998,7 @@ function CashPlanEditor({proj, cashItems, setCashItems}) {
               {form.isPaid&&(
                 <div style={{display:"flex",gap:6,alignItems:"center"}}>
                   <label style={{fontSize:12,fontWeight:600,color:"#059669"}}>수금일:</label>
-                  <input type="date" value={form.paidDate} onChange={e=>setForm(f=>({...f,paidDate:e.target.value}))} style={{...INP,width:150}}/>
+                  <input type="date" value={form.paidDate} onChange={e=>setForm(f=>({...f,paidDate:e.target.value}))} style={{...INP(),width:150}}/>
                 </div>
               )}
             </div>
@@ -7789,11 +8056,11 @@ function AnalysisHub({deptStaff,setDeptStaff,years,setYears,canWrite,isAdmin,cas
 
   return (
     <div>
-      <div style={{display:"flex",gap:0,marginBottom:20,borderBottom:"2px solid #E5E7EB"}}>
+      <div style={{display:"flex",gap:0,marginBottom:20,borderBottom:"2px solid #E5E7EB",overflowX:"auto",WebkitOverflowScrolling:"touch"}}>
         {SUBS.map(t=>(
           <button key={t.id} onClick={()=>setSubTab(t.id)}
-            style={{padding:"10px 18px",border:"none",background:"none",fontSize:13.5,fontWeight:subTab===t.id?800:500,cursor:"pointer",
-              color:subTab===t.id?"#6366F1":"#6B7280",
+            style={{padding:"10px 16px",border:"none",background:"none",fontSize:13,fontWeight:subTab===t.id?800:500,cursor:"pointer",
+              color:subTab===t.id?"#6366F1":"#6B7280",flexShrink:0,
               borderBottom:subTab===t.id?"3px solid #6366F1":"3px solid transparent",marginBottom:-2}}>
             {t.label}
           </button>
@@ -7845,8 +8112,6 @@ function StaffStatusPanel({DEPT_COLORS, deptStaff={}, staffMonthly={}, staffTarg
   const totCurrent = rows.reduce((s,d)=>s+d.current,0)
   const curMonth   = NOW.getMonth()  // 0-indexed
 
-  const TH = (align="right",color="#6B7280",bg="#F8FAFC") => ({padding:"9px 11px",textAlign:align,fontSize:11.5,fontWeight:700,color,borderBottom:"2px solid #E5E7EB",whiteSpace:"nowrap",background:bg})
-  const TD = (color="#374151",bold=false,bg="transparent") => ({padding:"9px 11px",textAlign:"right",fontSize:13,fontWeight:bold?700:400,color,borderBottom:"1px solid #F3F4F6",background:bg})
 
   return (
     <div>
@@ -7923,7 +8188,6 @@ function StaffStatusPanel({DEPT_COLORS, deptStaff={}, staffMonthly={}, staffTarg
 function ProjectContractDetailFull({proj, setProjects, canWrite, projects=[]}) {
   const {DEPTS} = useDepts()
   const fAmt = n => n>=1e8?`${(n/1e8).toFixed(2)}억`:n>=1e4?`${(n/1e4).toFixed(0)}만`:n>0?n.toLocaleString()+"원":"-"
-  const INP  = {padding:"9px 12px",border:"1.5px solid #E5E7EB",borderRadius:9,fontSize:13.5,width:"100%",boxSizing:"border-box",fontFamily:"inherit",outline:"none",background:"#fff"}
 
   const [editing, setEditing]   = useState(false)
   const [draft,   setDraft]     = useState({})
@@ -8046,7 +8310,7 @@ function ProjectContractDetailFull({proj, setProjects, canWrite, projects=[]}) {
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:12}}>
           <div>
             <label style={{fontSize:12,fontWeight:700,color:"#374151",display:"block",marginBottom:5}}>프로젝트 단계</label>
-            <select value={draft.type||""} onChange={e=>u("type",e.target.value)} style={INP}>
+            <select value={draft.type||""} onChange={e=>u("type",e.target.value)} style={INP()}>
               {["추진","확정","계약","완료"].map(t=><option key={t} value={t}>{t}</option>)}
             </select>
           </div>
@@ -8076,16 +8340,16 @@ function ProjectContractDetailFull({proj, setProjects, canWrite, projects=[]}) {
         <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:12}}>
           <div>
             <label style={{fontSize:12,fontWeight:700,color:"#374151",display:"block",marginBottom:5}}>총 설계비(예상) — 원</label>
-            <input type="number" value={draft.totalFee||""} onChange={e=>u("totalFee",parseInt(e.target.value)||0)} style={INP}/>
+            <input type="number" value={draft.totalFee||""} onChange={e=>u("totalFee",parseInt(e.target.value)||0)} style={INP()}/>
             {draft.totalFee>0&&<div style={{fontSize:11,color:"#6366F1",marginTop:3}}>{fAmt(draft.totalFee)}</div>}
           </div>
           <div>
             <label style={{fontSize:12,fontWeight:700,color:"#374151",display:"block",marginBottom:5}}>상지 지분 (%)</label>
-            <input type="number" min={0} max={100} value={Math.round((draft.shareRatio||0)*100)||""} onChange={e=>u("shareRatio",(parseFloat(e.target.value)||0)/100)} style={INP}/>
+            <input type="number" min={0} max={100} value={Math.round((draft.shareRatio||0)*100)||""} onChange={e=>u("shareRatio",(parseFloat(e.target.value)||0)/100)} style={INP()}/>
           </div>
           <div>
             <label style={{fontSize:12,fontWeight:700,color:"#6366F1",display:"block",marginBottom:5}}>용역비(예상) — 원</label>
-            <input type="number" value={draft.serviceFee||""} onChange={e=>u("serviceFee",parseInt(e.target.value)||0)} style={{...INP,borderColor:"#6366F1"}}/>
+            <input type="number" value={draft.serviceFee||""} onChange={e=>u("serviceFee",parseInt(e.target.value)||0)} style={{...INP(),borderColor:"#6366F1"}}/>
             {draft.totalFee>0&&draft.shareRatio>0&&<button onClick={()=>u("serviceFee",Math.round(draft.totalFee*(draft.shareRatio||1)))}
               style={{marginTop:5,padding:"4px 10px",background:"#EEF2FF",color:"#6366F1",border:"none",borderRadius:6,fontSize:11.5,fontWeight:700,cursor:"pointer"}}>
               지분기준 자동계산 ({fAmt(Math.round(draft.totalFee*(draft.shareRatio||1)))})
@@ -8101,12 +8365,12 @@ function ProjectContractDetailFull({proj, setProjects, canWrite, projects=[]}) {
           {[["수행시점(예상)","execDate"],["계약 예상 시점","contractExpect"],["공고일(예정)","announcementDate"],["계약일","contractDate"],["수주일","orderDate"]].map(([label,key])=>(
             <div key={key}>
               <label style={{fontSize:12,fontWeight:700,color:"#374151",display:"block",marginBottom:5}}>{label}</label>
-              <input type="date" value={draft[key]||""} onChange={e=>u(key,e.target.value)} style={INP}/>
+              <input type="date" value={draft[key]||""} onChange={e=>u(key,e.target.value)} style={INP()}/>
             </div>
           ))}
           <div>
             <label style={{fontSize:12,fontWeight:700,color:"#374151",display:"block",marginBottom:5}}>발주구분</label>
-            <select value={draft.orderType||"공공"} onChange={e=>u("orderType",e.target.value)} style={INP}>
+            <select value={draft.orderType||"공공"} onChange={e=>u("orderType",e.target.value)} style={INP()}>
               {["공공","민간","해외"].map(t=><option key={t} value={t}>{t}</option>)}
             </select>
           </div>
@@ -8127,7 +8391,7 @@ function ProjectContractDetailFull({proj, setProjects, canWrite, projects=[]}) {
         <div style={{display:"flex",gap:8}}>
           <input value={newBT} onChange={e=>setNewBT(e.target.value)} placeholder="새 수주형태 추가..."
             onKeyDown={e=>e.key==="Enter"&&newBT.trim()&&(setBidTypes(p=>[...p,newBT.trim()]),setNewBT(""))}
-            style={{...INP,flex:1}}/>
+            style={{...INP(),flex:1}}/>
           <button onClick={()=>newBT.trim()&&(setBidTypes(p=>[...p,newBT.trim()]),setNewBT(""))}
             style={{padding:"9px 14px",background:"#6366F1",color:"#fff",border:"none",borderRadius:9,fontSize:13,fontWeight:700,cursor:"pointer"}}>추가</button>
           {draft.bidType&&<button onClick={()=>{setBidTypes(p=>p.filter(b=>b!==draft.bidType));u("bidType","")}}
@@ -8140,7 +8404,7 @@ function ProjectContractDetailFull({proj, setProjects, canWrite, projects=[]}) {
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
           <div style={{fontSize:13,fontWeight:800,color:"#374151"}}>컨소시엄 구성</div>
           <div style={{display:"flex",gap:8,alignItems:"center"}}>
-            <select value={draft.jvType||"단독이행"} onChange={e=>u("jvType",e.target.value)} style={{...INP,width:"auto",padding:"7px 10px"}}>
+            <select value={draft.jvType||"단독이행"} onChange={e=>u("jvType",e.target.value)} style={{...INP(),width:"auto",padding:"7px 10px"}}>
               {["단독이행","공동이행","분리이행"].map(t=><option key={t} value={t}>{t}</option>)}
             </select>
             <button onClick={()=>u("jvMembers",[...(draft.jvMembers||[]),{name:"",ratio:0,amount:0,role:""}])}
@@ -8149,10 +8413,10 @@ function ProjectContractDetailFull({proj, setProjects, canWrite, projects=[]}) {
         </div>
         {(draft.jvMembers||[]).map((m,mi)=>(
           <div key={mi} style={{display:"grid",gridTemplateColumns:"2fr 1fr 1fr 1fr auto",gap:8,marginBottom:8}}>
-            <input value={m.name} onChange={e=>{const jv=[...draft.jvMembers];jv[mi]={...m,name:e.target.value};u("jvMembers",jv)}} placeholder="회사명" style={INP}/>
-            <input type="number" value={m.ratio||""} onChange={e=>{const jv=[...draft.jvMembers];jv[mi]={...m,ratio:parseFloat(e.target.value)||0};u("jvMembers",jv)}} placeholder="지분%" style={INP}/>
-            <input type="number" value={m.amount||""} onChange={e=>{const jv=[...draft.jvMembers];jv[mi]={...m,amount:parseFloat(e.target.value)||0};u("jvMembers",jv)}} placeholder="금액(억)" style={INP}/>
-            <select value={m.role||"분담이행"} onChange={e=>{const jv=[...draft.jvMembers];jv[mi]={...m,role:e.target.value};u("jvMembers",jv)}} style={{...INP,padding:"7px 8px"}}>
+            <input value={m.name} onChange={e=>{const jv=[...draft.jvMembers];jv[mi]={...m,name:e.target.value};u("jvMembers",jv)}} placeholder="회사명" style={INP()}/>
+            <input type="number" value={m.ratio||""} onChange={e=>{const jv=[...draft.jvMembers];jv[mi]={...m,ratio:parseFloat(e.target.value)||0};u("jvMembers",jv)}} placeholder="지분%" style={INP()}/>
+            <input type="number" value={m.amount||""} onChange={e=>{const jv=[...draft.jvMembers];jv[mi]={...m,amount:parseFloat(e.target.value)||0};u("jvMembers",jv)}} placeholder="금액(억)" style={INP()}/>
+            <select value={m.role||"분담이행"} onChange={e=>{const jv=[...draft.jvMembers];jv[mi]={...m,role:e.target.value};u("jvMembers",jv)}} style={{...INP(),padding:"7px 8px"}}>
                   {["주관사","부관사","분담이행","특수목적법인"].map(r=><option key={r} value={r}>{r}</option>)}
                 </select>
             <button onClick={()=>u("jvMembers",draft.jvMembers.filter((_,i2)=>i2!==mi))}
@@ -8166,11 +8430,11 @@ function ProjectContractDetailFull({proj, setProjects, canWrite, projects=[]}) {
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
           <div>
             <label style={{fontSize:12,fontWeight:700,color:"#374151",display:"block",marginBottom:5}}>비고</label>
-            <textarea value={draft.note||""} onChange={e=>u("note",e.target.value)} rows={3} style={{...INP,resize:"vertical"}}/>
+            <textarea value={draft.note||""} onChange={e=>u("note",e.target.value)} rows={3} style={{...INP(),resize:"vertical"}}/>
           </div>
           <div>
             <label style={{fontSize:12,fontWeight:700,color:"#374151",display:"block",marginBottom:5}}>메모</label>
-            <textarea value={draft.memo||""} onChange={e=>u("memo",e.target.value)} rows={3} style={{...INP,resize:"vertical"}}/>
+            <textarea value={draft.memo||""} onChange={e=>u("memo",e.target.value)} rows={3} style={{...INP(),resize:"vertical"}}/>
           </div>
         </div>
       </div>
@@ -8284,13 +8548,6 @@ function BulkInputTool({DEPTS, projects, onSave, onClose}) {
     if(window.confirm(`${valid.length}건을 저장하시겠습니까?`)) onSave(valid)
   }
 
-  const INP = (err) => ({
-    padding:"5px 7px", border:`1.5px solid ${err?"#DC2626":"#475569"}`,
-    borderRadius:6, fontSize:12.5, fontFamily:"inherit", outline:"none",
-    width:"100%", boxSizing:"border-box",
-    background: err?"#4A1E1E":"#334155",
-    color:"#F1F5F9",
-  })
 
   const fPreview = n => {
     const num = parseInt(String(n).replace(/[^0-9]/g,''))
@@ -8502,46 +8759,45 @@ function useToast() { return React.useContext(ToastCtx) }
 // ══════════════════════════════════════════════════════════════
 function InlineEditForm({form, setForm, DEPTS, projNames, isSale, onSave, onCancel}) {
   const u = (k,v) => setForm(p=>({...p,[k]:v}))
-  const INP = {padding:"7px 10px",border:"1.5px solid #C7D2FE",borderRadius:8,fontSize:13,fontFamily:"inherit",outline:"none",background:"#fff",width:"100%",boxSizing:"border-box"}
   const ITEM_TYPES = isSale ? ["세금계산서","선급금"] : ["기성","확정","미정","추진","신규","정산","선급금","어음"]
 
   return (
     <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr 1fr 1fr 1fr 1fr 1fr auto",gap:8,alignItems:"end"}}>
       <div>
         <div style={{fontSize:11,color:"#6366F1",fontWeight:700,marginBottom:3}}>본부</div>
-        <select value={form.dept||""} onChange={e=>u("dept",e.target.value)} style={INP}>
+        <select value={form.dept||""} onChange={e=>u("dept",e.target.value)} style={INP()}>
           <option value="">선택</option>
           {DEPTS.map(d=><option key={d} value={d}>{d}</option>)}
         </select>
       </div>
       <div>
         <div style={{fontSize:11,color:"#6366F1",fontWeight:700,marginBottom:3}}>발주구분</div>
-        <select value={form.orderType||"민간"} onChange={e=>u("orderType",e.target.value)} style={INP}>
+        <select value={form.orderType||"민간"} onChange={e=>u("orderType",e.target.value)} style={INP()}>
           {["민간","공공","해외"].map(t=><option key={t} value={t}>{t}</option>)}
         </select>
       </div>
       <div>
         <div style={{fontSize:11,color:"#6366F1",fontWeight:700,marginBottom:3}}>구분</div>
-        <select value={form.itemType||""} onChange={e=>u("itemType",e.target.value)} style={INP}>
+        <select value={form.itemType||""} onChange={e=>u("itemType",e.target.value)} style={INP()}>
           {ITEM_TYPES.map(t=><option key={t} value={t}>{t}</option>)}
         </select>
       </div>
       <div style={{gridColumn:"span 2"}}>
         <div style={{fontSize:11,color:"#6366F1",fontWeight:700,marginBottom:3}}>프로젝트명</div>
-        <input list="inline-proj-list" value={form.projectName||""} onChange={e=>u("projectName",e.target.value)} style={INP} placeholder="프로젝트명"/>
+        <input list="inline-proj-list" value={form.projectName||""} onChange={e=>u("projectName",e.target.value)} style={INP()} placeholder="프로젝트명"/>
         <datalist id="inline-proj-list">{projNames.map(n=><option key={n} value={n}/>)}</datalist>
       </div>
       <div>
         <div style={{fontSize:11,color:"#6366F1",fontWeight:700,marginBottom:3}}>입금완료일</div>
-        <input type="date" value={form.paidDate||""} onChange={e=>u("paidDate",e.target.value)} style={INP}/>
+        <input type="date" value={form.paidDate||""} onChange={e=>u("paidDate",e.target.value)} style={INP()}/>
       </div>
       <div>
         <div style={{fontSize:11,color:"#6366F1",fontWeight:700,marginBottom:3}}>입금예상일</div>
-        <input type="date" value={form.expectedDate||""} onChange={e=>u("expectedDate",e.target.value)} style={INP}/>
+        <input type="date" value={form.expectedDate||""} onChange={e=>u("expectedDate",e.target.value)} style={INP()}/>
       </div>
       <div>
         <div style={{fontSize:11,color:"#6366F1",fontWeight:700,marginBottom:3}}>금액(원)</div>
-        <input type="number" value={form.amount||""} onChange={e=>u("amount",parseInt(e.target.value)||0)} style={INP} placeholder="원 단위"/>
+        <input type="number" value={form.amount||""} onChange={e=>u("amount",parseInt(e.target.value)||0)} style={INP()} placeholder="원 단위"/>
       </div>
       <div style={{display:"flex",gap:6,paddingBottom:0}}>
         <button onClick={onSave}
@@ -8643,7 +8899,6 @@ function MobileHub({setTab, tabOrder=[], currentUser, projects=[], cashItems=[]}
   const thisMon = `${YR}-${String(now.getMonth()+1).padStart(2,"0")}`
   const totalPaid = cashItems.filter(i=>i.paidDate).reduce((s,i)=>s+(i.amount||0),0)
   const totalConf = cashItems.filter(i=>!i.paidDate&&i.expectedDate&&i.itemType!=="미정"&&i.itemType!=="추진").reduce((s,i)=>s+(i.amount||0),0)
-  const fA = v => v>=1e8?`${(v/1e8).toFixed(1)}억`:v>=1e4?`${Math.round(v/1e4)}만`:"-"
 
   const CardItem = ({item, groupColor, groupBg}) => {
     const isFav = favorites.includes(item.id+(item.subTab||""))
@@ -8834,14 +9089,6 @@ function ContractStatusPage({contractItems=[], setContractItems, DEPTS, DEPT_COL
     let guard = 0
     while(Math.abs(n) >= 1e11 && guard < 5) { n = n/1e8; guard++ }
     return n
-  }
-  const fA = v => {
-    const n = normFee(v)
-    if(n===0) return "-"
-    const abs = Math.abs(n)
-    if(abs>=1e8) return `${(n/1e8).toFixed(2)}억`
-    if(abs>=1e4) return `${Math.round(n/1e4)}만`
-    return `${n.toLocaleString()}원`
   }
   const fAin   = v => v>0?(v/1e8).toFixed(2):""  // 억원 단위 입력값
 
@@ -9488,7 +9735,6 @@ function SmartSchedulePage({projects=[], cashItems=[], contractItems=[], current
     return diff>=-1&&diff<=7
   }).sort((a,b)=>(parseDate(a.date)||0)-(parseDate(b.date)||0))
 
-  const INP = {padding:"8px 11px",border:"1.5px solid #E5E7EB",borderRadius:8,fontSize:13,width:"100%",boxSizing:"border-box",fontFamily:"inherit",outline:"none"}
 
   return (
     <div>
@@ -9548,28 +9794,28 @@ function SmartSchedulePage({projects=[], cashItems=[], contractItems=[], current
           <div style={{fontSize:14,fontWeight:800,color:"#312E81",marginBottom:12}}>{editEvt?"📝 일정 수정":"+ 일정 추가"}</div>
           <div style={{display:"grid",gridTemplateColumns:"2fr 1fr 1fr",gap:10,marginBottom:10}}>
             <div><label style={{fontSize:11.5,fontWeight:700,color:"#6366F1",display:"block",marginBottom:3}}>제목 *</label>
-              <input value={draftEvt.title} onChange={e=>setDraftEvt(p=>({...p,title:e.target.value}))} placeholder="일정 제목" style={INP}/></div>
+              <input value={draftEvt.title} onChange={e=>setDraftEvt(p=>({...p,title:e.target.value}))} placeholder="일정 제목" style={INP()}/></div>
             <div><label style={{fontSize:11.5,fontWeight:700,color:"#6366F1",display:"block",marginBottom:3}}>유형</label>
-              <select value={draftEvt.type} onChange={e=>setDraftEvt(p=>({...p,type:e.target.value,color:TYPES[e.target.value]||"#6366F1"}))} style={INP}>
+              <select value={draftEvt.type} onChange={e=>setDraftEvt(p=>({...p,type:e.target.value,color:TYPES[e.target.value]||"#6366F1"}))} style={INP()}>
                 {Object.keys(TYPES).map(t=><option key={t} value={t}>{t}</option>)}</select></div>
             <div><label style={{fontSize:11.5,fontWeight:700,color:"#6366F1",display:"block",marginBottom:3}}>알람</label>
-              <select value={draftEvt.alarm} onChange={e=>setDraftEvt(p=>({...p,alarm:e.target.value}))} style={INP}>
+              <select value={draftEvt.alarm} onChange={e=>setDraftEvt(p=>({...p,alarm:e.target.value}))} style={INP()}>
                 {Object.entries(ALARM).map(([v,l])=><option key={v} value={v}>{l}</option>)}</select></div>
           </div>
           <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr 1fr",gap:10,marginBottom:10}}>
             <div><label style={{fontSize:11.5,fontWeight:700,color:"#6366F1",display:"block",marginBottom:3}}>날짜 *</label>
-              <input type="date" value={draftEvt.date} onChange={e=>setDraftEvt(p=>({...p,date:e.target.value}))} style={INP}/></div>
+              <input type="date" value={draftEvt.date} onChange={e=>setDraftEvt(p=>({...p,date:e.target.value}))} style={INP()}/></div>
             <div><label style={{fontSize:11.5,fontWeight:700,color:"#6366F1",display:"block",marginBottom:3}}>시간</label>
-              <input type="time" value={draftEvt.time} onChange={e=>setDraftEvt(p=>({...p,time:e.target.value}))} style={INP}/></div>
+              <input type="time" value={draftEvt.time} onChange={e=>setDraftEvt(p=>({...p,time:e.target.value}))} style={INP()}/></div>
             <div><label style={{fontSize:11.5,fontWeight:700,color:"#6366F1",display:"block",marginBottom:3}}>종료일</label>
-              <input type="date" value={draftEvt.endDate} onChange={e=>setDraftEvt(p=>({...p,endDate:e.target.value}))} style={INP}/></div>
+              <input type="date" value={draftEvt.endDate} onChange={e=>setDraftEvt(p=>({...p,endDate:e.target.value}))} style={INP()}/></div>
             <div><label style={{fontSize:11.5,fontWeight:700,color:"#6366F1",display:"block",marginBottom:3}}>반복</label>
-              <select value={draftEvt.repeat} onChange={e=>setDraftEvt(p=>({...p,repeat:e.target.value}))} style={INP}>
+              <select value={draftEvt.repeat} onChange={e=>setDraftEvt(p=>({...p,repeat:e.target.value}))} style={INP()}>
                 {Object.entries(REPEAT).map(([v,l])=><option key={v} value={v}>{l}</option>)}</select></div>
           </div>
           <div style={{marginBottom:10}}>
             <label style={{fontSize:11.5,fontWeight:700,color:"#6366F1",display:"block",marginBottom:3}}>메모</label>
-            <input value={draftEvt.note} onChange={e=>setDraftEvt(p=>({...p,note:e.target.value}))} placeholder="내용 메모" style={INP}/>
+            <input value={draftEvt.note} onChange={e=>setDraftEvt(p=>({...p,note:e.target.value}))} placeholder="내용 메모" style={INP()}/>
           </div>
           <div style={{display:"flex",gap:8,justifyContent:"flex-end"}}>
             <button onClick={()=>{setShowAdd(false);setEditEvt(null)}} style={{padding:"7px 16px",background:"#F3F4F6",color:"#6B7280",border:"none",borderRadius:8,fontSize:12.5,fontWeight:600,cursor:"pointer"}}>취소</button>
@@ -9781,7 +10027,6 @@ function DocVaultPage({currentUser, projects=[]}) {
 
   const deleteDoc = (id) => { if(window.confirm("삭제하시겠습니까?")) setDocs(prev=>prev.filter(d=>d.id!==id)) }
 
-  const INP = {padding:"8px 11px",border:"1.5px solid #E5E7EB",borderRadius:8,fontSize:13,width:"100%",boxSizing:"border-box",fontFamily:"inherit",outline:"none"}
 
   // 카테고리별 통계
   const catStats = CATS.map(c=>({cat:c,count:docs.filter(d=>d.category===c).length}))
@@ -9830,25 +10075,25 @@ function DocVaultPage({currentUser, projects=[]}) {
 
           <div style={{display:"grid",gridTemplateColumns:"2fr 1fr 1fr 1fr",gap:10,marginBottom:10}}>
             <div><label style={{fontSize:11.5,fontWeight:700,color:"#92400E",display:"block",marginBottom:3}}>문서 제목 *</label>
-              <input value={draft.title} onChange={e=>setDraft(p=>({...p,title:e.target.value}))} placeholder="문서 제목" style={INP}/></div>
+              <input value={draft.title} onChange={e=>setDraft(p=>({...p,title:e.target.value}))} placeholder="문서 제목" style={INP()}/></div>
             <div><label style={{fontSize:11.5,fontWeight:700,color:"#92400E",display:"block",marginBottom:3}}>분류</label>
-              <select value={draft.category} onChange={e=>setDraft(p=>({...p,category:e.target.value}))} style={INP}>
+              <select value={draft.category} onChange={e=>setDraft(p=>({...p,category:e.target.value}))} style={INP()}>
                 {CATS.map(c=><option key={c} value={c}>{c}</option>)}</select></div>
             <div><label style={{fontSize:11.5,fontWeight:700,color:"#92400E",display:"block",marginBottom:3}}>연도</label>
-              <input value={draft.year} onChange={e=>setDraft(p=>({...p,year:e.target.value}))} placeholder="2026" style={INP}/></div>
+              <input value={draft.year} onChange={e=>setDraft(p=>({...p,year:e.target.value}))} placeholder="2026" style={INP()}/></div>
             <div><label style={{fontSize:11.5,fontWeight:700,color:"#92400E",display:"block",marginBottom:3}}>문서일자</label>
-              <input type="date" value={draft.date} onChange={e=>setDraft(p=>({...p,date:e.target.value}))} style={INP}/></div>
+              <input type="date" value={draft.date} onChange={e=>setDraft(p=>({...p,date:e.target.value}))} style={INP()}/></div>
           </div>
           <div style={{display:"grid",gridTemplateColumns:"1fr 2fr",gap:10,marginBottom:10}}>
             <div><label style={{fontSize:11.5,fontWeight:700,color:"#92400E",display:"block",marginBottom:3}}>관련 프로젝트</label>
-              <input list="proj-list-dv" value={draft.project} onChange={e=>setDraft(p=>({...p,project:e.target.value}))} placeholder="프로젝트명 검색" style={INP}/>
+              <input list="proj-list-dv" value={draft.project} onChange={e=>setDraft(p=>({...p,project:e.target.value}))} placeholder="프로젝트명 검색" style={INP()}/>
               <datalist id="proj-list-dv">{projects.map(p=><option key={p.id} value={p.name}/>)}</datalist></div>
             <div><label style={{fontSize:11.5,fontWeight:700,color:"#92400E",display:"block",marginBottom:3}}>태그 (쉼표 구분)</label>
-              <input value={draft.tags} onChange={e=>setDraft(p=>({...p,tags:e.target.value}))} placeholder="계약, 2026, 경남의료원" style={INP}/></div>
+              <input value={draft.tags} onChange={e=>setDraft(p=>({...p,tags:e.target.value}))} placeholder="계약, 2026, 경남의료원" style={INP()}/></div>
           </div>
           <div style={{marginBottom:12}}>
             <label style={{fontSize:11.5,fontWeight:700,color:"#92400E",display:"block",marginBottom:3}}>요약 / 내용</label>
-            <textarea value={draft.summary} onChange={e=>setDraft(p=>({...p,summary:e.target.value}))} rows={2} placeholder="AI가 자동 요약하거나 직접 입력" style={{...INP,resize:"vertical"}}/>
+            <textarea value={draft.summary} onChange={e=>setDraft(p=>({...p,summary:e.target.value}))} rows={2} placeholder="AI가 자동 요약하거나 직접 입력" style={{...INP(),resize:"vertical"}}/>
           </div>
           <div style={{display:"flex",gap:8,justifyContent:"flex-end"}}>
             <button onClick={()=>setShowAdd(false)} style={{padding:"7px 16px",background:"#fff",color:"#6B7280",border:"1px solid #E5E7EB",borderRadius:8,fontSize:12.5,fontWeight:600,cursor:"pointer"}}>취소</button>
@@ -9927,7 +10172,6 @@ function ProjectMemoTab({proj, setProjects, currentUser}) {
   }
   const delMemo = (id) => setProjects(prev=>prev.map(p=>p.id===proj.id?{...p,memo:(p.memo||[]).filter(m=>m.id!==id)}:p))
 
-  const INP = {padding:"9px 12px",border:"1.5px solid #E5E7EB",borderRadius:9,fontSize:13,fontFamily:"inherit",outline:"none",flex:1}
 
   return (
     <div style={{maxWidth:760}}>
@@ -9937,7 +10181,7 @@ function ProjectMemoTab({proj, setProjects, currentUser}) {
           <input value={newText} onChange={e=>setNewText(e.target.value)}
             onKeyDown={e=>e.key==="Enter"&&addMemo()}
             placeholder="특이사항, 이슈, 진행현황 등 메모 입력 (Enter)"
-            style={INP}/>
+            style={INP()}/>
           <button onClick={addMemo}
             style={{padding:"9px 18px",background:"#6366F1",color:"#fff",border:"none",borderRadius:9,fontSize:13,fontWeight:700,cursor:"pointer",flexShrink:0}}>
             + 기록
@@ -10457,8 +10701,6 @@ function YearEndForecast({cashItems=[],saleItems=[],contractItems=[],deptBiz={},
   const avgMonthlyExp= MONTH > 0 ? expTotal / MONTH / 1e8 : 0
 
   // ── 손익 예상 ────────────────────────────────────────────────
-  const fA = v => v>=1e8?`${(v/1e8).toFixed(2)}억`:v>=1e4?`${(v/1e4).toFixed(0)}만`:"-"
-  const fB = v => typeof v==="number" ? `${v.toFixed(2)}억` : "-"
 
   const forecastCashAmt = forecastCash / 1e8
   const forecastExpAmt  = avgMonthlyExp * 12
