@@ -1155,6 +1155,38 @@ export default function App() {
 
         {/* 하단 사용자 영역 */}
         <div style={{padding:"14px 12px",borderTop:"1px solid #F3F4F6"}}>
+          {/* 데이터관리 빠른링크 — 탭 목록 무관하게 항상 표시 */}
+          {currentUser?.role==="admin" && (
+            <div style={{display:"flex",gap:5,marginBottom:8}}>
+              <button onClick={()=>{setTab("datahub");if(isMobile)setSideOpen(false)}}
+                style={{flex:1,padding:"7px 6px",background:tab==="datahub"?"#185FA5":"#EEF2FF",
+                  color:tab==="datahub"?"#fff":"#185FA5",border:"none",borderRadius:8,
+                  fontSize:12,fontWeight:700,cursor:"pointer"}}>
+                🗄️ 데이터관리
+              </button>
+              <button onClick={()=>{
+                const which = window.prompt("리셋할 항목 입력:\n1 = 월수금계획\n2 = 계약현황\n3 = 지출현황\n4 = 전체","1")
+                if(!which) return
+                const map = {
+                  "1":["sjs_cash_items"],
+                  "2":["sjs_contract_items"],
+                  "3":["sjs_sale_items"],
+                  "4":["sjs_cash_items","sjs_contract_items","sjs_sale_items"]
+                }
+                const keys = map[which]
+                if(!keys){alert("잘못된 입력");return}
+                const labels = {"1":"월수금계획","2":"계약현황","3":"지출현황","4":"전체"}
+                if(!window.confirm(`⚠️ ${labels[which]} 데이터를 전부 삭제합니까?\n\n이 작업은 되돌릴 수 없습니다.`)) return
+                keys.forEach(k=>localStorage.removeItem(k))
+                alert(`✅ ${labels[which]} 삭제 완료. 페이지를 새로고침합니다.`)
+                window.location.reload()
+              }}
+                style={{flex:1,padding:"7px 6px",background:"#FEE2E2",color:"#DC2626",
+                  border:"none",borderRadius:8,fontSize:12,fontWeight:700,cursor:"pointer"}}>
+                🗑 데이터리셋
+              </button>
+            </div>
+          )}
           {/* DB 상태 */}
           <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:10,padding:"6px 10px",background:"#F8FAFC",borderRadius:8,border:"1px solid #E5E7EB"}}>
             <div style={{width:7,height:7,borderRadius:"50%",background:dbStatus==="ok"?"#059669":dbStatus==="error"?"#DC2626":"#D97706",flexShrink:0}}/>
@@ -6302,9 +6334,22 @@ function CashItemsView({cashItems, setCashItems, projects, setProjects, DEPTS, c
   const [editId, setEditId]   = useState(null)
   const [filterDept, setFilterDept] = useState("")
   const [filterType, setFilterType] = useState("")
-  const [sortBy, setSortBy]   = useState("date")  // date | dept | amount | project
-  const [viewMode, setViewMode] = useState("list") // list | monthly | dept | annual
+  const [sortBy, setSortBy]   = useState("date")
+  const [viewMode, setViewMode] = useState("list")
   const [showBulk, setShowBulk] = useState(false)
+
+  // ── 연도 선택 (기본: 당해연도, 이월연도 별도 선택 가능) ──
+  const thisYrNum = new Date().getFullYear()
+  const allYears = useMemo(()=>{
+    const yrs = new Set()
+    cashItems.forEach(i=>{
+      const d = i.paidDate||i.expectedDate||""
+      const y = d.slice(0,4)
+      if(y && !isNaN(y)) yrs.add(y)
+    })
+    return [...yrs].sort()
+  },[cashItems])
+  const [selYear, setSelYear] = useState(String(thisYrNum))
 
   const effView = extViewMode==="monthly"?"monthly" : extViewMode==="dept"?"dept" : viewMode
 
@@ -6349,7 +6394,25 @@ function CashItemsView({cashItems, setCashItems, projects, setProjects, DEPTS, c
     return cashItems.map(i=>({...i, paidDate:fixDate(i.paidDate), expectedDate:fixDate(i.expectedDate)}))
   },[cashItems])
   if(fixedItems!==cashItems) setTimeout(()=>setCashItems(fixedItems),0)
-  const items = fixedItems
+
+  // ── 연도 필터 적용 + 중복 제거 (같은 프로젝트·날짜·금액 → 1건만) ──
+  const deduped = useMemo(()=>{
+    const seen = new Set()
+    return fixedItems.filter(item=>{
+      const key = `${item.projectName||""}|${item.paidDate||item.expectedDate||""}|${item.amount||0}|${item.dept||""}`
+      if(seen.has(key)) return false
+      seen.add(key)
+      return true
+    })
+  },[fixedItems])
+
+  const items = useMemo(()=>{
+    if(selYear==="전체") return deduped
+    return deduped.filter(i=>{
+      const d = fixDate(i.paidDate||i.expectedDate||"")
+      return d.startsWith(selYear)
+    })
+  },[deduped, selYear])
 
   const toast = useToast()
 
@@ -6460,6 +6523,47 @@ function CashItemsView({cashItems, setCashItems, projects, setProjects, DEPTS, c
 
   return (
     <div>
+      {/* 연도 선택 + 리셋 버튼 */}
+      <div style={{display:"flex",gap:8,alignItems:"center",marginBottom:12,flexWrap:"wrap"}}>
+        <div style={{display:"flex",gap:4,background:"#F3F4F6",borderRadius:10,padding:3}}>
+          {["전체",...allYears].map(yr=>(
+            <button key={yr} onClick={()=>setSelYear(yr)}
+              style={{padding:"6px 14px",background:selYear===yr?"#185FA5":"transparent",
+                color:selYear===yr?"#fff":"#6B7280",border:"none",borderRadius:8,
+                fontSize:13,fontWeight:selYear===yr?700:500,cursor:"pointer",transition:"all .15s"}}>
+              {yr==="전체"?"전체":yr+"년"}
+            </button>
+          ))}
+        </div>
+        {/* 이월 연도 데이터 안내 */}
+        {selYear!=="전체" && deduped.filter(i=>{
+          const d=fixDate(i.paidDate||i.expectedDate||""); return !d.startsWith(selYear)
+        }).length > 0 && (
+          <div style={{fontSize:12,color:"#D97706",background:"#FEF3C7",padding:"4px 10px",borderRadius:8,fontWeight:600}}>
+            ⚠ {selYear}년 외 이월 데이터 {deduped.filter(i=>{const d=fixDate(i.paidDate||i.expectedDate||"");return !d.startsWith(selYear)}).length}건은 해당 연도 탭에서 확인
+          </div>
+        )}
+        {/* 중복 제거 안내 */}
+        {fixedItems.length > deduped.length && (
+          <div style={{fontSize:12,color:"#059669",background:"#D1FAE5",padding:"4px 10px",borderRadius:8,fontWeight:600}}>
+            ✅ 중복 {fixedItems.length-deduped.length}건 자동 제거됨
+          </div>
+        )}
+        <div style={{marginLeft:"auto",display:"flex",gap:6}}>
+          <button onClick={()=>{
+            const labels = isSale?"지출현황":"월수금계획"
+            const key = isSale?"sjs_sale_items":"sjs_cash_items"
+            if(!window.confirm(`⚠️ ${labels} 데이터를 전부 삭제합니까?\n\n삭제 후 새 파일을 업로드하세요.`)) return
+            localStorage.removeItem(key)
+            setCashItems([])
+          }}
+            style={{padding:"6px 12px",background:"#FEE2E2",color:"#DC2626",border:"1px solid #FECACA",
+              borderRadius:8,fontSize:12,fontWeight:700,cursor:"pointer"}}>
+            🗑 {isSale?"지출":"월수금"} 리셋
+          </button>
+        </div>
+      </div>
+
       {/* KPI 카드 */}
       <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:10,marginBottom:14}}>
         {[["전체 건수",items.length+"건","#6366F1"],["총 금액",fAmt(itemTotal),"#312E81"],["입금 완료",fAmt(itemPaid),"#059669"],["입금 예정",fAmt(itemExp),"#D97706"]].map(([l,v,c])=>(
@@ -9175,22 +9279,51 @@ function ContractStatusPage({contractItems=[], setContractItems, DEPTS, DEPT_COL
   setSelProjId, setTab, isAdmin, setDetailTab}) {
 
   const toast  = useToast()
-  // 비정상 대값 자동 보정: 단일 프로젝트 용역비가 1000억(1e11)을 넘는 경우는 사실상 없음
-  // (예전 업로드에서 억단위가 원단위로 중복 변환되어 저장된 경우 자동 복구)
   const normFee = v => {
-    let n = Number(v)||0
-    let guard = 0
+    let n = Number(v)||0; let guard = 0
     while(Math.abs(n) >= 1e11 && guard < 5) { n = n/1e8; guard++ }
     return n
   }
-  const fAin   = v => v>0?(v/1e8).toFixed(2):""  // 억원 단위 입력값
+  const fAin   = v => v>0?(v/1e8).toFixed(2):""
 
-  // 비정상 데이터 자동 감지 (1000억 초과 항목 존재 여부)
   const hasAbnormalData = contractItems.some(i=>{
     const raw = Number(i.serviceFeeExpect||i.amount||0)
     return Math.abs(raw) >= 1e11
   })
-  const targets   = (yearTargets||{})[YEAR] || {}
+
+  // ── 연도 선택 + 중복 제거 ─────────────────────────────────
+  const thisYrNum = new Date().getFullYear()
+  const allContractYears = useMemo(()=>{
+    const yrs = new Set()
+    contractItems.forEach(i=>{
+      const y = String(i.contractYear||i.contractDate||"").slice(0,4)
+      if(y && !isNaN(y) && Number(y)>2000) yrs.add(y)
+    })
+    if(!yrs.size) yrs.add(String(thisYrNum))
+    return [...yrs].sort()
+  },[contractItems])
+  const [selContractYear, setSelContractYear] = useState(String(thisYrNum))
+
+  // 중복 제거 (같은 이름+연도+금액)
+  const dedupedContracts = useMemo(()=>{
+    const seen = new Set()
+    return contractItems.filter(item=>{
+      const key = `${item.projectName||item.name||""}|${item.contractYear||""}|${normFee(item.serviceFeeExpect||item.amount||0).toFixed(0)}`
+      if(seen.has(key)) return false
+      seen.add(key); return true
+    })
+  },[contractItems])
+
+  // 연도 필터 적용
+  const yearFilteredContracts = useMemo(()=>{
+    if(selContractYear==="전체") return dedupedContracts
+    return dedupedContracts.filter(i=>{
+      const y = String(i.contractYear||i.contractDate||"").slice(0,4)
+      return y === selContractYear
+    })
+  },[dedupedContracts, selContractYear])
+
+  const targets   = (yearTargets||{})[selContractYear] || (yearTargets||{})[YEAR] || {}
   const tContract = (targets.contractTarget || 170) * 1e8
 
   const [editId, setEditId] = useState(null)   // 인라인 편집중인 항목 id
@@ -9206,9 +9339,9 @@ function ContractStatusPage({contractItems=[], setContractItems, DEPTS, DEPT_COL
     return null
   }
 
-  const 계약Items = contractItems.filter(i=>getType(i)==="계약")
-  const 확정Items = contractItems.filter(i=>getType(i)==="확정")
-  const 추진Items = contractItems.filter(i=>getType(i)==="추진").sort((a,b)=>{
+  const 계약Items = yearFilteredContracts.filter(i=>getType(i)==="계약")
+  const 확정Items = yearFilteredContracts.filter(i=>getType(i)==="확정")
+  const 추진Items = yearFilteredContracts.filter(i=>getType(i)==="추진").sort((a,b)=>{
     if(a.important&&!b.important) return -1
     if(!a.important&&b.important) return 1
     const da = a.execTime||a.contractTime||"9999"
@@ -9426,6 +9559,34 @@ function ContractStatusPage({contractItems=[], setContractItems, DEPTS, DEPT_COL
   return (
     <div>
       {/* 비정상 금액 데이터 경고 */}
+      {/* 연도 선택 + 리셋 */}
+      <div style={{display:"flex",gap:8,alignItems:"center",marginBottom:12,flexWrap:"wrap"}}>
+        <div style={{display:"flex",gap:4,background:"#F3F4F6",borderRadius:10,padding:3}}>
+          {["전체",...allContractYears].map(yr=>(
+            <button key={yr} onClick={()=>setSelContractYear(yr)}
+              style={{padding:"6px 14px",background:selContractYear===yr?"#6366F1":"transparent",
+                color:selContractYear===yr?"#fff":"#6B7280",border:"none",borderRadius:8,
+                fontSize:13,fontWeight:selContractYear===yr?700:500,cursor:"pointer"}}>
+              {yr==="전체"?"전체":yr+"년"}
+            </button>
+          ))}
+        </div>
+        {contractItems.length > dedupedContracts.length && (
+          <div style={{fontSize:12,color:"#059669",background:"#D1FAE5",padding:"4px 10px",borderRadius:8,fontWeight:600}}>
+            ✅ 중복 {contractItems.length-dedupedContracts.length}건 자동 제거됨
+          </div>
+        )}
+        <button onClick={()=>{
+          if(!window.confirm("⚠️ 계약현황 데이터를 전부 삭제합니까?\n삭제 후 새 파일을 업로드하세요.")) return
+          localStorage.removeItem("sjs_contract_items")
+          setContractItems([])
+        }}
+          style={{marginLeft:"auto",padding:"6px 12px",background:"#FEE2E2",color:"#DC2626",
+            border:"1px solid #FECACA",borderRadius:8,fontSize:12,fontWeight:700,cursor:"pointer"}}>
+          🗑 계약현황 리셋
+        </button>
+      </div>
+
       {hasAbnormalData && isAdmin && (
         <div style={{background:"#FEE2E2",border:"2px solid #DC2626",borderRadius:12,padding:"12px 18px",marginBottom:14,display:"flex",alignItems:"center",gap:10}}>
           <span style={{fontSize:20}}>⚠️</span>
