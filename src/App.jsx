@@ -214,7 +214,18 @@ export default function App() {
   const USE_DB = isConfigured()
   const userEmail = useRef("")
   const lsGet = (key, init) => { try{ const v=localStorage.getItem(key); return v?JSON.parse(v):init }catch{ return init } }
-  const lsSet = (key, val)  => { try{ localStorage.setItem(key, JSON.stringify(val)) }catch{} }
+  const lsSet = (key, val)  => {
+    try{ localStorage.setItem(key, JSON.stringify(val)) }
+    catch(e){
+      if(e.name === "QuotaExceededError" || e.code === 22) {
+        if(!window.__sjs_quota_warned) {
+          window.__sjs_quota_warned = true
+          alert("⚠️ 브라우저 저장 공간이 가득 찼습니다.\n\n변경사항이 저장되지 않을 수 있습니다.\n설정 → 데이터관리 → 백업에서 데이터를 내보낸 후\n불필요한 데이터를 정리해주세요.")
+        }
+        console.error(`localStorage 용량 초과: ${key}`)
+      }
+    }
+  }
   const mkPersist = (setter, key) => updater => setter(prev => {
     const next = typeof updater==="function" ? updater(prev) : updater
     lsSet(key, next)
@@ -238,36 +249,43 @@ export default function App() {
   const [projectsRaw, setProjectsRaw]   = useState(()=>{
     const saved = lsGet("sjs_projects", null)
     if(saved && saved.length > 0) return saved.map(normalizeProject)
-    // 초기: PROJECTS_INIT + projectsInitData.json 병합
-    try{
-      const initList = require("./projectsInitData.json")
-      const baseProjs = PROJECTS_INIT.map(normalizeProject)
-      const baseNames = new Set(baseProjs.map(p=>(p.name||"").slice(0,12)))
-      const extra = initList
-        .filter(p=>p.name && !baseNames.has((p.name||"").slice(0,12)))
-        .map((p,i)=>normalizeProject({
-          id: `PI${Date.now()}_${i}`,
-          code: p.pjNo||"",
-          name: p.name||"",
-          depts: [p.dept].filter(Boolean),
-          pm: p.pm||"",
-          type: (p.status||"")==="완료"?"계약":"확정",
-          orderType: (p.type||"").includes("공공")?"공공":"민간",
-          usage: p.usage||"",
-          scale: p.scale||"",
-          totalFee: p.feeTotal||0,
-          serviceFee: p.feeTotal||0,
-          contractYear: p.pjNo?parseInt(p.pjNo.slice(0,4))||2024:2024,
-          contractDate: p.contractDate||"",
-          memo:[],
-        }))
-      const merged = [...baseProjs, ...extra]
-      try{ localStorage.setItem("sjs_projects", JSON.stringify(merged)) }catch{}
-      return merged
-    }catch{
-      return PROJECTS_INIT.map(normalizeProject)
-    }
+    return PROJECTS_INIT.map(normalizeProject) // 추가 초기데이터는 useEffect에서 lazy load
   })
+  // 프로젝트 초기 데이터 lazy load (144KB 번들 분리)
+  useEffect(()=>{
+    const saved = lsGet("sjs_projects", null)
+    if(saved && saved.length > 0) return  // 이미 데이터 있음
+    let cancelled = false
+    import("./projectsInitData.json").then(mod=>{
+      if(cancelled) return
+      const initList = mod.default || mod
+      setProjectsRaw(prev=>{
+        const baseNames = new Set(prev.map(p=>(p.name||"").slice(0,12)))
+        const extra = initList
+          .filter(p=>p.name && !baseNames.has((p.name||"").slice(0,12)))
+          .map((p,i)=>normalizeProject({
+            id: `PI${Date.now()}_${i}`,
+            code: p.pjNo||"",
+            name: p.name||"",
+            depts: [p.dept].filter(Boolean),
+            pm: p.pm||"",
+            type: (p.status||"")==="완료"?"계약":"확정",
+            orderType: (p.type||"").includes("공공")?"공공":"민간",
+            usage: p.usage||"",
+            scale: p.scale||"",
+            totalFee: p.feeTotal||0,
+            serviceFee: p.feeTotal||0,
+            contractYear: p.pjNo?parseInt(p.pjNo.slice(0,4))||2024:2024,
+            contractDate: p.contractDate||"",
+            memo:[],
+          }))
+        const merged = [...prev, ...extra]
+        try{ localStorage.setItem("sjs_projects", JSON.stringify(merged)) }catch{}
+        return merged
+      })
+    }).catch(e=>console.warn("초기 프로젝트 로드 실패:", e))
+    return ()=>{ cancelled = true }
+  },[])
   const setProjects = mkPersist(setProjectsRaw, "sjs_projects")
   const projects = projectsRaw
 
@@ -387,8 +405,16 @@ export default function App() {
     try{
       const saved = localStorage.getItem("sjs_vendors")
       if(saved && saved !== "{}") return JSON.parse(saved)
-      // 초기 데이터 로드
-      const initData = require("./vendorsInitData.json")
+      return {} // 초기 데이터는 useEffect에서 lazy load (번들 분리)
+    }catch{ return {} }
+  })
+  // 초기 협력업체 데이터 lazy load (870KB를 초기 번들에서 분리)
+  useEffect(()=>{
+    if(Object.keys(vendorsDB).length > 0) return
+    let cancelled = false
+    import("./vendorsInitData.json").then(mod=>{
+      if(cancelled) return
+      const initData = mod.default || mod
       // JSON 형태를 기존 vendorsDB 구조로 변환
       const db = {}
       Object.entries(initData).forEach(([name, v])=>{
@@ -398,16 +424,18 @@ export default function App() {
           id, name, bizType:v.bizType||"", bizNo:v.bizNo||"",
           rep:v.rep||"", repTel:v.repTel||"", repMail:v.repMail||"",
           tel:v.tel||"", addr:v.addr||"",
-          projects: v.projects||[], memo:[]
+          projects: v.projects||[], memo:[],
+          paymentHistory: v.paymentHistory||[],
         }
       })
-      localStorage.setItem("sjs_vendors", JSON.stringify(db))
-      return db
-    }catch{ return {} }
-  })
+      try{ localStorage.setItem("sjs_vendors", JSON.stringify(db)) }catch(e){ console.warn("vendors 저장 실패(용량):", e) }
+      setVendorsDBRaw(db)
+    }).catch(e=>console.warn("초기 협력업체 로드 실패:", e))
+    return ()=>{ cancelled = true }
+  },[])  // 최초 1회만
   const setVendorsDB = updater => setVendorsDBRaw(prev=>{
     const next = typeof updater==="function" ? updater(prev) : updater
-    try{ localStorage.setItem("sjs_vendors", JSON.stringify(next)) }catch{}
+    try{ localStorage.setItem("sjs_vendors", JSON.stringify(next)) }catch(e){ console.warn("vendors 저장 실패:", e) }
     return next
   })
   const [vendorPayments, setVendorPaymentsRaw] = useState(()=>{
@@ -1179,7 +1207,7 @@ export default function App() {
         {tab==="gamify"    && (canReadTab("gamify") ? <GamifyTab projects={projects} currentUser={currentUser}/> : <NoPermScreen tabId="gamify"/>)}
         {tab==="deptdash"  && <DeptDashTab projects={projects} vendorPayments={vendorPayments} years={years}/>}
         {tab==="home" && <MobileHub setTab={setTab} tabOrder={tabOrder} currentUser={currentUser} projects={projects} cashItems={cashItems}/>}
-        {tab==="analysis"  && (canReadTab("analysis") ? <AnalysisHub deptStaff={deptStaff} setDeptStaff={setDeptStaff} years={years} setYears={setYears} canWrite={canWrite} isAdmin={currentUser?.role==="admin"} cashflow={effectiveCashflow} cashItems={cashItems} setCashItems={setCashItems} saleItems={saleItems} setSaleItems={setSaleItems} contractItems={contractItems} setContractItems={setContractItems} projects={projects} setProjects={setProjects} setTab={setTab} setSelProjId={setSelProjId} setDetailTab={setDetailTab} selProjId={selProjId} selVerIdx={selVerIdx} setSelVerIdx={setSelVerIdx} currentUser={currentUser} yearTargets={yearTargets} setYearTargets={setYearTargets} deptBiz={deptBiz} staffMonthly={staffMonthly} staffTarget={staffTarget} deptStaff={deptStaff}/> : <NoPermScreen tabId="analysis"/>)}
+        {tab==="analysis"  && (canReadTab("analysis") ? <AnalysisHub deptStaff={deptStaff} setDeptStaff={setDeptStaff} years={years} setYears={setYears} canWrite={canWrite} isAdmin={currentUser?.role==="admin"} cashflow={effectiveCashflow} cashItems={cashItems} setCashItems={setCashItems} saleItems={saleItems} setSaleItems={setSaleItems} contractItems={contractItems} setContractItems={setContractItems} projects={projects} setProjects={setProjects} setTab={setTab} setSelProjId={setSelProjId} setDetailTab={setDetailTab} selProjId={selProjId} selVerIdx={selVerIdx} setSelVerIdx={setSelVerIdx} currentUser={currentUser} yearTargets={yearTargets} setYearTargets={setYearTargets} deptBiz={deptBiz} staffMonthly={staffMonthly} staffTarget={staffTarget}/> : <NoPermScreen tabId="analysis"/>)}
         {tab==="datahub" && canReadTab("datahub") && <DataHubTab currentUser={currentUser} deptStaff={deptStaff} setDeptStaff={setDeptStaff} staffTarget={staffTarget} setStaffTarget={setStaffTarget} staffMonthly={staffMonthly} setStaffMonthly={setStaffMonthly} pnlData={pnlData} setPnlData={setPnlData} cashflow={cashflow} setCashflow={setCashflow} years={years} setYears={setYears} projects={projects} setProjects={setProjects} setTab={setTab} setSelProjId={setSelProjId} setSelVerIdx={setSelVerIdx} setShowNewProj={setShowNewProj} versions={versions} saveVersion={saveVersion} restoreVersion={restoreVersion} deleteVersion={deleteVersion} contractTypes={contractTypes} setContractTypes={setContractTypes} projTypes={projTypes} setProjTypes={setProjTypes} bidTypes={bidTypes} setBidTypes={setBidTypes} allData={null} restoreAllData={(entries)=>dbSetAll(entries, userEmail.current)} dbStatus={dbStatus} vendorsDB={vendorsDB} setVendorsDB={setVendorsDB} vendorPayments={vendorPayments} setVendorPayments={setVendorPayments} cashItems={cashItems} setCashItems={setCashItems} saleItems={saleItems} setSaleItems={setSaleItems} contractItems={contractItems} setContractItems={setContractItems}/>}
         {tab==="cashflow" && canReadTab("cashflow") && <CashflowTab cashflow={effectiveCashflow} setCashflow={setCashflow} currentUser={currentUser} projects={projects} setProjects={setProjects} projectCashflowByDept={projectCashflowByDept} cashItems={cashItems} setCashItems={setCashItems} saleItems={saleItems} setSaleItems={setSaleItems} setTab={setTab} setSelProjId={setSelProjId} setDetailTab={setDetailTab} yearTargets={yearTargets} setYearTargets={setYearTargets} deptBiz={deptBiz} deptStaff={deptStaff} staffMonthly={staffMonthly} staffTarget={staffTarget} contractItems={contractItems} setContractItems={setContractItems}/>}
         {tab==="projects" && canReadTab("projects") && <ProjectsTab projects={projects} setProjects={setProjects} selProjId={selProjId} setSelProjId={setSelProjId} selVerIdx={selVerIdx} setSelVerIdx={setSelVerIdx} cmpIds={cmpIds} setCmpIds={setCmpIds} showNewVer={showNewVer} setShowNewVer={setShowNewVer} canWrite={canWrite&&canWriteTab("projects")} contractTypes={contractTypes} currentUser={currentUser} setDetailTab={setDetailTab} detailTab={detailTab} cashItems={cashItems} setCashItems={setCashItems} vendorsDB={vendorsDB} projBaseline={projBaseline} setProjBaseline={setProjBaseline}/>}
