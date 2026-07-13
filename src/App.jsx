@@ -7309,8 +7309,19 @@ function AnalysisDashboard({projects, cashItems, saleItems, DEPTS, DEPT_COLORS, 
   const tblH = {padding:"10px 12px",textAlign:"left",fontSize:12.5,fontWeight:700,color:"#6B7280",borderBottom:"2px solid #E5E7EB",whiteSpace:"nowrap",background:"#F8FAFC"}
   const tblD = (align="left",bold=false,color="#374151")=>({padding:"10px 12px",textAlign:align,fontSize:13,fontWeight:bold?700:400,color,borderBottom:"1px solid #F3F4F6",whiteSpace:"nowrap"})
 
-  // 계약·매출 합계
-  const totDone   = contractByDept.reduce((s,d)=>s+d.done,0)  // 계약 완료만
+  // ── contractItems 직접 집계 (업로드 데이터 우선) ──────────
+  const contractItemsDone = useMemo(()=>{
+    const toAmt = v => { const n=Math.abs(Number(v)||0); return n>1000?n/1e8:n }
+    return contractItems
+      .filter(i => String(i.contractYear||i.contractTime||i.date||"").startsWith(thisYear)
+               || String(i.contractTime||"").startsWith(thisYear))
+      .reduce((s,i) => s + toAmt(i.serviceFeeExpect||i.svcFee||i.amount||0), 0)
+  },[contractItems, thisYear])
+
+  // 계약·매출 합계 — contractItems가 있으면 직접 사용, 없으면 deptBiz 폴백
+  const totDone   = contractItems.length > 0
+    ? contractItemsDone
+    : contractByDept.reduce((s,d)=>s+d.done,0)
   const totConf   = contractByDept.reduce((s,d)=>s+d.conf,0)
   const totPush   = contractByDept.reduce((s,d)=>s+d.push,0)
   const totSaleConf = saleByDept.reduce((s,d)=>s+d.revConf,0)
@@ -7463,18 +7474,21 @@ function AnalysisDashboard({projects, cashItems, saleItems, DEPTS, DEPT_COLORS, 
 
       {/* ── 매출현황 ── */}
       <div style={{background:"#fff",borderRadius:14,border:"1px solid #E5E7EB",marginBottom:16,overflow:"hidden"}}>
-        <div style={{padding:"14px 20px",borderBottom:"1px solid #E5E7EB",display:"flex",alignItems:"center",gap:12}}>
+        <div style={{padding:"14px 20px",borderBottom:"1px solid #E5E7EB",display:"flex",alignItems:"center",gap:12,flexWrap:"wrap"}}>
           <div style={{fontSize:16,fontWeight:800,color:"#111827"}}>📈 매출현황 ({thisYear}년 목표 대비)</div>
+          <div style={{fontSize:12,background:"#D1FAE5",color:"#065F46",padding:"3px 10px",borderRadius:8,fontWeight:700}}>
+            현누계 = 월수금현황 입금완료 기준
+          </div>
           <div style={{marginLeft:"auto",fontSize:13,color:"#6B7280"}}>단위: 억원</div>
         </div>
         <div style={{display:"grid",gridTemplateColumns:"1fr 280px",gap:0}}>
           <div style={{overflowX:"auto"}}>
             <table style={{width:"100%",borderCollapse:"collapse"}}>
               <thead><tr>
-                {["본부","목표","현누계","확정","미정","합계(기성+확정)","달성률(현누계)","인당(기성+확정)","이월잔액"].map((h,i)=>(
+                {["본부","목표(억)","✅ 현누계(입금완료)","📋 확정","❓ 미정","합계(기성+확정)","달성률(현누계)","인당(기성+확정)","이월잔액"].map((h,i)=>(
                   <th key={i} style={{...tblH,textAlign:i===0?"left":"right",
-                    color:i===5?"#312E81":i===6||i===7?"#059669":"#6B7280",
-                    background:i===5?"#DCFCE7":i===7?"#D1FAE5":"#F8FAFC"}}>{h}</th>
+                    color:i===2?"#059669":i===5?"#312E81":i===6||i===7?"#059669":"#6B7280",
+                    background:i===2?"#D1FAE5":i===5?"#DCFCE7":i===7?"#D1FAE5":"#F8FAFC"}}>{h}</th>
                 ))}
               </tr></thead>
               <tbody>
