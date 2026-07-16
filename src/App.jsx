@@ -237,6 +237,8 @@ export default function App() {
   // ── 모바일 반응형 ──────────────────────────────────────────
   const [isMobile, setIsMobile] = useState(()=>window.innerWidth<768)
   const [sideOpen, setSideOpen] = useState(()=>window.innerWidth>=768)
+  // 탭 이동 + 모바일 사이드바 자동 닫기
+  const setTabAndClose = (id) => { setTab(id); if(isMobile) setSideOpen(false) }
   useEffect(()=>{
     const fn=()=>{ const m=window.innerWidth<768; setIsMobile(m); if(m) setSideOpen(false) }
     window.addEventListener('resize',fn)
