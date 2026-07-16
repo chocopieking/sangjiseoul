@@ -2546,6 +2546,8 @@ function ProjectsTab({projects,setProjects,selProjId,setSelProjId,selVerIdx,setS
   const [editVend, setEditVend]     = useState(false)
   const [vDraft, setVDraft]         = useState(null)
   const [editProj, setEditProj]     = useState(false)
+  const [inlineEditId, setInlineEditId] = useState(null)   // 인라인 이름 편집
+  const [inlineEditName, setInlineEditName] = useState("")
   const [cfEditing, setCfEditing]   = useState(false)
   const [cfDraft, setCfDraft]       = useState(null)
   const [detailTab, setDetailTab]   = useState("info")
@@ -2709,12 +2711,38 @@ function ProjectsTab({projects,setProjects,selProjId,setSelProjId,selVerIdx,setS
           </div>
 
           <Card title="프로젝트 목록" note={`행 클릭 → 실행계획서 상세 · ${PROJ_PER_PAGE}건씩 표시`}>
+            {/* 선택 삭제 툴바 */}
+            {cmpIds.length>0&&canWrite&&(
+              <div style={{background:"#FEE2E2",border:"1px solid #FECACA",borderRadius:10,
+                padding:"10px 14px",marginBottom:12,display:"flex",alignItems:"center",
+                justifyContent:"space-between",flexWrap:"wrap",gap:8}}>
+                <span style={{fontSize:13,color:"#7F1D1D",fontWeight:700}}>
+                  {cmpIds.length}개 프로젝트 선택됨
+                </span>
+                <div style={{display:"flex",gap:8}}>
+                  <button onClick={()=>{
+                    if(!window.confirm(`선택한 ${cmpIds.length}개 프로젝트를 삭제합니까?\n\n이 작업은 되돌릴 수 없습니다.`)) return
+                    setProjects(prev=>prev.filter(p=>!cmpIds.includes(p.id)))
+                    setCmpIds([])
+                  }} style={{padding:"7px 14px",background:"#DC2626",color:"#fff",border:"none",
+                    borderRadius:8,fontSize:13,fontWeight:700,cursor:"pointer"}}>
+                    🗑 선택 삭제 ({cmpIds.length}건)
+                  </button>
+                  <button onClick={()=>setCmpIds([])}
+                    style={{padding:"7px 14px",background:"#F3F4F6",color:"#6B7280",
+                      border:"none",borderRadius:8,fontSize:13,cursor:"pointer"}}>
+                    선택 해제
+                  </button>
+                </div>
+              </div>
+            )}
             <div style={{overflowX:"auto"}}>
               <table style={{width:"100%",borderCollapse:"collapse"}}>
                 <thead><tr>
                   <th style={S.th("center")}>비교</th>
                   <th style={S.th("center")}>연번</th>
                   {["구분","코드","프로젝트명","본부","PM","용역비(억)","평당단가","지분%","연면적㎡","진행%","계약일","다운"].map((h,i)=><th key={h+i} style={S.th(i>=5&&i<=10?"right":"left")}>{h}</th>)}
+                  {canWrite&&<th style={S.th("center")}>편집</th>}
                 </tr></thead>
                 <tbody>
                   {pagedProjects.map((p,i)=>{
@@ -2729,7 +2757,30 @@ function ProjectsTab({projects,setProjects,selProjId,setSelProjId,selVerIdx,setS
                       <td style={{...S.td("center"),fontSize:12,color:"#9CA3AF",fontWeight:600}}>{globalIdx+1}</td>
                       <td style={S.td("left")}><span style={S.bdg(tb.bg,tb.fg)}>{p.type}</span></td>
                       <td style={{...S.td("left"),fontFamily:"monospace",fontSize:11,color:C.navyM}}>{p.code}</td>
-                      <td style={{...S.td("left"),maxWidth:190,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}} title={p.name}>{p.name}</td>
+                      <td style={{...S.td("left"),maxWidth:190,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}} title={p.name}>
+                        {inlineEditId===p.id ? (
+                          <div style={{display:"flex",gap:4}} onClick={e=>e.stopPropagation()}>
+                            <input value={inlineEditName}
+                              onChange={e=>setInlineEditName(e.target.value)}
+                              onKeyDown={e=>{
+                                if(e.key==="Enter"){
+                                  setProjects(prev=>prev.map(pp=>pp.id===p.id?{...pp,name:inlineEditName.trim()||pp.name}:pp))
+                                  setInlineEditId(null)
+                                }
+                                if(e.key==="Escape") setInlineEditId(null)
+                              }}
+                              autoFocus
+                              style={{fontSize:12,padding:"3px 7px",border:"1.5px solid #6366F1",
+                                borderRadius:6,width:160,outline:"none"}}/>
+                            <button onClick={()=>{
+                              setProjects(prev=>prev.map(pp=>pp.id===p.id?{...pp,name:inlineEditName.trim()||pp.name}:pp))
+                              setInlineEditId(null)
+                            }} style={{padding:"2px 7px",background:"#6366F1",color:"#fff",border:"none",borderRadius:5,fontSize:11,cursor:"pointer"}}>✓</button>
+                            <button onClick={()=>setInlineEditId(null)}
+                              style={{padding:"2px 6px",background:"#F3F4F6",color:"#6B7280",border:"none",borderRadius:5,fontSize:11,cursor:"pointer"}}>✕</button>
+                          </div>
+                        ) : p.name}
+                      </td>
                       <td style={{...S.td("left"),fontSize:11}}>{p.depts.join(", ")}</td>
                       <td style={{...S.td("left"),fontSize:11}}>{p.pm}</td>
                       <td style={{...S.td("right"),fontWeight:500}}>{fE((p.serviceFee||0)/1e8)}</td>
@@ -2757,6 +2808,27 @@ function ProjectsTab({projects,setProjects,selProjId,setSelProjId,selVerIdx,setS
                         }} style={{...S.btn(C.navyL,C.navyM),padding:"5px 11px",fontSize:12}}>↓ Excel</button>
                         <button onClick={()=>downloadReport({...p,versions:[ver]})} style={{...S.btn(C.amberL,C.amber),padding:"5px 11px",fontSize:12}}>↓ Word</button>
                       </td>
+                      {canWrite&&(
+                        <td style={S.td("center")} onClick={e=>e.stopPropagation()}>
+                          <div style={{display:"flex",gap:4,justifyContent:"center"}}>
+                            <button onClick={()=>{setInlineEditId(p.id);setInlineEditName(p.name)}}
+                              title="이름 수정"
+                              style={{padding:"4px 8px",background:"#EEF2FF",color:"#6366F1",
+                                border:"none",borderRadius:6,fontSize:11,cursor:"pointer",fontWeight:700}}>
+                              ✏
+                            </button>
+                            <button onClick={()=>{
+                              if(!window.confirm(`"${p.name}" 프로젝트를 삭제합니까?`)) return
+                              setProjects(prev=>prev.filter(pp=>pp.id!==p.id))
+                              if(selProjId===p.id) setSelProjId(null)
+                            }} title="삭제"
+                              style={{padding:"4px 8px",background:"#FEE2E2",color:"#DC2626",
+                                border:"none",borderRadius:6,fontSize:11,cursor:"pointer",fontWeight:700}}>
+                              🗑
+                            </button>
+                          </div>
+                        </td>
+                      )}
                     </tr>
                   })}
                 </tbody>
@@ -2920,14 +2992,24 @@ function ProjectsTab({projects,setProjects,selProjId,setSelProjId,selVerIdx,setS
                         if(lbl2.includes("예상용역금액")||lbl2.includes("예상용역비")){ const v=parseFloat(String(r[1]||"").replace(/[,원\s(VAT별도)]/g,"")); if(Number.isFinite(v)&&v>0) {} }
                         if(lbl2==="직접인건비합계"){ let s=0;for(let c=2;c<r.length;c+=2)s+=toN(r[c]);if(s>0)laborCost=s }
                         if(lbl2==="직접경비합계"){  let s=0;for(let c=2;c<r.length;c+=2)s+=toN(r[c]);if(s>0)directExp=s }
-                        if(lbl2.includes("외주용역비")&&lbl2.includes("합계")&&lbl2.includes("1+2")){ let s=0;for(let c=2;c<r.length;c+=2)s+=toN(r[c]);if(s>0)subContract=s }
-                        if(ri>totalRows*0.65){
-                          if(lbl2==="직접인건비"){ const v=toN(r[2]||r[1]);if(v>0)laborCost=v }
-                          if(lbl2==="직접경비"){  const v=toN(r[2]||r[1]);if(v>0)directExp=v }
-                          if(lbl2==="외주용역비"){ const v=toN(r[2]||r[1]);if(v>0)subContract=v }
-                          if(lbl2.startsWith("간접비")){ const v=toN(r[2]||r[1]);if(v>0)indirect=v }
-                          if(lbl2==="이윤"||lbl2==="이 윤"){ const v=toN(r[2]||r[1]);if(v>0)profit=v }
+                        // 외주용역비 합계 패턴 (1+2, 소계, 합계 등 다양한 형식)
+                        if(lbl2.includes("외주용역비")&&(lbl2.includes("합계")||lbl2.includes("소계")||lbl2.includes("1+2")||lbl2.includes("계"))){ let s=0;for(let c=2;c<r.length;c+=2)s+=toN(r[c]);if(s>0)subContract=s }
+                        // 외주비 단독 행 (합계 키워드 없어도)
+                        if(!subContract&&(lbl2==="외주용역비"||lbl2==="외주비"||lbl2==="외주용역"||lbl2==="하도급비")){const v=Math.max(...r.map(c=>toN(c)));if(v>0)subContract=v}
+                        if(ri>totalRows*0.5){
+                          if(lbl2==="직접인건비"||lbl2==="인건비합계"){ const v=Math.max(toN(r[2]),toN(r[1]));if(v>0)laborCost=v }
+                          if(lbl2==="직접경비"||lbl2==="경비합계"){    const v=Math.max(toN(r[2]),toN(r[1]));if(v>0)directExp=v }
+                          // 외주용역비 — 여러 컬럼 중 최대값 (합산 컬럼 존재 시)
+                          if(lbl2==="외주용역비"||lbl2==="외주비"||lbl2==="하도급비"){
+                            const colVals=r.slice(1).map(c=>toN(c)).filter(v=>v>0)
+                            const v=colVals.length>0?Math.max(...colVals):0
+                            if(v>0)subContract=v
+                          }
+                          if(lbl2.startsWith("간접비")||lbl2==="간접비율"){ const v=Math.max(toN(r[2]),toN(r[1]));if(v>0)indirect=v }
+                          if(lbl2==="이윤"||lbl2==="이 윤"){ const v=Math.max(toN(r[2]),toN(r[1]));if(v>0)profit=v }
                         }
+                        // 협력업체 소계를 외주비로 활용 (외주비 행이 없을 때)
+                        if(!subContract&&(lbl2.includes("협력업체")&&lbl2.includes("합계"))){ let s=0;for(let c=2;c<r.length;c+=2)s+=toN(r[c]);if(s>0)subContract=s }
                       })
                       let inV=false
                       rows.forEach(r=>{
@@ -3623,8 +3705,27 @@ function CompareProjects({projects,cmpIds,setCmpIds,allCats}) {
 // ── 평당단가 비교 ────────────────────────────────────────────
 function BenchProjects({projects,cmpIds,setCmpIds,allCats}) {
   const [selCat,setSelCat]=useState("")
+  const [showBench,setShowBench]=useState(true)  // 우수사례 비교 표시 여부
+  const BENCH_MIN=0.30, BENCH_MAX=0.38           // 우수 외주율 기준 (30~38%)
   const UP_CATS=["구조","토목","조경","기계","전기통신소방","전기통신","기계소방","CG","견적","건축외주","부대토목","흙막이","흙막이·지반","지반조사","현황측량","소방"]
   const selPs=cmpIds.length>0?projects.filter(p=>cmpIds.includes(p.id)):projects
+
+  // 우수사례 프로젝트 (외주율 30~38% 이내)
+  const benchmarkProjs = useMemo(()=>{
+    return projects.filter(p=>{
+      const ver = (p.versions||[])[(p.versions||[]).length-1]
+      if(!ver||!ver.subContract) return false
+      const fee = p.serviceFee||p.totalFee||0
+      if(fee<=0) return false
+      const rate = ver.subContract/fee
+      return rate>=BENCH_MIN && rate<=BENCH_MAX
+    }).sort((a,b)=>{
+      const rA = ((a.versions||[]).slice(-1)[0]?.subContract||0)/(a.serviceFee||a.totalFee||1)
+      const rB = ((b.versions||[]).slice(-1)[0]?.subContract||0)/(b.serviceFee||b.totalFee||1)
+      return rA-rB
+    })
+  },[projects])
+
   const benchData=useMemo(()=>{
     const cats=selCat?[selCat]:allCats.filter(c=>UP_CATS.some(u=>c.includes(u)||u.includes(c)))
     return cats.map(cat=>{
@@ -3636,26 +3737,76 @@ function BenchProjects({projects,cmpIds,setCmpIds,allCats}) {
         const areaM2 = basis==="대지" ? (p.siteArea||0) : (p.floorArea||0)
         const py = toPy(areaM2)
         if(py<=0) return
+        const fee = p.serviceFee||p.totalFee||0
+        const verRate = ver?.subContract&&fee>0 ? ver.subContract/fee : null
         items.push({
           projId:p.id, projName:p.name,
-          areaM2, py,
-          basis: basis==="대지"?"대지면적":"연면적",
+          areaM2, py, basis: basis==="대지"?"대지면적":"연면적",
           vendor: vd.name,
           contract: vd.contract,
           nego2: vd.nego2||null,
           up:  vd.contract/py,
           up2: vd.nego2 ? vd.nego2/py : null,
-          totalFee: p.serviceFee||p.totalFee||0,
+          totalFee: fee,
+          extRate: verRate,
+          isBench: verRate!=null && verRate>=BENCH_MIN && verRate<=BENCH_MAX,
         })
       })
-      return {cat,items}
+      // 우수사례 평균단가 계산
+      const benchItems = showBench ? benchmarkProjs.flatMap(p=>{
+        const ver=(p.versions||[])[(p.versions||[]).length-1]
+        const vd=ver?.vendors.find(v=>v.cat===cat)
+        if(!vd||!vd.contract) return []
+        const basis=getAreaBasis(cat); if(basis==="1식") return []
+        const areaM2 = basis==="대지"?(p.siteArea||0):(p.floorArea||0)
+        const py=toPy(areaM2); if(py<=0) return []
+        return [{up:vd.contract/py, projName:p.name}]
+      }) : []
+      const benchAvgUp = benchItems.length>0 ? benchItems.reduce((s,i)=>s+i.up,0)/benchItems.length : null
+      return {cat,items,benchAvgUp,benchItemCount:benchItems.length}
     }).filter(r=>r.items.length>0)
-  },[selPs,allCats,selCat])
-  const barData=benchData.map(row=>({name:row.cat.length>5?row.cat.slice(0,5)+"…":row.cat,...Object.fromEntries(row.items.map(i=>[i.projId,+i.up.toFixed(0)]))}))
+  },[selPs,allCats,selCat,showBench,benchmarkProjs])
+  const barData=benchData.map(row=>({name:row.cat.length>5?row.cat.slice(0,5)+"…":row.cat,...Object.fromEntries(row.items.map(i=>[i.projId,+i.up.toFixed(0)])),benchAvg:row.benchAvgUp?+row.benchAvgUp.toFixed(0):null}))
   const fAmt = v => v>=1e8?`${(v/1e8).toFixed(2)}억`:v>=1e4?`${Math.round(v/1e4)}만`:`${v.toLocaleString()}`
   const fPy  = v => `${Math.round(v).toLocaleString()}평`
   return (
     <div>
+      {/* 우수사례 요약 배너 */}
+      {benchmarkProjs.length>0&&(
+        <div style={{background:"#D1FAE5",border:"2px solid #059669",borderRadius:12,padding:"12px 16px",marginBottom:14}}>
+          <div style={{display:"flex",alignItems:"center",gap:10,flexWrap:"wrap"}}>
+            <div style={{fontSize:14,fontWeight:800,color:"#065F46"}}>
+              🏆 우수사례 프로젝트 (외주율 {Math.round(BENCH_MIN*100)}~{Math.round(BENCH_MAX*100)}%)
+            </div>
+            <div style={{fontSize:12,color:"#059669",fontWeight:600}}>
+              총 {benchmarkProjs.length}개 프로젝트 — 이 프로젝트들의 평당단가가 벤치마크 기준이 됩니다
+            </div>
+            <button onClick={()=>setShowBench(v=>!v)}
+              style={{marginLeft:"auto",padding:"5px 12px",background:showBench?"#059669":"#F3F4F6",
+                color:showBench?"#fff":"#6B7280",border:"none",borderRadius:8,fontSize:12,
+                fontWeight:700,cursor:"pointer"}}>
+              {showBench?"✓ 벤치마크 표시 중":"벤치마크 표시"}
+            </button>
+          </div>
+          <div style={{display:"flex",gap:8,marginTop:10,flexWrap:"wrap"}}>
+            {benchmarkProjs.slice(0,8).map(p=>{
+              const ver=(p.versions||[]).slice(-1)[0]
+              const fee=p.serviceFee||p.totalFee||0
+              const rate=ver?.subContract&&fee>0?Math.round(ver.subContract/fee*100):0
+              return (
+                <div key={p.id} style={{background:"#fff",border:"1px solid #059669",borderRadius:8,
+                  padding:"6px 12px",cursor:"pointer"}}
+                  onClick={()=>setCmpIds(prev=>prev.includes(p.id)?prev:([...prev,p.id]))}>
+                  <div style={{fontSize:11.5,fontWeight:700,color:"#065F46",maxWidth:160,
+                    overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{p.name.slice(0,20)}</div>
+                  <div style={{fontSize:11,color:"#059669",fontWeight:800}}>외주율 {rate}%</div>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
+
       <div style={{background:C.navyL,borderLeft:`3px solid ${C.navyM}`,borderRadius:"0 8px 8px 0",padding:"9px 13px",fontSize:12,color:C.navyM,marginBottom:13,lineHeight:1.7}}>
         <strong>평당단가 산출 기준</strong> — 토목·조경·흙막이·지반조사·현황측량·부대토목 → <strong style={{color:C.amber}}>대지면적</strong> / 구조·기계·전기·소방·CG·건축외주 등 → <strong style={{color:C.green}}>연면적</strong> / 친환경·교통·BIM·인테리어·외부특화·경관 → <strong style={{color:C.gray}}>1식 제외</strong>
       </div>
