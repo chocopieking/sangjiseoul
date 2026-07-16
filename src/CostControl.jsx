@@ -74,7 +74,7 @@ export function CostControlTab({ projects=[], vendorsDB={}, cashItems=[], vendor
     const byYear   = {}   // 연도별 외주비
     let totalAmt   = 0
 
-    Object.values(vendorsDB).forEach(v => {
+    Object.values(vendorsDB||{}).forEach(v => {
       (v.paymentHistory || []).forEach(ph => {
         const pj  = (ph.project || "").trim()
         const cat = (ph.type    || "기타").trim()

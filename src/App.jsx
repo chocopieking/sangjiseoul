@@ -2557,7 +2557,7 @@ function ProjectsTab({projects,setProjects,selProjId,setSelProjId,selVerIdx,setS
 
   const selProj = projects.find(p=>p.id===selProjId)
   const selVer  = selProj?.versions?.[selVerIdx]
-  const allCats = useMemo(()=>[...new Set(projects.flatMap(p=>p.versions.flatMap(v=>v.vendors.map(vd=>vd.cat))))].sort(),[projects])
+  const allCats = useMemo(()=>[...new Set(projects.flatMap(p=>(p.versions||[]).flatMap(v=>(v.vendors||[]).map(vd=>vd.cat))))].sort(),[projects])
 
   // 상세 필터링
   const filtered = useMemo(()=>{
@@ -2740,7 +2740,7 @@ function ProjectsTab({projects,setProjects,selProjId,setSelProjId,selVerIdx,setS
                       <td style={{...S.td("right"),fontSize:11}}>{p.contractDate||"-"}</td>
                       <td style={S.td("center")} onClick={e=>e.stopPropagation()}>
                         <button onClick={()=>{
-                          const ver=p.versions[p.versions.length-1]; if(!ver) return
+                          const ver=(p.versions||[])[(p.versions||[]).length-1]; if(!ver) return
                           const wb=XLSX.utils.book_new()
                           const pyF2=toPy(p.floorArea||0), pyS2=toPy(p.siteArea||0)
                           const pnl=calcPnlTotals(ver)
@@ -3504,7 +3504,7 @@ function CompareProjects({projects,cmpIds,setCmpIds,allCats}) {
     const cats=catFilter?[catFilter]:allCats
     return cats.map(cat=>{
       const row={cat}
-      selPs.forEach(p=>{const ver=p.versions[p.versions.length-1];const vd=ver?.vendors.find(v=>v.cat===cat);row[p.id]=(vd?vd[priceKey]||vd.contract||0:0)})
+      selPs.forEach(p=>{const ver=(p.versions||[])[(p.versions||[]).length-1];const vd=ver?.vendors.find(v=>v.cat===cat);row[p.id]=(vd?vd[priceKey]||vd.contract||0:0)})
       return row
     }).filter(row=>selPs.some(p=>row[p.id]>0))
   },[selPs,allCats,catFilter,priceKey])
@@ -3602,7 +3602,7 @@ function CompareProjects({projects,cmpIds,setCmpIds,allCats}) {
               <tr style={{background:"var(--color-background-secondary,#f0f0ee)",fontWeight:600}}>
                 <td style={{...S.td("left")}} colSpan={2}>외주비 합계</td>
                 {selPs.map((p,pi)=>{
-                  const ver=p.versions[p.versions.length-1]
+                  const ver=(p.versions||[])[(p.versions||[]).length-1]
                   const tot=ver?.vendors.reduce((s,v)=>s+(v[priceKey]||v.contract||0),0)||0
                   return [
                     <td key={p.id+"a"} style={{...S.td("right"),color:C.navyM,background:COLORS[pi%COLORS.length]+"08"}}>{fW(tot)}</td>,
@@ -3630,7 +3630,7 @@ function BenchProjects({projects,cmpIds,setCmpIds,allCats}) {
     return cats.map(cat=>{
       const items=[]
       selPs.forEach(p=>{
-        const ver=p.versions[p.versions.length-1]; const vd=ver?.vendors.find(v=>v.cat===cat)
+        const ver=(p.versions||[])[(p.versions||[]).length-1]; const vd=ver?.vendors.find(v=>v.cat===cat)
         if(!vd||!vd.contract) return
         const basis=getAreaBasis(cat); if(basis==="1식") return
         const areaM2 = basis==="대지" ? (p.siteArea||0) : (p.floorArea||0)
@@ -5970,7 +5970,7 @@ function StatsTab({projects}) {
           {[
             ["전체 프로젝트",projects.length+"건","#6366F1"],
             ["진행중",projects.filter(p=>p.type==="계약"||p.type==="확정").length+"건","#059669"],
-            ["등록 협력업체",new Set(projects.flatMap(p=>(p.versions[p.versions.length-1]?.vendors||[]).map(v=>v.name))).size+"개","#D97706"],
+            ["등록 협력업체",new Set(projects.flatMap(p=>((p.versions||[])[(p.versions||[]).length-1]?.vendors||[]).map(v=>v.name))).size+"개","#D97706"],
             ["총 용역비합",`${(projects.reduce((s,p)=>s+(p.serviceFee||0),0)/1e8).toFixed(1)}억`,"#4F46E5"],
           ].map(([label,val,color])=>(
             <div key={label} style={{background:color+"12",borderRadius:12,padding:"16px",border:`1px solid ${color}33`,textAlign:"center"}}>
