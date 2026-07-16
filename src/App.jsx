@@ -2801,8 +2801,8 @@ function ProjectsTab({projects,setProjects,selProjId,setSelProjId,selVerIdx,setS
                             ["연면적(평)",pyF2,"","대지면적(평)",pyS2],
                             [""],
                             ["분야","업체명","원가견적","1차NEGO","2차NEGO","면적기준","평당단가","용역비대비"],
-                            ...ver.vendors.map(v=>{const b2=getAreaBasis(v.cat),py=b2==="대지"?pyS2:b2==="연면적"?pyF2:0,up=py>0?Math.round(v.contract/py):"-";return[v.cat,v.name,v.contract,v.nego1||"-",v.nego2||"-",b2==="대지"?"대지면적":b2==="연면적"?"연면적":"1식",up,p.serviceFee>0?`${(v.contract/p.serviceFee*100).toFixed(2)}%`:"-"]}),
-                            ["","합계",ver.vendors.reduce((s,v)=>s+v.contract,0)]
+                            ...(ver.vendors||[]).map(v=>{const b2=getAreaBasis(v.cat),py=b2==="대지"?pyS2:b2==="연면적"?pyF2:0,up=py>0?Math.round(v.contract/py):"-";return[v.cat,v.name,v.contract,v.nego1||"-",v.nego2||"-",b2==="대지"?"대지면적":b2==="연면적"?"연면적":"1식",up,p.serviceFee>0?`${(v.contract/p.serviceFee*100).toFixed(2)}%`:"-"]}),
+                            ["","합계",(ver.vendors||[]).reduce((s,v)=>s+v.contract,0)]
                           ]),"협력업체비용")
                           XLSX.writeFile(wb,`실행계획서_${p.code}_${ver.ver}.xlsx`)
                         }} style={{...S.btn(C.navyL,C.navyM),padding:"5px 11px",fontSize:12}}>↓ Excel</button>
@@ -3165,7 +3165,7 @@ function VersionCompareCard({proj,selVerIdx}) {
 
   const versions = useMemo(()=>{
     // round가 있으면 round 기준, 없으면 index 기준 정렬
-    return [...proj.versions]
+    return [...(proj.versions||[])]
       .map((v,i)=>({...v,_origIdx:i}))
       .sort((a,b)=>(a.round||a._origIdx+1)-(b.round||b._origIdx+1))
   },[proj.versions])
@@ -3731,7 +3731,7 @@ function BenchProjects({projects,cmpIds,setCmpIds,allCats}) {
     return cats.map(cat=>{
       const items=[]
       selPs.forEach(p=>{
-        const ver=(p.versions||[])[(p.versions||[]).length-1]; const vd=ver?.vendors.find(v=>v.cat===cat)
+        const ver=(p.versions||[])[(p.versions||[]).length-1]; const vd=(ver?.vendors||[]).find(v=>v.cat===cat)
         if(!vd||!vd.contract) return
         const basis=getAreaBasis(cat); if(basis==="1식") return
         const areaM2 = basis==="대지" ? (p.siteArea||0) : (p.floorArea||0)
@@ -3755,7 +3755,7 @@ function BenchProjects({projects,cmpIds,setCmpIds,allCats}) {
       // 우수사례 평균단가 계산
       const benchItems = showBench ? benchmarkProjs.flatMap(p=>{
         const ver=(p.versions||[])[(p.versions||[]).length-1]
-        const vd=ver?.vendors.find(v=>v.cat===cat)
+        const vd=(ver?.vendors||[]).find(v=>v.cat===cat)
         if(!vd||!vd.contract) return []
         const basis=getAreaBasis(cat); if(basis==="1식") return []
         const areaM2 = basis==="대지"?(p.siteArea||0):(p.floorArea||0)
@@ -3766,7 +3766,7 @@ function BenchProjects({projects,cmpIds,setCmpIds,allCats}) {
       return {cat,items,benchAvgUp,benchItemCount:benchItems.length}
     }).filter(r=>r.items.length>0)
   },[selPs,allCats,selCat,showBench,benchmarkProjs])
-  const barData=benchData.map(row=>({name:row.cat.length>5?row.cat.slice(0,5)+"…":row.cat,...Object.fromEntries(row.items.map(i=>[i.projId,+i.up.toFixed(0)])),benchAvg:row.benchAvgUp?+row.benchAvgUp.toFixed(0):null}))
+  const barData=benchData.map(row=>({name:row.cat.length>5?row.cat.slice(0,5)+"…":row.cat,...Object.fromEntries(row.items.filter(i=>i&&i.up>0).map(i=>[i.projId,+i.up.toFixed(0)])),benchAvg:row.benchAvgUp&&row.benchAvgUp>0?+row.benchAvgUp.toFixed(0):undefined}))
   const fAmt = v => v>=1e8?`${(v/1e8).toFixed(2)}억`:v>=1e4?`${Math.round(v/1e4)}만`:`${v.toLocaleString()}`
   const fPy  = v => `${Math.round(v).toLocaleString()}평`
   return (
@@ -4784,12 +4784,17 @@ function Card({title,note,actions,children,style={}}) {
     {children}
   </div>
 }
+// yyyy-MM-dd 형식만 date input에 허용
+const safeDate = v => /^\d{4}-\d{2}-\d{2}$/.test(String(v||"")) ? v : ""
+
 function F({label,val,onChange,type="text",ph="",opts=[]}) {
+  // date input에는 yyyy-MM-dd 형식만 허용 (한글/기타 문자 방어)
+  const safeVal = type==="date" ? (/^\d{4}-\d{2}-\d{2}$/.test(String(val||"")) ? val : "") : (val||"")
   return <div>
     <label style={S.lbl()}>{label}</label>
     {type==="select"
-      ?<select value={val} onChange={e=>onChange(e.target.value)} style={S.inp()}><option value="">선택</option>{opts.map(o=><option key={o} value={o}>{o}</option>)}</select>
-      :<input type={type} value={val} onChange={e=>onChange(e.target.value)} placeholder={ph} style={S.inp()}/>}
+      ?<select value={safeVal} onChange={e=>onChange(e.target.value)} style={S.inp()}><option value="">선택</option>{opts.map(o=><option key={o} value={o}>{o}</option>)}</select>
+      :<input type={type} value={safeVal} onChange={e=>onChange(e.target.value)} placeholder={ph} style={S.inp()}/>}
   </div>
 }
 
