@@ -69,9 +69,10 @@ export function CostControlTab({ projects=[], vendorsDB={}, cashItems=[], vendor
 
   // ── 전체 외주비 집계 ─────────────────────────────────────────
   const extSummary = useMemo(() => {
-    const byProj  = {}
-    const byCat   = {}
-    let totalAmt  = 0
+    const byProj   = {}
+    const byCat    = {}
+    const byYear   = {}   // 연도별 외주비
+    let totalAmt   = 0
 
     Object.values(vendorsDB).forEach(v => {
       (v.paymentHistory || []).forEach(ph => {
@@ -80,20 +81,36 @@ export function CostControlTab({ projects=[], vendorsDB={}, cashItems=[], vendor
         const amt = ph.totalAmt || 0
         if (!pj || amt <= 0) return
         totalAmt += amt
-        if (!byProj[pj]) byProj[pj] = { total: 0, cats: {}, paid: ph.paidSum || 0, remain: ph.remain || 0 }
-        byProj[pj].total      += amt
-        byProj[pj].cats[cat]   = (byProj[pj].cats[cat] || 0) + amt
-        byCat[cat]             = (byCat[cat] || 0) + amt
+
+        // 지급 차수에서 연도 추출 (날짜 있는 차수 기준)
+        const payments = ph.payments || []
+        const years = payments
+          .filter(p => p.date && p.amount > 0)
+          .map(p => String(p.date).slice(0,4))
+        const mainYear = years[0] || String(new Date().getFullYear())
+        byYear[mainYear] = (byYear[mainYear] || 0) + amt
+
+        if (!byProj[pj]) byProj[pj] = { total: 0, cats: {}, yearAmt: {} }
+        byProj[pj].total            += amt
+        byProj[pj].cats[cat]         = (byProj[pj].cats[cat] || 0) + amt
+        byProj[pj].yearAmt[mainYear] = (byProj[pj].yearAmt[mainYear] || 0) + amt
+        byCat[cat]                   = (byCat[cat] || 0) + amt
       })
     })
 
-    // 현누계 (cashItems 입금완료 기준)
     const yr = String(new Date().getFullYear())
+
+    // 당해연도 외주비 (지급 차수 연도 기준)
+    const yearExtAmt = byYear[yr] || 0
+
+    // 당해연도 현누계 매출 (cashItems 입금완료 기준)
     const revenue = cashItems.filter(i => i.paidDate?.startsWith(yr))
                              .reduce((s, i) => s + (i.amount || 0), 0)
 
-    return { byProj, byCat, totalAmt, revenue,
-      costRate: revenue > 0 ? Math.round(totalAmt / revenue * 100) : null }
+    // 외주비율 = 당해연도 외주비 ÷ 당해연도 현누계 매출
+    const costRate = revenue > 0 ? Math.round(yearExtAmt / revenue * 100) : null
+
+    return { byProj, byCat, byYear, totalAmt, yearExtAmt, revenue, costRate, yr }
   }, [vendorsDB, cashItems])
 
   // ── 탭 버튼 ───────────────────────────────────────────────────
@@ -139,12 +156,20 @@ export function CostControlTab({ projects=[], vendorsDB={}, cashItems=[], vendor
 // 대시보드 뷰
 // ══════════════════════════════════════════════════════════════
 function Dashboard({ summary, projLimits, cashItems }) {
-  const { byProj, byCat, totalAmt, revenue, costRate } = summary
+  const { byProj, byCat, byYear, totalAmt, yearExtAmt, revenue, costRate, yr } = summary
   const rateLevel = getCostRateLevel(costRate)
-  const yr = String(new Date().getFullYear())
+  const [selYear, setSelYear] = useState(yr)
+  const allYears = Object.keys(byYear).sort()
 
-  const topProjs = Object.entries(byProj)
-    .sort((a,b) => b[1].total - a[1].total).slice(0, 10)
+  // 연도 필터 적용된 프로젝트 목록
+  const filteredProjs = Object.entries(byProj)
+    .map(([pj, d]) => {
+      const amt = selYear === "전체" ? d.total : (d.yearAmt?.[selYear] || 0)
+      return [pj, { ...d, filteredAmt: amt }]
+    })
+    .filter(([, d]) => d.filteredAmt > 0)
+    .sort((a, b) => b[1].filteredAmt - a[1].filteredAmt)
+  const topProjs = filteredProjs.slice(0, 10)
   const topCats  = Object.entries(byCat)
     .sort((a,b) => b[1] - a[1]).slice(0, 10)
 
@@ -159,17 +184,17 @@ function Dashboard({ summary, projLimits, cashItems }) {
       {/* KPI 카드 */}
       <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:12,marginBottom:20}}>
         {[
-          ["💰 총 외주비(이력)", fA(totalAmt), "#DC2626", "#FEE2E2"],
-          ["💧 현누계 매출",      fA(revenue),  "#059669", "#D1FAE5"],
-          ["📊 외주비율",
+          ["💰 전체 외주비(이력)",  fA(totalAmt),    "#DC2626", "#FEE2E2"],
+          [`📅 ${yr}년 외주비`,    fA(yearExtAmt),  "#7C3AED", "#EDE9FE"],
+          ["💧 현누계 매출(입금완료)", fA(revenue),  "#059669", "#D1FAE5"],
+          ["📊 외주비율(당해연도)",
             costRate ? `${costRate}%` : "매출 없음",
             rateLevel?.color || "#6B7280",
             rateLevel?.bg || "#F3F4F6"],
-          ["🏢 분석 프로젝트",   `${Object.keys(byProj).length}개`, "#6366F1", "#EEF2FF"],
         ].map(([l,v,color,bg])=>(
           <div key={l} style={{background:bg, borderRadius:14, padding:"16px 18px", border:`1.5px solid ${color}30`}}>
-            <div style={{fontSize:12, color, fontWeight:700, marginBottom:6}}>{l}</div>
-            <div style={{fontSize:26, fontWeight:900, color}}>{v}</div>
+            <div style={{fontSize:12, color, fontWeight:700, marginBottom:6, whiteSpace:"pre-line"}}>{l}</div>
+            <div style={{fontSize:24, fontWeight:900, color}}>{v}</div>
           </div>
         ))}
       </div>
@@ -185,8 +210,8 @@ function Dashboard({ summary, projLimits, cashItems }) {
               현재 외주비율 {costRate}% — {rateLevel.label}
             </div>
             <div style={{fontSize:13, color:"#374151", marginTop:2}}>
-              목표: 45~50% | 현재: {costRate}% | 초과: {costRate > 50 ? `+${costRate-50}%p` : "없음"}
-              {costRate > 60 && " ⚠ 즉각적인 원가통제 조치 필요"}
+              {yr}년 외주비 {fA(yearExtAmt)} ÷ 현누계 매출 {fA(revenue)} = {costRate}%
+               | 목표: 45~50% | {costRate > 60 && "⚠ 즉각적인 원가통제 조치 필요"}
             </div>
           </div>
           <div style={{marginLeft:"auto", textAlign:"right"}}>
@@ -194,6 +219,54 @@ function Dashboard({ summary, projLimits, cashItems }) {
             <div style={{fontSize:13, fontWeight:700, color:rateLevel.color}}>
               {revenue > 0 ? `외주비 ${fA(revenue * 0.5)} 이하 유지` : "-"}
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* 연도별 외주비 탭 */}
+      {allYears.length > 1 && (
+        <div style={{background:"#fff",borderRadius:12,border:"1px solid #E5E7EB",
+          padding:"14px 18px",marginBottom:16}}>
+          <div style={{fontSize:13,fontWeight:700,color:"#374151",marginBottom:10}}>
+            📅 연도별 외주비 현황
+          </div>
+          <div style={{display:"flex",gap:6,marginBottom:14,flexWrap:"wrap"}}>
+            {["전체",...allYears].map(y=>(
+              <button key={y} onClick={()=>setSelYear(y)}
+                style={{padding:"6px 14px",
+                  background:selYear===y?"#7C3AED":"#F3F4F6",
+                  color:selYear===y?"#fff":"#6B7280",
+                  border:"none",borderRadius:8,fontSize:13,
+                  fontWeight:selYear===y?700:500,cursor:"pointer"}}>
+                {y==="전체"?"전체":y+"년"}
+                {y!=="전체" && <span style={{fontSize:11,marginLeft:4,opacity:.8}}>
+                  ({fA(byYear[y]||0)})
+                </span>}
+              </button>
+            ))}
+          </div>
+          <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:10}}>
+            {allYears.map(y=>{
+              const amt = byYear[y]||0
+              const rev = cashItems.filter(i=>i.paidDate?.startsWith(y))
+                                   .reduce((s,i)=>s+(i.amount||0),0)
+              const rate= rev>0?Math.round(amt/rev*100):null
+              const lvl = getCostRateLevel(rate)
+              return (
+                <div key={y} style={{background:lvl?.bg||"#F8FAFC",borderRadius:10,
+                  padding:"12px 14px",border:`1.5px solid ${lvl?.color||"#E5E7EB"}30`,
+                  cursor:"pointer"}} onClick={()=>setSelYear(y)}>
+                  <div style={{fontSize:12,fontWeight:700,color:lvl?.color||"#6B7280",marginBottom:4}}>
+                    {y}년 {selYear===y?"✓":""}
+                  </div>
+                  <div style={{fontSize:18,fontWeight:900,color:"#7C3AED"}}>{fA(amt)}</div>
+                  <div style={{fontSize:11,color:"#6B7280",marginTop:4}}>
+                    {rev>0?`매출 ${fA(rev)}`:"매출 미집계"} 
+                    {rate?<span style={{fontWeight:700,color:lvl?.color}}>{rate}%</span>:""}
+                  </div>
+                </div>
+              )
+            })}
           </div>
         </div>
       )}
@@ -224,7 +297,12 @@ function Dashboard({ summary, projLimits, cashItems }) {
         {/* 프로젝트별 외주비 TOP10 */}
         <div style={{background:"#fff", borderRadius:14, border:"1px solid #E5E7EB", overflow:"hidden"}}>
           <div style={{padding:"14px 18px", background:"linear-gradient(135deg,#DC2626,#EF4444)", color:"#fff"}}>
-            <div style={{fontSize:14, fontWeight:800}}>🏗 프로젝트별 외주비 TOP 10</div>
+            <div style={{fontSize:14, fontWeight:800}}>
+              🏗 프로젝트별 외주비 TOP 10
+              <span style={{fontSize:12,fontWeight:500,marginLeft:8,opacity:.8}}>
+                ({selYear==="전체"?"전체":selYear+"년"} 기준)
+              </span>
+            </div>
           </div>
           <div style={{overflowX:"auto"}}>
             <table style={{width:"100%", borderCollapse:"collapse"}}>
@@ -250,7 +328,7 @@ function Dashboard({ summary, projLimits, cashItems }) {
                         {pj.slice(0,30)}
                       </td>
                       <td style={{padding:"8px 12px", fontSize:12, fontWeight:700,
-                        color:"#DC2626", textAlign:"right"}}>{fA(d.total)}</td>
+                        color:"#DC2626", textAlign:"right"}}>{fA(d.filteredAmt||d.total)}</td>
                       <td style={{padding:"8px 12px", fontSize:12, textAlign:"right",
                         color:"#6B7280"}}>{Object.keys(d.cats).length}</td>
                       <td style={{padding:"8px 12px", fontSize:12, textAlign:"right",
