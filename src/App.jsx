@@ -2280,72 +2280,219 @@ function SimplePieChart({data=[], total=0}) {
             </div>
           </div>
 
-          {/* 본부별 지출 표 — 인당 포함 */}
-          <div style={{background:"#fff",borderRadius:14,border:"1px solid #E5E7EB",overflow:"hidden",marginBottom:20}}>
-            <div style={{padding:"14px 20px",borderBottom:"1px solid #E5E7EB",fontSize:15,fontWeight:800,color:"#111827"}}>본부별 기성 지급 현황 (단위: 억원)</div>
-            <div style={{overflowX:"auto"}}>
-              <table style={{width:"100%",borderCollapse:"collapse"}}>
-                <thead>
-                  <tr style={{background:"#FEE2E2"}}>
-                    {["본부","건수","인원","입금 완료","인당(완료)","입금 예정","합계","비율"].map((h,i)=>(
-                      <th key={i} style={{padding:"10px 14px",textAlign:i===0?"left":"right",fontSize:12.5,fontWeight:700,
-                        color:i===3?"#059669":i===4?"#059669":i===5?"#D97706":"#6B7280",
-                        borderBottom:"2px solid #E5E7EB",
-                        background:i===4?"#D1FAE5":"#FEE2E2"}}>{h}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {cashByDept.map((d,i)=>{
-                    const pctD = totalPaid+totalConf>0?Math.round(d.total/(totalPaid+totalConf)*100):0
-                    const staff2= (deptStaff[d.dept]?.total)||1
-                    const perCap= d.paid/staff2
-                    return (
-                      <tr key={d.dept} style={{background:i%2===0?"#fff":"#FAFAFA",borderBottom:"1px solid #F3F4F6"}}>
-                        <td style={{padding:"11px 14px"}}>
-                          <div style={{display:"flex",alignItems:"center",gap:8}}>
-                            <div style={{width:10,height:10,borderRadius:"50%",background:d.color}}/>
-                            <span style={{fontSize:14,fontWeight:700,color:"#111827"}}>{d.dept}</span>
-                          </div>
-                        </td>
-                        <td style={{padding:"11px 14px",textAlign:"right",fontSize:13,color:"#6B7280"}}>{d.all.length}건</td>
-                        <td style={{padding:"11px 14px",textAlign:"right",fontSize:13,color:"#6B7280",fontWeight:600}}>{staff2}명</td>
-                        <td style={{padding:"11px 14px",textAlign:"right",fontSize:13.5,fontWeight:700,color:"#059669"}}>{d.paid>0?fAmt(d.paid):"-"}</td>
-                        <td style={{padding:"11px 14px",textAlign:"right",fontSize:12.5,fontWeight:600,color:"#059669",background:"#D1FAE5"}}>
-                          {perCap>=1e8?`${(perCap/1e8).toFixed(2)}억`:perCap>=1e4?`${(perCap/1e4).toFixed(0)}만`:"-"}
-                        </td>
-                        <td style={{padding:"11px 14px",textAlign:"right",fontSize:13,color:"#D97706"}}>{d.conf>0?fAmt(d.conf):"-"}</td>
-                        <td style={{padding:"11px 14px",textAlign:"right",fontSize:14,fontWeight:800,color:"#312E81"}}>{d.total>0?fAmt(d.total):"-"}</td>
-                        <td style={{padding:"11px 14px",textAlign:"right"}}>
-                          <div style={{display:"flex",alignItems:"center",gap:8,justifyContent:"flex-end"}}>
-                            <div style={{width:60,height:8,background:"#E5E7EB",borderRadius:4,overflow:"hidden"}}>
-                              <div style={{height:"100%",background:d.color,borderRadius:4,width:`${pctD}%`}}/>
-                            </div>
-                            <span style={{fontSize:12,fontWeight:600,color:"#374151"}}>{pctD}%</span>
-                          </div>
-                        </td>
-                      </tr>
-                    )
-                  })}
-                  <tr style={{background:"#FEE2E2",fontWeight:700,borderTop:"2px solid #E5E7EB"}}>
-                    <td style={{padding:"11px 14px",fontSize:14,color:"#312E81"}}>합계</td>
-                    <td style={{padding:"11px 14px",textAlign:"right",fontSize:13}}>{cashItems.length}건</td>
-                    <td style={{padding:"11px 14px",textAlign:"right",fontSize:13,fontWeight:800}}>
-                      {Object.values(deptStaff).reduce((s,d)=>s+(d.total||0),0)}명
-                    </td>
-                    <td style={{padding:"11px 14px",textAlign:"right",fontSize:14,fontWeight:800,color:"#059669"}}>{fAmt(totalPaid)}</td>
-                    <td style={{padding:"11px 14px",textAlign:"right",fontSize:13,fontWeight:800,color:"#059669",background:"#D1FAE5"}}>
-                      {(()=>{const ts=Object.values(deptStaff).reduce((s,d)=>s+(d.total||0),1);const v=totalPaid/ts;return v>=1e8?`${(v/1e8).toFixed(2)}억`:v>=1e4?`${(v/1e4).toFixed(0)}만`:"-"})()}
-                    </td>
-                    <td style={{padding:"11px 14px",textAlign:"right",fontSize:14,fontWeight:800,color:"#D97706"}}>{fAmt(totalConf)}</td>
-                    <td style={{padding:"11px 14px",textAlign:"right",fontSize:15,fontWeight:800,color:"#312E81"}}>{fAmt(totalPaid+totalConf)}</td>
-                    <td style={{padding:"11px 14px",textAlign:"right",fontSize:13,color:"#374151"}}>100%</td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-          </div>
+          {/* 본부별 손익분석 */}
+          {(()=>{
+            const fAb = v => v>=1e8?`${(v/1e8).toFixed(2)}억`:v>=1e4?`${Math.round(v/1e4)}만`:`${v.toLocaleString()}`
+            const tH  = (txt,c="#6B7280",bg="#FEF2F2")=>({padding:"9px 12px",textAlign:"right",fontSize:11.5,fontWeight:700,color:c,background:bg,borderBottom:"2px solid #FECACA",whiteSpace:"nowrap"})
+            const tD  = (c="#374151",bold=false,bg="inherit")=>({padding:"9px 12px",textAlign:"right",fontSize:12.5,fontWeight:bold?800:400,color:c,background:bg,borderBottom:"1px solid #FEE2E2",whiteSpace:"nowrap"})
 
+            // 매출목표: deptBiz.revTarget (억원)
+            // 매출: cashByDept.paid (현누계 입금완료)
+            // 지출: saleItems 합계 (본부별)
+            const saleByDeptMap = {}
+            DEPTS.forEach(dept=>{
+              const items = saleItems.filter(i=>(i.dept||"")===(dept)||(i.depts||[]).includes(dept)||(i.projectName||"").length>0)
+              // dept 필드 기준 집계
+              const dItems = saleItems.filter(i=>i.dept===dept||i.projectName&&!i.dept&&false)
+              saleByDeptMap[dept] = {
+                paid: dItems.reduce((s,i)=>s+(i.paidDate?i.amount||0:0),0),
+                total: dItems.reduce((s,i)=>s+(i.amount||0),0),
+              }
+            })
+
+            // saleItems의 세부 항목 분류 (memo 또는 stage 필드 기반)
+            const getExpCat = item => {
+              const m = (item.stage||item.memo||item.projectName||"").toLowerCase()
+              if(m.includes("급여")||m.includes("인건비")) return "급여"
+              if(m.includes("야근")||m.includes("야근보조")) return "야근보조금"
+              if(m.includes("기타인건")||m.includes("프리랜서")) return "기타인건"
+              if(m.includes("직접외주")||m.includes("외주직접")) return "외주직접"
+              if(m.includes("정산금")||m.includes("외주정산")) return "정산금"
+              if(m.includes("경비")) return "경비"
+              if(m.includes("업무추진")) return "업무추진비"
+              if(m.includes("집기")||m.includes("여비")) return "집기여비"
+              if(m.includes("전략")) return "전략공동"
+              if(m.includes("본사")) return "본사공동"
+              if(m.includes("공동")||m.includes("경영진")||m.includes("파트장")||m.includes("운영지원")) return "공동"
+              return "기타"
+            }
+
+            const CAT_KEYS = ["급여","야근보조금","기타인건","외주직접","정산금","경비","업무추진비","집기여비","기타","공동","전략공동","본사공동"]
+            const deptExpDetail = {}
+            DEPTS.forEach(dept=>{
+              const d = {}
+              CAT_KEYS.forEach(k=>d[k]=0)
+              saleItems.filter(i=>i.dept===dept).forEach(i=>{
+                const cat = getExpCat(i)
+                const amt = (i.paidDate?i.amount||0:0)
+                d[cat] = (d[cat]||0) + amt
+              })
+              d.인건소계  = d["급여"]+d["야근보조금"]+d["기타인건"]
+              d.외주소계  = d["외주직접"]+d["정산금"]
+              d.소계      = d.인건소계+d.외주소계+d["경비"]+d["업무추진비"]+d["집기여비"]+d["기타"]+d["공동"]
+              d.합계      = d.소계+d["전략공동"]+d["본사공동"]
+              deptExpDetail[dept] = d
+            })
+
+            const totRevTarget = DEPTS.reduce((s,dept)=>{const db=(deptBiz||{})[dept]||{};return s+(db.revTarget||0)*1e8},0)
+            const totSale      = cashByDept.reduce((s,d)=>s+d.paid,0)
+            const totExp       = DEPTS.reduce((s,dept)=>s+(deptExpDetail[dept]?.합계||0),0)
+            const totPnl       = totSale - totExp
+
+            return (<>
+            {/* 본부별 손익분석 테이블 */}
+            <div style={{background:"#fff",borderRadius:14,border:"1px solid #FECACA",overflow:"hidden",marginBottom:16}}>
+              <div style={{padding:"14px 20px",background:"linear-gradient(135deg,#7C1D1D,#DC2626)",color:"#fff",display:"flex",alignItems:"center",gap:10}}>
+                <span style={{fontSize:15,fontWeight:800}}>📊 본부별 손익분석 ({YEAR}년, 단위: 억원)</span>
+                <span style={{fontSize:12,opacity:.8}}>매출: 현누계 입금완료 기준</span>
+              </div>
+              <div style={{overflowX:"auto"}}>
+                <table style={{width:"100%",borderCollapse:"collapse"}}>
+                  <thead><tr>
+                    {[["본부","left","#374151","#FEF2F2"],["매출목표","right","#DC2626","#FEF2F2"],
+                      ["매출(현누계)","right","#059669","#D1FAE5"],["매출실행율","right","#059669","#D1FAE5"],
+                      ["지출","right","#DC2626","#FEE2E2"],["지출실행율","right","#DC2626","#FEE2E2"],
+                      ["손익","right","#312E81","#EEF2FF"]].map(([h,a,c,bg],i)=>(
+                      <th key={i} style={{...tH(h,c,bg),textAlign:a}}>{h}</th>
+                    ))}
+                  </tr></thead>
+                  <tbody>
+                    {DEPTS.map((dept,i)=>{
+                      const db = (deptBiz||{})[dept]||{}
+                      const revT = (db.revTarget||0)*1e8
+                      const sale = cashByDept.find(d=>d.dept===dept)?.paid||0
+                      const exp  = deptExpDetail[dept]?.합계||0
+                      const pnl  = sale-exp
+                      const saleR= revT>0?Math.round(sale/revT*100):null
+                      const expR = revT>0?Math.round(exp/revT*100):null
+                      return (
+                        <tr key={dept} style={{background:i%2===0?"#fff":"#FFF7F7",borderBottom:"1px solid #FEE2E2"}}>
+                          <td style={{...tD("#111827",true),textAlign:"left",padding:"10px 12px"}}>
+                            <div style={{display:"flex",alignItems:"center",gap:7}}>
+                              <div style={{width:8,height:8,borderRadius:"50%",background:DEPT_COLORS[dept]||"#DC2626"}}/>
+                              {dept}
+                            </div>
+                          </td>
+                          <td style={{...tD("#DC2626")}}>{revT>0?fAb(revT):"-"}</td>
+                          <td style={{...tD("#059669",true,"#F0FDF4")}}>{sale>0?fAb(sale):"-"}</td>
+                          <td style={{...tD(saleR>=100?"#059669":saleR>=70?"#D97706":"#DC2626",true)}}>{saleR!=null?`${saleR}%`:"-"}</td>
+                          <td style={{...tD("#DC2626",false,"#FFF7F7")}}>{exp>0?fAb(exp):"-"}</td>
+                          <td style={{...tD(expR&&expR>80?"#DC2626":"#374151")}}>{expR!=null?`${expR}%`:"-"}</td>
+                          <td style={{...tD(pnl>=0?"#059669":"#DC2626",true,pnl>=0?"#F0FDF4":"#FEF2F2")}}>{(sale>0||exp>0)?fAb(pnl):"-"}</td>
+                        </tr>
+                      )
+                    })}
+                    <tr style={{background:"#FEE2E2",fontWeight:700,borderTop:"2px solid #DC2626"}}>
+                      <td style={{...tD("#111827",true),textAlign:"left"}}>합계</td>
+                      <td style={{...tD("#DC2626",true)}}>{totRevTarget>0?fAb(totRevTarget):"-"}</td>
+                      <td style={{...tD("#059669",true,"#D1FAE5")}}>{fAb(totSale)}</td>
+                      <td style={{...tD("#059669",true)}}>{totRevTarget>0?`${Math.round(totSale/totRevTarget*100)}%`:"-"}</td>
+                      <td style={{...tD("#DC2626",true,"#FEE2E2")}}>{totExp>0?fAb(totExp):"-"}</td>
+                      <td style={{...tD("#DC2626",true)}}>{totRevTarget>0?`${Math.round(totExp/totRevTarget*100)}%`:"-"}</td>
+                      <td style={{...tD(totPnl>=0?"#059669":"#DC2626",true,totPnl>=0?"#D1FAE5":"#FEE2E2")}}>{fAb(totPnl)}</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            {/* 지출 상세 테이블 */}
+            <div style={{background:"#fff",borderRadius:14,border:"1px solid #E5E7EB",overflow:"hidden",marginBottom:20}}>
+              <div style={{padding:"14px 20px",background:"#7C1D1D",color:"#fff",fontSize:14,fontWeight:800}}>
+                💸 지출 상세 현황 ({YEAR}년, 단위: 억원)
+              </div>
+              <div style={{overflowX:"auto"}}>
+                <table style={{width:"100%",borderCollapse:"collapse",minWidth:1000}}>
+                  <thead>
+                    <tr style={{background:"#FEF2F2"}}>
+                      <th style={{...tH("본부","#374151","#FEF2F2"),textAlign:"left",minWidth:90}}>본부</th>
+                      {/* 인건비 */}
+                      <th colSpan={3} style={{...tH("인건비","#6366F1","#EEF2FF"),textAlign:"center"}}>인건비</th>
+                      {/* 외주비 */}
+                      <th colSpan={2} style={{...tH("외주비","#DC2626","#FEE2E2"),textAlign:"center"}}>외주비</th>
+                      {/* 단독 항목들 */}
+                      {["경비","업무추진비","집기여비","기타","공동분담"].map(h=>(
+                        <th key={h} style={tH(h,"#6B7280","#FEF2F2")}>{h}</th>
+                      ))}
+                      <th style={tH("소계","#312E81","#EDE9FE")}>소계</th>
+                      <th style={tH("전략공동","#6B7280","#F3F4F6")}>전략공동</th>
+                      <th style={tH("본사공동","#6B7280","#F3F4F6")}>본사공동</th>
+                      <th style={tH("합계","#7C1D1D","#FEE2E2")}>합계</th>
+                    </tr>
+                    <tr style={{background:"#F8FAFC"}}>
+                      <th style={{...tH("","#6B7280","#F8FAFC"),textAlign:"left"}}/>
+                      <th style={tH("급여","#6366F1","#EEF2FF")}>급여</th>
+                      <th style={tH("야근보조","#6366F1","#EEF2FF")}>야근보조</th>
+                      <th style={tH("기타","#6366F1","#EEF2FF")}>기타</th>
+                      <th style={tH("직접외주","#DC2626","#FEE2E2")}>직접</th>
+                      <th style={tH("정산금","#DC2626","#FEE2E2")}>정산금</th>
+                      {["","","","",""].map((_,i)=><th key={i} style={tH("","#6B7280","#F8FAFC")}/>)}
+                      {["","","",""].map((_,i)=><th key={i} style={tH("","#6B7280","#F8FAFC")}/>)}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {DEPTS.map((dept,i)=>{
+                      const d = deptExpDetail[dept]||{}
+                      const fv = v => v>0?fAb(v):"-"
+                      return (
+                        <tr key={dept} style={{background:i%2===0?"#fff":"#FFF7F7",borderBottom:"1px solid #FEE2E2"}}>
+                          <td style={{...tD("#111827",true),textAlign:"left"}}>
+                            <div style={{display:"flex",alignItems:"center",gap:6}}>
+                              <div style={{width:7,height:7,borderRadius:"50%",background:DEPT_COLORS[dept]||"#DC2626"}}/>
+                              {dept.replace("본부","")}
+                            </div>
+                          </td>
+                          <td style={tD("#6366F1",false,"#F5F3FF")}>{fv(d["급여"])}</td>
+                          <td style={tD("#6366F1",false,"#F5F3FF")}>{fv(d["야근보조금"])}</td>
+                          <td style={tD("#6366F1",false,"#F5F3FF")}>{fv(d["기타인건"])}</td>
+                          <td style={tD("#DC2626",false,"#FFF1F2")}>{fv(d["외주직접"])}</td>
+                          <td style={tD("#DC2626",false,"#FFF1F2")}>{fv(d["정산금"])}</td>
+                          <td style={tD()}>{fv(d["경비"])}</td>
+                          <td style={tD()}>{fv(d["업무추진비"])}</td>
+                          <td style={tD()}>{fv(d["집기여비"])}</td>
+                          <td style={tD()}>{fv(d["기타"])}</td>
+                          <td style={tD()}>{fv(d["공동"])}</td>
+                          <td style={{...tD("#312E81",true,"#EDE9FE")}}>{fv(d.소계)}</td>
+                          <td style={tD("#6B7280")}>{fv(d["전략공동"])}</td>
+                          <td style={tD("#6B7280")}>{fv(d["본사공동"])}</td>
+                          <td style={{...tD("#7C1D1D",true,"#FEE2E2")}}>{fv(d.합계)}</td>
+                        </tr>
+                      )
+                    })}
+                    {/* 합계 행 */}
+                    {(()=>{
+                      const tot = k => DEPTS.reduce((s,dept)=>s+(deptExpDetail[dept]?.[k]||0),0)
+                      return (
+                        <tr style={{background:"#FEE2E2",fontWeight:700,borderTop:"2px solid #DC2626"}}>
+                          <td style={{...tD("#111827",true),textAlign:"left"}}>합계</td>
+                          <td style={{...tD("#6366F1",true,"#EDE9FE")}}>{tot("급여")>0?fAb(tot("급여")):"-"}</td>
+                          <td style={{...tD("#6366F1",true,"#EDE9FE")}}>{tot("야근보조금")>0?fAb(tot("야근보조금")):"-"}</td>
+                          <td style={{...tD("#6366F1",true,"#EDE9FE")}}>{tot("기타인건")>0?fAb(tot("기타인건")):"-"}</td>
+                          <td style={{...tD("#DC2626",true,"#FEE2E2")}}>{tot("외주직접")>0?fAb(tot("외주직접")):"-"}</td>
+                          <td style={{...tD("#DC2626",true,"#FEE2E2")}}>{tot("정산금")>0?fAb(tot("정산금")):"-"}</td>
+                          <td style={tD("#374151",true)}>{tot("경비")>0?fAb(tot("경비")):"-"}</td>
+                          <td style={tD("#374151",true)}>{tot("업무추진비")>0?fAb(tot("업무추진비")):"-"}</td>
+                          <td style={tD("#374151",true)}>{tot("집기여비")>0?fAb(tot("집기여비")):"-"}</td>
+                          <td style={tD("#374151",true)}>{tot("기타")>0?fAb(tot("기타")):"-"}</td>
+                          <td style={tD("#374151",true)}>{tot("공동")>0?fAb(tot("공동")):"-"}</td>
+                          <td style={{...tD("#312E81",true,"#D1D5DB")}}>{tot("소계")>0?fAb(tot("소계")):"-"}</td>
+                          <td style={tD("#6B7280",true)}>{tot("전략공동")>0?fAb(tot("전략공동")):"-"}</td>
+                          <td style={tD("#6B7280",true)}>{tot("본사공동")>0?fAb(tot("본사공동")):"-"}</td>
+                          <td style={{...tD("#7C1D1D",true,"#FECACA")}}>{tot("합계")>0?fAb(tot("합계")):"-"}</td>
+                        </tr>
+                      )
+                    })()}
+                  </tbody>
+                </table>
+              </div>
+              {saleItems.length===0&&(
+                <div style={{padding:"20px",textAlign:"center",color:"#9CA3AF",fontSize:13}}>
+                  지출 상세 데이터가 없습니다. 지출현황 탭에서 엑셀을 업로드해주세요.
+                </div>
+              )}
+            </div>
+            </>)
+          })()}
           <CashItemsView cashItems={cashItems} setCashItems={setCashItems} projects={projects} setProjects={setProjects}
             DEPTS={DEPTS} currentUser={currentUser} itemTotal={totalPaid} itemPaid={totalPaid} itemExp={totalConf}
             viewMode="list" setTab={setTab} setSelProjId={setSelProjId}/>
@@ -7749,33 +7896,29 @@ function AnalysisDashboard({projects, cashItems, saleItems, DEPTS, DEPT_COLORS, 
         </div>
       </div>
 
-      {/* ════════════════════════════════════════════
-          📝 계약현황 테이블 (계약현황 탭과 동일)
-      ════════════════════════════════════════════ */}
+      {/* ══ 계약현황 테이블 — ContractStatusPage byDept와 동일 ══ */}
       <div style={{background:"#fff",borderRadius:14,border:"2px solid #6366F1",marginBottom:16,overflow:"hidden"}}>
         <div style={{padding:"14px 20px",background:"linear-gradient(135deg,#312E81,#6366F1)",display:"flex",alignItems:"center",gap:10,flexWrap:"wrap"}}>
-          <div style={{fontSize:16,fontWeight:800,color:"#fff"}}>📝 계약현황</div>
-          <div style={{fontSize:12,color:"rgba(255,255,255,.8)"}}>— 계약현황 탭과 동일 데이터</div>
+          <div style={{fontSize:16,fontWeight:800,color:"#fff"}}>📝 계약현황 — 본부별 계약 현황 (지분 반영)</div>
           <div style={{marginLeft:"auto",fontSize:12,color:"rgba(255,255,255,.7)"}}>단위: 억원 ({thisYear}년)</div>
         </div>
         <div style={{overflowX:"auto"}}>
-          <table style={{width:"100%",borderCollapse:"collapse",minWidth:700}}>
+          <table style={{width:"100%",borderCollapse:"collapse",minWidth:600}}>
             <thead>
               <tr style={{background:"#EEF2FF"}}>
-                {["본부","목표","✅ 완료(계약)","📋 확정","🔶 추진","합계(완료+확정)","달성률","인당(완료+확정)","프로젝트수"].map((h,i)=>(
+                {["본부","목표","✅ 계약","📋 확정","합계(계약+확정)","🔶 추진","달성률"].map((h,i)=>(
                   <th key={i} style={{padding:"10px 12px",textAlign:i===0?"left":"right",fontSize:12,fontWeight:700,
-                    color:i===2?"#059669":i===5?"#312E81":i===6?"#6366F1":"#6B7280",
+                    color:i===2?"#059669":i===4?"#059669":i===3?"#6366F1":i===5?"#D97706":"#6B7280",
                     borderBottom:"2px solid #6366F1",
-                    background:i===2?"#D1FAE5":i===5?"#DCFCE7":i===6?"#EEF2FF":"#EEF2FF",
+                    background:i===2||i===4?"#D1FAE5":i===3?"#EEF2FF":"#EEF2FF",
                     whiteSpace:"nowrap"}}>{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
               {contractByDept.map((d,i)=>{
-                const done = d.done||0, conf = d.conf||0, push = d.push||0
-                const target = d.target||0
-                const rate = target>0 ? Math.round(done/target*100) : null
+                const done=d.done||0,conf=d.conf||0,push=d.push||0,target=d.target||0
+                const rate=target>0?Math.round(done/target*100):null
                 return (
                   <tr key={d.dept} style={{background:i%2===0?"#fff":"#F9FAFB",borderBottom:"1px solid #E5E7EB"}}>
                     <td style={{padding:"10px 12px"}}>
@@ -7785,19 +7928,13 @@ function AnalysisDashboard({projects, cashItems, saleItems, DEPTS, DEPT_COLORS, 
                       </div>
                     </td>
                     <td style={{padding:"10px 12px",textAlign:"right",fontSize:13,color:"#DC2626",fontWeight:600}}>{target>0?`${target}억`:"-"}</td>
-                    <td style={{padding:"10px 12px",textAlign:"right",fontSize:14,fontWeight:800,color:"#059669",background:"#F0FDF4"}}>{fA(done)}</td>
-                    <td style={{padding:"10px 12px",textAlign:"right",fontSize:13,color:"#6366F1"}}>{fA(conf)}</td>
-                    <td style={{padding:"10px 12px",textAlign:"right",fontSize:13,color:"#D97706"}}>{fA(push)}</td>
-                    <td style={{padding:"10px 12px",textAlign:"right",fontSize:14,fontWeight:800,color:"#312E81",background:"#DCFCE7"}}>{fA(done+conf)}</td>
+                    <td style={{padding:"10px 12px",textAlign:"right",fontSize:14,fontWeight:800,color:"#059669",background:"#F0FDF4"}}>{fA(done)||"-"}</td>
+                    <td style={{padding:"10px 12px",textAlign:"right",fontSize:13,color:"#6366F1"}}>{conf>0?fA(conf):"-"}</td>
+                    <td style={{padding:"10px 12px",textAlign:"right",fontSize:14,fontWeight:800,color:"#059669",background:"#DCFCE7"}}>{done+conf>0?fA(done+conf):"-"}</td>
+                    <td style={{padding:"10px 12px",textAlign:"right",fontSize:13,color:"#D97706"}}>{push>0?fA(push):"-"}</td>
                     <td style={{padding:"10px 12px",textAlign:"right",fontSize:13,fontWeight:700,
-                      color:rate>=100?"#059669":rate>=70?"#185FA5":rate!==null?"#D97706":"#9CA3AF"}}>
-                      {rate!==null?`${rate}%`:"-"}
-                    </td>
-                    <td style={{padding:"10px 12px",textAlign:"right",fontSize:12.5,color:"#374151"}}>
-                      {d.perCapita>0?fA(d.perCapita):"-"}
-                    </td>
-                    <td style={{padding:"10px 12px",textAlign:"right",fontSize:12.5,color:"#6B7280"}}>
-                      {((d.wonProjs||[]).length+(d.confProjs||[]).length+(d.pushProjs||[]).length)+"건"}
+                      color:rate>=100?"#059669":rate>=70?"#185FA5":rate!=null?"#D97706":"#9CA3AF"}}>
+                      {rate!=null?`${rate}%`:"-"}
                     </td>
                   </tr>
                 )
@@ -7807,32 +7944,29 @@ function AnalysisDashboard({projects, cashItems, saleItems, DEPTS, DEPT_COLORS, 
                 <td style={{padding:"10px 12px",textAlign:"right",fontSize:13,fontWeight:700,color:"#DC2626"}}>{effectiveContractTarget>0?`${effectiveContractTarget}억`:"-"}</td>
                 <td style={{padding:"10px 12px",textAlign:"right",fontSize:14,fontWeight:900,color:"#059669",background:"#F0FDF4"}}>{fA(totDone)}</td>
                 <td style={{padding:"10px 12px",textAlign:"right",fontSize:13,fontWeight:700,color:"#6366F1"}}>{fA(totConf)}</td>
+                <td style={{padding:"10px 12px",textAlign:"right",fontSize:14,fontWeight:900,color:"#059669",background:"#DCFCE7"}}>{fA(totDone+totConf)}</td>
                 <td style={{padding:"10px 12px",textAlign:"right",fontSize:13,fontWeight:700,color:"#D97706"}}>{fA(totPush)}</td>
-                <td style={{padding:"10px 12px",textAlign:"right",fontSize:14,fontWeight:900,color:"#312E81",background:"#DCFCE7"}}>{fA(totDone+totConf)}</td>
                 <td style={{padding:"10px 12px",textAlign:"right",fontSize:14,fontWeight:800,color:"#059669"}}>{contractRate>0?`${contractRate}%`:"-"}</td>
-                <td colSpan={2}/>
               </tr>
             </tbody>
           </table>
         </div>
       </div>
 
-      {/* ════════════════════════════════════════════
-          💧 월수금현황 테이블 (월수금현황 탭과 동일)
-      ════════════════════════════════════════════ */}
+      {/* ══ 월수금현황 테이블 — CashflowTab cashByDept와 동일 ══ */}
       <div style={{background:"#fff",borderRadius:14,border:"2px solid #059669",marginBottom:16,overflow:"hidden"}}>
         <div style={{padding:"14px 20px",background:"linear-gradient(135deg,#065F46,#059669)",display:"flex",alignItems:"center",gap:10,flexWrap:"wrap"}}>
-          <div style={{fontSize:16,fontWeight:800,color:"#fff"}}>💧 월수금현황 (매출현황)</div>
-          <div style={{fontSize:12,color:"rgba(255,255,255,.8)"}}>— 월수금현황 탭과 동일 데이터</div>
-          <div style={{marginLeft:"auto",fontSize:12,color:"rgba(255,255,255,.7)"}}>현누계 = 입금완료 기준 ({thisYear}년)</div>
+          <div style={{fontSize:16,fontWeight:800,color:"#fff"}}>💧 월수금현황 — {thisYear}년 본부별 수금 현황</div>
+          <div style={{fontSize:12,background:"rgba(255,255,255,.2)",padding:"3px 10px",borderRadius:8,fontWeight:700,color:"#fff"}}>현누계 = 입금완료 기준</div>
+          <div style={{marginLeft:"auto",fontSize:12,color:"rgba(255,255,255,.7)"}}>단위: 억원</div>
         </div>
         <div style={{overflowX:"auto"}}>
-          <table style={{width:"100%",borderCollapse:"collapse",minWidth:800}}>
+          <table style={{width:"100%",borderCollapse:"collapse",minWidth:900}}>
             <thead>
               <tr style={{background:"#F0FDF4"}}>
-                {["본부","매출목표","✅ 현누계(입금완료)","인당(현누계)","기성+확정","인당(기성+확정)","❓ 미정","합계(현누계+기성)","달성률"].map((h,i)=>(
-                  <th key={i} style={{padding:"10px 12px",textAlign:i===0?"left":"right",fontSize:12,fontWeight:700,
-                    color:i===2?"#059669":i===3?"#059669":i===4?"#6366F1":i>=7?"#312E81":i===1?"#DC2626":"#6B7280",
+                {["구분","매출목표","✅ 현누계(입금완료)","인당(현누계)","기성+확정","인당(기성+확정)","❓ 미정","합계(현누계+기성)","합계(미정포함)"].map((h,i)=>(
+                  <th key={i} style={{padding:"10px 12px",textAlign:i===0?"left":"right",fontSize:11.5,fontWeight:700,
+                    color:i===2||i===3?"#059669":i===4||i===5?"#6366F1":i>=7?"#312E81":i===1?"#DC2626":i===6?"#D97706":"#6B7280",
                     borderBottom:"2px solid #059669",
                     background:i===2||i===3?"#D1FAE5":i>=7?"#D1FAE5":i===1?"#FFF0F0":"#F0FDF4",
                     whiteSpace:"nowrap"}}>{h}</th>
@@ -7841,14 +7975,14 @@ function AnalysisDashboard({projects, cashItems, saleItems, DEPTS, DEPT_COLORS, 
             </thead>
             <tbody>
               {saleByDept.map((d,i)=>{
-                const target = d.revTarget||0
-                const paid   = d.revCum||0       // 현누계
-                const conf   = d.revConf||0
-                const push   = d.revPush||0
-                const staff  = (deptStaff||{})[d.dept]?.current||1
-                const perPaid= staff>0 ? paid/staff : 0
-                const perConf= staff>0 ? (paid+conf)/staff : 0
-                const rate   = target>0 ? Math.round(paid/target*100) : null
+                const db=(DEPT_BIZ||{})[d.dept]||{}
+                const revT=(db.revTarget||0)*1e8
+                const paid=d.revCum||0
+                const conf=d.revConf||0
+                const push=d.revPush||0
+                const staff=(deptStaff||{})[d.dept]?.current||1
+                const perPaid=staff>0?paid/staff:0
+                const perConf=staff>0?(paid+conf)/staff:0
                 return (
                   <tr key={d.dept} style={{background:i%2===0?"#fff":"#F9FAFB",borderBottom:"1px solid #E5E7EB"}}>
                     <td style={{padding:"10px 12px"}}>
@@ -7857,82 +7991,87 @@ function AnalysisDashboard({projects, cashItems, saleItems, DEPTS, DEPT_COLORS, 
                         <span style={{fontSize:13.5,fontWeight:700}}>{d.dept}</span>
                       </div>
                     </td>
-                    <td style={{padding:"10px 12px",textAlign:"right",fontSize:13,color:"#DC2626",fontWeight:600}}>{target>0?fA(target):"-"}</td>
+                    <td style={{padding:"10px 12px",textAlign:"right",fontSize:13,color:"#DC2626",fontWeight:600}}>{revT>0?fA(revT):"-"}</td>
                     <td style={{padding:"10px 12px",textAlign:"right",fontSize:14,fontWeight:800,color:"#059669",background:"#F0FDF4"}}>{paid>0?fA(paid):"-"}</td>
                     <td style={{padding:"10px 12px",textAlign:"right",fontSize:12.5,color:"#059669",background:"#ECFDF5"}}>{perPaid>=1e8?fA(perPaid):"-"}</td>
-                    <td style={{padding:"10px 12px",textAlign:"right",fontSize:13,color:"#6366F1"}}>{conf>0?fA(conf):"-"}</td>
+                    <td style={{padding:"10px 12px",textAlign:"right",fontSize:13,color:"#6366F1"}}>{paid+conf>0?fA(paid+conf):"-"}</td>
                     <td style={{padding:"10px 12px",textAlign:"right",fontSize:12.5,color:"#6366F1",background:"#EEF2FF"}}>{perConf>=1e8?fA(perConf):"-"}</td>
                     <td style={{padding:"10px 12px",textAlign:"right",fontSize:13,color:"#D97706"}}>{push>0?fA(push):"-"}</td>
-                    <td style={{padding:"10px 12px",textAlign:"right",fontSize:14,fontWeight:800,color:"#312E81",background:"#D1FAE5"}}>{fA(paid+conf)}</td>
-                    <td style={{padding:"10px 12px",textAlign:"right",fontSize:13,fontWeight:700,
-                      color:rate>=100?"#059669":rate>=70?"#185FA5":rate!==null?"#D97706":"#9CA3AF"}}>
-                      {rate!==null?`${rate}%`:"-"}
-                    </td>
+                    <td style={{padding:"10px 12px",textAlign:"right",fontSize:14,fontWeight:800,color:"#312E81",background:"#D1FAE5"}}>{paid+conf>0?fA(paid+conf):"-"}</td>
+                    <td style={{padding:"10px 12px",textAlign:"right",fontSize:14,fontWeight:800,color:"#312E81",background:"#D1FAE5"}}>{paid+conf+push>0?fA(paid+conf+push):"-"}</td>
                   </tr>
                 )
               })}
-              <tr style={{background:"#F0FDF4",borderTop:"2px solid #059669"}}>
+              <tr style={{background:"#D1FAE5",borderTop:"2px solid #059669"}}>
                 <td style={{padding:"10px 12px",fontSize:14,fontWeight:800,color:"#065F46"}}>합계</td>
                 <td style={{padding:"10px 12px",textAlign:"right",fontSize:13,fontWeight:700,color:"#DC2626"}}>{effectiveSaleTarget>0?`${effectiveSaleTarget}억`:"-"}</td>
                 <td style={{padding:"10px 12px",textAlign:"right",fontSize:14,fontWeight:900,color:"#059669",background:"#F0FDF4"}}>{fA(totPaid_YTD)}</td>
-                <td colSpan={2}/>
-                <td style={{padding:"10px 12px",textAlign:"right",fontSize:14,fontWeight:900,color:"#312E81",background:"#D1FAE5"}} colSpan={2}>{fA(totPaid_YTD+totSaleConf)}</td>
+                <td style={{padding:"10px 12px",textAlign:"right",background:"#ECFDF5"}}/>
+                <td style={{padding:"10px 12px",textAlign:"right",fontSize:14,fontWeight:900,color:"#312E81"}}>{fA(totPaid_YTD+totSaleConf)}</td>
+                <td style={{padding:"10px 12px",textAlign:"right",background:"#EEF2FF"}}/>
+                <td style={{padding:"10px 12px",textAlign:"right",fontSize:13,fontWeight:700,color:"#D97706"}}>{fA(totSalePush)}</td>
                 <td style={{padding:"10px 12px",textAlign:"right",fontSize:14,fontWeight:900,color:"#312E81",background:"#D1FAE5"}}>{fA(totPaid_YTD+totSaleConf)}</td>
-                <td style={{padding:"10px 12px",textAlign:"right",fontSize:14,fontWeight:800,color:"#059669"}}>{saleRate>0?`${saleRate}%`:"-"}</td>
+                <td style={{padding:"10px 12px",textAlign:"right",fontSize:14,fontWeight:900,color:"#312E81",background:"#D1FAE5"}}>{fA(totPaid_YTD+totSaleConf+totSalePush)}</td>
               </tr>
             </tbody>
           </table>
         </div>
       </div>
 
-      {/* ════════════════════════════════════════════
-          💸 지출현황 테이블
-      ════════════════════════════════════════════ */}
+      {/* ══ 지출현황 테이블 — 지출현황 탭 본부별 손익분석과 동일 ══ */}
       <div style={{background:"#fff",borderRadius:14,border:"2px solid #DC2626",marginBottom:16,overflow:"hidden"}}>
         <div style={{padding:"14px 20px",background:"linear-gradient(135deg,#7C1D1D,#DC2626)",display:"flex",alignItems:"center",gap:10,flexWrap:"wrap"}}>
-          <div style={{fontSize:16,fontWeight:800,color:"#fff"}}>💸 지출현황</div>
+          <div style={{fontSize:16,fontWeight:800,color:"#fff"}}>💸 본부별 손익분석</div>
           <div style={{fontSize:12,color:"rgba(255,255,255,.8)"}}>— 지출현황 탭과 동일 데이터</div>
           <div style={{marginLeft:"auto",fontSize:12,color:"rgba(255,255,255,.7)"}}>단위: 억원 ({thisYear}년)</div>
         </div>
         <div style={{overflowX:"auto"}}>
-          <table style={{width:"100%",borderCollapse:"collapse",minWidth:600}}>
+          <table style={{width:"100%",borderCollapse:"collapse",minWidth:500}}>
             <thead>
               <tr style={{background:"#FEF2F2"}}>
-                {["본부","지출 합계","매출 대비 비율","비고"].map((h,i)=>(
+                {["본부","매출목표","매출(현누계)","매출실행율","지출","지출실행율","손익"].map((h,i)=>(
                   <th key={i} style={{padding:"10px 12px",textAlign:i===0?"left":"right",fontSize:12,fontWeight:700,
-                    color:i===1?"#DC2626":"#6B7280",borderBottom:"2px solid #DC2626",
-                    background:i===1?"#FEE2E2":"#FEF2F2",whiteSpace:"nowrap"}}>{h}</th>
+                    color:i===2||i===3?"#059669":i===4||i===5?"#DC2626":i===6?"#312E81":"#6B7280",
+                    borderBottom:"2px solid #DC2626",
+                    background:i===2||i===3?"#D1FAE5":i===4||i===5?"#FEE2E2":i===6?"#EEF2FF":"#FEF2F2",
+                    whiteSpace:"nowrap"}}>{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
-              {expByDept.map((d,i)=>{
-                const saleD = saleByDept.find(s=>s.dept===d.dept)
-                const rev   = saleD ? (saleD.revCum||0) : 0
-                const ratio = rev>0 ? Math.round(d.paid/rev*100) : null
+              {DEPTS.map((dept,i)=>{
+                const db=(DEPT_BIZ||{})[dept]||{}
+                const revT=(db.revTarget||0)*1e8
+                const sale=saleByDept.find(d=>d.dept===dept)?.revCum||0
+                const exp=expByDept.find(d=>d.dept===dept)?.paid||0
+                const pnl=sale-exp
+                const saleR=revT>0?Math.round(sale/revT*100):null
+                const expR=revT>0?Math.round(exp/revT*100):null
                 return (
-                  <tr key={d.dept} style={{background:i%2===0?"#fff":"#FFF7F7",borderBottom:"1px solid #FEE2E2"}}>
+                  <tr key={dept} style={{background:i%2===0?"#fff":"#FFF7F7",borderBottom:"1px solid #FEE2E2"}}>
                     <td style={{padding:"10px 12px"}}>
                       <div style={{display:"flex",alignItems:"center",gap:7}}>
-                        <div style={{width:9,height:9,borderRadius:"50%",background:DEPT_COLORS[d.dept]||"#DC2626",flexShrink:0}}/>
-                        <span style={{fontSize:13.5,fontWeight:700}}>{d.dept}</span>
+                        <div style={{width:9,height:9,borderRadius:"50%",background:DEPT_COLORS[dept]||"#DC2626",flexShrink:0}}/>
+                        <span style={{fontSize:13.5,fontWeight:700}}>{dept}</span>
                       </div>
                     </td>
-                    <td style={{padding:"10px 12px",textAlign:"right",fontSize:14,fontWeight:800,color:"#DC2626"}}>{d.paid>0?fA(d.paid):"-"}</td>
-                    <td style={{padding:"10px 12px",textAlign:"right",fontSize:13,color:ratio>100?"#DC2626":ratio>80?"#D97706":"#059669",fontWeight:600}}>
-                      {ratio!==null?`${ratio}%`:"-"}
-                    </td>
-                    <td style={{padding:"10px 12px",textAlign:"left",fontSize:12,color:"#9CA3AF"}}>{d.paid>0&&rev>0?`매출 ${fA(rev)} 대비`:""}</td>
+                    <td style={{padding:"10px 12px",textAlign:"right",fontSize:13,color:"#DC2626",fontWeight:600}}>{revT>0?fA(revT):"-"}</td>
+                    <td style={{padding:"10px 12px",textAlign:"right",fontSize:14,fontWeight:800,color:"#059669",background:"#F0FDF4"}}>{sale>0?fA(sale):"-"}</td>
+                    <td style={{padding:"10px 12px",textAlign:"right",fontSize:13,fontWeight:700,color:saleR>=100?"#059669":saleR>=70?"#D97706":"#DC2626"}}>{saleR!=null?`${saleR}%`:"-"}</td>
+                    <td style={{padding:"10px 12px",textAlign:"right",fontSize:13,color:"#DC2626",background:"#FFF7F7"}}>{exp>0?fA(exp):"-"}</td>
+                    <td style={{padding:"10px 12px",textAlign:"right",fontSize:13,color:expR&&expR>80?"#DC2626":"#374151"}}>{expR!=null?`${expR}%`:"-"}</td>
+                    <td style={{padding:"10px 12px",textAlign:"right",fontSize:14,fontWeight:800,color:pnl>=0?"#059669":"#DC2626",background:pnl>=0?"#F0FDF4":"#FEF2F2"}}>{sale>0||exp>0?fA(pnl):"-"}</td>
                   </tr>
                 )
               })}
               <tr style={{background:"#FEE2E2",borderTop:"2px solid #DC2626"}}>
                 <td style={{padding:"10px 12px",fontSize:14,fontWeight:800,color:"#7C1D1D"}}>합계</td>
-                <td style={{padding:"10px 12px",textAlign:"right",fontSize:14,fontWeight:900,color:"#DC2626"}}>{fA(totExp)}</td>
-                <td style={{padding:"10px 12px",textAlign:"right",fontSize:13,fontWeight:700,color:totPaid_YTD>0?Math.round(totExp/totPaid_YTD*100)>100?"#DC2626":"#059669":"#9CA3AF"}}>
-                  {totPaid_YTD>0?`${Math.round(totExp/totPaid_YTD*100)}%`:"-"}
-                </td>
-                <td style={{padding:"10px 12px",fontSize:12,color:"#9CA3AF"}}>매출 현누계 {fA(totPaid_YTD)} 대비</td>
+                <td style={{padding:"10px 12px",textAlign:"right",fontSize:13,fontWeight:700,color:"#DC2626"}}>{effectiveSaleTarget>0?`${effectiveSaleTarget}억`:"-"}</td>
+                <td style={{padding:"10px 12px",textAlign:"right",fontSize:14,fontWeight:900,color:"#059669",background:"#D1FAE5"}}>{fA(totPaid_YTD)}</td>
+                <td style={{padding:"10px 12px",textAlign:"right",fontSize:13,fontWeight:700,color:"#059669"}}>{effectiveSaleTarget>0?`${saleRate}%`:"-"}</td>
+                <td style={{padding:"10px 12px",textAlign:"right",fontSize:14,fontWeight:900,color:"#DC2626",background:"#FEE2E2"}}>{fA(totExp)}</td>
+                <td style={{padding:"10px 12px",textAlign:"right",fontSize:13,fontWeight:700,color:"#DC2626"}}>{effectiveSaleTarget>0?`${Math.round(totExp/(effectiveSaleTarget*1e8)*100)}%`:"-"}</td>
+                <td style={{padding:"10px 12px",textAlign:"right",fontSize:14,fontWeight:900,color:(totPaid_YTD-totExp)>=0?"#059669":"#DC2626",background:(totPaid_YTD-totExp)>=0?"#D1FAE5":"#FEE2E2"}}>{fA(totPaid_YTD-totExp)}</td>
               </tr>
             </tbody>
           </table>
