@@ -2885,7 +2885,7 @@ function ProjectsTab({projects,setProjects,selProjId,setSelProjId,selVerIdx,setS
 
           <Card title="프로젝트 목록" note={`행 클릭 → 실행계획서 상세 · ${PROJ_PER_PAGE}건씩 표시`}>
             {/* 선택 삭제 툴바 */}
-            {cmpIds.length>0&&canWrite&&(
+            {cmpIds.length>0&&currentUser?.role==="admin"&&(
               <div style={{background:"#FEE2E2",border:"1px solid #FECACA",borderRadius:10,
                 padding:"10px 14px",marginBottom:12,display:"flex",alignItems:"center",
                 justifyContent:"space-between",flexWrap:"wrap",gap:8}}>
@@ -2981,7 +2981,7 @@ function ProjectsTab({projects,setProjects,selProjId,setSelProjId,selVerIdx,setS
                         }} style={{...S.btn(C.navyL,C.navyM),padding:"5px 11px",fontSize:12}}>↓ Excel</button>
                         <button onClick={()=>downloadReport({...p,versions:[ver]})} style={{...S.btn(C.amberL,C.amber),padding:"5px 11px",fontSize:12}}>↓ Word</button>
                       </td>
-                      {canWrite&&(
+                      {currentUser?.role==="admin"&&(
                         <td style={S.td("center")} onClick={e=>e.stopPropagation()}>
                           <div style={{display:"flex",gap:4,justifyContent:"center"}}>
                             <button onClick={()=>{setInlineEditId(p.id);setInlineEditName(p.name)}}
@@ -7049,19 +7049,21 @@ function CashItemsView({cashItems, setCashItems, projects, setProjects, DEPTS, c
             ✅ 중복 {fixedItems.length-deduped.length}건 자동 제거됨
           </div>
         )}
-        <div style={{marginLeft:"auto",display:"flex",gap:6}}>
-          <button onClick={()=>{
-            const labels = isSale?"지출현황":"월수금계획"
-            const key = isSale?"sjs_sale_items":"sjs_cash_items"
-            if(!window.confirm(`⚠️ ${labels} 데이터를 전부 삭제합니까?\n\n삭제 후 새 파일을 업로드하세요.`)) return
-            localStorage.removeItem(key)
-            setCashItems([])
-          }}
-            style={{padding:"6px 12px",background:"#FEE2E2",color:"#DC2626",border:"1px solid #FECACA",
-              borderRadius:8,fontSize:12,fontWeight:700,cursor:"pointer"}}>
-            🗑 {isSale?"지출":"월수금"} 리셋
-          </button>
-        </div>
+        {currentUser?.role==="admin" && (
+          <div style={{marginLeft:"auto",display:"flex",gap:6}}>
+            <button onClick={()=>{
+              const labels = isSale?"지출현황":"월수금계획"
+              const key = isSale?"sjs_sale_items":"sjs_cash_items"
+              if(!window.confirm(`⚠️ ${labels} 데이터를 전부 삭제합니까?\n\n삭제 후 새 파일을 업로드하세요.`)) return
+              localStorage.removeItem(key)
+              setCashItems([])
+            }}
+              style={{padding:"6px 12px",background:"#FEE2E2",color:"#DC2626",border:"1px solid #FECACA",
+                borderRadius:8,fontSize:12,fontWeight:700,cursor:"pointer"}}>
+              🗑 {isSale?"지출":"월수금"} 리셋
+            </button>
+          </div>
+        )}
       </div>
 
       {/* KPI 카드 */}
@@ -7689,91 +7691,93 @@ function AnalysisDashboard({projects, cashItems, saleItems, DEPTS, DEPT_COLORS, 
 
   const totalStaff = (STAFF_DEPTS||DEPTS).reduce((s,d)=>s+((deptStaff||{})[d]?.total||0), 0)
 
-  // ── 계약현황 집계 (contractItems 기반) ──────────────────────
+  // ── 계약현황 집계 — ContractStatusPage.byDept와 완전 동일한 로직 ──
   const contractByDept = useMemo(()=>{
+    // ContractStatusPage와 동일: normFee, getType, deptShare
+    const normFeeD = v => {
+      const n = Number(v) || 0; if(n===0) return 0
+      const abs = Math.abs(n)
+      if(abs >= 1e8) return n/1e8  // 원→억 변환 (부호 유지)
+      return n
+    }
+    const getTypeD = item => {
+      const t = (item.type||"").trim()
+      if(t==="계약"||t==="계약(수주)"||t==="수주") return "계약"
+      if(t==="확정") return "확정"
+      if(t==="추진") return "추진"
+      return null
+    }
+    const deptShareD = (item, dept) => {
+      const ds = (item.deptShares||[]).find(s=>s.dept===dept)
+      if(ds) return ds.share/100
+      if((item.depts||[]).includes(dept)) return 1/((item.depts||[]).length||1)
+      return 0
+    }
+    const feeOf = i => normFeeD(i.serviceFeeExpect||i.amount||0)
+
+    // 당해연도 필터 (ContractStatusPage와 동일)
+    const yr = thisYear
+    const filtered = contractItems.filter(i=>{
+      const y = String(i.contractYear||i.contractDate||"").slice(0,4)
+      return !y || y===yr
+    })
+
     return DEPTS.map(dept=>{
-      const db      = (DEPT_BIZ||{})[dept] || {}
-      const myProjs = projects.filter(p=>(p.depts||[]).includes(dept)||(p.deptShares||[]).some(s=>s.dept===dept))
-      const staff   = (deptStaff||{})[dept]?.total || 1
-      const target  = db.orderTarget || 0  // 억원 단위
-
-      const deptShare = (item) => {
-        const ds = (item.deptShares||[]).find(s=>s.dept===dept)
-        if(ds) return ds.share/100
-        if((item.depts||[]).includes(dept)) return 1/((item.depts||[]).length||1)
-        return 0
-      }
-      // ══ 단위 변환 규칙 ══
-      // contractItems.serviceFeeExpect = 원(₩) 단위 저장
-      // 음수 = 감액 계약 → 그대로 반영 (절대값 처리 금지)
-      const toAmt = v => {
-        const n = Number(v) || 0
-        if(n === 0) return 0
-        const abs = Math.abs(n)
-        const sign = n < 0 ? -1 : 1
-        // 1000 초과: 원 단위 → /1e8 변환 (부호 유지)
-        if(abs > 1000) return (n/1e8)
-        // 0.001~1000: 억원 단위 → 그대로
-        return n
-      }
-
-      const myItems = contractItems.filter(i=>
+      const db    = (DEPT_BIZ||{})[dept] || {}
+      const target= db.orderTarget || 0  // 억원
+      const staff = (deptStaff||{})[dept]?.total || 1
+      const my    = filtered.filter(i=>
         (i.depts||[]).includes(dept)||(i.deptShares||[]).some(s=>s.dept===dept)
       )
-      const done = myItems.filter(i=>(i.type||"").includes("계약"))
-                          .reduce((s,i)=>s+toAmt(i.serviceFeeExpect||i.amount||0)*deptShare(i),0)
-      const conf = myItems.filter(i=>i.type==="확정")
-                          .reduce((s,i)=>s+toAmt(i.serviceFeeExpect||i.amount||0)*deptShare(i),0)
-      const push = myItems.filter(i=>i.type==="추진")
-                          .reduce((s,i)=>s+toAmt(i.serviceFeeExpect||i.amount||0)*deptShare(i),0)
+      const items계약 = my.filter(i=>getTypeD(i)==="계약")
+      const items확정 = my.filter(i=>getTypeD(i)==="확정")
+      const items추진 = my.filter(i=>getTypeD(i)==="추진")
+      const 계약 = items계약.reduce((s,i)=>s+feeOf(i)*deptShareD(i,dept),0)
+      const 확정 = items확정.reduce((s,i)=>s+feeOf(i)*deptShareD(i,dept),0)
+      const 추진 = items추진.reduce((s,i)=>s+feeOf(i)*deptShareD(i,dept),0)
 
-      // contractItems 없으면 기존 deptBiz 값 폴백 (모두 억원 단위)
-      const hasCItems = contractItems.length > 0
-      const doneAmt = hasCItems ? done : (db.orderDone||0)
-      const confAmt = hasCItems ? conf : (db.orderConfirmed||0)
-      const pushAmt = hasCItems ? push : (db.orderPush||0)
+      // contractItems 없으면 deptBiz 폴백
+      const has = contractItems.length > 0
+      const done = has ? 계약 : (db.orderDone||0)
+      const conf = has ? 확정 : (db.orderConfirmed||0)
+      const push = has ? 추진 : (db.orderPush||0)
+      const rate = target>0 ? Math.round((done+conf)/target*100) : null
 
-      const total = doneAmt + confAmt + pushAmt
-      const rate  = target > 0 ? Math.round((doneAmt+confAmt)/target*100) : null
+      return {dept, target, done, conf, push, 합계:done+conf,
+              rate, staff, perCapita:staff>0?(done+conf)/staff:0,
+              items계약, items확정, items추진}
+    }).filter(d=>d.합계+d.push+d.target>0)
+  },[DEPTS,DEPT_BIZ,deptStaff,contractItems,thisYear])
 
-      return {dept, target, done:doneAmt, conf:confAmt, push:pushAmt, total, rate, staff,
-              perCapita: staff>0?(doneAmt+confAmt)/staff:0, projects:myProjs.length}
-    })
-  },[DEPTS,DEPT_BIZ,projects,deptStaff,contractItems])
-
-  // ── 매출현황 집계 (saleItems + DEPT_BIZ 기반) ──────────────
+  // ── 매출현황 집계 — CashflowTab cashByDept와 완전 동일한 로직 ──
   const saleByDept = useMemo(()=>{
     return DEPTS.map(dept=>{
       const db   = (DEPT_BIZ||{})[dept] || {}
-      const staff= (deptStaff||{})[dept]?.total || 1
+      const staff= (deptStaff||{})[dept]?.current || (deptStaff||{})[dept]?.total || 1
 
-      // cashItems에서 이 본부의 기성+확정 (월수금계획 기반)
-      // dept 단일필드 OR depts 배열 OR projectName 매칭 모두 지원
-      const myItems = cashItems.filter(i=>
-        i.dept===dept ||
-        (Array.isArray(i.depts)&&i.depts.includes(dept))
-      )
+      // CashflowTab과 동일: i.dept===dept 단일 필드 기준
+      const all  = cashItems.filter(i=>i.dept===dept)
+      const paid = all.filter(i=>i.paidDate).reduce((s,i)=>s+(i.amount||0),0)
+      const conf = all.filter(i=>!i.paidDate&&i.expectedDate&&i.itemType!=="미정"&&i.itemType!=="추진").reduce((s,i)=>s+(i.amount||0),0)
+      const push = all.filter(i=>i.itemType==="미정"||i.itemType==="추진").reduce((s,i)=>s+(i.amount||0),0)
+
+      const revTarget  = (db.revTarget||0)*1e8   // 원 단위
+      const revCum     = paid                     // 원 단위 (현누계 = 입금완료)
+      const revConf    = conf                     // 원 단위
+      const revPush    = push                     // 원 단위
+
+      const rate     = revTarget>0 ? Math.round(revCum/revTarget*100) : null
+      return {dept, revTarget, revCum, revConf, revPush, rate, staff,
+              perCapitaPaid: staff>0?revCum/staff:0,
+              perCapitaConf: staff>0?(revCum+revConf)/staff:0}
+    })
+  },[DEPTS,DEPT_BIZ,deptStaff,cashItems])
       const paidAmt = myItems.filter(i=>i.paidDate).reduce((s,i)=>s+(i.amount||0),0)/1e8
       const expAmt  = myItems.filter(i=>!i.paidDate&&i.expectedDate&&i.itemType!=="미정"&&i.itemType!=="추진").reduce((s,i)=>s+(i.amount||0),0)/1e8
       const pushAmt = myItems.filter(i=>i.itemType==="미정"||i.itemType==="추진").reduce((s,i)=>s+(i.amount||0),0)/1e8
 
       const revCum    = paidAmt
-      const revConf   = expAmt
-      const revPush   = pushAmt
-      const revTarget = db.revTarget || 0
 
-      const totalContract = projects.filter(p=>(p.depts||[]).includes(dept)).reduce((s,p)=>{
-        const share=(p.deptShares||[]).find(s2=>s2.dept===dept)?.share||100/(p.depts?.length||1)
-        return s+(p.serviceFee||0)*(share/100)/1e8
-      },0)
-      const carryOver = Math.max(0, totalContract - revCum - revConf)
-      const rate  = revTarget > 0 ? Math.round(revCum/revTarget*100) : null   // 현누계 기준
-      const rateWithConf = revTarget > 0 ? Math.round((revCum+revConf)/revTarget*100) : null
-
-      return {dept, revTarget, revCum, revConf, revPush, rate, staff,
-        perCapita:staff>0?(revCum+revConf)/staff:0, carryOver}
-    })
-  },[DEPTS,DEPT_BIZ,cashItems,projects,deptStaff,thisYear])
 
   // ── 지출현황 (cashItems 기반) ──────────────────────────────
   const expByDept = useMemo(()=>{
@@ -7788,16 +7792,12 @@ function AnalysisDashboard({projects, cashItems, saleItems, DEPTS, DEPT_COLORS, 
   },[DEPTS,DEPT_BIZ,cashItems,thisYear])
 
   // 전사 합계
-  const totContract = contractByDept.reduce((s,d)=>s+d.done+d.conf,0)
-  const totTarget   = contractByDept.reduce((s,d)=>s+d.target,0)
-  const totSale     = saleByDept.reduce((s,d)=>s+d.revCum,0)
-  const totSaleTarget = saleByDept.reduce((s,d)=>s+d.revTarget,0)
-  const totExp      = expByDept.reduce((s,d)=>s+d.paid,0)
-
-  // ── 전사 현누계 (월수금현황과 동일: cashItems paidDate 기준) ──
-  const totPaid_YTD = cashItems
-    .filter(i => i.paidDate && String(i.paidDate).startsWith(thisYear))
-    .reduce((s,i) => s + (i.amount||0), 0) / 1e8
+  const totContract   = contractByDept.reduce((s,d)=>s+d.done+d.conf,0)
+  const totTarget     = contractByDept.reduce((s,d)=>s+d.target,0)
+  const totPaid_YTD   = saleByDept.reduce((s,d)=>s+d.revCum,0)/1e8   // 억원
+  const totSaleConf   = saleByDept.reduce((s,d)=>s+d.revConf,0)/1e8
+  const totSalePush   = saleByDept.reduce((s,d)=>s+d.revPush,0)/1e8
+  const totSaleTarget = saleByDept.reduce((s,d)=>s+d.revTarget,0)/1e8
 
   // 파이차트 데이터
   const contractPie = DEPTS.map((d,i)=>({name:d.replace("본부",""),value:+(contractByDept[i].done).toFixed(2),color:DEPT_COLORS[d]||"#6B7280"}))
@@ -7822,8 +7822,7 @@ function AnalysisDashboard({projects, cashItems, saleItems, DEPTS, DEPT_COLORS, 
     : contractByDept.reduce((s,d)=>s+d.done,0)
   const totConf   = contractByDept.reduce((s,d)=>s+d.conf,0)
   const totPush   = contractByDept.reduce((s,d)=>s+d.push,0)
-  const totSaleConf = saleByDept.reduce((s,d)=>s+d.revConf,0)
-  const totSalePush = saleByDept.reduce((s,d)=>s+d.revPush,0)
+  // totSaleConf/totSalePush는 위 totals 블록에서 선언됨 (억원 단위)
 
   // 목표: yearTargets 우선, 없으면 DEPT_BIZ 합산 폴백
   const effectiveContractTarget = CONTRACT_TARGET > 0 ? CONTRACT_TARGET
@@ -9750,8 +9749,12 @@ function ContractStatusPage({contractItems=[], setContractItems, DEPTS, DEPT_COL
 
   const toast  = useToast()
   const normFee = v => {
-    let n = Number(v)||0; let guard = 0
-    while(Math.abs(n) >= 1e11 && guard < 5) { n = n/1e8; guard++ }
+    let n = Number(v) || 0
+    if(n === 0) return 0
+    const abs = Math.abs(n)
+    // 1억(1e8) 초과 → 원 단위 → 억원으로 변환 (부호 유지)
+    // 1억 이하 → 이미 억원 단위 → 그대로
+    if(abs >= 1e8) return n / 1e8
     return n
   }
   const fAin   = v => v>0?(v/1e8).toFixed(2):""
@@ -10046,15 +10049,17 @@ function ContractStatusPage({contractItems=[], setContractItems, DEPTS, DEPT_COL
             ✅ 중복 {contractItems.length-dedupedContracts.length}건 자동 제거됨
           </div>
         )}
-        <button onClick={()=>{
-          if(!window.confirm("⚠️ 계약현황 데이터를 전부 삭제합니까?\n삭제 후 새 파일을 업로드하세요.")) return
-          localStorage.removeItem("sjs_contract_items")
-          setContractItems([])
-        }}
-          style={{marginLeft:"auto",padding:"6px 12px",background:"#FEE2E2",color:"#DC2626",
-            border:"1px solid #FECACA",borderRadius:8,fontSize:12,fontWeight:700,cursor:"pointer"}}>
-          🗑 계약현황 리셋
-        </button>
+        {isAdmin && (
+          <button onClick={()=>{
+            if(!window.confirm("⚠️ 계약현황 데이터를 전부 삭제합니까?\n삭제 후 새 파일을 업로드하세요.")) return
+            localStorage.removeItem("sjs_contract_items")
+            setContractItems([])
+          }}
+            style={{marginLeft:"auto",padding:"6px 12px",background:"#FEE2E2",color:"#DC2626",
+              border:"1px solid #FECACA",borderRadius:8,fontSize:12,fontWeight:700,cursor:"pointer"}}>
+            🗑 계약현황 리셋
+          </button>
+        )}
       </div>
 
       {hasAbnormalData && isAdmin && (
