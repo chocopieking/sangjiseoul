@@ -7558,17 +7558,15 @@ function AnalysisDashboard({projects, cashItems, saleItems, DEPTS, DEPT_COLORS, 
       }
       // ══ 단위 변환 규칙 ══
       // contractItems.serviceFeeExpect = 원(₩) 단위 저장
-      // 건축 설계 용역비 현실 범위: 1천만원 ~ 200억원
-      // → 1e7(1천만) ~ 2e10(200억) 원 범위
-      // → 억원 단위: 0.1 ~ 200 범위
-      // 반드시 /1e8 변환해서 억원으로 통일
+      // 음수 = 감액 계약 → 그대로 반영 (절대값 처리 금지)
       const toAmt = v => {
-        const n = Math.abs(Number(v)||0)
+        const n = Number(v) || 0
         if(n === 0) return 0
-        // 0.001 미만: 잘못된 값 → 0 처리
-        // 1000 초과: 원 단위(≥1000원) → /1e8 변환
+        const abs = Math.abs(n)
+        const sign = n < 0 ? -1 : 1
+        // 1000 초과: 원 단위 → /1e8 변환 (부호 유지)
+        if(abs > 1000) return (n/1e8)
         // 0.001~1000: 억원 단위 → 그대로
-        if(n > 1000) return n/1e8
         return n
       }
 
