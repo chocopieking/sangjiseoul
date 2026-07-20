@@ -7772,12 +7772,6 @@ function AnalysisDashboard({projects, cashItems, saleItems, DEPTS, DEPT_COLORS, 
               perCapitaConf: staff>0?(revCum+revConf)/staff:0}
     })
   },[DEPTS,DEPT_BIZ,deptStaff,cashItems])
-      const paidAmt = myItems.filter(i=>i.paidDate).reduce((s,i)=>s+(i.amount||0),0)/1e8
-      const expAmt  = myItems.filter(i=>!i.paidDate&&i.expectedDate&&i.itemType!=="미정"&&i.itemType!=="추진").reduce((s,i)=>s+(i.amount||0),0)/1e8
-      const pushAmt = myItems.filter(i=>i.itemType==="미정"||i.itemType==="추진").reduce((s,i)=>s+(i.amount||0),0)/1e8
-
-      const revCum    = paidAmt
-
 
   // ── 지출현황 (cashItems 기반) ──────────────────────────────
   const expByDept = useMemo(()=>{
