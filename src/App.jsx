@@ -1489,6 +1489,32 @@ function StackTotalTooltip({active,payload,label}) {
 // 💧 월수금계획 탭 v3 — 계약현황·매출현황 통합
 // ════════════════════════════════════════════════════════════
 function CashflowTab({cashflow,setCashflow,currentUser,projects,setProjects,projectCashflowByDept,cashItems=[],setCashItems,saleItems=[],setSaleItems,setTab,setSelProjId,yearTargets={},setYearTargets,deptBiz={},deptStaff={},staffMonthly={},staffTarget={},initTab,setDetailTab,hideTabNav=false,contractItems=[],setContractItems}) {
+
+// ── 간단한 파이차트 컴포넌트 ──────────────────────────────────
+function SimplePieChart({data=[], total=0}) {
+  if(!data||data.length===0) return <div style={{textAlign:"center",color:"#9CA3AF",padding:"20px",fontSize:13}}>데이터 없음</div>
+  return (
+    <div>
+      <PieChart width={220} height={180} style={{margin:"0 auto"}}>
+        <Pie data={data} cx={105} cy={85} innerRadius={48} outerRadius={80}
+          dataKey="value" paddingAngle={2}>
+          {data.map((d,i)=><Cell key={i} fill={d.color||"#6366F1"}/>)}
+        </Pie>
+      </PieChart>
+      <div style={{display:"flex",flexWrap:"wrap",gap:6,justifyContent:"center",marginTop:4}}>
+        {data.map((d,i)=>(
+          <div key={i} style={{display:"flex",alignItems:"center",gap:4,fontSize:11.5}}>
+            <div style={{width:8,height:8,borderRadius:"50%",background:d.color||"#6366F1",flexShrink:0}}/>
+            <span style={{color:"#374151",fontWeight:600}}>{d.name}</span>
+            <span style={{color:"#6B7280"}}>{d.value}억</span>
+            <span style={{color:"#9CA3AF"}}>({total>0?Math.round(d.value/total*100):0}%)</span>
+          </div>
+        ))}
+      </div>
+      {total>0&&<div style={{textAlign:"center",fontSize:13,fontWeight:700,color:"#374151",marginTop:6}}>합계 {total}억원</div>}
+    </div>
+  )
+}
   const {DEPTS,DEPT_COLORS} = useDepts()
   const NOW   = new Date()
   const YEAR  = NOW.getFullYear()
@@ -4332,8 +4358,13 @@ function NewProjModal({onClose,onSave,initial=null}) {
       return {...initial, shareRatio:(initial.shareRatio??1)*100, deptShares: ds.length?ds:[{dept:STAFF_DEPTS[0],share:100}], orderType: initial.orderType||"민간", contractType: initial.contractType||"민간"}
     }
     return {year:new Date().getFullYear()+"",code:"",name:"",deptShares:[{dept:STAFF_DEPTS[0],share:100}],pm:"",director:"",projType:"",contractType:"민간",usage:"",scale:"",siteArea:0,buildArea:0,floorArea:0,units:0,client:"",clientPm:"",clientTel:"",clientEmail:"",staffMembers:[],totalFee:0,shareRatio:100,serviceFee:0,address:"",contractDate:"",orderDate:"",orderType:"민간",bidType:"민간수의",note:"",type:"확정",contractYear:new Date().getFullYear(),isAmendment:false,parentProjName:"",prog:0,
-      jvType:"단독이행",   // 단독이행 | 공동이행 | 분담이행
-      jvMembers:[],        // [{name,ratio,amount,role}]
+      jvType:"단독이행",
+      jvMembers:[],
+      // ── 신규 필드 ──
+      startDate:"",
+      servicePeriods:[],
+      guarantees:[],
+      contractSpecials:[],
     }
   })
   const u=(k,v)=>setF(p=>({...p,[k]:v}))
@@ -4493,62 +4524,221 @@ function NewProjModal({onClose,onSave,initial=null}) {
             <div style={{background:C.navyL,borderRadius:7,padding:"7px 11px",fontSize:11,color:C.navyM,marginBottom:9}}>★ 수주일 = 계약금 10% 수령일 (회사 내규)</div>
             <div style={S.grid(3,9)}>
               <F label="계약일" val={f.contractDate} onChange={v=>u("contractDate",v)} type="date"/>
+              <F label="착수일" val={f.startDate||""} onChange={v=>u("startDate",v)} type="date"/>
               <F label="수주일(계약금10%수령)" val={f.orderDate} onChange={v=>u("orderDate",v)} type="date"/>
-              <F label="발주 구분" val={f.orderType} onChange={v=>u("orderType",v)} type="select" opts={["민간","공공"]}/>
             </div>
             <div style={S.grid(3,9)}>
-              <F label="수주 형태 (외주비 비교 기준)" val={f.bidType} onChange={v=>u("bidType",v)} type="select" opts={bidTypes||BID_TYPES}/>
+              <F label="발주 구분" val={f.orderType} onChange={v=>u("orderType",v)} type="select" opts={["민간","공공"]}/>
+              <F label="수주 형태" val={f.bidType} onChange={v=>u("bidType",v)} type="select" opts={bidTypes||BID_TYPES}/>
             </div>
+
+            {/* 용역기간 */}
+            <div style={{marginTop:10,marginBottom:4}}>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:7}}>
+                <span style={{fontSize:12,fontWeight:700,color:"#374151"}}>📅 용역기간</span>
+                <button onClick={()=>u("servicePeriods",[...(f.servicePeriods||[]),{from:"",to:"",note:""}])}
+                  style={{padding:"4px 10px",background:"#EEF2FF",color:"#6366F1",border:"none",borderRadius:7,fontSize:12,fontWeight:700,cursor:"pointer"}}>+ 기간 추가</button>
+              </div>
+              {(f.servicePeriods||[]).length===0&&<div style={{fontSize:12,color:"#9CA3AF",padding:"8px 0"}}>용역기간을 추가하세요.</div>}
+              {(f.servicePeriods||[]).map((sp,i)=>{
+                const fromD=sp.from?new Date(sp.from):null
+                const toD=sp.to?new Date(sp.to):null
+                const diffDays=fromD&&toD?Math.round((toD-fromD)/(1000*60*60*24)):null
+                const diffMonths=diffDays!=null?Math.floor(diffDays/30.44):null
+                return (
+                  <div key={i} style={{display:"flex",gap:7,alignItems:"flex-start",marginBottom:7,background:"#F8FAFC",borderRadius:9,padding:"9px 11px",border:"1px solid #E5E7EB"}}>
+                    <div style={{display:"flex",flexDirection:"column",gap:4}}>
+                      <div style={{display:"flex",gap:7,alignItems:"center"}}>
+                        <div>
+                          <label style={{fontSize:11,color:"#6B7280",display:"block",marginBottom:2}}>시작일</label>
+                          <input type="date" value={sp.from||""} onChange={e=>{const a=[...(f.servicePeriods||[])];a[i]={...a[i],from:e.target.value};u("servicePeriods",a)}} style={{...S.inp(),padding:"5px 8px",fontSize:12,width:140}}/>
+                        </div>
+                        <div style={{alignSelf:"flex-end",paddingBottom:5,color:"#6B7280"}}>~</div>
+                        <div>
+                          <label style={{fontSize:11,color:"#6B7280",display:"block",marginBottom:2}}>종료일</label>
+                          <input type="date" value={sp.to||""} onChange={e=>{const a=[...(f.servicePeriods||[])];a[i]={...a[i],to:e.target.value};u("servicePeriods",a)}} style={{...S.inp(),padding:"5px 8px",fontSize:12,width:140}}/>
+                        </div>
+                        {diffDays!=null&&(
+                          <div style={{alignSelf:"flex-end",paddingBottom:5}}>
+                            <span style={{fontSize:12,fontWeight:700,color:"#059669",background:"#D1FAE5",padding:"3px 9px",borderRadius:7}}>
+                              {diffDays}일 ({diffMonths}개월)
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                      <input value={sp.note||""} onChange={e=>{const a=[...(f.servicePeriods||[])];a[i]={...a[i],note:e.target.value};u("servicePeriods",a)}}
+                        placeholder="비고 (예: 기본설계 기간, 1차 변경 등)" style={{...S.inp(),padding:"5px 9px",fontSize:12}}/>
+                    </div>
+                    <button onClick={()=>u("servicePeriods",(f.servicePeriods||[]).filter((_,ri)=>ri!==i))}
+                      style={{background:"none",border:"none",cursor:"pointer",color:"#DC2626",fontSize:16,flexShrink:0,paddingTop:18}}>✕</button>
+                  </div>
+                )
+              })}
+            </div>
+
+            {/* 보증서 현황 */}
+            <div style={{marginTop:10,marginBottom:4}}>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:7}}>
+                <span style={{fontSize:12,fontWeight:700,color:"#374151"}}>🛡 보증서 현황</span>
+                <button onClick={()=>u("guarantees",[...(f.guarantees||[]),{type:"계약보증",amount:0,from:"",to:"",issuer:"",manager:"",note:""}])}
+                  style={{padding:"4px 10px",background:"#FEF3C7",color:"#D97706",border:"none",borderRadius:7,fontSize:12,fontWeight:700,cursor:"pointer"}}>+ 보증서 추가</button>
+              </div>
+              {(f.guarantees||[]).length===0&&<div style={{fontSize:12,color:"#9CA3AF",padding:"8px 0"}}>보증서를 추가하세요.</div>}
+              {(f.guarantees||[]).map((g,i)=>(
+                <div key={i} style={{background:"#FFFBEB",borderRadius:9,padding:"10px 12px",border:"1px solid #FDE68A",marginBottom:7}}>
+                  <div style={{display:"flex",gap:7,flexWrap:"wrap",alignItems:"flex-end"}}>
+                    <div style={{minWidth:110}}>
+                      <label style={{fontSize:11,color:"#6B7280",display:"block",marginBottom:2}}>보증 구분</label>
+                      <select value={g.type} onChange={e=>{const a=[...(f.guarantees||[])];a[i]={...a[i],type:e.target.value};u("guarantees",a)}} style={{...S.inp(),padding:"5px 8px",fontSize:12}}>
+                        {["계약보증","하자보증","선급금보증","이행보증","지급보증"].map(t=><option key={t}>{t}</option>)}
+                      </select>
+                    </div>
+                    <div style={{minWidth:120}}>
+                      <label style={{fontSize:11,color:"#6B7280",display:"block",marginBottom:2}}>보증금액(원)</label>
+                      <input type="number" value={g.amount||""} onChange={e=>{const a=[...(f.guarantees||[])];a[i]={...a[i],amount:parseInt(e.target.value)||0};u("guarantees",a)}} style={{...S.inp(),padding:"5px 8px",fontSize:12}}/>
+                    </div>
+                    <div style={{minWidth:120}}>
+                      <label style={{fontSize:11,color:"#6B7280",display:"block",marginBottom:2}}>보증기간 시작</label>
+                      <input type="date" value={g.from||""} onChange={e=>{const a=[...(f.guarantees||[])];a[i]={...a[i],from:e.target.value};u("guarantees",a)}} style={{...S.inp(),padding:"5px 8px",fontSize:12,width:130}}/>
+                    </div>
+                    <div style={{minWidth:120}}>
+                      <label style={{fontSize:11,color:"#6B7280",display:"block",marginBottom:2}}>보증기간 종료</label>
+                      <input type="date" value={g.to||""} onChange={e=>{const a=[...(f.guarantees||[])];a[i]={...a[i],to:e.target.value};u("guarantees",a)}} style={{...S.inp(),padding:"5px 8px",fontSize:12,width:130}}/>
+                    </div>
+                    <div style={{minWidth:100}}>
+                      <label style={{fontSize:11,color:"#6B7280",display:"block",marginBottom:2}}>보증처</label>
+                      <input value={g.issuer||""} onChange={e=>{const a=[...(f.guarantees||[])];a[i]={...a[i],issuer:e.target.value};u("guarantees",a)}} placeholder="서울보증보험" style={{...S.inp(),padding:"5px 8px",fontSize:12}}/>
+                    </div>
+                    <div style={{minWidth:80}}>
+                      <label style={{fontSize:11,color:"#6B7280",display:"block",marginBottom:2}}>담당</label>
+                      <input value={g.manager||""} onChange={e=>{const a=[...(f.guarantees||[])];a[i]={...a[i],manager:e.target.value};u("guarantees",a)}} placeholder="담당자" style={{...S.inp(),padding:"5px 8px",fontSize:12}}/>
+                    </div>
+                    <div style={{flex:1,minWidth:120}}>
+                      <label style={{fontSize:11,color:"#6B7280",display:"block",marginBottom:2}}>비고</label>
+                      <input value={g.note||""} onChange={e=>{const a=[...(f.guarantees||[])];a[i]={...a[i],note:e.target.value};u("guarantees",a)}} placeholder="비고" style={{...S.inp(),padding:"5px 8px",fontSize:12}}/>
+                    </div>
+                    <button onClick={()=>u("guarantees",(f.guarantees||[]).filter((_,ri)=>ri!==i))}
+                      style={{background:"none",border:"none",cursor:"pointer",color:"#DC2626",fontSize:16,flexShrink:0}}>✕</button>
+                  </div>
+                  {g.amount>0&&<div style={{fontSize:11,color:"#D97706",marginTop:4,fontWeight:600}}>
+                    보증금액: ₩{g.amount.toLocaleString()} {g.from&&g.to?`| ${g.from} ~ ${g.to}`:""}
+                  </div>}
+                </div>
+              ))}
+            </div>
+
+            {/* 계약 특수조건 */}
+            <div style={{marginTop:10}}>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:7}}>
+                <span style={{fontSize:12,fontWeight:700,color:"#374151"}}>📋 계약 특수조건 (히스토리)</span>
+                <button onClick={()=>{
+                  const today=new Date().toISOString().slice(0,10)
+                  u("contractSpecials",[...(f.contractSpecials||[]),{date:today,title:"",items:[""]}])
+                }} style={{padding:"4px 10px",background:"#EDE9FE",color:"#7C3AED",border:"none",borderRadius:7,fontSize:12,fontWeight:700,cursor:"pointer"}}>+ 특수조건 추가</button>
+              </div>
+              {(f.contractSpecials||[]).length===0&&<div style={{fontSize:12,color:"#9CA3AF",padding:"8px 0"}}>계약 특수조건을 추가하면 프로젝트 히스토리에도 자동 기록됩니다.</div>}
+              {[...(f.contractSpecials||[])].reverse().map((cs,ri)=>{
+                const i=(f.contractSpecials||[]).length-1-ri
+                return (
+                  <div key={i} style={{background:"#FAF5FF",border:"1px solid #DDD6FE",borderRadius:10,padding:"12px 14px",marginBottom:8}}>
+                    <div style={{display:"flex",gap:8,alignItems:"center",marginBottom:8}}>
+                      <input type="date" value={cs.date||""} onChange={e=>{const a=[...(f.contractSpecials||[])];a[i]={...a[i],date:e.target.value};u("contractSpecials",a)}}
+                        style={{...S.inp(),padding:"4px 8px",fontSize:12,width:130}}/>
+                      <input value={cs.title||""} onChange={e=>{const a=[...(f.contractSpecials||[])];a[i]={...a[i],title:e.target.value};u("contractSpecials",a)}}
+                        placeholder="제목 (예: 용역범위, 행정절차 지원 등)" style={{...S.inp(),padding:"4px 9px",fontSize:12,flex:1}}/>
+                      <button onClick={()=>u("contractSpecials",(f.contractSpecials||[]).filter((_,ri2)=>ri2!==i))}
+                        style={{background:"none",border:"none",cursor:"pointer",color:"#DC2626",fontSize:15,flexShrink:0}}>✕</button>
+                    </div>
+                    {(cs.items||[]).map((item,ii)=>(
+                      <div key={ii} style={{display:"flex",gap:5,alignItems:"center",marginBottom:5}}>
+                        <span style={{color:"#7C3AED",fontWeight:700,fontSize:13,flexShrink:0}}>—</span>
+                        <input value={item} onChange={e=>{const a=[...(f.contractSpecials||[])];const its=[...(a[i].items||[])];its[ii]=e.target.value;a[i]={...a[i],items:its};u("contractSpecials",a)}}
+                          placeholder="조건 내용 입력 (예: 계획설계, 중간설계, 실시설계, 인허가, 인증업무...)"
+                          style={{...S.inp(),padding:"5px 9px",fontSize:12.5,flex:1}}/>
+                        <button onClick={()=>{const a=[...(f.contractSpecials||[])];const its=(a[i].items||[]).filter((_,rii)=>rii!==ii);a[i]={...a[i],items:its};u("contractSpecials",a)}}
+                          style={{background:"none",border:"none",cursor:"pointer",color:"#9CA3AF",fontSize:14,flexShrink:0}}>✕</button>
+                      </div>
+                    ))}
+                    <button onClick={()=>{const a=[...(f.contractSpecials||[])];a[i]={...a[i],items:[...(a[i].items||[]),""]};u("contractSpecials",a)}}
+                      style={{padding:"4px 10px",background:"#EDE9FE",color:"#7C3AED",border:"none",borderRadius:6,fontSize:11.5,fontWeight:600,cursor:"pointer",marginTop:3}}>
+                      + 항목 추가
+                    </button>
+                  </div>
+                )
+              })}
+            </div>
+
             <F label="주소" val={f.address} onChange={v=>u("address",v)}/><F label="비고" val={f.note} onChange={v=>u("note",v)}/>
           </>},
           {title:"공동이행체 / 분담이행체",content:<>
-            <div style={{display:"flex",gap:8,marginBottom:12,alignItems:"center"}}>
-              <label style={S.lbl()}>수급 형태</label>
-              {["단독이행","공동이행","분담이행"].map(t=>(
-                <button key={t} onClick={()=>u("jvType",t)}
-                  style={{padding:"6px 14px",border:`1.5px solid ${f.jvType===t?"#6366F1":"#E5E7EB"}`,borderRadius:20,background:f.jvType===t?"#EEF2FF":"#fff",color:f.jvType===t?"#6366F1":"#374151",fontSize:13,fontWeight:f.jvType===t?700:500,cursor:"pointer"}}>
-                  {t}
-                </button>
-              ))}
-            </div>
-            {f.jvType!=="단독이행"&&<>
-              <div style={{marginBottom:8}}>
-                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6}}>
-                  <span style={{fontSize:12,fontWeight:700,color:"#6B7280"}}>{f.jvType} 구성원 (상지서울 포함)</span>
-                  <button onClick={()=>u("jvMembers",[...(f.jvMembers||[]),{name:"",ratio:0,amount:0,role:"구성원"}])}
-                    style={{padding:"4px 10px",background:"#EEF2FF",color:"#6366F1",border:"none",borderRadius:7,fontSize:12,fontWeight:700,cursor:"pointer"}}>+ 업체 추가</button>
-                </div>
-                {(f.jvMembers||[]).map((m,i)=>(
-                  <div key={i} style={{display:"flex",gap:7,alignItems:"center",marginBottom:6,background:"#F8FAFC",borderRadius:9,padding:"8px 10px",border:"1px solid #E5E7EB"}}>
-                    <div style={{flex:2}}><label style={{...S.lbl(),marginBottom:2}}>업체명</label>
-                      <input value={m.name} onChange={e=>{const a=[...f.jvMembers];a[i]={...a[i],name:e.target.value};u("jvMembers",a)}} placeholder="(주)○○건축사사무소" style={{...S.inp(),padding:"6px 9px",fontSize:13}}/>
-                    </div>
-                    <div style={{flex:1}}><label style={{...S.lbl(),marginBottom:2}}>지분율(%)</label>
-                      <input type="number" value={m.ratio} onChange={e=>{const a=[...f.jvMembers];a[i]={...a[i],ratio:parseFloat(e.target.value)||0,amount:Math.round((f.totalFee||0)*(parseFloat(e.target.value)||0)/100)};u("jvMembers",a)}} style={{...S.inp(),padding:"6px 9px",fontSize:13}}/>
-                    </div>
-                    <div style={{flex:1}}><label style={{...S.lbl(),marginBottom:2}}>금액(원)</label>
-                      <div style={{padding:"6px 9px",border:"1.5px solid #E5E7EB",borderRadius:9,fontSize:13,background:"#EEF2FF",color:"#6366F1",fontWeight:700}}>{m.amount>0?m.amount.toLocaleString():"-"}</div>
-                    </div>
-                    <div style={{flex:1}}><label style={{...S.lbl(),marginBottom:2}}>역할</label>
-                      <select value={m.role} onChange={e=>{const a=[...f.jvMembers];a[i]={...a[i],role:e.target.value};u("jvMembers",a)}} style={{...S.inp(),padding:"6px 9px",fontSize:13}}>
-                        {["주간사","구성원","간사사"].map(r=><option key={r}>{r}</option>)}
-                      </select>
-                    </div>
-                    <button onClick={()=>u("jvMembers",f.jvMembers.filter((_,ri)=>ri!==i))} style={{background:"none",border:"none",cursor:"pointer",color:"#DC2626",fontSize:16,flexShrink:0,alignSelf:"flex-end",paddingBottom:4}}>✕</button>
-                  </div>
-                ))}
-                {(f.jvMembers||[]).length>0&&(
-                  <div style={{display:"flex",gap:12,padding:"8px 12px",background:"#EEF2FF",borderRadius:9,fontSize:13}}>
-                    <span style={{fontWeight:700,color:"#312E81"}}>총 지분율: {(f.jvMembers||[]).reduce((s,m)=>s+m.ratio,0).toFixed(1)}%</span>
-                    <span style={{color:"#6B7280"}}>총 금액: ₩{(f.jvMembers||[]).reduce((s,m)=>s+m.amount,0).toLocaleString()}</span>
-                  </div>
-                )}
+            {(f.jvMembers||[]).length===0&&<div style={{fontSize:12,color:"#9CA3AF",padding:"4px 0 8px"}}>아래 "+ 업체 추가"로 구성원을 추가하세요. (단독이행이면 비워두세요)</div>}
+            <div style={{marginBottom:8}}>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6}}>
+                <span style={{fontSize:12,fontWeight:700,color:"#6B7280"}}>수급 구성원 (상지서울 포함)</span>
+                <button onClick={()=>u("jvMembers",[...(f.jvMembers||[]),{name:"",ratio:0,amount:0,role:"공동이행(주관사)",amountManual:false}])}
+                  style={{padding:"4px 10px",background:"#EEF2FF",color:"#6366F1",border:"none",borderRadius:7,fontSize:12,fontWeight:700,cursor:"pointer"}}>+ 업체 추가</button>
               </div>
-            </>}
+              {(f.jvMembers||[]).map((m,i)=>(
+                <div key={i} style={{display:"flex",gap:7,alignItems:"flex-start",marginBottom:6,background:"#F8FAFC",borderRadius:9,padding:"8px 10px",border:"1px solid #E5E7EB",flexWrap:"wrap"}}>
+                  <div style={{flex:2,minWidth:140}}>
+                    <label style={{...S.lbl(),marginBottom:2}}>업체명</label>
+                    <input value={m.name} onChange={e=>{const a=[...(f.jvMembers||[])];a[i]={...a[i],name:e.target.value};u("jvMembers",a)}} placeholder="(주)○○건축사사무소" style={{...S.inp(),padding:"6px 9px",fontSize:13}}/>
+                  </div>
+                  <div style={{flex:1,minWidth:80}}>
+                    <label style={{...S.lbl(),marginBottom:2}}>지분율(%)</label>
+                    <input type="number" value={m.ratio||""} onChange={e=>{const a=[...(f.jvMembers||[])];const r=parseFloat(e.target.value)||0;a[i]={...a[i],ratio:r,amount:m.amountManual?m.amount:Math.round((f.totalFee||0)*r/100)};u("jvMembers",a)}} style={{...S.inp(),padding:"6px 9px",fontSize:13}}/>
+                  </div>
+                  <div style={{flex:1,minWidth:120}}>
+                    <label style={{...S.lbl(),marginBottom:2}}>금액(원) {m.amountManual&&<span style={{fontSize:10,color:"#D97706",fontWeight:700}}>수기</span>}</label>
+                    <div style={{display:"flex",gap:3,alignItems:"center"}}>
+                      <input type="number" value={m.amount||""} onChange={e=>{const a=[...(f.jvMembers||[])];a[i]={...a[i],amount:parseInt(e.target.value)||0,amountManual:true};u("jvMembers",a)}}
+                        style={{...S.inp(),padding:"6px 9px",fontSize:12,flex:1,color:"#6366F1",fontWeight:700}}/>
+                      {m.amountManual&&<button title="지분율 자동계산 복원" onClick={()=>{const a=[...(f.jvMembers||[])];a[i]={...a[i],amount:Math.round((f.totalFee||0)*m.ratio/100),amountManual:false};u("jvMembers",a)}}
+                        style={{padding:"3px 6px",background:"#EEF2FF",color:"#6366F1",border:"none",borderRadius:5,fontSize:10,cursor:"pointer",flexShrink:0}}>↩자동</button>}
+                    </div>
+                    {!m.amountManual&&m.ratio>0&&<div style={{fontSize:10,color:"#6B7280",marginTop:1}}>총설계비×{m.ratio}%</div>}
+                  </div>
+                  <div style={{flex:1,minWidth:140}}>
+                    <label style={{...S.lbl(),marginBottom:2}}>역할</label>
+                    <select value={m.role||"공동이행(주관사)"} onChange={e=>{const a=[...(f.jvMembers||[])];a[i]={...a[i],role:e.target.value};u("jvMembers",a)}} style={{...S.inp(),padding:"6px 9px",fontSize:13}}>
+                      {["공동이행(주관사)","공동이행(부관사)","분담이행"].map(r=><option key={r}>{r}</option>)}
+                    </select>
+                  </div>
+                  <button onClick={()=>u("jvMembers",(f.jvMembers||[]).filter((_,ri)=>ri!==i))} style={{background:"none",border:"none",cursor:"pointer",color:"#DC2626",fontSize:16,flexShrink:0,alignSelf:"center",paddingTop:16}}>✕</button>
+                </div>
+              ))}
+              {(f.jvMembers||[]).length>0&&(
+                <div style={{display:"flex",gap:12,padding:"8px 12px",background:"#EEF2FF",borderRadius:9,fontSize:13}}>
+                  <span style={{fontWeight:700,color:"#312E81"}}>총 지분율: {(f.jvMembers||[]).reduce((s,m)=>s+(m.ratio||0),0).toFixed(1)}%</span>
+                  <span style={{color:"#6B7280"}}>총 금액: ₩{(f.jvMembers||[]).reduce((s,m)=>s+(m.amount||0),0).toLocaleString()}</span>
+                  <span style={{color:"#6B7280",fontSize:12}}>
+                    {(f.jvMembers||[]).map(m=>`${m.name||"(업체명)"}: ${m.role||""}`).join(" / ")}
+                  </span>
+                </div>
+              )}
+            </div>
           </>},
         ].map(({title,content})=><div key={title} style={{marginBottom:16}}><div style={{fontSize:11,fontWeight:500,color:C.navyM,marginBottom:8,paddingBottom:3,borderBottom:`1px solid ${C.navyL}`}}>{title}</div>{content}</div>)}
         <div style={{display:"flex",gap:7,marginTop:14,alignItems:"center"}}>
-          <button onClick={()=>onSave({...f,shareRatio:f.shareRatio/100,depts:f.deptShares.map(s=>s.dept)})} style={S.btn(C.navyM)}>{initial?"✓ 저장":"✓ 등록"}</button>
+          <button onClick={()=>{
+          const saved = {...f, shareRatio:f.shareRatio/100, depts:f.deptShares.map(s=>s.dept)}
+          // 계약특수조건 → 히스토리 자동 추가
+          if((f.contractSpecials||[]).length>0) {
+            const existHistIds = new Set((initial?.history||[]).map(h=>h.id))
+            const newHistItems = (f.contractSpecials||[]).flatMap(cs=>{
+              const hId = `cs_${cs.date}_${(cs.title||"").slice(0,10)}`
+              if(existHistIds.has(hId)) return []
+              const body = (cs.items||[]).filter(Boolean).map(it=>`— ${it}`).join("\n")
+              return [{id:hId, date:cs.date, category:"계약특수조건",
+                title:`[특수조건] ${cs.title||"계약 특수조건"}`,
+                body, author:"시스템"}]
+            })
+            if(newHistItems.length>0) {
+              saved.history = [...(initial?.history||[]), ...newHistItems]
+            }
+          }
+          onSave(saved)
+        }} style={S.btn(C.navyM)}>{initial?"✓ 저장":"✓ 등록"}</button>
           <button onClick={onClose} style={S.btn(C.grayL,C.gray)}>취소</button>
           {shareSum!==100 && <span style={{fontSize:11.5,color:C.red}}>본부 지분율 합계가 100%가 아닙니다 ({shareSum}%)</span>}
         </div>
