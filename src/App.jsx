@@ -39,14 +39,14 @@ import { isConfigured, dbGet, dbSet, dbGetAll, dbSetAll, subscribeChanges } from
 const num = v => { const n=parseFloat(v); return Number.isFinite(n)?n:0 }
 const C = {
   // 클로브AI 스타일 — 보라/인디고 포인트, 밝은 배경, 소프트 카드
-  navy:   "#312E81",  navyM:  "#6366F1",  navyL:  "#EEF2FF",  // 메인 인디고
+  navy:   "#1E3A8A",  navyM:  "#2563EB",  navyL:  "#EFF6FF",  // 메인 인디고
   green:  "#059669",  greenL: "#D1FAE5",                        // 성공/완료 (에메랄드)
   amber:  "#D97706",  amberL: "#FEF3C7",                        // 경고
   red:    "#DC2626",  redL:   "#FEE2E2",                        // 오류
-  gray:   "#6B7280",  grayL:  "#F3F4F6",                        // 중립
-  border: "#E5E7EB",  bg:     "#F8FAFC",                        // 배경
+  gray:   "#64748B",  grayL:  "#F8FAFC",                        // 중립
+  border: "#E2E8F0",  bg:     "#F8FAFC",                        // 배경
   teal:   "#0D9488",  tealL:  "#CCFBF1",                        // 청록 (보조)
-  purple: "#7C3AED",  purpleL:"#EDE9FE",                        // 보라 (강조)
+  purple: "#7C3AED",  purpleL:"#DBEAFE",                        // 보라 (강조)
 }
 const LEVEL_STYLE = {
   critical:{bg:C.redL,  fg:C.red,    border:C.red},
@@ -67,23 +67,23 @@ const lbl = (color,dec=2,size=11,suffix="")=>({
 // ── 스타일 헬퍼 ───────────────────────────────────────────────
 const S = {
   card:(x={})=>({background:"#fff",border:"1px solid #E5E7EB",borderRadius:16,padding:"22px 26px",marginBottom:16,boxShadow:"0 1px 4px rgba(0,0,0,.05)",...x}),
-  kpi:(accent="#6366F1")=>({background:"#fff",border:"1px solid #E5E7EB",borderRadius:16,padding:"20px 22px",borderLeft:`4px solid ${accent}`,cursor:"pointer",transition:"all .2s",boxShadow:"0 1px 4px rgba(0,0,0,.05)"}),
+  kpi:(accent="#2563EB")=>({background:"#fff",border:"1px solid #E5E7EB",borderRadius:16,padding:"20px 22px",borderLeft:`4px solid ${accent}`,cursor:"pointer",transition:"all .2s",boxShadow:"0 1px 4px rgba(0,0,0,.05)"}),
   grid:(c,g=14)=>({display:"grid",gridTemplateColumns:`repeat(${c},1fr)`,gap:g,marginBottom:g}),
-  th:(a="left")=>({padding:"12px 16px",textAlign:a,fontSize:13,fontWeight:700,color:"#6B7280",background:"#F8FAFC",borderBottom:"1px solid #E5E7EB",whiteSpace:"nowrap",letterSpacing:"0.02em"}),
-  td:(a="right")=>({padding:"13px 16px",borderBottom:"1px solid #F3F4F6",textAlign:a,fontSize:14.5,verticalAlign:"middle",color:"#111827"}),
-  btn:(bg="#6366F1",fg="#fff")=>({padding:"10px 18px",background:bg,color:fg,border:"none",borderRadius:10,fontSize:14,fontWeight:700,cursor:"pointer",display:"inline-flex",alignItems:"center",gap:7,transition:"opacity .15s",letterSpacing:"-0.01em"}),
-  inp:(w)=>({padding:"10px 14px",border:"1.5px solid #E5E7EB",borderRadius:10,fontSize:14.5,width:w||"100%",boxSizing:"border-box",background:"#fff",color:"#111827",fontFamily:"inherit",outline:"none",transition:"border-color .15s"}),
-  lbl:()=>({display:"block",fontSize:13,color:"#6B7280",fontWeight:700,marginBottom:5,letterSpacing:"0.01em"}),
-  bdg:(bg,fg)=>({display:"inline-flex",alignItems:"center",padding:"4px 12px",borderRadius:20,fontSize:12.5,fontWeight:700,background:bg,color:fg,letterSpacing:"0.01em"}),
+  th:(a="left")=>({padding:"12px 16px",textAlign:a,fontSize:13,fontWeight:700,color:"#64748B",background:"#F8FAFC",borderBottom:"1px solid #E5E7EB",whiteSpace:"nowrap",letterSpacing:"0.02em"}),
+  td:(a="right")=>({padding:"13px 16px",borderBottom:"1px solid #F3F4F6",textAlign:a,fontSize:14,verticalAlign:"middle",color:"#0F172A"}),
+  btn:(bg="#2563EB",fg="#fff")=>({padding:"10px 18px",background:bg,color:fg,border:"none",borderRadius:8,fontSize:14,fontWeight:700,cursor:"pointer",display:"inline-flex",alignItems:"center",gap:7,transition:"opacity .15s",letterSpacing:"-0.01em"}),
+  inp:(w)=>({padding:"10px 14px",border:"1.5px solid #E5E7EB",borderRadius:8,fontSize:14,width:w||"100%",boxSizing:"border-box",background:"#fff",color:"#0F172A",fontFamily:"inherit",outline:"none",transition:"border-color .15s"}),
+  lbl:()=>({display:"block",fontSize:13,color:"#64748B",fontWeight:700,marginBottom:5,letterSpacing:"0.01em"}),
+  bdg:(bg,fg)=>({display:"inline-flex",alignItems:"center",padding:"4px 12px",borderRadius:20,fontSize:13,fontWeight:700,background:bg,color:fg,letterSpacing:"0.01em"}),
 }
 // 전역 TH 헬퍼 — 테이블 헤더 스타일 (여러 컴포넌트에서 공통 사용)
-const TH = (align="right", color="#6B7280", bg="#F8FAFC") => ({
-  padding:"9px 11px", textAlign:align, fontSize:11.5, fontWeight:700,
+const TH = (align="right", color="#64748B", bg="#F8FAFC") => ({
+  padding:"9px 11px", textAlign:align, fontSize:12, fontWeight:700,
   color, borderBottom:"2px solid #E5E7EB", whiteSpace:"nowrap", background:bg
 })
 // 전역 TD 헬퍼 — 테이블 셀 스타일
-const TD = (color="#374151", bold=false, bg="transparent") => ({
-  padding:"9px 11px", textAlign:"right", fontSize:12.5,
+const TD = (color="#334155", bold=false, bg="transparent") => ({
+  padding:"9px 11px", textAlign:"right", fontSize:13,
   fontWeight:bold?700:400, color, background:bg,
   borderBottom:"1px solid #F3F4F6", verticalAlign:"middle"
 })
@@ -95,7 +95,7 @@ const fCa = n => n>0?`${(n/1e8).toFixed(2)}억`:"-"
 const fW2 = v => v>=1e8?`${(v/1e8).toFixed(2)}억`:v>0?`${Math.round(v).toLocaleString()}원`:"-"
 const fP2 = (n,t) => t>0?(n/t*100).toFixed(2)+"%":"-"
 // 전역 INP 함수 — 인라인 input 스타일
-const INP = (err) => ({padding:"8px 10px",border:`1.5px solid ${err?"#EF4444":"#E5E7EB"}`,borderRadius:8,fontSize:13,fontFamily:"inherit",outline:"none",width:"100%",boxSizing:"border-box"})
+const INP = (err) => ({padding:"8px 10px",border:`1.5px solid ${err?"#EF4444":"#E2E8F0"}`,borderRadius:8,fontSize:13,fontFamily:"inherit",outline:"none",width:"100%",boxSizing:"border-box"})
 
 // ════════════════════════════════════════════════════════════
 // 메인 앱
@@ -1038,7 +1038,7 @@ export default function App() {
   return (
     <ToastProvider>
     <DeptContext.Provider value={deptCtx}>
-    <div style={{fontFamily:"'Apple SD Gothic Neo','Pretendard','Noto Sans KR',sans-serif",fontSize:15,color:"#111827",background:"#F8FAFC",minHeight:"100vh"}}>
+    <div style={{fontFamily:"'Pretendard','Apple SD Gothic Neo','Noto Sans KR','Inter',sans-serif",fontSize:13,color:"#0F172A",background:"#F1F5F9",minHeight:"100vh",lineHeight:1.5}}>
 
       {/* ── 사이드바 레이아웃 ── */}
       <div style={{display:"flex",minHeight:"100vh"}}>
@@ -1047,35 +1047,36 @@ export default function App() {
       {isMobile&&sideOpen&&<div onClick={()=>setSideOpen(false)} style={{position:"fixed",inset:0,background:"rgba(0,0,0,.45)",zIndex:99}}/>}
 
       {/* ── 사이드바 ── */}
-      <div style={{width:220,flexShrink:0,background:"#fff",borderRight:"1px solid #E5E7EB",display:"flex",flexDirection:"column",position:"fixed",top:0,left:0,bottom:0,zIndex:100,
+      <div style={{width:220,flexShrink:0,background:"#fff",borderRight:"1px solid #E2E8F0",display:"flex",flexDirection:"column",position:"fixed",top:0,left:0,bottom:0,zIndex:100,
         transform:(!isMobile||sideOpen)?"translateX(0)":"translateX(-220px)",
-        transition:"transform .25s cubic-bezier(.4,0,.2,1)"}}>
+        transition:"transform .22s cubic-bezier(.4,0,.2,1)",
+        boxShadow: isMobile&&sideOpen?"4px 0 24px rgba(0,0,0,.10)":"none"}}>
         {/* 로고 */}
-        <div onClick={()=>setTabAndClose("analysis")} style={{padding:"22px 20px 18px",cursor:"pointer",borderBottom:"1px solid #F3F4F6"}}>
+        <div onClick={()=>setTabAndClose("analysis")} style={{padding:"18px 16px 16px",cursor:"pointer",borderBottom:"1px solid #E2E8F0"}}>
           <div style={{display:"flex",alignItems:"center",gap:10}}>
-            <div style={{width:38,height:38,background:"linear-gradient(135deg,#6366F1,#312E81)",borderRadius:10,display:"flex",alignItems:"center",justifyContent:"center",fontSize:18}}>📐</div>
+            <div style={{width:32,height:32,background:"linear-gradient(135deg,#2563EB,#1D4ED8)",borderRadius:8,display:"flex",alignItems:"center",justifyContent:"center",fontSize:15,flexShrink:0}}>📐</div>
             <div>
-              <div style={{fontSize:13.5,fontWeight:800,color:"#111827",letterSpacing:"-0.03em",lineHeight:1.2}}>상지서울</div>
-              <div style={{fontSize:11,color:"#6B7280",fontWeight:500,lineHeight:1.2}}>통합경영시스템</div>
+              <div style={{fontSize:13,fontWeight:700,color:"#0F172A",letterSpacing:"-0.02em",lineHeight:1.3}}>상지서울</div>
+              <div style={{fontSize:11,color:"#94A3B8",fontWeight:400,lineHeight:1.3}}>통합경영시스템</div>
             </div>
           </div>
         </div>
 
         {/* 퀵액션 — 프로젝트 관련 3개 버튼 묶음 */}
         <div style={{padding:"12px 10px",borderBottom:"1px solid #F3F4F6"}}>
-          <div style={{background:"#EEF2FF",borderRadius:12,padding:"8px",border:"1px solid #6366F122"}}>
-            <div style={{fontSize:10.5,fontWeight:800,color:"#6366F1",letterSpacing:".06em",marginBottom:7,paddingLeft:2}}>프로젝트</div>
+          <div style={{background:"#EFF6FF",borderRadius:8,padding:"8px",border:"1px solid #6366F122"}}>
+            <div style={{fontSize:11,fontWeight:800,color:"#2563EB",letterSpacing:".06em",marginBottom:7,paddingLeft:2}}>프로젝트</div>
             <button onClick={()=>setShowNewProj(true)}
-              style={{width:"100%",padding:"9px 10px",background:"#6366F1",color:"#fff",border:"none",borderRadius:9,fontSize:13,fontWeight:800,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:6,marginBottom:5,boxShadow:"0 2px 8px rgba(99,102,241,.3)"}}>
+              style={{width:"100%",padding:"9px 10px",background:"#2563EB",color:"#fff",border:"none",borderRadius:6,fontSize:13,fontWeight:800,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:6,marginBottom:5,boxShadow:"0 2px 8px rgba(99,102,241,.3)"}}>
               <i className="ti ti-plus" style={{fontSize:13}}/> 프로젝트 개설
             </button>
             <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:4}}>
               <button onClick={()=>uploadRef.current?.click()}
-                style={{padding:"7px 4px",background:"#fff",color:"#374151",border:"1px solid #E5E7EB",borderRadius:8,fontSize:11.5,fontWeight:700,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:4}}>
+                style={{padding:"7px 4px",background:"#fff",color:"#334155",border:"1px solid #E5E7EB",borderRadius:8,fontSize:12,fontWeight:700,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:4}}>
                 <i className="ti ti-upload" style={{fontSize:11}}/> 업로드
               </button>
               <button onClick={downloadTemplate}
-                style={{padding:"7px 4px",background:"#fff",color:"#374151",border:"1px solid #E5E7EB",borderRadius:8,fontSize:11.5,fontWeight:700,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:4}}>
+                style={{padding:"7px 4px",background:"#fff",color:"#334155",border:"1px solid #E5E7EB",borderRadius:8,fontSize:12,fontWeight:700,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:4}}>
                 <i className="ti ti-file-download" style={{fontSize:11}}/> 양식 다운로드
               </button>
             </div>
@@ -1089,7 +1090,7 @@ export default function App() {
           {/* 메뉴 편집 버튼 */}
           <div style={{display:"flex",justifyContent:"flex-end",marginBottom:4}}>
             <button onClick={()=>setShowMenuEdit(v=>!v)}
-              style={{padding:"3px 8px",background:"none",border:"1px solid #E5E7EB",borderRadius:6,fontSize:11,color:"#9CA3AF",cursor:"pointer",display:"flex",alignItems:"center",gap:3}}
+              style={{padding:"3px 8px",background:"none",border:"1px solid #E5E7EB",borderRadius:6,fontSize:11,color:"#94A3B8",cursor:"pointer",display:"flex",alignItems:"center",gap:3}}
               title="메뉴 순서·그룹 편집">
               ⚙ 메뉴편집
             </button>
@@ -1097,18 +1098,18 @@ export default function App() {
 
           {/* 메뉴 편집 패널 */}
           {showMenuEdit && (
-            <div style={{background:"#FEF9EE",borderRadius:10,padding:"10px",marginBottom:8,border:"1px solid #D9770633"}}>
-              <div style={{fontSize:11.5,fontWeight:800,color:"#D97706",marginBottom:8}}>⚙ 메뉴 순서 편집</div>
+            <div style={{background:"#FEF9EE",borderRadius:8,padding:"10px",marginBottom:8,border:"1px solid #D9770633"}}>
+              <div style={{fontSize:12,fontWeight:800,color:"#D97706",marginBottom:8}}>⚙ 메뉴 순서 편집</div>
               <div style={{display:"flex",flexDirection:"column",gap:3,maxHeight:300,overflowY:"auto"}}>
                 {tabOrder.filter(t=>t.id!=="auth_mgmt"||currentUser.role==="admin").map((t,i,arr)=>(
                   <div key={t.id} style={{display:"flex",gap:4,alignItems:"center",background:"#fff",borderRadius:7,padding:"4px 6px",border:"1px solid #E5E7EB"}}>
                     <div style={{display:"flex",flexDirection:"column",gap:1}}>
                       <button onClick={()=>{if(i>0){const a=[...tabOrder];[a[i-1],a[i]]=[a[i],a[i-1]];setTabOrder(a)}}} disabled={i===0}
-                        style={{background:"none",border:"none",cursor:"pointer",color:"#9CA3AF",fontSize:9,lineHeight:1,opacity:i===0?.3:1}}>▲</button>
+                        style={{background:"none",border:"none",cursor:"pointer",color:"#94A3B8",fontSize:9,lineHeight:1,opacity:i===0?.3:1}}>▲</button>
                       <button onClick={()=>{if(i<arr.length-1){const a=[...tabOrder];[a[i],a[i+1]]=[a[i+1],a[i]];setTabOrder(a)}}} disabled={i===arr.length-1}
-                        style={{background:"none",border:"none",cursor:"pointer",color:"#9CA3AF",fontSize:9,lineHeight:1,opacity:i===arr.length-1?.3:1}}>▼</button>
+                        style={{background:"none",border:"none",cursor:"pointer",color:"#94A3B8",fontSize:9,lineHeight:1,opacity:i===arr.length-1?.3:1}}>▼</button>
                     </div>
-                    <span style={{flex:1,fontSize:11.5,color:"#374151",fontWeight:500}}>{t.label}</span>
+                    <span style={{flex:1,fontSize:12,color:"#334155",fontWeight:500}}>{t.label}</span>
                     <select value={t.group||""} onChange={e=>{const a=[...tabOrder];a[i]={...a[i],group:e.target.value};setTabOrder(a)}}
                       style={{padding:"2px 4px",border:"1px solid #E5E7EB",borderRadius:5,fontSize:10,background:"#F8FAFC"}}>
                       {tabGroups.map(g=><option key={g} value={g}>{g}</option>)}
@@ -1116,7 +1117,7 @@ export default function App() {
                   </div>
                 ))}
               </div>
-              <button onClick={()=>setTabOrder(TAB_DEFAULTS)} style={{marginTop:6,width:"100%",padding:"5px",background:"#F3F4F6",color:"#6B7280",border:"none",borderRadius:7,fontSize:11,cursor:"pointer"}}>
+              <button onClick={()=>setTabOrder(TAB_DEFAULTS)} style={{marginTop:6,width:"100%",padding:"5px",background:"#F8FAFC",color:"#64748B",border:"none",borderRadius:7,fontSize:11,cursor:"pointer"}}>
                 기본값 복원
               </button>
             </div>
@@ -1134,15 +1135,15 @@ export default function App() {
             if(!grpTabs.length) return null
             return (
               <div key={grp} style={{marginBottom:6}}>
-                <div style={{fontSize:10.5,fontWeight:800,color:"#9CA3AF",letterSpacing:".08em",padding:"4px 12px 2px",textTransform:"uppercase"}}>{grp}</div>
+                <div style={{fontSize:11,fontWeight:600,color:"#94A3B8",letterSpacing:".06em",padding:"14px 10px 4px",textTransform:"uppercase"}}>{grp}</div>
                 {grpTabs.map(t=>{
                   const active=tab===t.id
                   return (
                     <button key={t.id} onClick={()=>setTabAndClose(t.id)} style={{
-                      width:"100%",textAlign:"left",padding:"9px 12px",border:"none",borderRadius:9,
-                      marginBottom:1,cursor:"pointer",fontSize:13.5,fontWeight:active?700:500,
-                      background:active?"#EEF2FF":"transparent",color:active?"#6366F1":"#374151",
-                      display:"flex",alignItems:"center",gap:7,transition:"all .12s"
+                      width:"100%",textAlign:"left",padding:"7px 10px",border:"none",borderRadius:6,
+                      marginBottom:1,cursor:"pointer",fontSize:13,fontWeight:active?600:400,
+                      background:active?"#EFF6FF":"transparent",color:active?"#2563EB":"#475569",
+                      display:"flex",alignItems:"center",gap:7,transition:"all .1s"
                     }}
                     onMouseEnter={e=>{if(!active)e.currentTarget.style.background="#F8FAFC"}}
                     onMouseLeave={e=>{if(!active)e.currentTarget.style.background="transparent"}}>
@@ -1161,8 +1162,8 @@ export default function App() {
           {currentUser?.role==="admin" && (
             <div style={{display:"flex",gap:5,marginBottom:8}}>
               <button onClick={()=>{setTab("datahub");if(isMobile)setSideOpen(false)}}
-                style={{flex:1,padding:"7px 6px",background:tab==="datahub"?"#185FA5":"#EEF2FF",
-                  color:tab==="datahub"?"#fff":"#185FA5",border:"none",borderRadius:8,
+                style={{flex:1,padding:"7px 6px",background:tab==="datahub"?"#1D4ED8":"#EFF6FF",
+                  color:tab==="datahub"?"#fff":"#1D4ED8",border:"none",borderRadius:8,
                   fontSize:12,fontWeight:700,cursor:"pointer"}}>
                 🗄️ 데이터관리
               </button>
@@ -1192,25 +1193,25 @@ export default function App() {
           {/* DB 상태 */}
           <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:10,padding:"6px 10px",background:"#F8FAFC",borderRadius:8,border:"1px solid #E5E7EB"}}>
             <div style={{width:7,height:7,borderRadius:"50%",background:dbStatus==="ok"?"#059669":dbStatus==="error"?"#DC2626":"#D97706",flexShrink:0}}/>
-            <span style={{fontSize:12,color:"#6B7280",fontWeight:600}}>
+            <span style={{fontSize:12,color:"#64748B",fontWeight:600}}>
               {dbStatus==="ok"?"DB 연결됨":dbStatus==="error"?"DB 오류":dbStatus==="local"?"로컬 저장":"연결 중…"}
             </span>
           </div>
           <div style={{display:"flex",alignItems:"center",gap:8}}>
-            <div style={{width:34,height:34,borderRadius:"50%",background:"linear-gradient(135deg,#6366F1,#312E81)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:13,fontWeight:700,color:"#fff",flexShrink:0}}>
+            <div style={{width:34,height:34,borderRadius:"50%",background:"linear-gradient(135deg,#2563EB,#1E3A8A)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:13,fontWeight:700,color:"#fff",flexShrink:0}}>
               {currentUser.avatar}
             </div>
             <div style={{flex:1,minWidth:0}}>
-              <div style={{fontSize:13,color:"#111827",fontWeight:700,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{currentUser.name}</div>
-              <div style={{fontSize:11,color:"#6B7280"}}>{ROLE_BADGE[currentUser.role]?.label}</div>
+              <div style={{fontSize:13,color:"#0F172A",fontWeight:700,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{currentUser.name}</div>
+              <div style={{fontSize:11,color:"#64748B"}}>{ROLE_BADGE[currentUser.role]?.label}</div>
             </div>
           </div>
           <div style={{display:"flex",gap:6,marginTop:10}}>
-            <button onClick={()=>setShowAlerts(o=>!o)} style={{...S.btn(C.grayL,"#374151"),flex:1,justifyContent:"center",padding:"7px",position:"relative",borderRadius:8}}>
+            <button onClick={()=>setShowAlerts(o=>!o)} style={{...S.btn(C.grayL,"#334155"),flex:1,justifyContent:"center",padding:"7px",position:"relative",borderRadius:8}}>
               <i className="ti ti-bell" aria-label="알람" style={{fontSize:15}}/>
               {totalBadge>0&&<span style={{position:"absolute",top:2,right:8,minWidth:16,height:16,background:C.red,borderRadius:8,fontSize:10,fontWeight:700,color:"#fff",display:"flex",alignItems:"center",justifyContent:"center",padding:"0 3px"}}>{totalBadge}</span>}
             </button>
-            <button onClick={doLogout} style={{...S.btn(C.grayL,"#374151"),flex:1,justifyContent:"center",padding:"7px",borderRadius:8,fontSize:12}}>로그아웃</button>
+            <button onClick={doLogout} style={{...S.btn(C.grayL,"#334155"),flex:1,justifyContent:"center",padding:"7px",borderRadius:8,fontSize:12}}>로그아웃</button>
           </div>
           {showAlerts&&<AlertPanel {...{alerts,readAlert,readAll,setTab,setShowAlerts}}/>}
         </div>
@@ -1219,17 +1220,17 @@ export default function App() {
       {/* ── 메인 콘텐츠 ── */}
       <div style={{marginLeft:isMobile?0:220,flex:1,minWidth:0,transition:"margin .25s"}}>
         {/* 탑바 */}
-        <div style={{background:"#fff",borderBottom:"1px solid #E5E7EB",padding:isMobile?"11px 14px":"14px 24px",display:"flex",alignItems:"center",gap:12,position:"sticky",top:0,zIndex:90}}>
+        <div style={{background:"#fff",borderBottom:"1px solid #E2E8F0",padding:isMobile?"10px 14px":"12px 24px",display:"flex",alignItems:"center",gap:12,position:"sticky",top:0,zIndex:90}}>
           {/* 모바일 햄버거 */}
           {isMobile&&<button onClick={()=>setSideOpen(v=>!v)}
-            style={{padding:"6px",background:"none",border:"none",cursor:"pointer",color:"#374151",flexShrink:0,fontSize:22,lineHeight:1,display:"flex",alignItems:"center"}}>
+            style={{padding:"6px",background:"none",border:"none",cursor:"pointer",color:"#334155",flexShrink:0,fontSize:22,lineHeight:1,display:"flex",alignItems:"center"}}>
             ☰
           </button>}
           <div style={{flex:1,minWidth:0}}>
-            <div style={{fontSize:isMobile?16:20,fontWeight:800,color:"#111827",letterSpacing:"-0.03em",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
+            <div style={{fontSize:isMobile?16:20,fontWeight:800,color:"#0F172A",letterSpacing:"-0.03em",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
               {TABS.find(t=>t.id===tab)?.label || "대시보드"}
             </div>
-            {!isMobile&&<div style={{fontSize:12,color:"#6B7280",marginTop:1}}>기준 2026-06-09 · 5월 누계 · 억원(수주:VAT별도 / 매출·지출:VAT포함)</div>}
+            {!isMobile&&<div style={{fontSize:12,color:"#64748B",marginTop:1}}>기준 2026-06-09 · 5월 누계 · 억원(수주:VAT별도 / 매출·지출:VAT포함)</div>}
           </div>
         </div>
 
@@ -1277,7 +1278,7 @@ function LoginScreen({loginId,setLoginId,loginPw,setLoginPw,loginError,doLogin,p
     <div style={{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:"var(--color-background-tertiary,#f5f5f3)"}}>
       <div style={S.card({width:400,padding:"32px 36px"})}>
         <div style={{textAlign:"center",marginBottom:28}}>
-          <div style={{width:52,height:52,background:C.navy,borderRadius:12,display:"flex",alignItems:"center",justifyContent:"center",fontSize:24,margin:"0 auto 14px"}}>📐</div>
+          <div style={{width:52,height:52,background:C.navy,borderRadius:8,display:"flex",alignItems:"center",justifyContent:"center",fontSize:24,margin:"0 auto 14px"}}>📐</div>
           <div style={{fontSize:18,fontWeight:500}}>상지서울 통합경영시스템</div>
           <div style={{fontSize:12,color:C.gray,marginTop:3}}>이메일과 비밀번호로 로그인하세요</div>
         </div>
@@ -1361,7 +1362,7 @@ function AnalysisTab({deptStaff,setDeptStaff,years,setYears,canWrite,cashflow,ca
             style={{padding:"10px 18px",border:"none",
               background:v==="forecast"&&aView!==v?"#FEF9C3":"none",
               fontSize:14,fontWeight:aView===v?800:500,cursor:"pointer",
-              color:aView===v?"#6366F1":v==="forecast"?"#D97706":"#6B7280",
+              color:aView===v?"#2563EB":v==="forecast"?"#D97706":"#64748B",
               borderBottom:aView===v?"3px solid #6366F1":"3px solid transparent",
               marginBottom:-2,whiteSpace:"nowrap",flexShrink:0}}>
             {l}
@@ -1371,14 +1372,14 @@ function AnalysisTab({deptStaff,setDeptStaff,years,setYears,canWrite,cashflow,ca
 
       {/* 공지 미리보기 */}
       {noticePreview.length>0&&(
-        <div style={{background:"#fff",borderRadius:12,border:"1px solid #E5E7EB",padding:"12px 18px",marginBottom:14,boxShadow:"0 1px 3px rgba(0,0,0,.04)"}}>
+        <div style={{background:"#fff",borderRadius:8,border:"1px solid #E5E7EB",padding:"12px 18px",marginBottom:14,boxShadow:"0 1px 2px rgba(0,0,0,.04)"}}>
           <div style={{fontSize:13,fontWeight:800,color:"#DC2626",marginBottom:8}}>📢 최신 공지</div>
           {noticePreview.map(n=>(
             <div key={n.id} style={{display:"flex",gap:8,alignItems:"center",padding:"5px 0",borderBottom:"1px solid #F3F4F6"}}>
               {n.important&&<span style={{fontSize:11,fontWeight:700,color:"#DC2626",flexShrink:0}}>●</span>}
-              <span style={{flex:1,fontSize:13.5,color:"#374151",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{n.title}</span>
-              <span style={{fontSize:11,color:"#9CA3AF",flexShrink:0}}>{n.createdAt?.slice(0,10)}</span>
-              <span style={{fontSize:11,color:"#9CA3AF",flexShrink:0}}>👁{n.views||0}</span>
+              <span style={{flex:1,fontSize:13,color:"#334155",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{n.title}</span>
+              <span style={{fontSize:11,color:"#94A3B8",flexShrink:0}}>{n.createdAt?.slice(0,10)}</span>
+              <span style={{fontSize:11,color:"#94A3B8",flexShrink:0}}>👁{n.views||0}</span>
             </div>
           ))}
         </div>
@@ -1468,7 +1469,7 @@ function StackTotalTooltip({active,payload,label}) {
   if(!active||!payload?.length) return null
   const total = payload.reduce((s,p)=>s+(Number(p.value)||0),0)
   return (
-    <div style={{background:"var(--color-background-primary,#fff)",border:"1px solid var(--color-border-tertiary,#e4e4e0)",borderRadius:10,padding:"11px 14px",fontSize:12.5,boxShadow:"0 4px 16px rgba(0,0,0,.12)",minWidth:150}}>
+    <div style={{background:"var(--color-background-primary,#fff)",border:"1px solid var(--color-border-tertiary,#e4e4e0)",borderRadius:8,padding:"11px 14px",fontSize:13,boxShadow:"0 4px 16px rgba(0,0,0,.12)",minWidth:150}}>
       <div style={{fontWeight:700,marginBottom:6,fontSize:13}}>{label}</div>
       {payload.slice().reverse().map(p=>(
         <div key={p.dataKey} style={{display:"flex",justifyContent:"space-between",gap:14,padding:"2px 0",color:p.color}}>
@@ -1492,26 +1493,26 @@ function CashflowTab({cashflow,setCashflow,currentUser,projects,setProjects,proj
 
 // ── 간단한 파이차트 컴포넌트 ──────────────────────────────────
 function SimplePieChart({data=[], total=0}) {
-  if(!data||data.length===0) return <div style={{textAlign:"center",color:"#9CA3AF",padding:"20px",fontSize:13}}>데이터 없음</div>
+  if(!data||data.length===0) return <div style={{textAlign:"center",color:"#94A3B8",padding:"20px",fontSize:13}}>데이터 없음</div>
   return (
     <div>
       <PieChart width={220} height={180} style={{margin:"0 auto"}}>
         <Pie data={data} cx={105} cy={85} innerRadius={48} outerRadius={80}
           dataKey="value" paddingAngle={2}>
-          {data.map((d,i)=><Cell key={i} fill={d.color||"#6366F1"}/>)}
+          {data.map((d,i)=><Cell key={i} fill={d.color||"#2563EB"}/>)}
         </Pie>
       </PieChart>
       <div style={{display:"flex",flexWrap:"wrap",gap:6,justifyContent:"center",marginTop:4}}>
         {data.map((d,i)=>(
-          <div key={i} style={{display:"flex",alignItems:"center",gap:4,fontSize:11.5}}>
-            <div style={{width:8,height:8,borderRadius:"50%",background:d.color||"#6366F1",flexShrink:0}}/>
-            <span style={{color:"#374151",fontWeight:600}}>{d.name}</span>
-            <span style={{color:"#6B7280"}}>{d.value}억</span>
-            <span style={{color:"#9CA3AF"}}>({total>0?Math.round(d.value/total*100):0}%)</span>
+          <div key={i} style={{display:"flex",alignItems:"center",gap:4,fontSize:12}}>
+            <div style={{width:8,height:8,borderRadius:"50%",background:d.color||"#2563EB",flexShrink:0}}/>
+            <span style={{color:"#334155",fontWeight:600}}>{d.name}</span>
+            <span style={{color:"#64748B"}}>{d.value}억</span>
+            <span style={{color:"#94A3B8"}}>({total>0?Math.round(d.value/total*100):0}%)</span>
           </div>
         ))}
       </div>
-      {total>0&&<div style={{textAlign:"center",fontSize:13,fontWeight:700,color:"#374151",marginTop:6}}>합계 {total}억원</div>}
+      {total>0&&<div style={{textAlign:"center",fontSize:13,fontWeight:700,color:"#334155",marginTop:6}}>합계 {total}억원</div>}
     </div>
   )
 }
@@ -1571,7 +1572,7 @@ function SimplePieChart({data=[], total=0}) {
     const push  = all.filter(i=>i.itemType==="미정"||i.itemType==="추진").reduce((s,i)=>s+(i.amount||0),0)
     const si    = getStaffInfo(dept)
     const cur   = si.current || 1  // 현재인원 (인당 계산 기준)
-    return {dept, paid, conf, total:paid+conf, push, all, color:DEPT_COLORS[dept]||"#6366F1",
+    return {dept, paid, conf, total:paid+conf, push, all, color:DEPT_COLORS[dept]||"#2563EB",
       staffTarget: si.target,   // 목표인원
       staffAvg:    si.avg,      // 연평균인원 (DataHub 기준)
       staffCurrent:si.current,  // 현재인원
@@ -1641,7 +1642,7 @@ function SimplePieChart({data=[], total=0}) {
       total:wonAmt+confAmt,totalWithPush:wonAmt+confAmt+pushAmt,
       rate:target>0?pct(wonAmt+confAmt,target*1e8):null,
       wonProjs:won,confProjs:conf,pushProjs:push,amendProjs:amend,
-      color:DEPT_COLORS[dept]||"#6366F1",
+      color:DEPT_COLORS[dept]||"#2563EB",
       staffTarget:si.target, staffAvg:si.avg, staffCurrent:si.current,
       perCapita:(wonAmt+confAmt)/cur,
     }
@@ -1690,12 +1691,12 @@ function SimplePieChart({data=[], total=0}) {
     // 구분별 색상
     const secColor = {
       "현누계":  {bg:"#D1FAE5", text:"#059669", border:"#059669"},
-      "기성+확정":{bg:"#EEF2FF", text:"#6366F1", border:"#6366F1"},
+      "기성+확정":{bg:"#EFF6FF", text:"#2563EB", border:"#2563EB"},
       "추진":    {bg:"#FEF3CD", text:"#D97706", border:"#D97706"},
       "계약(수주)":{bg:"#D1FAE5",text:"#059669",border:"#059669"},
-      "확정":    {bg:"#EEF2FF", text:"#6366F1", border:"#6366F1"},
+      "확정":    {bg:"#EFF6FF", text:"#2563EB", border:"#2563EB"},
     }
-    const sc = secColor[type] || {bg:"#F8FAFC",text:"#374151",border:"#E5E7EB"}
+    const sc = secColor[type] || {bg:"#F8FAFC",text:"#334155",border:"#E2E8F0"}
 
     const totalByMonth = Array.from({length:12},(_,mi)=>({
       paid:  projRows.reduce((s,r)=>s+r.monthly[mi].paid,0),
@@ -1710,27 +1711,27 @@ function SimplePieChart({data=[], total=0}) {
     
     return (
       <div>
-        <button onClick={goBack} style={{display:"flex",alignItems:"center",gap:6,padding:"8px 16px",background:sc.bg,color:sc.text,border:`1px solid ${sc.border}`,borderRadius:9,fontSize:13.5,fontWeight:700,cursor:"pointer",marginBottom:16}}>
+        <button onClick={goBack} style={{display:"flex",alignItems:"center",gap:6,padding:"8px 16px",background:sc.bg,color:sc.text,border:`1px solid ${sc.border}`,borderRadius:6,fontSize:13,fontWeight:700,cursor:"pointer",marginBottom:16}}>
           ← 돌아가기
         </button>
-        <div style={{background:"#fff",borderRadius:14,border:`2px solid ${sc.border}`,padding:"18px 20px",marginBottom:16}}>
+        <div style={{background:"#fff",borderRadius:8,border:`2px solid ${sc.border}`,padding:"14px 18px",marginBottom:16}}>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:8,marginBottom:4}}>
             <div style={{fontSize:18,fontWeight:800,color:sc.text}}>{dept} — {type}</div>
-            <div style={{display:"flex",gap:12,fontSize:13,color:"#6B7280"}}>
+            <div style={{display:"flex",gap:12,fontSize:13,color:"#64748B"}}>
               <span>총 {detailItems.length}건</span>
               <span style={{fontWeight:700,color:sc.text}}>{fCa(grandTotal)} ({YEAR}년)</span>
               <span>이월예상 {fCa(grandCarry)}</span>
             </div>
           </div>
-          <div style={{fontSize:12,color:"#9CA3AF",marginBottom:10}}>단위: 억원 · 빨간 테두리 = 현재월 기준</div>
+          <div style={{fontSize:12,color:"#94A3B8",marginBottom:10}}>단위: 억원 · 빨간 테두리 = 현재월 기준</div>
           {/* 발주구분별 소계 */}
           <div style={{display:"flex",gap:8,flexWrap:"wrap",marginBottom:6}}>
             {["공공","민간","해외"].map(ot=>{
               const g=detailItems.filter(i=>i.orderType===ot);const a=g.reduce((s,i)=>s+(i.amount||0),0)
               if(!a) return null
-              return <div key={ot} style={{background:"#F8FAFC",border:"1px solid #E5E7EB",borderRadius:10,padding:"6px 12px"}}>
-                <span style={{fontSize:11,color:"#6B7280"}}>{ot} {g.length}건 </span>
-                <span style={{fontSize:13,fontWeight:800,color:ot==="공공"?"#6366F1":ot==="민간"?"#059669":"#D97706"}}>{fCa(a)}</span>
+              return <div key={ot} style={{background:"#F8FAFC",border:"1px solid #E5E7EB",borderRadius:8,padding:"6px 12px"}}>
+                <span style={{fontSize:11,color:"#64748B"}}>{ot} {g.length}건 </span>
+                <span style={{fontSize:13,fontWeight:800,color:ot==="공공"?"#2563EB":ot==="민간"?"#059669":"#D97706"}}>{fCa(a)}</span>
               </div>
             })}
           </div>
@@ -1747,14 +1748,14 @@ function SimplePieChart({data=[], total=0}) {
           const list=Object.entries(byClient).sort((a,b)=>b[1].amt-a[1].amt)
           if(list.length<=1)return null
           return (
-            <div style={{background:"#F0FDF4",borderRadius:14,border:"1px solid #059669",padding:"14px 18px",marginBottom:14}}>
+            <div style={{background:"#F0FDF4",borderRadius:8,border:"1px solid #059669",padding:"14px 18px",marginBottom:14}}>
               <div style={{fontSize:13,fontWeight:800,color:"#065F46",marginBottom:10}}>🏗 민간 발주처(건설사)별 분류</div>
               <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
                 {list.map(([name,grp])=>(
-                  <div key={name} style={{background:"#fff",border:"1px solid #D1FAE5",borderRadius:10,padding:"8px 14px"}}>
-                    <div style={{fontSize:11.5,color:"#065F46",fontWeight:600,marginBottom:3}} title={name}>{name.length>14?name.slice(0,14)+"…":name}</div>
+                  <div key={name} style={{background:"#fff",border:"1px solid #D1FAE5",borderRadius:8,padding:"8px 14px"}}>
+                    <div style={{fontSize:12,color:"#065F46",fontWeight:600,marginBottom:3}} title={name}>{name.length>14?name.slice(0,14)+"…":name}</div>
                     <div style={{fontSize:14,fontWeight:800,color:"#059669"}}>{fCa(grp.amt)}</div>
-                    <div style={{fontSize:11,color:"#6B7280"}}>{grp.items.length}건</div>
+                    <div style={{fontSize:11,color:"#64748B"}}>{grp.items.length}건</div>
                   </div>
                 ))}
               </div>
@@ -1763,26 +1764,26 @@ function SimplePieChart({data=[], total=0}) {
         })()}
 
         {/* 가로형 캘린더 테이블 (첨부 이미지 형식) */}
-        <div style={{background:"#fff",borderRadius:14,border:"1px solid #E5E7EB",overflow:"hidden",marginBottom:16}}>
+        <div style={{background:"#fff",borderRadius:8,border:"1px solid #E5E7EB",overflow:"hidden",marginBottom:16}}>
           <div style={{overflowX:"auto"}}>
             <table style={{width:"100%",borderCollapse:"collapse",minWidth:1100}}>
               <thead>
                 <tr style={{background:"#F8FAFC"}}>
-                  <th style={{padding:"10px 12px",textAlign:"left",fontSize:12,fontWeight:700,color:"#6B7280",borderBottom:"2px solid #E5E7EB",borderRight:"1px solid #E5E7EB",minWidth:160,position:"sticky",left:0,background:"#F8FAFC",zIndex:2}}>프로젝트명</th>
-                  <th style={{padding:"10px 10px",textAlign:"right",fontSize:12,fontWeight:700,color:"#6B7280",borderBottom:"2px solid #E5E7EB",borderRight:"1px solid #E5E7EB",minWidth:70}}>설계비</th>
-                  <th style={{padding:"10px 10px",textAlign:"right",fontSize:12,fontWeight:700,color:"#6B7280",borderBottom:"2px solid #E5E7EB",borderRight:"2px solid #E5E7EB",minWidth:70}}>기수령액</th>
+                  <th style={{padding:"10px 12px",textAlign:"left",fontSize:12,fontWeight:700,color:"#64748B",borderBottom:"2px solid #E5E7EB",borderRight:"1px solid #E5E7EB",minWidth:160,position:"sticky",left:0,background:"#F8FAFC",zIndex:2}}>프로젝트명</th>
+                  <th style={{padding:"10px 10px",textAlign:"right",fontSize:12,fontWeight:700,color:"#64748B",borderBottom:"2px solid #E5E7EB",borderRight:"1px solid #E5E7EB",minWidth:70}}>설계비</th>
+                  <th style={{padding:"10px 10px",textAlign:"right",fontSize:12,fontWeight:700,color:"#64748B",borderBottom:"2px solid #E5E7EB",borderRight:"2px solid #E5E7EB",minWidth:70}}>기수령액</th>
                   {MONTHS_LABEL.map((m,mi)=>(
                     <th key={m} style={{padding:"10px 8px",textAlign:"right",fontSize:12,fontWeight:700,
-                      color:mi+1===MONTH?"#DC2626":"#6B7280",
+                      color:mi+1===MONTH?"#DC2626":"#64748B",
                       borderBottom:"2px solid #E5E7EB",
                       borderRight:mi+1===MONTH?"2px solid #DC2626":"1px solid #E5E7EB",
                       borderLeft:mi+1===MONTH?"2px solid #DC2626":"none",
                       minWidth:60,background:mi+1===MONTH?"#FFF8F8":"#F8FAFC"}}>{m}</th>
                   ))}
                   <th style={{padding:"10px 10px",textAlign:"right",fontSize:12,fontWeight:700,color:"#059669",borderBottom:"2px solid #E5E7EB",borderLeft:"2px solid #E5E7EB",borderRight:"1px solid #E5E7EB",minWidth:70,background:"#D1FAE5"}}>{MONTH}월누계</th>
-                  <th style={{padding:"10px 10px",textAlign:"right",fontSize:12,fontWeight:700,color:"#6366F1",borderBottom:"2px solid #E5E7EB",borderRight:"1px solid #E5E7EB",minWidth:70,background:"#EEF2FF"}}>확정합계</th>
-                  <th style={{padding:"10px 10px",textAlign:"right",fontSize:12,fontWeight:700,color:"#312E81",borderBottom:"2px solid #E5E7EB",borderRight:"1px solid #E5E7EB",minWidth:70,background:"#DBEAFE"}}>{YEAR}년합계</th>
-                  <th style={{padding:"10px 10px",textAlign:"right",fontSize:12,fontWeight:700,color:"#374151",borderBottom:"2px solid #E5E7EB",minWidth:70}}>이월예상액</th>
+                  <th style={{padding:"10px 10px",textAlign:"right",fontSize:12,fontWeight:700,color:"#2563EB",borderBottom:"2px solid #E5E7EB",borderRight:"1px solid #E5E7EB",minWidth:70,background:"#EFF6FF"}}>확정합계</th>
+                  <th style={{padding:"10px 10px",textAlign:"right",fontSize:12,fontWeight:700,color:"#1E3A8A",borderBottom:"2px solid #E5E7EB",borderRight:"1px solid #E5E7EB",minWidth:70,background:"#DBEAFE"}}>{YEAR}년합계</th>
+                  <th style={{padding:"10px 10px",textAlign:"right",fontSize:12,fontWeight:700,color:"#334155",borderBottom:"2px solid #E5E7EB",minWidth:70}}>이월예상액</th>
                 </tr>
               </thead>
               <tbody>
@@ -1790,7 +1791,7 @@ function SimplePieChart({data=[], total=0}) {
                   const hasMultiYear = row.carryOver>0
                   return (
                     <tr key={row.projName} style={{background:ri%2===0?"#fff":"#FAFAFA",borderBottom:"1px solid #E5E7EB"}}>
-                      <td style={{padding:"9px 12px",fontSize:13,fontWeight:600,color:"#6366F1",borderRight:"1px solid #E5E7EB",position:"sticky",left:0,background:ri%2===0?"#fff":"#FAFAFA",zIndex:1,minWidth:180,maxWidth:300,cursor:"pointer",textDecoration:"underline",whiteSpace:"normal",wordBreak:"keep-all",lineHeight:1.4}}
+                      <td style={{padding:"9px 12px",fontSize:13,fontWeight:600,color:"#2563EB",borderRight:"1px solid #E5E7EB",position:"sticky",left:0,background:ri%2===0?"#fff":"#FAFAFA",zIndex:1,minWidth:180,maxWidth:300,cursor:"pointer",textDecoration:"underline",whiteSpace:"normal",wordBreak:"keep-all",lineHeight:1.4}}
                         onClick={()=>{
                           const norm=s=>(s||"").replace(/[\s\-_·.\(\)【】\[\]]/g,"").toLowerCase()
                           const an=norm(row.projName)
@@ -1798,32 +1799,32 @@ function SimplePieChart({data=[], total=0}) {
                           if(found&&setTab&&setSelProjId){setSelProjId(found.id);setDetailTab&&setDetailTab("info");setTab("projects")}
                         }}
                         title={row.projName}>{row.projName}</td>
-                      <td style={{padding:"9px 10px",textAlign:"right",fontSize:12.5,fontWeight:600,color:"#374151",borderRight:"1px solid #E5E7EB"}}>{row.totalFee>0?fC(row.totalFee):"-"}</td>
-                      <td style={{padding:"9px 10px",textAlign:"right",fontSize:12.5,color:"#6B7280",borderRight:"2px solid #E5E7EB"}}>{row.prevPaid>0?fC(row.prevPaid):"-"}</td>
+                      <td style={{padding:"9px 10px",textAlign:"right",fontSize:13,fontWeight:600,color:"#334155",borderRight:"1px solid #E5E7EB"}}>{row.totalFee>0?fC(row.totalFee):"-"}</td>
+                      <td style={{padding:"9px 10px",textAlign:"right",fontSize:13,color:"#64748B",borderRight:"2px solid #E5E7EB"}}>{row.prevPaid>0?fC(row.prevPaid):"-"}</td>
                       {row.monthly.map((m,mi)=>(
-                        <td key={mi} style={{padding:"9px 8px",textAlign:"right",fontSize:12.5,fontWeight:m.total>0?700:400,
-                          color:m.paid>0?"#059669":m.exp>0?"#6366F1":"#D1D5DB",
+                        <td key={mi} style={{padding:"9px 8px",textAlign:"right",fontSize:13,fontWeight:m.total>0?700:400,
+                          color:m.paid>0?"#059669":m.exp>0?"#2563EB":"#D1D5DB",
                           borderRight:mi+1===MONTH?"2px solid #DC2626":"1px solid #E5E7EB",
                           borderLeft:mi+1===MONTH?"2px solid #DC2626":"none",
-                          background:mi+1===MONTH?"#FFF8F8":m.paid>0?"#ECFDF5":m.exp>0?"#EEF2FF":"transparent"}}>
-                          {m.paid>0?fC(m.paid):m.exp>0?<span style={{color:"#6366F1"}}>{fC(m.exp)}</span>:"-"}
+                          background:mi+1===MONTH?"#FFF8F8":m.paid>0?"#ECFDF5":m.exp>0?"#EFF6FF":"transparent"}}>
+                          {m.paid>0?fC(m.paid):m.exp>0?<span style={{color:"#2563EB"}}>{fC(m.exp)}</span>:"-"}
                         </td>
                       ))}
                       <td style={{padding:"9px 10px",textAlign:"right",fontSize:13,fontWeight:700,color:"#059669",borderLeft:"2px solid #E5E7EB",background:"#D1FAE5"}}>{row.cumToNow>0?fC(row.cumToNow):"-"}</td>
-                      <td style={{padding:"9px 10px",textAlign:"right",fontSize:13,fontWeight:700,color:"#6366F1",background:"#EEF2FF"}}>{row.confTotal>0?fC(row.confTotal):"-"}</td>
-                      <td style={{padding:"9px 10px",textAlign:"right",fontSize:13,fontWeight:800,color:"#312E81",background:"#DBEAFE"}}>{row.yearTotal>0?fC(row.yearTotal):"-"}</td>
-                      <td style={{padding:"9px 10px",textAlign:"right",fontSize:13,fontWeight:hasMultiYear?700:400,color:hasMultiYear?"#374151":"#D1D5DB"}}>{row.carryOver>0?fC(row.carryOver):"-"}</td>
+                      <td style={{padding:"9px 10px",textAlign:"right",fontSize:13,fontWeight:700,color:"#2563EB",background:"#EFF6FF"}}>{row.confTotal>0?fC(row.confTotal):"-"}</td>
+                      <td style={{padding:"9px 10px",textAlign:"right",fontSize:13,fontWeight:800,color:"#1E3A8A",background:"#DBEAFE"}}>{row.yearTotal>0?fC(row.yearTotal):"-"}</td>
+                      <td style={{padding:"9px 10px",textAlign:"right",fontSize:13,fontWeight:hasMultiYear?700:400,color:hasMultiYear?"#334155":"#D1D5DB"}}>{row.carryOver>0?fC(row.carryOver):"-"}</td>
                     </tr>
                   )
                 })}
                 {/* 합계 행 */}
-                <tr style={{background:"#EEF2FF",fontWeight:700,borderTop:"2px solid #E5E7EB"}}>
-                  <td style={{padding:"10px 12px",fontSize:13.5,fontWeight:800,color:"#312E81",borderRight:"1px solid #E5E7EB",position:"sticky",left:0,background:"#EEF2FF",zIndex:1}}>합계</td>
-                  <td style={{padding:"10px 10px",textAlign:"right",fontSize:13,color:"#312E81",borderRight:"1px solid #E5E7EB"}}>{fC(projRows.reduce((s,r)=>s+r.totalFee,0))}</td>
-                  <td style={{padding:"10px 10px",textAlign:"right",fontSize:13,color:"#6B7280",borderRight:"2px solid #E5E7EB"}}>{fC(projRows.reduce((s,r)=>s+r.prevPaid,0))}</td>
+                <tr style={{background:"#EFF6FF",fontWeight:700,borderTop:"2px solid #E5E7EB"}}>
+                  <td style={{padding:"10px 12px",fontSize:13,fontWeight:800,color:"#1E3A8A",borderRight:"1px solid #E5E7EB",position:"sticky",left:0,background:"#EFF6FF",zIndex:1}}>합계</td>
+                  <td style={{padding:"10px 10px",textAlign:"right",fontSize:13,color:"#1E3A8A",borderRight:"1px solid #E5E7EB"}}>{fC(projRows.reduce((s,r)=>s+r.totalFee,0))}</td>
+                  <td style={{padding:"10px 10px",textAlign:"right",fontSize:13,color:"#64748B",borderRight:"2px solid #E5E7EB"}}>{fC(projRows.reduce((s,r)=>s+r.prevPaid,0))}</td>
                   {totalByMonth.map((m,mi)=>(
                     <td key={mi} style={{padding:"10px 8px",textAlign:"right",fontSize:13,fontWeight:800,
-                      color:m.paid>0?"#059669":m.exp>0?"#6366F1":"#D1D5DB",
+                      color:m.paid>0?"#059669":m.exp>0?"#2563EB":"#D1D5DB",
                       borderRight:mi+1===MONTH?"2px solid #DC2626":"1px solid #E5E7EB",
                       borderLeft:mi+1===MONTH?"2px solid #DC2626":"none",
                       background:mi+1===MONTH?"#FFF5F5":"transparent"}}>
@@ -1831,9 +1832,9 @@ function SimplePieChart({data=[], total=0}) {
                     </td>
                   ))}
                   <td style={{padding:"10px 10px",textAlign:"right",fontSize:14,fontWeight:800,color:"#059669",borderLeft:"2px solid #E5E7EB",background:"#D1FAE5"}}>{fC(grandCumToNow)}</td>
-                  <td style={{padding:"10px 10px",textAlign:"right",fontSize:14,fontWeight:800,color:"#6366F1",background:"#DBEAFE"}}>{fC(grandConf)}</td>
-                  <td style={{padding:"10px 10px",textAlign:"right",fontSize:15,fontWeight:800,color:"#312E81",background:"#BFDBFE"}}>{fC(grandTotal)}</td>
-                  <td style={{padding:"10px 10px",textAlign:"right",fontSize:14,fontWeight:700,color:"#374151"}}>{grandCarry>0?fC(grandCarry):"-"}</td>
+                  <td style={{padding:"10px 10px",textAlign:"right",fontSize:14,fontWeight:800,color:"#2563EB",background:"#DBEAFE"}}>{fC(grandConf)}</td>
+                  <td style={{padding:"10px 10px",textAlign:"right",fontSize:15,fontWeight:800,color:"#1E3A8A",background:"#BFDBFE"}}>{fC(grandTotal)}</td>
+                  <td style={{padding:"10px 10px",textAlign:"right",fontSize:14,fontWeight:700,color:"#334155"}}>{grandCarry>0?fC(grandCarry):"-"}</td>
                 </tr>
               </tbody>
             </table>
@@ -1841,9 +1842,9 @@ function SimplePieChart({data=[], total=0}) {
         </div>
 
         {/* 색상 범례 */}
-        <div style={{display:"flex",gap:16,fontSize:12,color:"#6B7280",padding:"8px 4px"}}>
+        <div style={{display:"flex",gap:16,fontSize:12,color:"#64748B",padding:"8px 4px"}}>
           <span><span style={{display:"inline-block",width:12,height:12,background:"#D1FAE5",border:"1px solid #059669",borderRadius:2,marginRight:5}}/>입금 완료</span>
-          <span><span style={{display:"inline-block",width:12,height:12,background:"#EEF2FF",border:"1px solid #6366F1",borderRadius:2,marginRight:5}}/>입금 예정</span>
+          <span><span style={{display:"inline-block",width:12,height:12,background:"#EFF6FF",border:"1px solid #6366F1",borderRadius:2,marginRight:5}}/>입금 예정</span>
           <span><span style={{display:"inline-block",width:12,height:12,background:"#FFF8F8",border:"2px solid #DC2626",borderRadius:2,marginRight:5}}/>현재월</span>
         </div>
       </div>
@@ -1856,9 +1857,9 @@ function SimplePieChart({data=[], total=0}) {
       {!hideTabNav&&<div style={{display:"flex",gap:0,borderBottom:"2px solid #E5E7EB",marginBottom:4,flexWrap:"wrap"}}>
         {[["cash","💧 월수금계획"],["contract","📝 계약현황"],["expense","💸 지출현황"]].map(([v,l])=>(
           <button key={v} onClick={()=>{setMainTab(v);setCashView("overview")}}
-            style={{padding:"11px 20px",border:"none",background:"none",fontSize:14.5,fontWeight:mainTab===v?800:500,cursor:"pointer",
-              color:mainTab===v?(v==="cash"?"#6366F1":v==="contract"?"#059669":"#DC2626"):"#6B7280",
-              borderBottom:mainTab===v?`3px solid ${v==="cash"?"#6366F1":v==="contract"?"#059669":"#DC2626"}`:"3px solid transparent",marginBottom:-2}}>
+            style={{padding:"11px 20px",border:"none",background:"none",fontSize:14,fontWeight:mainTab===v?800:500,cursor:"pointer",
+              color:mainTab===v?(v==="cash"?"#2563EB":v==="contract"?"#059669":"#DC2626"):"#64748B",
+              borderBottom:mainTab===v?`3px solid ${v==="cash"?"#2563EB":v==="contract"?"#059669":"#DC2626"}`:"3px solid transparent",marginBottom:-2}}>
             {l}
           </button>
         ))}
@@ -1869,33 +1870,33 @@ function SimplePieChart({data=[], total=0}) {
         {/* 목표 설정 - 관리자만 */}
         {currentUser?.role==="admin" && (!editTargets
           ?<button onClick={()=>{setEditTargets(true);setTargetDraft({...targets})}}
-              style={{padding:"6px 12px",background:"#F3F4F6",color:"#6B7280",border:"1px solid #E5E7EB",borderRadius:9,fontSize:12,fontWeight:600,cursor:"pointer"}}>
+              style={{padding:"6px 12px",background:"#F8FAFC",color:"#64748B",border:"1px solid #E5E7EB",borderRadius:6,fontSize:12,fontWeight:600,cursor:"pointer"}}>
               ⚙ {YEAR}년 목표 설정
             </button>
-          :<div style={{display:"flex",gap:6,alignItems:"center",background:"#FEF3CD",padding:"6px 12px",borderRadius:9,border:"1px solid #D9770644"}}>
-              <label style={{fontSize:12,color:"#374151"}}>매출목표</label>
+          :<div style={{display:"flex",gap:6,alignItems:"center",background:"#FEF3CD",padding:"6px 12px",borderRadius:6,border:"1px solid #D9770644"}}>
+              <label style={{fontSize:12,color:"#334155"}}>매출목표</label>
               <input type="number" value={targetDraft.salesTarget||""} onChange={e=>setTargetDraft(p=>({...p,salesTarget:parseFloat(e.target.value)||0}))}
                 style={{width:70,padding:"4px 7px",border:"1px solid #E5E7EB",borderRadius:6,fontSize:12}}/>
-              <label style={{fontSize:12,color:"#374151"}}>계약목표</label>
+              <label style={{fontSize:12,color:"#334155"}}>계약목표</label>
               <input type="number" value={targetDraft.contractTarget||""} onChange={e=>setTargetDraft(p=>({...p,contractTarget:parseFloat(e.target.value)||0}))}
                 style={{width:70,padding:"4px 7px",border:"1px solid #E5E7EB",borderRadius:6,fontSize:12}}/>
-              <span style={{fontSize:11,color:"#9CA3AF"}}>억원</span>
+              <span style={{fontSize:11,color:"#94A3B8"}}>억원</span>
               <button onClick={()=>{setYearTargets(p=>({...p,[YEAR]:targetDraft}));setEditTargets(false)}}
                 style={{padding:"4px 10px",background:"#D97706",color:"#fff",border:"none",borderRadius:6,fontSize:12,fontWeight:700,cursor:"pointer"}}>저장</button>
-              <button onClick={()=>setEditTargets(false)} style={{padding:"4px 8px",background:"#F3F4F6",color:"#6B7280",border:"none",borderRadius:6,fontSize:12,cursor:"pointer"}}>취소</button>
+              <button onClick={()=>setEditTargets(false)} style={{padding:"4px 8px",background:"#F8FAFC",color:"#64748B",border:"none",borderRadius:6,fontSize:12,cursor:"pointer"}}>취소</button>
             </div>
         )}
         {/* 월수금계획 탭 전용 버튼 */}
         {(!mainTab||mainTab==="cash")&&<>
           <button onClick={()=>downloadCashTemplate("cash")}
-            style={{padding:"7px 14px",background:"#EEF2FF",color:"#6366F1",border:"none",borderRadius:9,fontSize:12.5,fontWeight:700,cursor:"pointer"}}>
+            style={{padding:"7px 14px",background:"#EFF6FF",color:"#2563EB",border:"none",borderRadius:6,fontSize:13,fontWeight:700,cursor:"pointer"}}>
             ⬇ 빈 양식
           </button>
           {currentUser?.role==="admin"&&<button onClick={()=>downloadCashDataExcel(cashItems,"월수금계획")}
-            style={{padding:"7px 14px",background:"#EDE9FE",color:"#7C3AED",border:"none",borderRadius:9,fontSize:12.5,fontWeight:700,cursor:"pointer"}}>
+            style={{padding:"7px 14px",background:"#DBEAFE",color:"#7C3AED",border:"none",borderRadius:6,fontSize:13,fontWeight:700,cursor:"pointer"}}>
             ⬇ 전체 데이터
           </button>}
-          {currentUser?.role==="admin"&&<label style={{padding:"7px 14px",background:"#D1FAE5",color:"#059669",border:"none",borderRadius:9,fontSize:12.5,fontWeight:700,cursor:"pointer",display:"inline-flex",alignItems:"center",gap:5}}>
+          {currentUser?.role==="admin"&&<label style={{padding:"7px 14px",background:"#D1FAE5",color:"#059669",border:"none",borderRadius:6,fontSize:13,fontWeight:700,cursor:"pointer",display:"inline-flex",alignItems:"center",gap:5}}>
             ⬆ 엑셀 업로드
             <input type="file" accept=".xlsx,.xls,.csv" style={{display:"none"}} onChange={e=>uploadCashExcel(e,"cash",cashItems,setCashItems,saleItems,setSaleItems,DEPTS,currentUser)}/>
           </label>}
@@ -1903,14 +1904,14 @@ function SimplePieChart({data=[], total=0}) {
         {/* 지출현황 탭 전용 버튼 */}
         {mainTab==="expense"&&<>
           <button onClick={()=>downloadCashTemplate("expense")}
-            style={{padding:"7px 14px",background:"#FEE2E2",color:"#DC2626",border:"none",borderRadius:9,fontSize:12.5,fontWeight:700,cursor:"pointer"}}>
+            style={{padding:"7px 14px",background:"#FEE2E2",color:"#DC2626",border:"none",borderRadius:6,fontSize:13,fontWeight:700,cursor:"pointer"}}>
             ⬇ 빈 양식
           </button>
           {currentUser?.role==="admin"&&<button onClick={()=>downloadCashDataExcel(cashItems.filter(i=>i.itemType==="지출"||i.dept),"지출현황")}
-            style={{padding:"7px 14px",background:"#EDE9FE",color:"#7C3AED",border:"none",borderRadius:9,fontSize:12.5,fontWeight:700,cursor:"pointer"}}>
+            style={{padding:"7px 14px",background:"#DBEAFE",color:"#7C3AED",border:"none",borderRadius:6,fontSize:13,fontWeight:700,cursor:"pointer"}}>
             ⬇ 전체 데이터
           </button>}
-          {currentUser?.role==="admin"&&<label style={{padding:"7px 14px",background:"#D1FAE5",color:"#059669",border:"none",borderRadius:9,fontSize:12.5,fontWeight:700,cursor:"pointer",display:"inline-flex",alignItems:"center",gap:5}}>
+          {currentUser?.role==="admin"&&<label style={{padding:"7px 14px",background:"#D1FAE5",color:"#059669",border:"none",borderRadius:6,fontSize:13,fontWeight:700,cursor:"pointer",display:"inline-flex",alignItems:"center",gap:5}}>
             ⬆ 엑셀 업로드
             <input type="file" accept=".xlsx,.xls,.csv" style={{display:"none"}} onChange={e=>uploadCashExcel(e,"expense",cashItems,setCashItems,saleItems,setSaleItems,DEPTS,currentUser)}/>
           </label>}
@@ -1922,12 +1923,12 @@ function SimplePieChart({data=[], total=0}) {
       {mainTab==="cash"&&(
         <div>
           {/* 타이틀 KPI — 현누계 메인 표시 */}
-          <div style={{background:"linear-gradient(135deg,#065F46,#059669)",borderRadius:16,padding:"22px 28px",marginBottom:20,color:"#fff"}}>
+          <div style={{background:"linear-gradient(135deg,#065F46,#059669)",borderRadius:16,padding:"16px 20px",marginBottom:20,color:"#fff"}}>
             <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",flexWrap:"wrap",gap:16}}>
               <div>
                 <div style={{fontSize:13,opacity:.75,marginBottom:4}}>💧 {YEAR}년 현누계 (입금 완료)</div>
                 <div style={{fontSize:38,fontWeight:900,marginBottom:8,letterSpacing:"-0.03em"}}>{fAmt(totalPaid)}</div>
-                <div style={{display:"flex",gap:8,fontSize:12.5,flexWrap:"wrap"}}>
+                <div style={{display:"flex",gap:8,fontSize:13,flexWrap:"wrap"}}>
                   <span style={{background:"rgba(255,255,255,.2)",padding:"4px 12px",borderRadius:20}}>기성+확정 {fAmt(totalCash)}</span>
                   <span style={{background:"rgba(255,255,255,.1)",padding:"4px 12px",borderRadius:20}}>미정 {fAmt(totalPush)}</span>
                 </div>
@@ -1935,7 +1936,7 @@ function SimplePieChart({data=[], total=0}) {
               <div style={{textAlign:"right"}}>
                 <div style={{fontSize:13,opacity:.75,marginBottom:4}}>{YEAR}년 매출 목표</div>
                 <div style={{fontSize:28,fontWeight:800,marginBottom:8}}>{tSales}억</div>
-                <div style={{background:"rgba(255,255,255,.15)",borderRadius:12,padding:"12px 16px",minWidth:210}}>
+                <div style={{background:"rgba(255,255,255,.15)",borderRadius:8,padding:"12px 16px",minWidth:210}}>
                   <div style={{display:"flex",justifyContent:"space-between",fontSize:12,marginBottom:6}}>
                     <span>현누계 달성률</span>
                     <span style={{fontWeight:900,fontSize:16,color:"#34D399"}}>{pct(totalPaid,tSales*1e8)}%</span>
@@ -1953,17 +1954,17 @@ function SimplePieChart({data=[], total=0}) {
           </div>
 
           {/* 본부별 수금현황 표 */}
-          <div style={{background:"#fff",borderRadius:14,border:"1px solid #E5E7EB",overflow:"hidden",marginBottom:20}}>
-            <div style={{padding:"16px 20px",borderBottom:"1px solid #E5E7EB",fontSize:16,fontWeight:800,color:"#111827"}}>{YEAR}년 본부별 수금 현황 (단위: 억원)</div>
+          <div style={{background:"#fff",borderRadius:8,border:"1px solid #E5E7EB",overflow:"hidden",marginBottom:20}}>
+            <div style={{padding:"16px 20px",borderBottom:"1px solid #E5E7EB",fontSize:16,fontWeight:800,color:"#0F172A"}}>{YEAR}년 본부별 수금 현황 (단위: 억원)</div>
             <div style={{overflowX:"auto"}}>
               <table style={{width:"100%",borderCollapse:"collapse"}}>
                 <thead>
-                  <tr style={{background:"#EEF2FF"}}>
+                  <tr style={{background:"#EFF6FF"}}>
                     {["구분","매출목표","현누계(입금완료)","인당(현누계)","기성+확정","인당(기성+확정)","미정(불확실)","합계(현누계+기성)","합계(미정포함)"].map((h,i)=>(
-                      <th key={i} style={{padding:"10px 12px",textAlign:i===0?"left":"right",fontSize:11.5,fontWeight:700,
-                        color:i===2?"#059669":i===3?"#059669":i===4?"#6366F1":i===5?"#6366F1":i===6?"#D97706":i>=7?"#312E81":i===1?"#DC2626":"#6B7280",
+                      <th key={i} style={{padding:"10px 12px",textAlign:i===0?"left":"right",fontSize:12,fontWeight:700,
+                        color:i===2?"#059669":i===3?"#059669":i===4?"#2563EB":i===5?"#2563EB":i===6?"#D97706":i>=7?"#1E3A8A":i===1?"#DC2626":"#64748B",
                         borderBottom:"2px solid #E5E7EB",
-                        background:i>=7?"#D1FAE5":i===3||i===5?"#ECFDF5":i===1?"#FFF0F0":"#EEF2FF",
+                        background:i>=7?"#D1FAE5":i===3||i===5?"#ECFDF5":i===1?"#FFF0F0":"#EFF6FF",
                         whiteSpace:"nowrap"}}>{h}</th>
                     ))}
                   </tr>
@@ -1974,32 +1975,32 @@ function SimplePieChart({data=[], total=0}) {
                       <td style={{padding:"10px 12px"}}>
                         <div style={{display:"flex",alignItems:"center",gap:8}}>
                           <div style={{width:10,height:10,borderRadius:"50%",background:d.color}}/>
-                          <span style={{fontSize:14,fontWeight:700,color:"#111827"}}>{d.dept}</span>
+                          <span style={{fontSize:14,fontWeight:700,color:"#0F172A"}}>{d.dept}</span>
                         </div>
                       </td>
                       <td style={{padding:"10px 12px",textAlign:"right",fontSize:13,fontWeight:700,color:"#DC2626"}}>
                         {(()=>{ const db=(deptBiz||{})[d.dept]||{}; const t=db.revTarget||0; return t>0?fAmt(t*1e8):"-" })()}
                       </td>
-                      <td style={{padding:"10px 12px",textAlign:"right",fontSize:13.5,fontWeight:700,color:"#059669",cursor:"pointer",textDecoration:"underline"}}
+                      <td style={{padding:"10px 12px",textAlign:"right",fontSize:13,fontWeight:700,color:"#059669",cursor:"pointer",textDecoration:"underline"}}
                         onClick={()=>setSelDetail({type:"현누계",dept:d.dept,items:d.all.filter(i=>i.paidDate)})}>
                         {d.paid>0?fAmt(d.paid):"-"}
                       </td>
-                      <td style={{padding:"10px 12px",textAlign:"right",fontSize:12.5,fontWeight:600,color:"#059669",background:"#ECFDF5"}}>
+                      <td style={{padding:"10px 12px",textAlign:"right",fontSize:13,fontWeight:600,color:"#059669",background:"#ECFDF5"}}>
                         {d.perCapitaPaid>=1e8?`${(d.perCapitaPaid/1e8).toFixed(2)}억`:d.perCapitaPaid>=1e4?`${(d.perCapitaPaid/1e4).toFixed(0)}만`:"-"}
                       </td>
-                      <td style={{padding:"10px 12px",textAlign:"right",fontSize:13.5,fontWeight:600,color:"#6366F1",cursor:"pointer",textDecoration:"underline"}}
+                      <td style={{padding:"10px 12px",textAlign:"right",fontSize:13,fontWeight:600,color:"#2563EB",cursor:"pointer",textDecoration:"underline"}}
                         onClick={()=>setSelDetail({type:"기성+확정",dept:d.dept,items:d.all.filter(i=>i.paidDate||i.expectedDate)})}>
                         {d.total>0?fAmt(d.total):"-"}
                       </td>
-                      <td style={{padding:"10px 12px",textAlign:"right",fontSize:12.5,fontWeight:600,color:"#6366F1",background:"#ECFDF5"}}>
+                      <td style={{padding:"10px 12px",textAlign:"right",fontSize:13,fontWeight:600,color:"#2563EB",background:"#ECFDF5"}}>
                         {d.perCapitaConf>=1e8?`${(d.perCapitaConf/1e8).toFixed(2)}억`:d.perCapitaConf>=1e4?`${(d.perCapitaConf/1e4).toFixed(0)}만`:"-"}
                       </td>
                       <td style={{padding:"10px 12px",textAlign:"right",fontSize:13,color:"#D97706",cursor:"pointer",textDecoration:"underline"}}
                         onClick={()=>setSelDetail({type:"미정(불확실)",dept:d.dept,items:d.all.filter(i=>i.itemType==="미정"||i.itemType==="추진")})}>
                         {d.push>0?fAmt(d.push):"-"}
                       </td>
-                      <td style={{padding:"10px 12px",textAlign:"right",fontSize:14,fontWeight:800,color:"#312E81",background:"#ECFDF5"}}>{fAmt(d.paid+d.conf)}</td>
-                      <td style={{padding:"10px 12px",textAlign:"right",fontSize:14,fontWeight:800,color:"#312E81",background:"#ECFDF5"}}>{fAmt(d.paid+d.conf+d.push)}</td>
+                      <td style={{padding:"10px 12px",textAlign:"right",fontSize:14,fontWeight:800,color:"#1E3A8A",background:"#ECFDF5"}}>{fAmt(d.paid+d.conf)}</td>
+                      <td style={{padding:"10px 12px",textAlign:"right",fontSize:14,fontWeight:800,color:"#1E3A8A",background:"#ECFDF5"}}>{fAmt(d.paid+d.conf+d.push)}</td>
                     </tr>
                   ))}
                   {/* 합계 행 */}
@@ -2012,19 +2013,19 @@ function SimplePieChart({data=[], total=0}) {
                     const totRevTarget = DEPTS.reduce((s,d)=>{ const db=(deptBiz||{})[d]||{}; return s+(db.revTarget||0)*1e8 }, 0)
                     return (
                       <tr style={{background:"#D1FAE5",fontWeight:700,borderTop:"2px solid #E5E7EB"}}>
-                        <td style={{padding:"11px 12px",fontSize:14,fontWeight:800,color:"#312E81"}}>합계</td>
+                        <td style={{padding:"11px 12px",fontSize:14,fontWeight:800,color:"#1E3A8A"}}>합계</td>
                         <td style={{padding:"11px 12px",textAlign:"right",fontSize:13,fontWeight:700,color:"#DC2626"}}>{totRevTarget>0?fAmt(totRevTarget):"-"}</td>
                         <td style={{padding:"11px 12px",textAlign:"right",fontSize:14,fontWeight:800,color:"#059669"}}>{fAmt(grandPaid)}</td>
                         <td style={{padding:"11px 12px",textAlign:"right",fontSize:13,fontWeight:700,color:"#059669",background:"#A7F3D0"}}>
                           {grandPaid/totalCurrent>=1e8?`${(grandPaid/totalCurrent/1e8).toFixed(2)}억`:grandPaid/totalCurrent>=1e4?`${(grandPaid/totalCurrent/1e4).toFixed(0)}만`:"-"}
                         </td>
-                        <td style={{padding:"11px 12px",textAlign:"right",fontSize:14,fontWeight:800,color:"#6366F1"}}>{fAmt(totalCash)}</td>
-                        <td style={{padding:"11px 12px",textAlign:"right",fontSize:13,fontWeight:700,color:"#6366F1",background:"#A7F3D0"}}>
+                        <td style={{padding:"11px 12px",textAlign:"right",fontSize:14,fontWeight:800,color:"#2563EB"}}>{fAmt(totalCash)}</td>
+                        <td style={{padding:"11px 12px",textAlign:"right",fontSize:13,fontWeight:700,color:"#2563EB",background:"#A7F3D0"}}>
                           {grandConf/totalCurrent>=1e8?`${(grandConf/totalCurrent/1e8).toFixed(2)}억`:grandConf/totalCurrent>=1e4?`${(grandConf/totalCurrent/1e4).toFixed(0)}만`:"-"}
                         </td>
                         <td style={{padding:"11px 12px",textAlign:"right",fontSize:14,fontWeight:700,color:"#D97706"}}>{fAmt(totalPush)}</td>
-                        <td style={{padding:"11px 12px",textAlign:"right",fontSize:15,fontWeight:800,color:"#312E81",background:"#A7F3D0"}}>{fAmt(totalPaid+totalConf)}</td>
-                        <td style={{padding:"11px 12px",textAlign:"right",fontSize:15,fontWeight:800,color:"#312E81",background:"#A7F3D0"}}>{fAmt(totalPaid+totalConf+totalPush)}</td>
+                        <td style={{padding:"11px 12px",textAlign:"right",fontSize:15,fontWeight:800,color:"#1E3A8A",background:"#A7F3D0"}}>{fAmt(totalPaid+totalConf)}</td>
+                        <td style={{padding:"11px 12px",textAlign:"right",fontSize:15,fontWeight:800,color:"#1E3A8A",background:"#A7F3D0"}}>{fAmt(totalPaid+totalConf+totalPush)}</td>
                       </tr>
                     )
                   })()}
@@ -2036,8 +2037,8 @@ function SimplePieChart({data=[], total=0}) {
           {/* 본부별 세로 바차트 + 파이차트 */}
           <div style={{display:"grid",gridTemplateColumns:"1fr 280px",gap:14,marginBottom:20}}>
             {/* 세로 바차트 */}
-            <div style={{background:"#fff",borderRadius:14,border:"1px solid #E5E7EB",padding:"20px 24px"}}>
-              <div style={{fontSize:15,fontWeight:800,color:"#111827",marginBottom:16}}>본부별 수금 현황</div>
+            <div style={{background:"#fff",borderRadius:8,border:"1px solid #E5E7EB",padding:"20px 24px"}}>
+              <div style={{fontSize:15,fontWeight:800,color:"#0F172A",marginBottom:16}}>본부별 수금 현황</div>
               <div style={{display:"flex",gap:10,alignItems:"flex-end",minHeight:220,borderBottom:"2px solid #E5E7EB",paddingBottom:4,overflow:"visible"}}>
                 {cashByDept.filter(d=>d.total+d.push>0).map((d,i)=>{
                   const maxD=Math.max(...cashByDept.map(x=>x.total+x.push),1)
@@ -2047,46 +2048,46 @@ function SimplePieChart({data=[], total=0}) {
                   return (
                     <div key={d.dept} style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",gap:1,minWidth:0,cursor:"pointer"}}
                       onClick={()=>setSelDetail({type:"기성+확정",dept:d.dept,items:d.all})}>
-                      <div style={{fontSize:11,fontWeight:800,color:"#312E81",textAlign:"center",marginBottom:3}}>
+                      <div style={{fontSize:11,fontWeight:800,color:"#1E3A8A",textAlign:"center",marginBottom:3}}>
                         {(d.total+d.push)>=1e8?`${((d.total+d.push)/1e8).toFixed(1)}억`:"-"}
                       </div>
                       <div style={{width:"70%",display:"flex",flexDirection:"column",alignItems:"stretch",borderRadius:"4px 4px 0 0",overflow:"hidden"}}>
                         {puH>0&&<div style={{height:puH,background:"#D9770688"}}/>}
-                        {cH>0&&<div style={{height:cH,background:"#6366F1"}}/>}
+                        {cH>0&&<div style={{height:cH,background:"#2563EB"}}/>}
                         {pH>0&&<div style={{height:pH,background:"#059669"}}/>}
-                        {pH===0&&cH===0&&puH===0&&<div style={{height:4,background:"#E5E7EB"}}/>}
+                        {pH===0&&cH===0&&puH===0&&<div style={{height:4,background:"#E2E8F0"}}/>}
                       </div>
-                      <div style={{fontSize:10.5,color:"#6B7280",marginTop:5,textAlign:"center",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",maxWidth:"100%"}}>
+                      <div style={{fontSize:11,color:"#64748B",marginTop:5,textAlign:"center",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",maxWidth:"100%"}}>
                         {d.dept.replace("본부","").replace("디자인","디자").slice(0,4)}
                       </div>
                     </div>
                   )
                 })}
               </div>
-              <div style={{display:"flex",gap:12,marginTop:10,fontSize:11.5,color:"#6B7280"}}>
+              <div style={{display:"flex",gap:12,marginTop:10,fontSize:12,color:"#64748B"}}>
                 <span style={{display:"flex",alignItems:"center",gap:4}}><span style={{width:10,height:10,background:"#059669",borderRadius:2,display:"inline-block"}}/> 현누계</span>
-                <span style={{display:"flex",alignItems:"center",gap:4}}><span style={{width:10,height:10,background:"#6366F1",borderRadius:2,display:"inline-block"}}/> 기성+확정</span>
+                <span style={{display:"flex",alignItems:"center",gap:4}}><span style={{width:10,height:10,background:"#2563EB",borderRadius:2,display:"inline-block"}}/> 기성+확정</span>
                 <span style={{display:"flex",alignItems:"center",gap:4}}><span style={{width:10,height:10,background:"#D9770688",borderRadius:2,display:"inline-block"}}/> 추진</span>
               </div>
             </div>
 
             {/* 파이차트 */}
-            <div style={{background:"#fff",borderRadius:14,border:"1px solid #E5E7EB",padding:"20px 24px"}}>
-              <div style={{fontSize:15,fontWeight:800,color:"#111827",marginBottom:12}}>본부별 비중</div>
+            <div style={{background:"#fff",borderRadius:8,border:"1px solid #E5E7EB",padding:"20px 24px"}}>
+              <div style={{fontSize:15,fontWeight:800,color:"#0F172A",marginBottom:12}}>본부별 비중</div>
               <SimplePieChart data={cashByDept.filter(d=>d.total>0).map(d=>({name:d.dept.replace("본부","").slice(0,4),value:+(d.total/1e8).toFixed(2),color:d.color}))} total={+(totalCash/1e8).toFixed(2)}/>
             </div>
           </div>
 
           {/* 월별 연간 바 차트 */}
-          <div style={{background:"#fff",borderRadius:14,border:"1px solid #E5E7EB",padding:"20px 24px",marginBottom:20}}>
+          <div style={{background:"#fff",borderRadius:8,border:"1px solid #E5E7EB",padding:"20px 24px",marginBottom:20}}>
             <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16,flexWrap:"wrap",gap:8}}>
-              <div style={{fontSize:16,fontWeight:800,color:"#111827"}}>{YEAR}년 월별 수금 현황 (단위: 억원)</div>
+              <div style={{fontSize:16,fontWeight:800,color:"#0F172A"}}>{YEAR}년 월별 수금 현황 (단위: 억원)</div>
               <div style={{display:"flex",gap:6,alignItems:"center",flexWrap:"wrap"}}>
-                <div style={{display:"flex",gap:4,background:"#F3F4F6",borderRadius:8,padding:3}}>
+                <div style={{display:"flex",gap:4,background:"#F8FAFC",borderRadius:8,padding:3}}>
                   {[["overview","📊 연간"],["list","📋 목록"],["monthly","📅 월별"],["dept","🏢 본부별"]].map(([v,l])=>(
                     <button key={v} onClick={()=>setCashView(v)}
-                      style={{padding:"5px 12px",border:"none",borderRadius:6,fontSize:12.5,fontWeight:cashView===v?700:400,cursor:"pointer",
-                        background:cashView===v?"#6366F1":"none",color:cashView===v?"#fff":"#6B7280"}}>
+                      style={{padding:"5px 12px",border:"none",borderRadius:6,fontSize:13,fontWeight:cashView===v?700:400,cursor:"pointer",
+                        background:cashView===v?"#2563EB":"none",color:cashView===v?"#fff":"#64748B"}}>
                       {l}
                     </button>
                   ))}
@@ -2097,7 +2098,7 @@ function SimplePieChart({data=[], total=0}) {
             {cashView==="overview"&&(
               <div style={{display:"flex",justifyContent:"flex-end",marginBottom:12}}>
                 <button onClick={()=>setCashView("list")}
-                  style={{padding:"6px 14px",background:"#6366F1",color:"#fff",border:"none",borderRadius:9,fontSize:12.5,fontWeight:700,cursor:"pointer"}}>
+                  style={{padding:"6px 14px",background:"#2563EB",color:"#fff",border:"none",borderRadius:6,fontSize:13,fontWeight:700,cursor:"pointer"}}>
                   ✏ 기성내역 입력/추가
                 </button>
               </div>
@@ -2115,7 +2116,7 @@ function SimplePieChart({data=[], total=0}) {
                       return (
                         <div key={i} style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",gap:1,minWidth:0,position:"relative",cursor:d.total>0?"pointer":"default"}}
                           onClick={()=>d.total>0&&setSelDetail({type:`${d.label} 전체`,dept:"전체",items:d.items})}>
-                          {d.total>0&&<div style={{fontSize:11,fontWeight:800,color:"#312E81",textAlign:"center",whiteSpace:"nowrap",position:"absolute",top:0,transform:"translateY(-18px)"}}>
+                          {d.total>0&&<div style={{fontSize:11,fontWeight:800,color:"#1E3A8A",textAlign:"center",whiteSpace:"nowrap",position:"absolute",top:0,transform:"translateY(-18px)"}}>
                             {d.total>=1e8?(d.total/1e8).toFixed(1)+"억":Math.round(d.total/1e4)+"만"}
                           </div>}
                           <div style={{width:"85%",display:"flex",flexDirection:"column",borderRadius:"4px 4px 0 0",overflow:"hidden",transition:"opacity .15s"}}
@@ -2134,38 +2135,38 @@ function SimplePieChart({data=[], total=0}) {
                             {DEPTS.map(dep=>{
                               const depAmt=d.byDept[dep]||0
                               const depH=maxM>0?Math.round((depAmt/maxM)*130):0
-                              return depH>0?<div key={dep} style={{height:depH,background:DEPT_COLORS[dep]||"#6366F1"}}/>:null
+                              return depH>0?<div key={dep} style={{height:depH,background:DEPT_COLORS[dep]||"#2563EB"}}/>:null
                             }).filter(Boolean).reverse()}
-                            {d.total===0&&<div style={{height:3,background:"#E5E7EB",borderRadius:2}}/>}
+                            {d.total===0&&<div style={{height:3,background:"#E2E8F0",borderRadius:2}}/>}
                           </div>
                           {/* 툴팁 */}
-                          {d.total>0&&<div id={`tip-${i}`} style={{display:"none",position:"absolute",bottom:"100%",left:"50%",transform:"translateX(-50%)",background:"rgba(17,24,39,.95)",color:"#fff",borderRadius:10,padding:"10px 14px",fontSize:12,whiteSpace:"nowrap",zIndex:100,boxShadow:"0 4px 16px rgba(0,0,0,.3)",minWidth:180,marginBottom:8}}>
+                          {d.total>0&&<div id={`tip-${i}`} style={{display:"none",position:"absolute",bottom:"100%",left:"50%",transform:"translateX(-50%)",background:"rgba(17,24,39,.95)",color:"#fff",borderRadius:8,padding:"10px 14px",fontSize:12,whiteSpace:"nowrap",zIndex:100,boxShadow:"0 4px 16px rgba(0,0,0,.3)",minWidth:180,marginBottom:8}}>
                             <div style={{fontWeight:800,fontSize:13,marginBottom:6,borderBottom:"1px solid rgba(255,255,255,.2)",paddingBottom:5}}>{d.label} 합계 {d.total>=1e8?(d.total/1e8).toFixed(2)+"억":fAmt(d.total)}</div>
                             {DEPTS.map(dep=>{
                               const depAmt=d.byDept[dep]||0
                               return depAmt>0?<div key={dep} style={{display:"flex",justifyContent:"space-between",gap:16,marginBottom:3}}>
                                 <span style={{display:"flex",alignItems:"center",gap:5}}>
-                                  <span style={{width:8,height:8,borderRadius:"50%",background:DEPT_COLORS[dep]||"#6366F1",display:"inline-block"}}/>
+                                  <span style={{width:8,height:8,borderRadius:"50%",background:DEPT_COLORS[dep]||"#2563EB",display:"inline-block"}}/>
                                   {dep}
                                 </span>
                                 <span style={{fontWeight:700}}>{depAmt>=1e8?(depAmt/1e8).toFixed(2)+"억":fAmt(depAmt)}</span>
                               </div>:null
                             })}
-                            <div style={{marginTop:5,paddingTop:5,borderTop:"1px solid rgba(255,255,255,.2)",display:"flex",justifyContent:"space-between",fontSize:11.5}}>
+                            <div style={{marginTop:5,paddingTop:5,borderTop:"1px solid rgba(255,255,255,.2)",display:"flex",justifyContent:"space-between",fontSize:12}}>
                               <span style={{color:"#34D399"}}>✅ 완료 {d.paid>=1e8?(d.paid/1e8).toFixed(2)+"억":fAmt(d.paid)}</span>
                               <span style={{color:"#FDE68A"}}>📅 예정 {d.exp>=1e8?(d.exp/1e8).toFixed(2)+"억":fAmt(d.exp)}</span>
                             </div>
                           </div>}
-                          <div style={{fontSize:10.5,color:d.isCurrent?"#6366F1":"#9CA3AF",marginTop:4,fontWeight:d.isCurrent?700:400}}>{d.label}</div>
+                          <div style={{fontSize:11,color:d.isCurrent?"#2563EB":"#94A3B8",marginTop:4,fontWeight:d.isCurrent?700:400}}>{d.label}</div>
                         </div>
                       )
                     })}
                   </div>
                 </div>
                 {/* 본부 색상 범례 */}
-                <div style={{display:"flex",gap:12,marginBottom:12,flexWrap:"wrap",fontSize:11.5,color:"#6B7280"}}>
+                <div style={{display:"flex",gap:12,marginBottom:12,flexWrap:"wrap",fontSize:12,color:"#64748B"}}>
                   {DEPTS.map(d=><span key={d} style={{display:"flex",alignItems:"center",gap:4}}>
-                    <span style={{width:10,height:10,borderRadius:2,background:DEPT_COLORS[d]||"#6B7280",display:"inline-block"}}/>
+                    <span style={{width:10,height:10,borderRadius:2,background:DEPT_COLORS[d]||"#64748B",display:"inline-block"}}/>
                     {d.replace("본부","")}
                   </span>)}
                 </div>
@@ -2174,10 +2175,10 @@ function SimplePieChart({data=[], total=0}) {
                   <table style={{width:"100%",borderCollapse:"collapse",minWidth:900}}>
                     <thead>
                       <tr style={{background:"#F8FAFC"}}>
-                        <th style={{padding:"9px 12px",textAlign:"left",fontSize:12,fontWeight:700,color:"#6B7280",borderBottom:"2px solid #E5E7EB",position:"sticky",left:0,background:"#F8FAFC",zIndex:2,minWidth:110,borderRight:"2px solid #E5E7EB"}}>구분</th>
+                        <th style={{padding:"9px 12px",textAlign:"left",fontSize:12,fontWeight:700,color:"#64748B",borderBottom:"2px solid #E5E7EB",position:"sticky",left:0,background:"#F8FAFC",zIndex:2,minWidth:110,borderRight:"2px solid #E5E7EB"}}>구분</th>
                         {monthlyData.map((md,mi)=>(
-                          <th key={mi} style={{padding:"8px 6px",textAlign:"right",fontSize:11.5,fontWeight:700,
-                            color:md.isCurrent?"#DC2626":"#6B7280",
+                          <th key={mi} style={{padding:"8px 6px",textAlign:"right",fontSize:12,fontWeight:700,
+                            color:md.isCurrent?"#DC2626":"#64748B",
                             borderBottom:"2px solid #E5E7EB",
                             borderRight:md.isCurrent?"2px solid #DC2626":"1px solid #F3F4F6",
                             borderLeft:md.isCurrent?"2px solid #DC2626":"none",
@@ -2186,7 +2187,7 @@ function SimplePieChart({data=[], total=0}) {
                             {md.label}{md.isCurrent&&<span style={{fontSize:9,display:"block",color:"#DC2626"}}>◀이번달</span>}
                           </th>
                         ))}
-                        <th style={{padding:"9px 10px",textAlign:"right",fontSize:12,fontWeight:700,color:"#312E81",borderBottom:"2px solid #E5E7EB",borderLeft:"2px solid #E5E7EB",minWidth:80,background:"#EEF2FF"}}>연간합계</th>
+                        <th style={{padding:"9px 10px",textAlign:"right",fontSize:12,fontWeight:700,color:"#1E3A8A",borderBottom:"2px solid #E5E7EB",borderLeft:"2px solid #E5E7EB",minWidth:80,background:"#EFF6FF"}}>연간합계</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -2194,12 +2195,12 @@ function SimplePieChart({data=[], total=0}) {
                       {/* 전체 합계 행 */}
                       {[
                         {label:"✅ 현누계",  color:"#059669",  bg:"#D1FAE5", key:"paid"},
-                        {label:"📅 기성+확정", color:"#6366F1", bg:"#EEF2FF", key:"exp"},
+                        {label:"📅 기성+확정", color:"#2563EB", bg:"#EFF6FF", key:"exp"},
                         {label:"❓ 미정(불확실)", color:"#D97706", bg:"#FEF3C7", key:"mijeong"},
-                        ...DEPTS.map(d=>({label:d, color:DEPT_COLORS[d]||"#6B7280", bg:"transparent", key:`dept_${d}`})),
+                        ...DEPTS.map(d=>({label:d, color:DEPT_COLORS[d]||"#64748B", bg:"transparent", key:`dept_${d}`})),
                       ].map((row,ri)=>(
-                        <tr key={row.key} style={{background:ri===0?"#D1FAE5":ri===1?"#EEF2FF":ri===2?"#FEF3C7":ri%2===0?"#fff":"#FAFAFA",borderBottom:"1px solid #E5E7EB"}}>
-                          <td style={{padding:"9px 12px",fontSize:13,fontWeight:700,color:row.color,whiteSpace:"nowrap",position:"sticky",left:0,background:ri===0?"#D1FAE5":ri===1?"#EEF2FF":ri===2?"#FEF3C7":ri%2===0?"#fff":"#FAFAFA",zIndex:1,borderRight:"2px solid #E5E7EB"}}>
+                        <tr key={row.key} style={{background:ri===0?"#D1FAE5":ri===1?"#EFF6FF":ri===2?"#FEF3C7":ri%2===0?"#fff":"#FAFAFA",borderBottom:"1px solid #E5E7EB"}}>
+                          <td style={{padding:"9px 12px",fontSize:13,fontWeight:700,color:row.color,whiteSpace:"nowrap",position:"sticky",left:0,background:ri===0?"#D1FAE5":ri===1?"#EFF6FF":ri===2?"#FEF3C7":ri%2===0?"#fff":"#FAFAFA",zIndex:1,borderRight:"2px solid #E5E7EB"}}>
                             {row.label.length>6?<span title={row.label}>{row.label.replace("본부","")}</span>:row.label}
                           </td>
                           {monthlyData.map((md,mi)=>{
@@ -2222,7 +2223,7 @@ function SimplePieChart({data=[], total=0}) {
                           })}
                           <td style={{padding:"8px 12px",textAlign:"right",fontSize:13,fontWeight:800,
                             color:row.color,borderLeft:"2px solid #E5E7EB",
-                            background:ri===0?"#A7F3D0":ri===1?"#C7D2FE":ri===2?"#FDE68A":"transparent"}}>
+                            background:ri===0?"#A7F3D0":ri===1?"#BFDBFE":ri===2?"#FDE68A":"transparent"}}>
                             {fAmt(monthlyData.reduce((s,md)=>{
                               if(row.key==="paid") return s+md.paid
                               if(row.key==="exp")  return s+md.exp
@@ -2271,7 +2272,7 @@ function SimplePieChart({data=[], total=0}) {
       {/* ══ 지출현황 탭 ══ */}
       {mainTab==="expense"&&(
         <div>
-          <div style={{background:"linear-gradient(135deg,#7C3AED,#6366F1)",borderRadius:16,padding:"22px 28px",marginBottom:20,color:"#fff"}}>
+          <div style={{background:"linear-gradient(135deg,#7C3AED,#6366F1)",borderRadius:16,padding:"16px 20px",marginBottom:20,color:"#fff"}}>
             <div style={{fontSize:13,opacity:.75,marginBottom:4}}>{YEAR}년 기성 지급 현황</div>
             <div style={{fontSize:34,fontWeight:800,marginBottom:8}}>{fAmt(totalPaid)}</div>
             <div style={{display:"flex",gap:10,fontSize:13}}>
@@ -2283,8 +2284,8 @@ function SimplePieChart({data=[], total=0}) {
           {/* 본부별 손익분석 */}
           {(()=>{
             const fAb = v => v>=1e8?`${(v/1e8).toFixed(2)}억`:v>=1e4?`${Math.round(v/1e4)}만`:`${v.toLocaleString()}`
-            const tH  = (txt,c="#6B7280",bg="#FEF2F2")=>({padding:"9px 12px",textAlign:"right",fontSize:11.5,fontWeight:700,color:c,background:bg,borderBottom:"2px solid #FECACA",whiteSpace:"nowrap"})
-            const tD  = (c="#374151",bold=false,bg="inherit")=>({padding:"9px 12px",textAlign:"right",fontSize:12.5,fontWeight:bold?800:400,color:c,background:bg,borderBottom:"1px solid #FEE2E2",whiteSpace:"nowrap"})
+            const tH  = (txt,c="#64748B",bg="#FEF2F2")=>({padding:"9px 12px",textAlign:"right",fontSize:12,fontWeight:700,color:c,background:bg,borderBottom:"2px solid #FECACA",whiteSpace:"nowrap"})
+            const tD  = (c="#334155",bold=false,bg="inherit")=>({padding:"9px 12px",textAlign:"right",fontSize:13,fontWeight:bold?800:400,color:c,background:bg,borderBottom:"1px solid #FEE2E2",whiteSpace:"nowrap"})
 
             // 매출목표: deptBiz.revTarget (억원)
             // 매출: cashByDept.paid (현누계 입금완료)
@@ -2341,7 +2342,7 @@ function SimplePieChart({data=[], total=0}) {
 
             return (<>
             {/* 본부별 손익분석 테이블 */}
-            <div style={{background:"#fff",borderRadius:14,border:"1px solid #FECACA",overflow:"hidden",marginBottom:16}}>
+            <div style={{background:"#fff",borderRadius:8,border:"1px solid #FECACA",overflow:"hidden",marginBottom:16}}>
               <div style={{padding:"14px 20px",background:"linear-gradient(135deg,#7C1D1D,#DC2626)",color:"#fff",display:"flex",alignItems:"center",gap:10}}>
                 <span style={{fontSize:15,fontWeight:800}}>📊 본부별 손익분석 ({YEAR}년, 단위: 억원)</span>
                 <span style={{fontSize:12,opacity:.8}}>매출: 현누계 입금완료 기준</span>
@@ -2349,10 +2350,10 @@ function SimplePieChart({data=[], total=0}) {
               <div style={{overflowX:"auto"}}>
                 <table style={{width:"100%",borderCollapse:"collapse"}}>
                   <thead><tr>
-                    {[["본부","left","#374151","#FEF2F2"],["매출목표","right","#DC2626","#FEF2F2"],
+                    {[["본부","left","#334155","#FEF2F2"],["매출목표","right","#DC2626","#FEF2F2"],
                       ["매출(현누계)","right","#059669","#D1FAE5"],["매출실행율","right","#059669","#D1FAE5"],
                       ["지출","right","#DC2626","#FEE2E2"],["지출실행율","right","#DC2626","#FEE2E2"],
-                      ["손익","right","#312E81","#EEF2FF"]].map(([h,a,c,bg],i)=>(
+                      ["손익","right","#1E3A8A","#EFF6FF"]].map(([h,a,c,bg],i)=>(
                       <th key={i} style={{...tH(h,c,bg),textAlign:a}}>{h}</th>
                     ))}
                   </tr></thead>
@@ -2367,7 +2368,7 @@ function SimplePieChart({data=[], total=0}) {
                       const expR = revT>0?Math.round(exp/revT*100):null
                       return (
                         <tr key={dept} style={{background:i%2===0?"#fff":"#FFF7F7",borderBottom:"1px solid #FEE2E2"}}>
-                          <td style={{...tD("#111827",true),textAlign:"left",padding:"10px 12px"}}>
+                          <td style={{...tD("#0F172A",true),textAlign:"left",padding:"10px 12px"}}>
                             <div style={{display:"flex",alignItems:"center",gap:7}}>
                               <div style={{width:8,height:8,borderRadius:"50%",background:DEPT_COLORS[dept]||"#DC2626"}}/>
                               {dept}
@@ -2377,13 +2378,13 @@ function SimplePieChart({data=[], total=0}) {
                           <td style={{...tD("#059669",true,"#F0FDF4")}}>{sale>0?fAb(sale):"-"}</td>
                           <td style={{...tD(saleR>=100?"#059669":saleR>=70?"#D97706":"#DC2626",true)}}>{saleR!=null?`${saleR}%`:"-"}</td>
                           <td style={{...tD("#DC2626",false,"#FFF7F7")}}>{exp>0?fAb(exp):"-"}</td>
-                          <td style={{...tD(expR&&expR>80?"#DC2626":"#374151")}}>{expR!=null?`${expR}%`:"-"}</td>
+                          <td style={{...tD(expR&&expR>80?"#DC2626":"#334155")}}>{expR!=null?`${expR}%`:"-"}</td>
                           <td style={{...tD(pnl>=0?"#059669":"#DC2626",true,pnl>=0?"#F0FDF4":"#FEF2F2")}}>{(sale>0||exp>0)?fAb(pnl):"-"}</td>
                         </tr>
                       )
                     })}
                     <tr style={{background:"#FEE2E2",fontWeight:700,borderTop:"2px solid #DC2626"}}>
-                      <td style={{...tD("#111827",true),textAlign:"left"}}>합계</td>
+                      <td style={{...tD("#0F172A",true),textAlign:"left"}}>합계</td>
                       <td style={{...tD("#DC2626",true)}}>{totRevTarget>0?fAb(totRevTarget):"-"}</td>
                       <td style={{...tD("#059669",true,"#D1FAE5")}}>{fAb(totSale)}</td>
                       <td style={{...tD("#059669",true)}}>{totRevTarget>0?`${Math.round(totSale/totRevTarget*100)}%`:"-"}</td>
@@ -2397,7 +2398,7 @@ function SimplePieChart({data=[], total=0}) {
             </div>
 
             {/* 지출 상세 테이블 */}
-            <div style={{background:"#fff",borderRadius:14,border:"1px solid #E5E7EB",overflow:"hidden",marginBottom:20}}>
+            <div style={{background:"#fff",borderRadius:8,border:"1px solid #E5E7EB",overflow:"hidden",marginBottom:20}}>
               <div style={{padding:"14px 20px",background:"#7C1D1D",color:"#fff",fontSize:14,fontWeight:800}}>
                 💸 지출 상세 현황 ({YEAR}년, 단위: 억원)
               </div>
@@ -2405,29 +2406,29 @@ function SimplePieChart({data=[], total=0}) {
                 <table style={{width:"100%",borderCollapse:"collapse",minWidth:1000}}>
                   <thead>
                     <tr style={{background:"#FEF2F2"}}>
-                      <th style={{...tH("본부","#374151","#FEF2F2"),textAlign:"left",minWidth:90}}>본부</th>
+                      <th style={{...tH("본부","#334155","#FEF2F2"),textAlign:"left",minWidth:90}}>본부</th>
                       {/* 인건비 */}
-                      <th colSpan={3} style={{...tH("인건비","#6366F1","#EEF2FF"),textAlign:"center"}}>인건비</th>
+                      <th colSpan={3} style={{...tH("인건비","#2563EB","#EFF6FF"),textAlign:"center"}}>인건비</th>
                       {/* 외주비 */}
                       <th colSpan={2} style={{...tH("외주비","#DC2626","#FEE2E2"),textAlign:"center"}}>외주비</th>
                       {/* 단독 항목들 */}
                       {["경비","업무추진비","집기여비","기타","공동분담"].map(h=>(
-                        <th key={h} style={tH(h,"#6B7280","#FEF2F2")}>{h}</th>
+                        <th key={h} style={tH(h,"#64748B","#FEF2F2")}>{h}</th>
                       ))}
-                      <th style={tH("소계","#312E81","#EDE9FE")}>소계</th>
-                      <th style={tH("전략공동","#6B7280","#F3F4F6")}>전략공동</th>
-                      <th style={tH("본사공동","#6B7280","#F3F4F6")}>본사공동</th>
+                      <th style={tH("소계","#1E3A8A","#DBEAFE")}>소계</th>
+                      <th style={tH("전략공동","#64748B","#F8FAFC")}>전략공동</th>
+                      <th style={tH("본사공동","#64748B","#F8FAFC")}>본사공동</th>
                       <th style={tH("합계","#7C1D1D","#FEE2E2")}>합계</th>
                     </tr>
                     <tr style={{background:"#F8FAFC"}}>
-                      <th style={{...tH("","#6B7280","#F8FAFC"),textAlign:"left"}}/>
-                      <th style={tH("급여","#6366F1","#EEF2FF")}>급여</th>
-                      <th style={tH("야근보조","#6366F1","#EEF2FF")}>야근보조</th>
-                      <th style={tH("기타","#6366F1","#EEF2FF")}>기타</th>
+                      <th style={{...tH("","#64748B","#F8FAFC"),textAlign:"left"}}/>
+                      <th style={tH("급여","#2563EB","#EFF6FF")}>급여</th>
+                      <th style={tH("야근보조","#2563EB","#EFF6FF")}>야근보조</th>
+                      <th style={tH("기타","#2563EB","#EFF6FF")}>기타</th>
                       <th style={tH("직접외주","#DC2626","#FEE2E2")}>직접</th>
                       <th style={tH("정산금","#DC2626","#FEE2E2")}>정산금</th>
-                      {["","","","",""].map((_,i)=><th key={i} style={tH("","#6B7280","#F8FAFC")}/>)}
-                      {["","","",""].map((_,i)=><th key={i} style={tH("","#6B7280","#F8FAFC")}/>)}
+                      {["","","","",""].map((_,i)=><th key={i} style={tH("","#64748B","#F8FAFC")}/>)}
+                      {["","","",""].map((_,i)=><th key={i} style={tH("","#64748B","#F8FAFC")}/>)}
                     </tr>
                   </thead>
                   <tbody>
@@ -2436,15 +2437,15 @@ function SimplePieChart({data=[], total=0}) {
                       const fv = v => v>0?fAb(v):"-"
                       return (
                         <tr key={dept} style={{background:i%2===0?"#fff":"#FFF7F7",borderBottom:"1px solid #FEE2E2"}}>
-                          <td style={{...tD("#111827",true),textAlign:"left"}}>
+                          <td style={{...tD("#0F172A",true),textAlign:"left"}}>
                             <div style={{display:"flex",alignItems:"center",gap:6}}>
                               <div style={{width:7,height:7,borderRadius:"50%",background:DEPT_COLORS[dept]||"#DC2626"}}/>
                               {dept.replace("본부","")}
                             </div>
                           </td>
-                          <td style={tD("#6366F1",false,"#F5F3FF")}>{fv(d["급여"])}</td>
-                          <td style={tD("#6366F1",false,"#F5F3FF")}>{fv(d["야근보조금"])}</td>
-                          <td style={tD("#6366F1",false,"#F5F3FF")}>{fv(d["기타인건"])}</td>
+                          <td style={tD("#2563EB",false,"#F5F3FF")}>{fv(d["급여"])}</td>
+                          <td style={tD("#2563EB",false,"#F5F3FF")}>{fv(d["야근보조금"])}</td>
+                          <td style={tD("#2563EB",false,"#F5F3FF")}>{fv(d["기타인건"])}</td>
                           <td style={tD("#DC2626",false,"#FFF1F2")}>{fv(d["외주직접"])}</td>
                           <td style={tD("#DC2626",false,"#FFF1F2")}>{fv(d["정산금"])}</td>
                           <td style={tD()}>{fv(d["경비"])}</td>
@@ -2452,9 +2453,9 @@ function SimplePieChart({data=[], total=0}) {
                           <td style={tD()}>{fv(d["집기여비"])}</td>
                           <td style={tD()}>{fv(d["기타"])}</td>
                           <td style={tD()}>{fv(d["공동"])}</td>
-                          <td style={{...tD("#312E81",true,"#EDE9FE")}}>{fv(d.소계)}</td>
-                          <td style={tD("#6B7280")}>{fv(d["전략공동"])}</td>
-                          <td style={tD("#6B7280")}>{fv(d["본사공동"])}</td>
+                          <td style={{...tD("#1E3A8A",true,"#DBEAFE")}}>{fv(d.소계)}</td>
+                          <td style={tD("#64748B")}>{fv(d["전략공동"])}</td>
+                          <td style={tD("#64748B")}>{fv(d["본사공동"])}</td>
                           <td style={{...tD("#7C1D1D",true,"#FEE2E2")}}>{fv(d.합계)}</td>
                         </tr>
                       )
@@ -2464,20 +2465,20 @@ function SimplePieChart({data=[], total=0}) {
                       const tot = k => DEPTS.reduce((s,dept)=>s+(deptExpDetail[dept]?.[k]||0),0)
                       return (
                         <tr style={{background:"#FEE2E2",fontWeight:700,borderTop:"2px solid #DC2626"}}>
-                          <td style={{...tD("#111827",true),textAlign:"left"}}>합계</td>
-                          <td style={{...tD("#6366F1",true,"#EDE9FE")}}>{tot("급여")>0?fAb(tot("급여")):"-"}</td>
-                          <td style={{...tD("#6366F1",true,"#EDE9FE")}}>{tot("야근보조금")>0?fAb(tot("야근보조금")):"-"}</td>
-                          <td style={{...tD("#6366F1",true,"#EDE9FE")}}>{tot("기타인건")>0?fAb(tot("기타인건")):"-"}</td>
+                          <td style={{...tD("#0F172A",true),textAlign:"left"}}>합계</td>
+                          <td style={{...tD("#2563EB",true,"#DBEAFE")}}>{tot("급여")>0?fAb(tot("급여")):"-"}</td>
+                          <td style={{...tD("#2563EB",true,"#DBEAFE")}}>{tot("야근보조금")>0?fAb(tot("야근보조금")):"-"}</td>
+                          <td style={{...tD("#2563EB",true,"#DBEAFE")}}>{tot("기타인건")>0?fAb(tot("기타인건")):"-"}</td>
                           <td style={{...tD("#DC2626",true,"#FEE2E2")}}>{tot("외주직접")>0?fAb(tot("외주직접")):"-"}</td>
                           <td style={{...tD("#DC2626",true,"#FEE2E2")}}>{tot("정산금")>0?fAb(tot("정산금")):"-"}</td>
-                          <td style={tD("#374151",true)}>{tot("경비")>0?fAb(tot("경비")):"-"}</td>
-                          <td style={tD("#374151",true)}>{tot("업무추진비")>0?fAb(tot("업무추진비")):"-"}</td>
-                          <td style={tD("#374151",true)}>{tot("집기여비")>0?fAb(tot("집기여비")):"-"}</td>
-                          <td style={tD("#374151",true)}>{tot("기타")>0?fAb(tot("기타")):"-"}</td>
-                          <td style={tD("#374151",true)}>{tot("공동")>0?fAb(tot("공동")):"-"}</td>
-                          <td style={{...tD("#312E81",true,"#D1D5DB")}}>{tot("소계")>0?fAb(tot("소계")):"-"}</td>
-                          <td style={tD("#6B7280",true)}>{tot("전략공동")>0?fAb(tot("전략공동")):"-"}</td>
-                          <td style={tD("#6B7280",true)}>{tot("본사공동")>0?fAb(tot("본사공동")):"-"}</td>
+                          <td style={tD("#334155",true)}>{tot("경비")>0?fAb(tot("경비")):"-"}</td>
+                          <td style={tD("#334155",true)}>{tot("업무추진비")>0?fAb(tot("업무추진비")):"-"}</td>
+                          <td style={tD("#334155",true)}>{tot("집기여비")>0?fAb(tot("집기여비")):"-"}</td>
+                          <td style={tD("#334155",true)}>{tot("기타")>0?fAb(tot("기타")):"-"}</td>
+                          <td style={tD("#334155",true)}>{tot("공동")>0?fAb(tot("공동")):"-"}</td>
+                          <td style={{...tD("#1E3A8A",true,"#D1D5DB")}}>{tot("소계")>0?fAb(tot("소계")):"-"}</td>
+                          <td style={tD("#64748B",true)}>{tot("전략공동")>0?fAb(tot("전략공동")):"-"}</td>
+                          <td style={tD("#64748B",true)}>{tot("본사공동")>0?fAb(tot("본사공동")):"-"}</td>
                           <td style={{...tD("#7C1D1D",true,"#FECACA")}}>{tot("합계")>0?fAb(tot("합계")):"-"}</td>
                         </tr>
                       )
@@ -2486,7 +2487,7 @@ function SimplePieChart({data=[], total=0}) {
                 </table>
               </div>
               {saleItems.length===0&&(
-                <div style={{padding:"20px",textAlign:"center",color:"#9CA3AF",fontSize:13}}>
+                <div style={{padding:"20px",textAlign:"center",color:"#94A3B8",fontSize:13}}>
                   지출 상세 데이터가 없습니다. 지출현황 탭에서 엑셀을 업로드해주세요.
                 </div>
               )}
@@ -2699,7 +2700,7 @@ function ProjectCashflowSummaryCard({projects,projectCashflowByDept,DEPTS,DEPT_C
     </Card>
   )
 }
-const cardNote2 = {fontSize:12.5,color:C.gray,marginBottom:8}
+const cardNote2 = {fontSize:13,color:C.gray,marginBottom:8}
 
 // ════════════════════════════════════════════════════════════
 // 프로젝트 탭
@@ -2788,7 +2789,7 @@ function ProjectsTab({projects,setProjects,selProjId,setSelProjId,selVerIdx,setS
             const wb=XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb,ws,"프로젝트")
             XLSX.writeFile(wb,`상지서울_프로젝트_${new Date().toISOString().slice(0,10)}.xlsx`)
           }catch(e){alert(e.message)}
-        }} style={{padding:"6px 12px",background:"#EDE9FE",color:"#7C3AED",border:"none",borderRadius:8,fontSize:12,fontWeight:700,cursor:"pointer"}}>
+        }} style={{padding:"6px 12px",background:"#DBEAFE",color:"#7C3AED",border:"none",borderRadius:8,fontSize:12,fontWeight:700,cursor:"pointer"}}>
           ⬇ 전체 다운로드
         </button>
         {canWrite&&<label style={{padding:"6px 12px",background:"#D1FAE5",color:"#059669",border:"none",borderRadius:8,fontSize:12,fontWeight:700,cursor:"pointer",display:"inline-flex",alignItems:"center",gap:4}}>
@@ -2830,11 +2831,11 @@ function ProjectsTab({projects,setProjects,selProjId,setSelProjId,selVerIdx,setS
       {view==="list" && (
         <>
           {/* 검색 바 */}
-          <div style={{background:"#fff",borderRadius:12,border:"1px solid #E5E7EB",padding:"12px 14px",marginBottom:12}}>
+          <div style={{background:"#fff",borderRadius:8,border:"1px solid #E5E7EB",padding:"12px 14px",marginBottom:12}}>
             <div style={{display:"flex",gap:8,marginBottom:8,flexWrap:"wrap",alignItems:"center"}}>
               <input value={searchQuery} onChange={e=>{setSearchQuery(e.target.value);setProjPage(1)}}
                 placeholder="🔍 프로젝트명·코드·PM·발주처 검색"
-                style={{flex:1,padding:"8px 14px",border:"1.5px solid #6366F1",borderRadius:9,fontSize:13.5,fontFamily:"inherit",outline:"none"}}/>
+                style={{flex:1,padding:"8px 14px",border:"1.5px solid #6366F1",borderRadius:6,fontSize:13,fontFamily:"inherit",outline:"none"}}/>
               <select value={deptFilter} onChange={e=>{setDeptFilter(e.target.value);setProjPage(1)}}
                 style={{padding:"8px 10px",border:"1px solid #E5E7EB",borderRadius:8,fontSize:13,fontFamily:"inherit",outline:"none"}}>
                 {[["","전체 본부"],["설계1","설계1본부"],["설계2","설계2본부"],["디자인","디자인본부"],["주거","주거디자인"],["해외","해외사업부"]].map(([v,l])=><option key={v} value={v}>{l}</option>)}
@@ -2844,38 +2845,38 @@ function ProjectsTab({projects,setProjects,selProjId,setSelProjId,selVerIdx,setS
                 {[["","전체 구분"],["계약","계약"],["확정","확정"],["추진","추진"],["기성","기성"]].map(([v,l])=><option key={v} value={v}>{l}</option>)}
               </select>
               <button onClick={()=>setShowAdvFilter(v=>!v)}
-                style={{padding:"8px 14px",background:showAdvFilter?"#6366F1":"#F3F4F6",color:showAdvFilter?"#fff":"#6B7280",border:"none",borderRadius:8,fontSize:13,fontWeight:600,cursor:"pointer"}}>
+                style={{padding:"8px 14px",background:showAdvFilter?"#2563EB":"#F8FAFC",color:showAdvFilter?"#fff":"#64748B",border:"none",borderRadius:8,fontSize:13,fontWeight:600,cursor:"pointer"}}>
                 {showAdvFilter?"▲ 간단":"▼ 상세검색"}
               </button>
               {(searchQuery||deptFilter||typeFilter||pmFilter||dateFromFilter||dateToFilter||areaMinFilter)&&(
                 <button onClick={resetFilters}
-                  style={{padding:"8px 12px",background:"#FEE2E2",color:"#DC2626",border:"none",borderRadius:8,fontSize:12.5,fontWeight:700,cursor:"pointer"}}>
+                  style={{padding:"8px 12px",background:"#FEE2E2",color:"#DC2626",border:"none",borderRadius:8,fontSize:13,fontWeight:700,cursor:"pointer"}}>
                   ✕ 초기화
                 </button>
               )}
-              <span style={{fontSize:13,color:"#6B7280",fontWeight:600,whiteSpace:"nowrap"}}>
-                <b style={{color:"#6366F1"}}>{filtered.length}</b>건 / {projects.length}건
+              <span style={{fontSize:13,color:"#64748B",fontWeight:600,whiteSpace:"nowrap"}}>
+                <b style={{color:"#2563EB"}}>{filtered.length}</b>건 / {projects.length}건
               </span>
             </div>
             {showAdvFilter&&(
               <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr 1fr",gap:8,paddingTop:8,borderTop:"1px solid #F3F4F6"}}>
                 <div>
-                  <label style={{fontSize:11,fontWeight:700,color:"#6366F1",display:"block",marginBottom:3}}>PM / 본부장</label>
+                  <label style={{fontSize:11,fontWeight:700,color:"#2563EB",display:"block",marginBottom:3}}>PM / 본부장</label>
                   <input value={pmFilter} onChange={e=>{setPmFilter(e.target.value);setProjPage(1)}}
                     placeholder="이름 검색" style={{width:"100%",padding:"7px 10px",border:"1px solid #E5E7EB",borderRadius:7,fontSize:13,fontFamily:"inherit",outline:"none",boxSizing:"border-box"}}/>
                 </div>
                 <div>
-                  <label style={{fontSize:11,fontWeight:700,color:"#6366F1",display:"block",marginBottom:3}}>계약일 (시작)</label>
+                  <label style={{fontSize:11,fontWeight:700,color:"#2563EB",display:"block",marginBottom:3}}>계약일 (시작)</label>
                   <input type="date" value={dateFromFilter} onChange={e=>{setDateFromFilter(e.target.value);setProjPage(1)}}
                     style={{width:"100%",padding:"7px 10px",border:"1px solid #E5E7EB",borderRadius:7,fontSize:13,fontFamily:"inherit",outline:"none",boxSizing:"border-box"}}/>
                 </div>
                 <div>
-                  <label style={{fontSize:11,fontWeight:700,color:"#6366F1",display:"block",marginBottom:3}}>계약일 (종료)</label>
+                  <label style={{fontSize:11,fontWeight:700,color:"#2563EB",display:"block",marginBottom:3}}>계약일 (종료)</label>
                   <input type="date" value={dateToFilter} onChange={e=>{setDateToFilter(e.target.value);setProjPage(1)}}
                     style={{width:"100%",padding:"7px 10px",border:"1px solid #E5E7EB",borderRadius:7,fontSize:13,fontFamily:"inherit",outline:"none",boxSizing:"border-box"}}/>
                 </div>
                 <div>
-                  <label style={{fontSize:11,fontWeight:700,color:"#6366F1",display:"block",marginBottom:3}}>연면적 최소(평)</label>
+                  <label style={{fontSize:11,fontWeight:700,color:"#2563EB",display:"block",marginBottom:3}}>연면적 최소(평)</label>
                   <input type="number" value={areaMinFilter} onChange={e=>{setAreaMinFilter(e.target.value);setProjPage(1)}}
                     placeholder="예: 500" style={{width:"100%",padding:"7px 10px",border:"1px solid #E5E7EB",borderRadius:7,fontSize:13,fontFamily:"inherit",outline:"none",boxSizing:"border-box"}}/>
                 </div>
@@ -2886,7 +2887,7 @@ function ProjectsTab({projects,setProjects,selProjId,setSelProjId,selVerIdx,setS
           <Card title="프로젝트 목록" note={`행 클릭 → 실행계획서 상세 · ${PROJ_PER_PAGE}건씩 표시`}>
             {/* 선택 삭제 툴바 */}
             {cmpIds.length>0&&currentUser?.role==="admin"&&(
-              <div style={{background:"#FEE2E2",border:"1px solid #FECACA",borderRadius:10,
+              <div style={{background:"#FEE2E2",border:"1px solid #FECACA",borderRadius:8,
                 padding:"10px 14px",marginBottom:12,display:"flex",alignItems:"center",
                 justifyContent:"space-between",flexWrap:"wrap",gap:8}}>
                 <span style={{fontSize:13,color:"#7F1D1D",fontWeight:700}}>
@@ -2902,7 +2903,7 @@ function ProjectsTab({projects,setProjects,selProjId,setSelProjId,selVerIdx,setS
                     🗑 선택 삭제 ({cmpIds.length}건)
                   </button>
                   <button onClick={()=>setCmpIds([])}
-                    style={{padding:"7px 14px",background:"#F3F4F6",color:"#6B7280",
+                    style={{padding:"7px 14px",background:"#F8FAFC",color:"#64748B",
                       border:"none",borderRadius:8,fontSize:13,cursor:"pointer"}}>
                     선택 해제
                   </button>
@@ -2927,7 +2928,7 @@ function ProjectsTab({projects,setProjects,selProjId,setSelProjId,selVerIdx,setS
                       onMouseLeave={e=>e.currentTarget.style.background=i%2===0?"var(--color-background-primary,#fff)":"var(--color-background-secondary,#f8f8f6)"}
                       onClick={()=>{setSelProjId(p.id);setSelVerIdx(p.versions.length-1);setView("detail")}}>
                       <td style={S.td("center")} onClick={e=>e.stopPropagation()}><input type="checkbox" checked={cmpIds.includes(p.id)} onChange={e=>setCmpIds(prev=>e.target.checked?[...prev,p.id]:prev.filter(id=>id!==p.id))}/></td>
-                      <td style={{...S.td("center"),fontSize:12,color:"#9CA3AF",fontWeight:600}}>{globalIdx+1}</td>
+                      <td style={{...S.td("center"),fontSize:12,color:"#94A3B8",fontWeight:600}}>{globalIdx+1}</td>
                       <td style={S.td("left")}><span style={S.bdg(tb.bg,tb.fg)}>{p.type}</span></td>
                       <td style={{...S.td("left"),fontFamily:"monospace",fontSize:11,color:C.navyM}}>{p.code}</td>
                       <td style={{...S.td("left"),maxWidth:190,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}} title={p.name}>
@@ -2948,16 +2949,16 @@ function ProjectsTab({projects,setProjects,selProjId,setSelProjId,selVerIdx,setS
                             <button onClick={()=>{
                               setProjects(prev=>prev.map(pp=>pp.id===p.id?{...pp,name:inlineEditName.trim()||pp.name}:pp))
                               setInlineEditId(null)
-                            }} style={{padding:"2px 7px",background:"#6366F1",color:"#fff",border:"none",borderRadius:5,fontSize:11,cursor:"pointer"}}>✓</button>
+                            }} style={{padding:"2px 7px",background:"#2563EB",color:"#fff",border:"none",borderRadius:5,fontSize:11,cursor:"pointer"}}>✓</button>
                             <button onClick={()=>setInlineEditId(null)}
-                              style={{padding:"2px 6px",background:"#F3F4F6",color:"#6B7280",border:"none",borderRadius:5,fontSize:11,cursor:"pointer"}}>✕</button>
+                              style={{padding:"2px 6px",background:"#F8FAFC",color:"#64748B",border:"none",borderRadius:5,fontSize:11,cursor:"pointer"}}>✕</button>
                           </div>
                         ) : p.name}
                       </td>
                       <td style={{...S.td("left"),fontSize:11}}>{p.depts.join(", ")}</td>
                       <td style={{...S.td("left"),fontSize:11}}>{p.pm}</td>
                       <td style={{...S.td("right"),fontWeight:500}}>{fE((p.serviceFee||0)/1e8)}</td>
-                      <td style={{...S.td("right"),fontSize:12,color:"#6366F1",fontWeight:600}}>{p.floorArea>0&&p.serviceFee>0?`${Math.round(p.serviceFee/toPy(p.floorArea)).toLocaleString()}원`:"-"}</td>
+                      <td style={{...S.td("right"),fontSize:12,color:"#2563EB",fontWeight:600}}>{p.floorArea>0&&p.serviceFee>0?`${Math.round(p.serviceFee/toPy(p.floorArea)).toLocaleString()}원`:"-"}</td>
                       <td style={{...S.td("right"),fontSize:11}}>{(p.shareRatio*100).toFixed(0)}%</td>
                       <td style={{...S.td("right"),fontSize:11}}>{p.floorArea?.toLocaleString()}</td>
                       <td style={S.td("right")}><div style={{display:"flex",alignItems:"center",gap:5,justifyContent:"flex-end"}}><div style={{width:44,height:6,background:"var(--color-background-secondary,#f0f0ee)",borderRadius:3,overflow:"hidden"}}><div style={{width:`${p.prog}%`,height:6,background:bc,borderRadius:3}}/></div><span style={{fontSize:11,fontWeight:500,color:bc}}>{p.prog}%</span></div></td>
@@ -2986,7 +2987,7 @@ function ProjectsTab({projects,setProjects,selProjId,setSelProjId,selVerIdx,setS
                           <div style={{display:"flex",gap:4,justifyContent:"center"}}>
                             <button onClick={()=>{setInlineEditId(p.id);setInlineEditName(p.name)}}
                               title="이름 수정"
-                              style={{padding:"4px 8px",background:"#EEF2FF",color:"#6366F1",
+                              style={{padding:"4px 8px",background:"#EFF6FF",color:"#2563EB",
                                 border:"none",borderRadius:6,fontSize:11,cursor:"pointer",fontWeight:700}}>
                               ✏
                             </button>
@@ -3011,30 +3012,30 @@ function ProjectsTab({projects,setProjects,selProjId,setSelProjId,selVerIdx,setS
             {totalProjPages>1&&(
               <div style={{display:"flex",justifyContent:"center",alignItems:"center",gap:6,marginTop:14,flexWrap:"wrap"}}>
                 <button onClick={()=>setProjPage(1)} disabled={projPage===1}
-                  style={{padding:"5px 10px",border:"1px solid #E5E7EB",borderRadius:7,fontSize:12.5,cursor:projPage===1?"not-allowed":"pointer",color:projPage===1?C.gray:C.navyM,background:"#fff"}}>«</button>
+                  style={{padding:"5px 10px",border:"1px solid #E5E7EB",borderRadius:7,fontSize:13,cursor:projPage===1?"not-allowed":"pointer",color:projPage===1?C.gray:C.navyM,background:"#fff"}}>«</button>
                 <button onClick={()=>setProjPage(p=>Math.max(1,p-1))} disabled={projPage===1}
-                  style={{padding:"5px 10px",border:"1px solid #E5E7EB",borderRadius:7,fontSize:12.5,cursor:projPage===1?"not-allowed":"pointer",color:projPage===1?C.gray:C.navyM,background:"#fff"}}>‹</button>
+                  style={{padding:"5px 10px",border:"1px solid #E5E7EB",borderRadius:7,fontSize:13,cursor:projPage===1?"not-allowed":"pointer",color:projPage===1?C.gray:C.navyM,background:"#fff"}}>‹</button>
                 {Array.from({length:Math.min(7,totalProjPages)},(_,i)=>{
                   const p=Math.max(1,Math.min(totalProjPages-6,projPage-3))+i
                   return p<=totalProjPages?(
                     <button key={p} onClick={()=>setProjPage(p)}
-                      style={{padding:"5px 12px",border:`1.5px solid ${projPage===p?C.navyM:"#E5E7EB"}`,borderRadius:7,fontSize:13,
+                      style={{padding:"5px 12px",border:`1.5px solid ${projPage===p?C.navyM:"#E2E8F0"}`,borderRadius:7,fontSize:13,
                         cursor:"pointer",background:projPage===p?C.navyM:"#fff",color:projPage===p?"#fff":C.navyM,fontWeight:projPage===p?700:400}}>
                       {p}
                     </button>
                   ):null
                 })}
                 <button onClick={()=>setProjPage(p=>Math.min(totalProjPages,p+1))} disabled={projPage===totalProjPages}
-                  style={{padding:"5px 10px",border:"1px solid #E5E7EB",borderRadius:7,fontSize:12.5,cursor:projPage===totalProjPages?"not-allowed":"pointer",color:projPage===totalProjPages?C.gray:C.navyM,background:"#fff"}}>›</button>
+                  style={{padding:"5px 10px",border:"1px solid #E5E7EB",borderRadius:7,fontSize:13,cursor:projPage===totalProjPages?"not-allowed":"pointer",color:projPage===totalProjPages?C.gray:C.navyM,background:"#fff"}}>›</button>
                 <button onClick={()=>setProjPage(totalProjPages)} disabled={projPage===totalProjPages}
-                  style={{padding:"5px 10px",border:"1px solid #E5E7EB",borderRadius:7,fontSize:12.5,cursor:projPage===totalProjPages?"not-allowed":"pointer",color:projPage===totalProjPages?C.gray:C.navyM,background:"#fff"}}>»</button>
-                <span style={{fontSize:12.5,color:C.gray,padding:"5px 0"}}>
+                  style={{padding:"5px 10px",border:"1px solid #E5E7EB",borderRadius:7,fontSize:13,cursor:projPage===totalProjPages?"not-allowed":"pointer",color:projPage===totalProjPages?C.gray:C.navyM,background:"#fff"}}>»</button>
+                <span style={{fontSize:13,color:C.gray,padding:"5px 0"}}>
                   {(projPage-1)*PROJ_PER_PAGE+1}–{Math.min(projPage*PROJ_PER_PAGE,filtered.length)} / {filtered.length}건
                 </span>
               </div>
             )}
           </Card>
-          {cmpIds.length>=2&&<div style={{background:C.greenL,border:`1px solid ${C.green}`,borderRadius:10,padding:"10px 14px",display:"flex",alignItems:"center",justifyContent:"space-between",flexWrap:"wrap",gap:8}}>
+          {cmpIds.length>=2&&<div style={{background:C.greenL,border:`1px solid ${C.green}`,borderRadius:8,padding:"10px 14px",display:"flex",alignItems:"center",justifyContent:"space-between",flexWrap:"wrap",gap:8}}>
             <span style={{fontSize:13,color:"#27500A"}}><strong>{cmpIds.length}개 프로젝트</strong> 선택됨</span>
             <div style={{display:"flex",gap:6}}>
               <button onClick={()=>setView("compare")} style={S.btn(C.green)}>비용 비교</button>
@@ -3060,7 +3061,7 @@ function ProjectsTab({projects,setProjects,selProjId,setSelProjId,selVerIdx,setS
               {/* 서브탭 네비게이션 */}
               <div style={{display:"flex",gap:4,marginBottom:14,borderBottom:`2px solid var(--color-border-tertiary,#eee)`,paddingBottom:0}}>
                 {[["info","📐 프로젝트 정보"],["weekly","📋 주간보고"],["cashflow","💧 월수금"],["contract","📝 계약"],["expense","💸 지출"],["memo","📋 히스토리"]].map(([id,label])=>(
-                  <button key={id} onClick={()=>setDetailTab(id)} style={{padding:"9px 18px",border:"none",background:"none",fontSize:13.5,fontWeight:700,cursor:"pointer",color:detailTab===id?C.navyM:"var(--color-text-secondary,#888)",borderBottom:detailTab===id?`3px solid ${C.navyM}`:"3px solid transparent",marginBottom:-2,transition:"all .15s"}}>
+                  <button key={id} onClick={()=>setDetailTab(id)} style={{padding:"9px 18px",border:"none",background:"none",fontSize:13,fontWeight:700,cursor:"pointer",color:detailTab===id?C.navyM:"var(--color-text-secondary,#888)",borderBottom:detailTab===id?`3px solid ${C.navyM}`:"3px solid transparent",marginBottom:-2,transition:"all .15s"}}>
                     {label}
                   </button>
                 ))}
@@ -3133,9 +3134,9 @@ function ProjectsTab({projects,setProjects,selProjId,setSelProjId,selVerIdx,setS
               </Card>
 
               {/* 버전 선택 */}
-              <div style={{background:"#fff",borderRadius:14,border:"1px solid #E5E7EB",padding:"16px 20px",marginBottom:16,boxShadow:"0 1px 4px rgba(0,0,0,.05)"}}>
+              <div style={{background:"#fff",borderRadius:8,border:"1px solid #E5E7EB",padding:"16px 20px",marginBottom:16,boxShadow:"0 1px 4px rgba(0,0,0,.05)"}}>
                 <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:12,flexWrap:"wrap",gap:8}}>
-                  <div style={{fontSize:15,fontWeight:700,color:"#111827"}}>📋 실행계획서 회차</div>
+                  <div style={{fontSize:15,fontWeight:700,color:"#0F172A"}}>📋 실행계획서 회차</div>
                   <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
                     {canWrite&&<button onClick={()=>setShowNewVer(true)} style={{...S.btn(C.navyM),padding:"7px 14px",fontSize:13}}>+ 회차 추가</button>}
                     {canWrite&&<label style={{...S.btn(C.amberL,C.amber),padding:"7px 14px",fontSize:13,cursor:"pointer"}}>
@@ -3230,24 +3231,24 @@ function ProjectsTab({projects,setProjects,selProjId,setSelProjId,selVerIdx,setS
                 {/* 회차 카드 목록 */}
                 <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
                   {selProj.versions.length===0
-                    ? <div style={{width:"100%",padding:"20px",textAlign:"center",color:"#6B7280",fontSize:14,background:"#F8FAFC",borderRadius:10}}>아직 등록된 실행계획서가 없습니다.</div>
+                    ? <div style={{width:"100%",padding:"20px",textAlign:"center",color:"#64748B",fontSize:14,background:"#F8FAFC",borderRadius:8}}>아직 등록된 실행계획서가 없습니다.</div>
                     : selProj.versions.map((v,i)=>{
                         const active = i===selVerIdx
                         const [editRound, setEditRound] = [null, ()=>{}]  // placeholder — real edit below
                         return (
                           <div key={i} onClick={()=>setSelVerIdx(i)} style={{
-                            padding:"12px 16px",borderRadius:12,cursor:"pointer",minWidth:160,
-                            border:`2px solid ${active?C.navyM:"#E5E7EB"}`,
-                            background:active?"#EEF2FF":"#fff",
+                            padding:"12px 16px",borderRadius:8,cursor:"pointer",minWidth:160,
+                            border:`2px solid ${active?C.navyM:"#E2E8F0"}`,
+                            background:active?"#EFF6FF":"#fff",
                             boxShadow:active?"0 2px 8px rgba(59,114,246,.15)":"0 1px 3px rgba(0,0,0,.04)",
                             transition:"all .15s",position:"relative"
                           }}>
                             <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:4}}>
-                              <span style={{fontSize:20,fontWeight:800,color:active?C.navyM:"#374151"}}>{v.round||i+1}차</span>
-                              {canWrite&&<button onClick={e=>{e.stopPropagation();const nr=window.prompt(`"${v.ver}" 의 회차 번호를 수정하세요:`,v.round||i+1);if(nr!==null){const n=parseInt(nr)||v.round||i+1;setProjects(prev=>prev.map(p=>p.id===selProj.id?{...p,versions:p.versions.map((vv,vi)=>vi===i?{...vv,round:n,ver:`${n}차 실행계획서`}:vv)}:p))}}} style={{background:"none",border:"none",cursor:"pointer",fontSize:12,color:"#9CA3AF",padding:"2px 4px"}} title="회차 수정">✏</button>}
+                              <span style={{fontSize:20,fontWeight:800,color:active?C.navyM:"#334155"}}>{v.round||i+1}차</span>
+                              {canWrite&&<button onClick={e=>{e.stopPropagation();const nr=window.prompt(`"${v.ver}" 의 회차 번호를 수정하세요:`,v.round||i+1);if(nr!==null){const n=parseInt(nr)||v.round||i+1;setProjects(prev=>prev.map(p=>p.id===selProj.id?{...p,versions:p.versions.map((vv,vi)=>vi===i?{...vv,round:n,ver:`${n}차 실행계획서`}:vv)}:p))}}} style={{background:"none",border:"none",cursor:"pointer",fontSize:12,color:"#94A3B8",padding:"2px 4px"}} title="회차 수정">✏</button>}
                             </div>
-                            <div style={{fontSize:12,color:"#6B7280",fontWeight:500}}>{v.ver}</div>
-                            <div style={{fontSize:11,color:"#9CA3AF",marginTop:2}}>{v.date}</div>
+                            <div style={{fontSize:12,color:"#64748B",fontWeight:500}}>{v.ver}</div>
+                            <div style={{fontSize:11,color:"#94A3B8",marginTop:2}}>{v.date}</div>
                             {active&&<div style={{position:"absolute",top:8,right:10,width:8,height:8,borderRadius:"50%",background:C.navyM}}/>}
                           </div>
                         )
@@ -3358,7 +3359,7 @@ function VersionCompareCard({proj,selVerIdx}) {
   // 회차 부족 시: Hook 규칙 준수를 위해 ternary 사용
   const tooFewMsg = tooFew ? (
     <Card title="📊 회차별 비교 분석" note="실행계획서 2회차 이상부터 회차간 이윤 추이를 비교합니다.">
-      <div style={{padding:"12px 14px",borderRadius:10,background:C.grayL,color:C.gray,fontSize:13}}>
+      <div style={{padding:"12px 14px",borderRadius:8,background:C.grayL,color:C.gray,fontSize:13}}>
         회차가 2개 이상이면 회차간 금액 증감·이윤율 변화를 자동으로 비교합니다.<br/>
         위에서 "+ 회차 추가" 또는 실행계획서 업로드로 회차를 추가해주세요.
       </div>
@@ -3398,7 +3399,7 @@ function VersionCompareCard({proj,selVerIdx}) {
     <Card title="📊 회차별 실행계획서 비교 분석" note="회차 순서대로 각 항목의 금액 변화·이윤율 추이를 모니터링합니다.">
       {/* 요약 헤드라인 */}
       <div style={{display:"flex",gap:12,flexWrap:"wrap",marginBottom:16}}>
-        <div style={{background:isGood?C.greenL:C.redL,borderRadius:10,padding:"10px 16px",flex:1,minWidth:180}}>
+        <div style={{background:isGood?C.greenL:C.redL,borderRadius:8,padding:"10px 16px",flex:1,minWidth:180}}>
           <div style={{fontSize:11,color:isGood?C.green:C.red,fontWeight:600,marginBottom:3}}>1차 → {versions.length}차 이윤 변화</div>
           <div style={{fontSize:20,fontWeight:800,color:isGood?C.green:C.red}}>
             {isGood?"+":""}{fMoney(profitChange)}
@@ -3409,7 +3410,7 @@ function VersionCompareCard({proj,selVerIdx}) {
           const p=pnls[i]
           const rate=svc>0?+(p._profit/svc*100).toFixed(1):null
           return (
-            <div key={i} style={{background:selVerIdx===v._origIdx?"var(--color-background-primary,#fff)":C.grayL,borderRadius:10,padding:"10px 16px",flex:1,minWidth:140,border:`1px solid ${selVerIdx===v._origIdx?C.navyM:"transparent"}`}}>
+            <div key={i} style={{background:selVerIdx===v._origIdx?"var(--color-background-primary,#fff)":C.grayL,borderRadius:8,padding:"10px 16px",flex:1,minWidth:140,border:`1px solid ${selVerIdx===v._origIdx?C.navyM:"transparent"}`}}>
               <div style={{fontSize:11,fontWeight:700,color:C.gray,marginBottom:3}}>{v.round?`${v.round}차`:v.ver}</div>
               <div style={{fontSize:13,fontWeight:700,color:C.navy}}>{fMoney(p._profit)}</div>
               <div style={{fontSize:11,color:rate!=null&&rate<5?C.red:C.green}}>{rate!=null?`이윤율 ${rate}%`:"-"}</div>
@@ -3640,7 +3641,7 @@ function ProjectCashflowCard({proj,setProjects,canWrite}) {
             <button onClick={save} style={{...S.btn(C.green),padding:"5px 11px",fontSize:11}}>저장</button>
             <button onClick={cancel} style={{...S.btn(C.grayL,C.gray),padding:"5px 11px",fontSize:11}}>취소</button>
           </div>)}>
-      {years.length===0 && !editing && <div style={{padding:"12px 14px",borderRadius:10,background:C.grayL,color:C.gray,fontSize:13}}>아직 입력된 월수금계획이 없습니다. {canWrite&&"\"계획 입력\"으로 월별 기성 계획을 등록하세요."}</div>}
+      {years.length===0 && !editing && <div style={{padding:"12px 14px",borderRadius:8,background:C.grayL,color:C.gray,fontSize:13}}>아직 입력된 월수금계획이 없습니다. {canWrite&&"\"계획 입력\"으로 월별 기성 계획을 등록하세요."}</div>}
       {years.map(y=>(
         <div key={y} style={{marginBottom:14}}>
           <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:5}}>
@@ -3657,12 +3658,12 @@ function ProjectCashflowCard({proj,setProjects,canWrite}) {
                   const isCur =parseInt(y)===nowY&&(mi+1)===nowM
                   return (
                     <th key={m} style={{...S.th("right"),
-                      color:isCur?"#6366F1":isPast?"#6B7280":"#111827",
-                      background:isCur?"#EEF2FF":isPast?"#F9FAFB":"var(--color-background-secondary,#f8f8f6)",
+                      color:isCur?"#2563EB":isPast?"#64748B":"#0F172A",
+                      background:isCur?"#EFF6FF":isPast?"#F8FAFC":"var(--color-background-secondary,#f8f8f6)",
                       position:"relative"
                     }}>
                       {m}
-                      {isCur&&<div style={{position:"absolute",bottom:0,left:"50%",transform:"translateX(-50%)",width:4,height:4,borderRadius:"50%",background:"#6366F1"}}/>}
+                      {isCur&&<div style={{position:"absolute",bottom:0,left:"50%",transform:"translateX(-50%)",width:4,height:4,borderRadius:"50%",background:"#2563EB"}}/>}
                     </th>
                   )
                 })}
@@ -3689,8 +3690,8 @@ function ProjectCashflowCard({proj,setProjects,canWrite}) {
                           (field==="actual" && isFuture)     // 실적: 미래 비활성
                         )
                         const bgColor = disabled
-                          ? "#F3F4F6"
-                          : field==="plan"&&!isPast?"#EEF2FF"
+                          ? "#F8FAFC"
+                          : field==="plan"&&!isPast?"#EFF6FF"
                           : field==="actual"&&!isFuture?"#D1FAE5"
                           : undefined
                         return (
@@ -3705,7 +3706,7 @@ function ProjectCashflowCard({proj,setProjects,canWrite}) {
                                       ? "계획기성은 현재월 이후에만 입력 가능합니다"
                                       : "입금실적은 현재월까지만 입력 가능합니다"
                                     : undefined}
-                                  style={{...S.inp(58),background:bgColor,color:disabled?"#9CA3AF":"inherit",cursor:disabled?"not-allowed":"text"}}
+                                  style={{...S.inp(58),background:bgColor,color:disabled?"#94A3B8":"inherit",cursor:disabled?"not-allowed":"text"}}
                                 />
                               : <span style={{color:v>0?color:"var(--color-text-secondary,#aaa)",fontWeight:v>0?700:400}}>{v>0?v.toFixed(2):"-"}</span>}
                           </td>
@@ -3723,7 +3724,7 @@ function ProjectCashflowCard({proj,setProjects,canWrite}) {
 
       {summaryRows.length>0 && (
         <div style={{overflowX:"auto",marginTop:6}}>
-          <div style={{fontSize:12.5,color:C.gray,marginBottom:8}}>연도별 기성 현황 (단위: 억원, 용역비 {fE(serviceFeeEok)} 기준)</div>
+          <div style={{fontSize:13,color:C.gray,marginBottom:8}}>연도별 기성 현황 (단위: 억원, 용역비 {fE(serviceFeeEok)} 기준)</div>
           <table style={{width:"100%",borderCollapse:"collapse",minWidth:560}}>
             <thead><tr>
               <th style={S.th()}>연도</th>
@@ -3946,7 +3947,7 @@ function BenchProjects({projects,cmpIds,setCmpIds,allCats}) {
     <div>
       {/* 우수사례 요약 배너 */}
       {benchmarkProjs.length>0&&(
-        <div style={{background:"#D1FAE5",border:"2px solid #059669",borderRadius:12,padding:"12px 16px",marginBottom:14}}>
+        <div style={{background:"#D1FAE5",border:"2px solid #059669",borderRadius:8,padding:"12px 16px",marginBottom:14}}>
           <div style={{display:"flex",alignItems:"center",gap:10,flexWrap:"wrap"}}>
             <div style={{fontSize:14,fontWeight:800,color:"#065F46"}}>
               🏆 우수사례 프로젝트 (외주율 {Math.round(BENCH_MIN*100)}~{Math.round(BENCH_MAX*100)}%)
@@ -3955,8 +3956,8 @@ function BenchProjects({projects,cmpIds,setCmpIds,allCats}) {
               총 {benchmarkProjs.length}개 프로젝트 — 이 프로젝트들의 평당단가가 벤치마크 기준이 됩니다
             </div>
             <button onClick={()=>setShowBench(v=>!v)}
-              style={{marginLeft:"auto",padding:"5px 12px",background:showBench?"#059669":"#F3F4F6",
-                color:showBench?"#fff":"#6B7280",border:"none",borderRadius:8,fontSize:12,
+              style={{marginLeft:"auto",padding:"5px 12px",background:showBench?"#059669":"#F8FAFC",
+                color:showBench?"#fff":"#64748B",border:"none",borderRadius:8,fontSize:12,
                 fontWeight:700,cursor:"pointer"}}>
               {showBench?"✓ 벤치마크 표시 중":"벤치마크 표시"}
             </button>
@@ -3970,7 +3971,7 @@ function BenchProjects({projects,cmpIds,setCmpIds,allCats}) {
                 <div key={p.id} style={{background:"#fff",border:"1px solid #059669",borderRadius:8,
                   padding:"6px 12px",cursor:"pointer"}}
                   onClick={()=>setCmpIds(prev=>prev.includes(p.id)?prev:([...prev,p.id]))}>
-                  <div style={{fontSize:11.5,fontWeight:700,color:"#065F46",maxWidth:160,
+                  <div style={{fontSize:12,fontWeight:700,color:"#065F46",maxWidth:160,
                     overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{p.name.slice(0,20)}</div>
                   <div style={{fontSize:11,color:"#059669",fontWeight:800}}>외주율 {rate}%</div>
                 </div>
@@ -4032,13 +4033,13 @@ function BenchProjects({projects,cmpIds,setCmpIds,allCats}) {
                 <th style={{...S.th("right"),fontSize:10}} rowSpan={2}>최고<br/>평단</th>
                 <th style={{...S.th("right"),fontSize:10}} rowSpan={2}>차이</th>
               </tr>
-              <tr style={{background:"#EEF2FF"}}>
+              <tr style={{background:"#EFF6FF"}}>
                 {selPs.map(p=>(
                   <React.Fragment key={p.id}>
-                    <th style={{...S.th("right"),fontSize:10,color:"#6B7280",borderLeft:"2px solid #E5E7EB"}}>연면적㎡</th>
-                    <th style={{...S.th("right"),fontSize:10,color:"#6B7280"}}>평수</th>
+                    <th style={{...S.th("right"),fontSize:10,color:"#64748B",borderLeft:"2px solid #E5E7EB"}}>연면적㎡</th>
+                    <th style={{...S.th("right"),fontSize:10,color:"#64748B"}}>평수</th>
                     <th style={{...S.th("right"),fontSize:10,color:"#059669"}}>공종금액</th>
-                    <th style={{...S.th("right"),fontSize:10,color:"#6366F1",fontWeight:800}}>평당단가</th>
+                    <th style={{...S.th("right"),fontSize:10,color:"#2563EB",fontWeight:800}}>평당단가</th>
                   </React.Fragment>
                 ))}
               </tr>
@@ -4057,16 +4058,16 @@ function BenchProjects({projects,cmpIds,setCmpIds,allCats}) {
                       const isMin=it&&it.up===min&&selPs.length>1, isMax=it&&it.up===max&&selPs.length>1
                       return (
                         <React.Fragment key={p.id}>
-                          <td style={{...S.td("right"),fontSize:12,color:"#9CA3AF",borderLeft:"2px solid #E5E7EB"}}>{it?it.areaM2.toLocaleString():"-"}</td>
-                          <td style={{...S.td("right"),fontSize:12,color:"#9CA3AF"}}>{it?fPy(it.py):"-"}</td>
-                          <td style={{...S.td("right"),fontSize:12.5,color:"#059669",fontWeight:600}}>
+                          <td style={{...S.td("right"),fontSize:12,color:"#94A3B8",borderLeft:"2px solid #E5E7EB"}}>{it?it.areaM2.toLocaleString():"-"}</td>
+                          <td style={{...S.td("right"),fontSize:12,color:"#94A3B8"}}>{it?fPy(it.py):"-"}</td>
+                          <td style={{...S.td("right"),fontSize:13,color:"#059669",fontWeight:600}}>
                             {it?<>{fAmt(it.contract)}{it.nego2&&<div style={{fontSize:10,color:"#D97706"}}>↓{fAmt(it.nego2)}</div>}</>:"-"}
                           </td>
                           <td style={{...S.td("right"),fontWeight:isMin||isMax?700:500,color:isMin?"#059669":isMax?"#DC2626":"inherit",background:isMin?"#D1FAE5":isMax?"#FEE2E2":"transparent"}}>
                             {it?<>
-                              <div style={{fontSize:13.5}}>{Math.round(it.up).toLocaleString()}<span style={{fontSize:10,fontWeight:400}}>원/평</span></div>
+                              <div style={{fontSize:13}}>{Math.round(it.up).toLocaleString()}<span style={{fontSize:10,fontWeight:400}}>원/평</span></div>
                               {it.up2&&<div style={{fontSize:10,color:"#D97706"}}>→{Math.round(it.up2).toLocaleString()}원/평</div>}
-                              {it.vendor&&<div style={{fontSize:10,color:"#9CA3AF"}}>{it.vendor.slice(0,8)}</div>}
+                              {it.vendor&&<div style={{fontSize:10,color:"#94A3B8"}}>{it.vendor.slice(0,8)}</div>}
                             </>:"-"}
                           </td>
                         </React.Fragment>
@@ -4329,7 +4330,7 @@ function AuthTab({users,saveUsers,currentUser,hashPw}) {
     {id:"stats",      label:"📈 사용 통계"},
     {id:"gamify",     label:"🎮 포인트·랭킹"},
   ]
-  const PERM_OPTS = [{v:"rw",l:"읽기+쓰기",c:"#059669"},{v:"r",l:"읽기전용",c:"#6366F1"},{v:"hidden",l:"숨김",c:"#DC2626"}]
+  const PERM_OPTS = [{v:"rw",l:"읽기+쓰기",c:"#059669"},{v:"r",l:"읽기전용",c:"#2563EB"},{v:"hidden",l:"숨김",c:"#DC2626"}]
   const setTabPerm = (uid, tabId, perm) => {
     saveUsers(users.map(u=>u.id===uid?{...u,tabPerms:{...(u.tabPerms||{}),[tabId]:perm}}:u))
   }
@@ -4355,7 +4356,7 @@ function AuthTab({users,saveUsers,currentUser,hashPw}) {
   }
   return (
     <div>
-      <div style={{background:C.navyL,border:`0.5px solid ${C.navyM}`,borderRadius:10,padding:"12px 16px",marginBottom:14,display:"flex",gap:9,alignItems:"flex-start"}}>
+      <div style={{background:C.navyL,border:`0.5px solid ${C.navyM}`,borderRadius:8,padding:"12px 16px",marginBottom:14,display:"flex",gap:9,alignItems:"flex-start"}}>
         <i className="ti ti-lock" style={{fontSize:16,color:C.navyM,flexShrink:0,marginTop:1}} aria-hidden="true"/>
         <div style={{fontSize:12,color:C.navyM,lineHeight:1.7}}><strong>이메일 + 비밀번호 기반 인증.</strong> 관리자가 등록한 이메일로만 로그인 가능합니다. 비밀번호는 SHA-256으로 암호화하여 브라우저에 저장됩니다.</div>
       </div>
@@ -4400,19 +4401,19 @@ function AuthTab({users,saveUsers,currentUser,hashPw}) {
                     <td style={S.td("center")}>
                       <div style={{display:"flex",gap:4,justifyContent:"center",flexWrap:"wrap"}}>
                         <button onClick={()=>startEdit(u)} style={{...S.btn(C.navyL,C.navyM),padding:"4px 8px",fontSize:11}}>수정</button>
-                        <button onClick={()=>setPermUserId(permUserId===u.id?null:u.id)} style={{...S.btn(permUserId===u.id?"#4F46E5":"#F3F4F6",permUserId===u.id?"#fff":"#374151"),padding:"4px 8px",fontSize:11}}>탭권한</button>
+                        <button onClick={()=>setPermUserId(permUserId===u.id?null:u.id)} style={{...S.btn(permUserId===u.id?"#4F46E5":"#F8FAFC",permUserId===u.id?"#fff":"#334155"),padding:"4px 8px",fontSize:11}}>탭권한</button>
                         {u.id!==currentUser.id&&<button onClick={()=>{setPwResetId(u.id);setNewPwVal("");setPwMsg("")}} style={{...S.btn(C.amberL,C.amber),padding:"4px 8px",fontSize:11}}>비번</button>}
                         <button onClick={()=>toggleActive(u.id)} style={{...S.btn(u.active?C.redL:C.greenL,u.active?C.red:C.green),padding:"4px 8px",fontSize:11}}>{u.active?"비활":"활성"}</button>
                       </div>
                       {/* 탭별 권한 설정 패널 */}
                       {permUserId===u.id&&(
-                        <div style={{marginTop:8,background:"#F8F0FF",borderRadius:10,padding:"12px 14px",border:"1px solid #4F46E522",minWidth:320}}>
+                        <div style={{marginTop:8,background:"#F8F0FF",borderRadius:8,padding:"12px 14px",border:"1px solid #4F46E522",minWidth:320}}>
                           <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
-                            <div style={{fontSize:12.5,fontWeight:700,color:"#4F46E5"}}>🔐 탭별 접근 권한 — {u.name}</div>
+                            <div style={{fontSize:13,fontWeight:700,color:"#4F46E5"}}>🔐 탭별 접근 권한 — {u.name}</div>
                             <div style={{display:"flex",gap:5}}>
                               {["viewer","executive","admin"].map(role=>(
                                 <button key={role} onClick={()=>applyRoleDefaults(u.id,role)}
-                                  style={{padding:"3px 8px",background:"#EDE9FE",color:"#4F46E5",border:"none",borderRadius:6,fontSize:11,fontWeight:600,cursor:"pointer"}}>
+                                  style={{padding:"3px 8px",background:"#DBEAFE",color:"#4F46E5",border:"none",borderRadius:6,fontSize:11,fontWeight:600,cursor:"pointer"}}>
                                   {role==="admin"?"관리자기본":role==="executive"?"임원기본":"열람자기본"}
                                 </button>
                               ))}
@@ -4423,12 +4424,12 @@ function AuthTab({users,saveUsers,currentUser,hashPw}) {
                               const cur = (u.tabPerms||{})[t.id] || (u.write?"rw":"r")
                               return (
                                 <div key={t.id} style={{display:"flex",alignItems:"center",gap:6,background:"#fff",borderRadius:8,padding:"6px 10px"}}>
-                                  <span style={{flex:1,fontSize:12.5,color:"#374151"}}>{t.label}</span>
+                                  <span style={{flex:1,fontSize:13,color:"#334155"}}>{t.label}</span>
                                   <div style={{display:"flex",gap:3}}>
                                     {PERM_OPTS.map(opt=>(
                                       <button key={opt.v} onClick={()=>setTabPerm(u.id,t.id,opt.v)}
-                                        style={{padding:"3px 7px",border:`1.5px solid ${cur===opt.v?opt.c:"#E5E7EB"}`,borderRadius:6,
-                                          background:cur===opt.v?opt.c+"18":"#fff",color:cur===opt.v?opt.c:"#9CA3AF",
+                                        style={{padding:"3px 7px",border:`1.5px solid ${cur===opt.v?opt.c:"#E2E8F0"}`,borderRadius:6,
+                                          background:cur===opt.v?opt.c+"18":"#fff",color:cur===opt.v?opt.c:"#94A3B8",
                                           fontSize:11,fontWeight:cur===opt.v?700:400,cursor:"pointer",whiteSpace:"nowrap"}}>
                                         {opt.l}
                                       </button>
@@ -4438,7 +4439,7 @@ function AuthTab({users,saveUsers,currentUser,hashPw}) {
                               )
                             })}
                           </div>
-                          <div style={{marginTop:8,fontSize:11,color:"#9CA3AF"}}>
+                          <div style={{marginTop:8,fontSize:11,color:"#94A3B8"}}>
                             🟢 읽기+쓰기: 조회·수정 가능 &nbsp;|&nbsp; 🔵 읽기전용: 조회만 가능 &nbsp;|&nbsp; 🔴 숨김: 메뉴에서 완전 숨김
                           </div>
                         </div>
@@ -4572,40 +4573,40 @@ function NewProjModal({onClose,onSave,initial=null}) {
               <F label="세대수" val={f.units||0} onChange={v=>u("units",parseInt(v)||0)} type="number"/>
             </div>
             {/* 계약연도 + 설계변경 */}
-            <div style={{background:"#EEF2FF",borderRadius:10,padding:"14px 16px",marginTop:8}}>
-              <div style={{fontSize:13,fontWeight:800,color:"#312E81",marginBottom:10}}>📅 계약연도 설정 (당해연도 신규 계약 구분용)</div>
+            <div style={{background:"#EFF6FF",borderRadius:8,padding:"14px 16px",marginTop:8}}>
+              <div style={{fontSize:13,fontWeight:800,color:"#1E3A8A",marginBottom:10}}>📅 계약연도 설정 (당해연도 신규 계약 구분용)</div>
               <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:12}}>
                 <div>
-                  <label style={{fontSize:12,fontWeight:700,color:"#374151",display:"block",marginBottom:5}}>
+                  <label style={{fontSize:12,fontWeight:700,color:"#334155",display:"block",marginBottom:5}}>
                     계약 체결 연도 *
-                    <span style={{fontSize:11,color:"#6B7280",fontWeight:400,marginLeft:6}}>실제 계약이 체결된 연도</span>
+                    <span style={{fontSize:11,color:"#64748B",fontWeight:400,marginLeft:6}}>실제 계약이 체결된 연도</span>
                   </label>
                   <input type="number" min={2000} max={2100} value={f.contractYear||new Date().getFullYear()} onChange={e=>u("contractYear",parseInt(e.target.value)||new Date().getFullYear())}
-                    style={{padding:"8px 12px",border:"1.5px solid #C7D2FE",borderRadius:9,fontSize:14,width:"100%",boxSizing:"border-box",fontFamily:"inherit",outline:"none",background:"#fff",fontWeight:700,color:"#312E81"}}/>
-                  <div style={{fontSize:11,color:"#6B7280",marginTop:4}}>예: 2024년에 계약된 프로젝트 → 2024 입력</div>
+                    style={{padding:"8px 12px",border:"1.5px solid #C7D2FE",borderRadius:6,fontSize:14,width:"100%",boxSizing:"border-box",fontFamily:"inherit",outline:"none",background:"#fff",fontWeight:700,color:"#1E3A8A"}}/>
+                  <div style={{fontSize:11,color:"#64748B",marginTop:4}}>예: 2024년에 계약된 프로젝트 → 2024 입력</div>
                 </div>
                 <div>
-                  <label style={{fontSize:12,fontWeight:700,color:"#374151",display:"block",marginBottom:5}}>설계변경/증액 여부</label>
+                  <label style={{fontSize:12,fontWeight:700,color:"#334155",display:"block",marginBottom:5}}>설계변경/증액 여부</label>
                   <div style={{display:"flex",gap:8,marginTop:4}}>
                     {[["false","일반 계약"],["true","설계변경·증액"]].map(([val,label])=>(
                       <button key={val} type="button"
                         onClick={()=>u("isAmendment",val==="true")}
-                        style={{padding:"8px 14px",border:`2px solid ${String(f.isAmendment||false)===val?"#D97706":"#E5E7EB"}`,borderRadius:9,fontSize:13,fontWeight:600,cursor:"pointer",
+                        style={{padding:"8px 14px",border:`2px solid ${String(f.isAmendment||false)===val?"#D97706":"#E2E8F0"}`,borderRadius:6,fontSize:13,fontWeight:600,cursor:"pointer",
                           background:String(f.isAmendment||false)===val?"#FEF3C7":"#fff",
-                          color:String(f.isAmendment||false)===val?"#92400E":"#6B7280",flex:1}}>
+                          color:String(f.isAmendment||false)===val?"#92400E":"#64748B",flex:1}}>
                         {label}
                       </button>
                     ))}
                   </div>
                 </div>
                 <div>
-                  <label style={{fontSize:12,fontWeight:700,color:"#374151",display:"block",marginBottom:5}}>
+                  <label style={{fontSize:12,fontWeight:700,color:"#334155",display:"block",marginBottom:5}}>
                     원계약 프로젝트명
-                    <span style={{fontSize:11,color:"#6B7280",fontWeight:400,marginLeft:6}}>설계변경일 경우</span>
+                    <span style={{fontSize:11,color:"#64748B",fontWeight:400,marginLeft:6}}>설계변경일 경우</span>
                   </label>
                   <input list="parent-proj-list" value={f.parentProjName||""} onChange={e=>u("parentProjName",e.target.value)}
                     placeholder="원계약 프로젝트명 검색..."
-                    style={{padding:"8px 12px",border:"1.5px solid #E5E7EB",borderRadius:9,fontSize:13,width:"100%",boxSizing:"border-box",fontFamily:"inherit",outline:"none",background:"#fff"}}/>
+                    style={{padding:"8px 12px",border:"1.5px solid #E5E7EB",borderRadius:6,fontSize:13,width:"100%",boxSizing:"border-box",fontFamily:"inherit",outline:"none",background:"#fff"}}/>
                   <datalist id="parent-proj-list">
                     {(f._allProjects||[]).map(p=><option key={p} value={p}/>)}
                   </datalist>
@@ -4613,13 +4614,13 @@ function NewProjModal({onClose,onSave,initial=null}) {
               </div>
               {/* 설계변경 상세 - 증액금액/사유 */}
               {f.isAmendment&&(
-                <div style={{marginTop:12,background:"#FEF3C7",borderRadius:9,padding:"12px 14px",border:"1px solid #D97706"}}>
+                <div style={{marginTop:12,background:"#FEF3C7",borderRadius:6,padding:"12px 14px",border:"1px solid #D97706"}}>
                   <div style={{fontSize:12,fontWeight:700,color:"#92400E",marginBottom:10}}>⚙ 설계변경·증액 상세</div>
                   <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
                     <div>
-                      <label style={{fontSize:12,fontWeight:700,color:"#374151",display:"block",marginBottom:4}}>
+                      <label style={{fontSize:12,fontWeight:700,color:"#334155",display:"block",marginBottom:4}}>
                         증액 금액 — 원(₩)
-                        <span style={{fontSize:11,color:"#6B7280",fontWeight:400,marginLeft:6}}>증액분만 입력</span>
+                        <span style={{fontSize:11,color:"#64748B",fontWeight:400,marginLeft:6}}>증액분만 입력</span>
                       </label>
                       <input type="number" value={f.amendAmount||""} onChange={e=>u("amendAmount",parseInt(e.target.value)||0)}
                         placeholder="예: 204000000"
@@ -4627,7 +4628,7 @@ function NewProjModal({onClose,onSave,initial=null}) {
                       {(f.amendAmount||0)>0&&<div style={{fontSize:12,color:"#D97706",marginTop:3,fontWeight:700}}>= {((f.amendAmount||0)/1e8).toFixed(2)}억</div>}
                     </div>
                     <div>
-                      <label style={{fontSize:12,fontWeight:700,color:"#374151",display:"block",marginBottom:4}}>증액 사유</label>
+                      <label style={{fontSize:12,fontWeight:700,color:"#334155",display:"block",marginBottom:4}}>증액 사유</label>
                       <input value={f.amendReason||""} onChange={e=>u("amendReason",e.target.value)}
                         placeholder="예: 설계변경, 물가상승, 공사비 증가"
                         style={{padding:"8px 10px",border:"1.5px solid #E5E7EB",borderRadius:8,fontSize:13,width:"100%",boxSizing:"border-box",fontFamily:"inherit",outline:"none",background:"#fff"}}/>
@@ -4636,10 +4637,10 @@ function NewProjModal({onClose,onSave,initial=null}) {
                 </div>
               )}
             <div style={{marginTop:8}}>
-              <div style={{fontSize:13,fontWeight:700,color:"#374151",marginBottom:8,display:"flex",justifyContent:"space-between"}}>
+              <div style={{fontSize:13,fontWeight:700,color:"#334155",marginBottom:8,display:"flex",justifyContent:"space-between"}}>
                 실무담당자
                 <button type="button" onClick={()=>u("staffMembers",[...(f.staffMembers||[]),{name:"",title:"",tel:"",email:""}])}
-                  style={{padding:"3px 10px",background:"#EEF2FF",color:"#6366F1",border:"none",borderRadius:6,fontSize:12,fontWeight:700,cursor:"pointer"}}>+ 추가</button>
+                  style={{padding:"3px 10px",background:"#EFF6FF",color:"#2563EB",border:"none",borderRadius:6,fontSize:12,fontWeight:700,cursor:"pointer"}}>+ 추가</button>
               </div>
               {(f.staffMembers||[]).map((m,mi)=>(
                 <div key={mi} style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr 1fr auto",gap:8,marginBottom:8,alignItems:"end"}}>
@@ -4682,27 +4683,27 @@ function NewProjModal({onClose,onSave,initial=null}) {
             {/* 용역기간 */}
             <div style={{marginTop:10,marginBottom:4}}>
               <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:7}}>
-                <span style={{fontSize:12,fontWeight:700,color:"#374151"}}>📅 용역기간</span>
+                <span style={{fontSize:12,fontWeight:700,color:"#334155"}}>📅 용역기간</span>
                 <button onClick={()=>u("servicePeriods",[...(f.servicePeriods||[]),{from:"",to:"",note:""}])}
-                  style={{padding:"4px 10px",background:"#EEF2FF",color:"#6366F1",border:"none",borderRadius:7,fontSize:12,fontWeight:700,cursor:"pointer"}}>+ 기간 추가</button>
+                  style={{padding:"4px 10px",background:"#EFF6FF",color:"#2563EB",border:"none",borderRadius:7,fontSize:12,fontWeight:700,cursor:"pointer"}}>+ 기간 추가</button>
               </div>
-              {(f.servicePeriods||[]).length===0&&<div style={{fontSize:12,color:"#9CA3AF",padding:"8px 0"}}>용역기간을 추가하세요.</div>}
+              {(f.servicePeriods||[]).length===0&&<div style={{fontSize:12,color:"#94A3B8",padding:"8px 0"}}>용역기간을 추가하세요.</div>}
               {(f.servicePeriods||[]).map((sp,i)=>{
                 const fromD=sp.from?new Date(sp.from):null
                 const toD=sp.to?new Date(sp.to):null
                 const diffDays=fromD&&toD?Math.round((toD-fromD)/(1000*60*60*24)):null
                 const diffMonths=diffDays!=null?Math.floor(diffDays/30.44):null
                 return (
-                  <div key={i} style={{display:"flex",gap:7,alignItems:"flex-start",marginBottom:7,background:"#F8FAFC",borderRadius:9,padding:"9px 11px",border:"1px solid #E5E7EB"}}>
+                  <div key={i} style={{display:"flex",gap:7,alignItems:"flex-start",marginBottom:7,background:"#F8FAFC",borderRadius:6,padding:"9px 11px",border:"1px solid #E5E7EB"}}>
                     <div style={{display:"flex",flexDirection:"column",gap:4}}>
                       <div style={{display:"flex",gap:7,alignItems:"center"}}>
                         <div>
-                          <label style={{fontSize:11,color:"#6B7280",display:"block",marginBottom:2}}>시작일</label>
+                          <label style={{fontSize:11,color:"#64748B",display:"block",marginBottom:2}}>시작일</label>
                           <input type="date" value={sp.from||""} onChange={e=>{const a=[...(f.servicePeriods||[])];a[i]={...a[i],from:e.target.value};u("servicePeriods",a)}} style={{...S.inp(),padding:"5px 8px",fontSize:12,width:140}}/>
                         </div>
-                        <div style={{alignSelf:"flex-end",paddingBottom:5,color:"#6B7280"}}>~</div>
+                        <div style={{alignSelf:"flex-end",paddingBottom:5,color:"#64748B"}}>~</div>
                         <div>
-                          <label style={{fontSize:11,color:"#6B7280",display:"block",marginBottom:2}}>종료일</label>
+                          <label style={{fontSize:11,color:"#64748B",display:"block",marginBottom:2}}>종료일</label>
                           <input type="date" value={sp.to||""} onChange={e=>{const a=[...(f.servicePeriods||[])];a[i]={...a[i],to:e.target.value};u("servicePeriods",a)}} style={{...S.inp(),padding:"5px 8px",fontSize:12,width:140}}/>
                         </div>
                         {diffDays!=null&&(
@@ -4726,42 +4727,42 @@ function NewProjModal({onClose,onSave,initial=null}) {
             {/* 보증서 현황 */}
             <div style={{marginTop:10,marginBottom:4}}>
               <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:7}}>
-                <span style={{fontSize:12,fontWeight:700,color:"#374151"}}>🛡 보증서 현황</span>
+                <span style={{fontSize:12,fontWeight:700,color:"#334155"}}>🛡 보증서 현황</span>
                 <button onClick={()=>u("guarantees",[...(f.guarantees||[]),{type:"계약보증",amount:0,from:"",to:"",issuer:"",manager:"",note:""}])}
                   style={{padding:"4px 10px",background:"#FEF3C7",color:"#D97706",border:"none",borderRadius:7,fontSize:12,fontWeight:700,cursor:"pointer"}}>+ 보증서 추가</button>
               </div>
-              {(f.guarantees||[]).length===0&&<div style={{fontSize:12,color:"#9CA3AF",padding:"8px 0"}}>보증서를 추가하세요.</div>}
+              {(f.guarantees||[]).length===0&&<div style={{fontSize:12,color:"#94A3B8",padding:"8px 0"}}>보증서를 추가하세요.</div>}
               {(f.guarantees||[]).map((g,i)=>(
-                <div key={i} style={{background:"#FFFBEB",borderRadius:9,padding:"10px 12px",border:"1px solid #FDE68A",marginBottom:7}}>
+                <div key={i} style={{background:"#FFFBEB",borderRadius:6,padding:"10px 12px",border:"1px solid #FDE68A",marginBottom:7}}>
                   <div style={{display:"flex",gap:7,flexWrap:"wrap",alignItems:"flex-end"}}>
                     <div style={{minWidth:110}}>
-                      <label style={{fontSize:11,color:"#6B7280",display:"block",marginBottom:2}}>보증 구분</label>
+                      <label style={{fontSize:11,color:"#64748B",display:"block",marginBottom:2}}>보증 구분</label>
                       <select value={g.type} onChange={e=>{const a=[...(f.guarantees||[])];a[i]={...a[i],type:e.target.value};u("guarantees",a)}} style={{...S.inp(),padding:"5px 8px",fontSize:12}}>
                         {["계약보증","하자보증","선급금보증","이행보증","지급보증"].map(t=><option key={t}>{t}</option>)}
                       </select>
                     </div>
                     <div style={{minWidth:120}}>
-                      <label style={{fontSize:11,color:"#6B7280",display:"block",marginBottom:2}}>보증금액(원)</label>
+                      <label style={{fontSize:11,color:"#64748B",display:"block",marginBottom:2}}>보증금액(원)</label>
                       <input type="number" value={g.amount||""} onChange={e=>{const a=[...(f.guarantees||[])];a[i]={...a[i],amount:parseInt(e.target.value)||0};u("guarantees",a)}} style={{...S.inp(),padding:"5px 8px",fontSize:12}}/>
                     </div>
                     <div style={{minWidth:120}}>
-                      <label style={{fontSize:11,color:"#6B7280",display:"block",marginBottom:2}}>보증기간 시작</label>
+                      <label style={{fontSize:11,color:"#64748B",display:"block",marginBottom:2}}>보증기간 시작</label>
                       <input type="date" value={g.from||""} onChange={e=>{const a=[...(f.guarantees||[])];a[i]={...a[i],from:e.target.value};u("guarantees",a)}} style={{...S.inp(),padding:"5px 8px",fontSize:12,width:130}}/>
                     </div>
                     <div style={{minWidth:120}}>
-                      <label style={{fontSize:11,color:"#6B7280",display:"block",marginBottom:2}}>보증기간 종료</label>
+                      <label style={{fontSize:11,color:"#64748B",display:"block",marginBottom:2}}>보증기간 종료</label>
                       <input type="date" value={g.to||""} onChange={e=>{const a=[...(f.guarantees||[])];a[i]={...a[i],to:e.target.value};u("guarantees",a)}} style={{...S.inp(),padding:"5px 8px",fontSize:12,width:130}}/>
                     </div>
                     <div style={{minWidth:100}}>
-                      <label style={{fontSize:11,color:"#6B7280",display:"block",marginBottom:2}}>보증처</label>
+                      <label style={{fontSize:11,color:"#64748B",display:"block",marginBottom:2}}>보증처</label>
                       <input value={g.issuer||""} onChange={e=>{const a=[...(f.guarantees||[])];a[i]={...a[i],issuer:e.target.value};u("guarantees",a)}} placeholder="서울보증보험" style={{...S.inp(),padding:"5px 8px",fontSize:12}}/>
                     </div>
                     <div style={{minWidth:80}}>
-                      <label style={{fontSize:11,color:"#6B7280",display:"block",marginBottom:2}}>담당</label>
+                      <label style={{fontSize:11,color:"#64748B",display:"block",marginBottom:2}}>담당</label>
                       <input value={g.manager||""} onChange={e=>{const a=[...(f.guarantees||[])];a[i]={...a[i],manager:e.target.value};u("guarantees",a)}} placeholder="담당자" style={{...S.inp(),padding:"5px 8px",fontSize:12}}/>
                     </div>
                     <div style={{flex:1,minWidth:120}}>
-                      <label style={{fontSize:11,color:"#6B7280",display:"block",marginBottom:2}}>비고</label>
+                      <label style={{fontSize:11,color:"#64748B",display:"block",marginBottom:2}}>비고</label>
                       <input value={g.note||""} onChange={e=>{const a=[...(f.guarantees||[])];a[i]={...a[i],note:e.target.value};u("guarantees",a)}} placeholder="비고" style={{...S.inp(),padding:"5px 8px",fontSize:12}}/>
                     </div>
                     <button onClick={()=>u("guarantees",(f.guarantees||[]).filter((_,ri)=>ri!==i))}
@@ -4777,17 +4778,17 @@ function NewProjModal({onClose,onSave,initial=null}) {
             {/* 계약 특수조건 */}
             <div style={{marginTop:10}}>
               <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:7}}>
-                <span style={{fontSize:12,fontWeight:700,color:"#374151"}}>📋 계약 특수조건 (히스토리)</span>
+                <span style={{fontSize:12,fontWeight:700,color:"#334155"}}>📋 계약 특수조건 (히스토리)</span>
                 <button onClick={()=>{
                   const today=new Date().toISOString().slice(0,10)
                   u("contractSpecials",[...(f.contractSpecials||[]),{date:today,title:"",items:[""]}])
-                }} style={{padding:"4px 10px",background:"#EDE9FE",color:"#7C3AED",border:"none",borderRadius:7,fontSize:12,fontWeight:700,cursor:"pointer"}}>+ 특수조건 추가</button>
+                }} style={{padding:"4px 10px",background:"#DBEAFE",color:"#7C3AED",border:"none",borderRadius:7,fontSize:12,fontWeight:700,cursor:"pointer"}}>+ 특수조건 추가</button>
               </div>
-              {(f.contractSpecials||[]).length===0&&<div style={{fontSize:12,color:"#9CA3AF",padding:"8px 0"}}>계약 특수조건을 추가하면 프로젝트 히스토리에도 자동 기록됩니다.</div>}
+              {(f.contractSpecials||[]).length===0&&<div style={{fontSize:12,color:"#94A3B8",padding:"8px 0"}}>계약 특수조건을 추가하면 프로젝트 히스토리에도 자동 기록됩니다.</div>}
               {[...(f.contractSpecials||[])].reverse().map((cs,ri)=>{
                 const i=(f.contractSpecials||[]).length-1-ri
                 return (
-                  <div key={i} style={{background:"#FAF5FF",border:"1px solid #DDD6FE",borderRadius:10,padding:"12px 14px",marginBottom:8}}>
+                  <div key={i} style={{background:"#FAF5FF",border:"1px solid #DDD6FE",borderRadius:8,padding:"12px 14px",marginBottom:8}}>
                     <div style={{display:"flex",gap:8,alignItems:"center",marginBottom:8}}>
                       <input type="date" value={cs.date||""} onChange={e=>{const a=[...(f.contractSpecials||[])];a[i]={...a[i],date:e.target.value};u("contractSpecials",a)}}
                         style={{...S.inp(),padding:"4px 8px",fontSize:12,width:130}}/>
@@ -4801,13 +4802,13 @@ function NewProjModal({onClose,onSave,initial=null}) {
                         <span style={{color:"#7C3AED",fontWeight:700,fontSize:13,flexShrink:0}}>—</span>
                         <input value={item} onChange={e=>{const a=[...(f.contractSpecials||[])];const its=[...(a[i].items||[])];its[ii]=e.target.value;a[i]={...a[i],items:its};u("contractSpecials",a)}}
                           placeholder="조건 내용 입력 (예: 계획설계, 중간설계, 실시설계, 인허가, 인증업무...)"
-                          style={{...S.inp(),padding:"5px 9px",fontSize:12.5,flex:1}}/>
+                          style={{...S.inp(),padding:"5px 9px",fontSize:13,flex:1}}/>
                         <button onClick={()=>{const a=[...(f.contractSpecials||[])];const its=(a[i].items||[]).filter((_,rii)=>rii!==ii);a[i]={...a[i],items:its};u("contractSpecials",a)}}
-                          style={{background:"none",border:"none",cursor:"pointer",color:"#9CA3AF",fontSize:14,flexShrink:0}}>✕</button>
+                          style={{background:"none",border:"none",cursor:"pointer",color:"#94A3B8",fontSize:14,flexShrink:0}}>✕</button>
                       </div>
                     ))}
                     <button onClick={()=>{const a=[...(f.contractSpecials||[])];a[i]={...a[i],items:[...(a[i].items||[]),""]};u("contractSpecials",a)}}
-                      style={{padding:"4px 10px",background:"#EDE9FE",color:"#7C3AED",border:"none",borderRadius:6,fontSize:11.5,fontWeight:600,cursor:"pointer",marginTop:3}}>
+                      style={{padding:"4px 10px",background:"#DBEAFE",color:"#7C3AED",border:"none",borderRadius:6,fontSize:12,fontWeight:600,cursor:"pointer",marginTop:3}}>
                       + 항목 추가
                     </button>
                   </div>
@@ -4818,15 +4819,15 @@ function NewProjModal({onClose,onSave,initial=null}) {
             <F label="주소" val={f.address} onChange={v=>u("address",v)}/><F label="비고" val={f.note} onChange={v=>u("note",v)}/>
           </>},
           {title:"공동이행체 / 분담이행체",content:<>
-            {(f.jvMembers||[]).length===0&&<div style={{fontSize:12,color:"#9CA3AF",padding:"4px 0 8px"}}>아래 "+ 업체 추가"로 구성원을 추가하세요. (단독이행이면 비워두세요)</div>}
+            {(f.jvMembers||[]).length===0&&<div style={{fontSize:12,color:"#94A3B8",padding:"4px 0 8px"}}>아래 "+ 업체 추가"로 구성원을 추가하세요. (단독이행이면 비워두세요)</div>}
             <div style={{marginBottom:8}}>
               <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6}}>
-                <span style={{fontSize:12,fontWeight:700,color:"#6B7280"}}>수급 구성원 (상지서울 포함)</span>
+                <span style={{fontSize:12,fontWeight:700,color:"#64748B"}}>수급 구성원 (상지서울 포함)</span>
                 <button onClick={()=>u("jvMembers",[...(f.jvMembers||[]),{name:"",ratio:0,amount:0,role:"공동이행(주관사)",amountManual:false}])}
-                  style={{padding:"4px 10px",background:"#EEF2FF",color:"#6366F1",border:"none",borderRadius:7,fontSize:12,fontWeight:700,cursor:"pointer"}}>+ 업체 추가</button>
+                  style={{padding:"4px 10px",background:"#EFF6FF",color:"#2563EB",border:"none",borderRadius:7,fontSize:12,fontWeight:700,cursor:"pointer"}}>+ 업체 추가</button>
               </div>
               {(f.jvMembers||[]).map((m,i)=>(
-                <div key={i} style={{display:"flex",gap:7,alignItems:"flex-start",marginBottom:6,background:"#F8FAFC",borderRadius:9,padding:"8px 10px",border:"1px solid #E5E7EB",flexWrap:"wrap"}}>
+                <div key={i} style={{display:"flex",gap:7,alignItems:"flex-start",marginBottom:6,background:"#F8FAFC",borderRadius:6,padding:"8px 10px",border:"1px solid #E5E7EB",flexWrap:"wrap"}}>
                   <div style={{flex:2,minWidth:140}}>
                     <label style={{...S.lbl(),marginBottom:2}}>업체명</label>
                     <input value={m.name} onChange={e=>{const a=[...(f.jvMembers||[])];a[i]={...a[i],name:e.target.value};u("jvMembers",a)}} placeholder="(주)○○건축사사무소" style={{...S.inp(),padding:"6px 9px",fontSize:13}}/>
@@ -4839,11 +4840,11 @@ function NewProjModal({onClose,onSave,initial=null}) {
                     <label style={{...S.lbl(),marginBottom:2}}>금액(원) {m.amountManual&&<span style={{fontSize:10,color:"#D97706",fontWeight:700}}>수기</span>}</label>
                     <div style={{display:"flex",gap:3,alignItems:"center"}}>
                       <input type="number" value={m.amount||""} onChange={e=>{const a=[...(f.jvMembers||[])];a[i]={...a[i],amount:parseInt(e.target.value)||0,amountManual:true};u("jvMembers",a)}}
-                        style={{...S.inp(),padding:"6px 9px",fontSize:12,flex:1,color:"#6366F1",fontWeight:700}}/>
+                        style={{...S.inp(),padding:"6px 9px",fontSize:12,flex:1,color:"#2563EB",fontWeight:700}}/>
                       {m.amountManual&&<button title="지분율 자동계산 복원" onClick={()=>{const a=[...(f.jvMembers||[])];a[i]={...a[i],amount:Math.round((f.totalFee||0)*m.ratio/100),amountManual:false};u("jvMembers",a)}}
-                        style={{padding:"3px 6px",background:"#EEF2FF",color:"#6366F1",border:"none",borderRadius:5,fontSize:10,cursor:"pointer",flexShrink:0}}>↩자동</button>}
+                        style={{padding:"3px 6px",background:"#EFF6FF",color:"#2563EB",border:"none",borderRadius:5,fontSize:10,cursor:"pointer",flexShrink:0}}>↩자동</button>}
                     </div>
-                    {!m.amountManual&&m.ratio>0&&<div style={{fontSize:10,color:"#6B7280",marginTop:1}}>총설계비×{m.ratio}%</div>}
+                    {!m.amountManual&&m.ratio>0&&<div style={{fontSize:10,color:"#64748B",marginTop:1}}>총설계비×{m.ratio}%</div>}
                   </div>
                   <div style={{flex:1,minWidth:140}}>
                     <label style={{...S.lbl(),marginBottom:2}}>역할</label>
@@ -4855,10 +4856,10 @@ function NewProjModal({onClose,onSave,initial=null}) {
                 </div>
               ))}
               {(f.jvMembers||[]).length>0&&(
-                <div style={{display:"flex",gap:12,padding:"8px 12px",background:"#EEF2FF",borderRadius:9,fontSize:13}}>
-                  <span style={{fontWeight:700,color:"#312E81"}}>총 지분율: {(f.jvMembers||[]).reduce((s,m)=>s+(m.ratio||0),0).toFixed(1)}%</span>
-                  <span style={{color:"#6B7280"}}>총 금액: ₩{(f.jvMembers||[]).reduce((s,m)=>s+(m.amount||0),0).toLocaleString()}</span>
-                  <span style={{color:"#6B7280",fontSize:12}}>
+                <div style={{display:"flex",gap:12,padding:"8px 12px",background:"#EFF6FF",borderRadius:6,fontSize:13}}>
+                  <span style={{fontWeight:700,color:"#1E3A8A"}}>총 지분율: {(f.jvMembers||[]).reduce((s,m)=>s+(m.ratio||0),0).toFixed(1)}%</span>
+                  <span style={{color:"#64748B"}}>총 금액: ₩{(f.jvMembers||[]).reduce((s,m)=>s+(m.amount||0),0).toLocaleString()}</span>
+                  <span style={{color:"#64748B",fontSize:12}}>
                     {(f.jvMembers||[]).map(m=>`${m.name||"(업체명)"}: ${m.role||""}`).join(" / ")}
                   </span>
                 </div>
@@ -4887,7 +4888,7 @@ function NewProjModal({onClose,onSave,initial=null}) {
           onSave(saved)
         }} style={S.btn(C.navyM)}>{initial?"✓ 저장":"✓ 등록"}</button>
           <button onClick={onClose} style={S.btn(C.grayL,C.gray)}>취소</button>
-          {shareSum!==100 && <span style={{fontSize:11.5,color:C.red}}>본부 지분율 합계가 100%가 아닙니다 ({shareSum}%)</span>}
+          {shareSum!==100 && <span style={{fontSize:12,color:C.red}}>본부 지분율 합계가 100%가 아닙니다 ({shareSum}%)</span>}
         </div>
       </div>
     </div>
@@ -4989,7 +4990,7 @@ function NewVerModal({proj,onClose,onSave}) {
               <div style={{fontSize:12,color:C.gray,marginTop:4}}>자동: {fE(Math.round(pnl.direct*0.083)/1e8)}</div>
             </div>
             <div style={{display:"flex",flexDirection:"column",justifyContent:"flex-end"}}>
-              <div style={{background:C.navyL,borderRadius:10,padding:"12px 16px"}}>
+              <div style={{background:C.navyL,borderRadius:8,padding:"12px 16px"}}>
                 <div style={{fontSize:12,color:C.navyM,marginBottom:4}}>예상 합계</div>
                 <div style={{fontSize:22,fontWeight:800,color:C.navy}}>{fE(pnl.total/1e8)}</div>
                 <div style={{fontSize:12,color:C.gray,marginTop:2}}>
@@ -5000,7 +5001,7 @@ function NewVerModal({proj,onClose,onSave}) {
           </div>
 
           {proj.serviceFee>0 && (
-            <div style={{marginTop:10,padding:"10px 14px",borderRadius:9,background:C.greenL||"#EAF3DE",fontSize:13}}>
+            <div style={{marginTop:10,padding:"10px 14px",borderRadius:6,background:C.greenL||"#EAF3DE",fontSize:13}}>
               💡 용역비 대비 이윤율: <b style={{color:C.green,fontSize:15}}>{(pnl.profit/proj.serviceFee*100).toFixed(1)}%</b>
               <span style={{color:C.gray,marginLeft:8}}>(용역비 {fE(proj.serviceFee)})</span>
             </div>
@@ -5016,7 +5017,7 @@ function NewVerModal({proj,onClose,onSave}) {
 
           {/* 추가 폼 */}
           {showAddV && (
-            <div style={{background:C.navyL,borderRadius:10,padding:"14px 16px",marginBottom:14}}>
+            <div style={{background:C.navyL,borderRadius:8,padding:"14px 16px",marginBottom:14}}>
               <div style={{fontSize:14,fontWeight:700,color:C.navyM,marginBottom:10}}>새 협력업체 추가</div>
               <div style={S.grid(5,10)}>
                 <div><label style={S.lbl()}>분야</label><input value={newV.cat} onChange={e=>setNewV(p=>({...p,cat:e.target.value}))} placeholder="예: 구조" style={S.inp()}/></div>
@@ -5033,7 +5034,7 @@ function NewVerModal({proj,onClose,onSave}) {
 
           {/* 협력업체 목록 테이블 */}
           {vendors.length===0
-            ? <div style={{padding:"30px",textAlign:"center",color:C.gray,fontSize:14,background:"var(--color-background-secondary,#f8f8f6)",borderRadius:10}}>
+            ? <div style={{padding:"30px",textAlign:"center",color:C.gray,fontSize:14,background:"var(--color-background-secondary,#f8f8f6)",borderRadius:8}}>
                 아직 협력업체가 없습니다. "+ 협력업체 추가"로 등록하세요.
               </div>
             : <div style={{overflowX:"auto"}}>
@@ -5091,7 +5092,7 @@ function NewVerModal({proj,onClose,onSave}) {
                 </table>
               </div>
           }
-          <div style={{marginTop:12,padding:"10px 14px",borderRadius:9,background:C.amberL||"#FAEEDA",fontSize:13,color:C.amber}}>
+          <div style={{marginTop:12,padding:"10px 14px",borderRadius:6,background:C.amberL||"#FAEEDA",fontSize:13,color:C.amber}}>
             💡 협력업체 탭에서 NEGO 금액을 입력하면 적용금액(2차NEGO→1차NEGO→원가견적 순)이 자동으로 외주용역비 합계에 반영됩니다.
           </div>
         </>}
@@ -5140,14 +5141,14 @@ function ManualPlaceholder() {
   return (
     <div style={{padding:"40px",textAlign:"center"}}>
       <div style={{fontSize:48,marginBottom:16}}>📚</div>
-      <div style={{fontSize:22,fontWeight:800,color:"#111827",marginBottom:8}}>업무매뉴얼</div>
-      <div style={{fontSize:15,color:"#6B7280",lineHeight:1.8,maxWidth:520,margin:"0 auto"}}>
+      <div style={{fontSize:22,fontWeight:800,color:"#0F172A",marginBottom:8}}>업무매뉴얼</div>
+      <div style={{fontSize:15,color:"#64748B",lineHeight:1.8,maxWidth:520,margin:"0 auto"}}>
         업무 매뉴얼 PDF를 업로드하여 전직원이 언제 어디서나 열람할 수 있는 공간입니다.<br/>
         현재는 파일 보관 기능만 제공하며, <b>ANTHROPIC_API_KEY</b> 설정 시 AI 질의응답 기능이 활성화됩니다.
       </div>
       <div style={{marginTop:24,display:"flex",gap:10,justifyContent:"center",flexWrap:"wrap"}}>
         {["업무매뉴얼 v7.0","계약서 양식","실행계획서 가이드","외주비 정산 절차","결재 프로세스"].map((t,i)=>(
-          <div key={i} style={{padding:"10px 18px",background:"#EEF2FF",color:"#6366F1",borderRadius:20,fontSize:14,fontWeight:600}}>{t}</div>
+          <div key={i} style={{padding:"10px 18px",background:"#EFF6FF",color:"#2563EB",borderRadius:20,fontSize:14,fontWeight:600}}>{t}</div>
         ))}
       </div>
     </div>
@@ -5382,8 +5383,8 @@ function ContractTab({projects, currentUser}) {
     setGenerating(false)
   }
 
-  const lbl2 = (t)=>({display:"block",fontSize:13,fontWeight:700,color:"#6B7280",marginBottom:5})
-  const inp2 = {padding:"10px 14px",border:"1.5px solid #E5E7EB",borderRadius:10,fontSize:14,width:"100%",boxSizing:"border-box",fontFamily:"inherit",outline:"none"}
+  const lbl2 = (t)=>({display:"block",fontSize:13,fontWeight:700,color:"#64748B",marginBottom:5})
+  const inp2 = {padding:"10px 14px",border:"1.5px solid #E5E7EB",borderRadius:8,fontSize:14,width:"100%",boxSizing:"border-box",fontFamily:"inherit",outline:"none"}
   const card2 = {background:"#fff",border:"1px solid #E5E7EB",borderRadius:16,padding:"22px 26px",marginBottom:16,boxShadow:"0 1px 4px rgba(0,0,0,.05)"}
 
   // 🤖 AI 분석 결과를 계약서 폼에 적용
@@ -5408,14 +5409,14 @@ function ContractTab({projects, currentUser}) {
   return (
     <div style={{maxWidth:900,margin:"0 auto"}}>
       {/* 헤더 */}
-      <div style={{...card2,background:"linear-gradient(135deg,#312E81,#6366F1)",color:"#fff"}}>
+      <div style={{...card2,background:"linear-gradient(135deg,#1E3A8A,#2563EB)",color:"#fff"}}>
         <div style={{fontSize:22,fontWeight:800,marginBottom:4}}>📄 설계용역 표준계약서 생성</div>
         <div style={{fontSize:14,opacity:.85}}>변경 항목만 수정하면 바로 사용 가능한 표준계약서를 Word(.docx)로 생성합니다.</div>
       </div>
 
       {/* 프로젝트 자동채우기 */}
       <div style={card2}>
-        <div style={{fontSize:16,fontWeight:800,color:"#111827",marginBottom:12}}>⚡ 프로젝트 정보 자동 불러오기</div>
+        <div style={{fontSize:16,fontWeight:800,color:"#0F172A",marginBottom:12}}>⚡ 프로젝트 정보 자동 불러오기</div>
         <div style={{display:"flex",gap:10,alignItems:"flex-end"}}>
           <div style={{flex:1}}>
             <label style={lbl2()}>등록된 프로젝트에서 정보 가져오기</label>
@@ -5434,15 +5435,15 @@ function ContractTab({projects, currentUser}) {
       <div style={{...card2,background:"linear-gradient(135deg,#EEF2FF,#F5F3FF)",border:"1.5px solid #C7D2FE"}}>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:10}}>
           <div>
-            <div style={{fontSize:16,fontWeight:800,color:"#312E81",marginBottom:4}}>🤖 기존 계약서로 AI 자동 채우기</div>
-            <div style={{fontSize:13,color:"#6366F1"}}>보유하고 있는 계약서(PDF/이미지)를 업로드하면 AI가 분석하여 위 항목들을 자동으로 채워줍니다.</div>
+            <div style={{fontSize:16,fontWeight:800,color:"#1E3A8A",marginBottom:4}}>🤖 기존 계약서로 AI 자동 채우기</div>
+            <div style={{fontSize:13,color:"#2563EB"}}>보유하고 있는 계약서(PDF/이미지)를 업로드하면 AI가 분석하여 위 항목들을 자동으로 채워줍니다.</div>
           </div>
           <button onClick={()=>setShowAIFill(true)}
-            style={{padding:"10px 20px",background:"linear-gradient(135deg,#6366F1,#8B5CF6)",color:"#fff",border:"none",borderRadius:10,fontSize:13.5,fontWeight:800,cursor:"pointer",whiteSpace:"nowrap",boxShadow:"0 2px 8px rgba(99,102,241,.3)"}}>
+            style={{padding:"10px 20px",background:"linear-gradient(135deg,#6366F1,#8B5CF6)",color:"#fff",border:"none",borderRadius:8,fontSize:13,fontWeight:800,cursor:"pointer",whiteSpace:"nowrap",boxShadow:"0 2px 8px rgba(99,102,241,.3)"}}>
             🤖 계약서 AI 분석
           </button>
           <button onClick={()=>setContractView(v=>v==="checklist"?"form":"checklist")}
-            style={{padding:"10px 20px",background:contractView==="checklist"?"#DC2626":"linear-gradient(135deg,#DC2626,#EF4444)",color:"#fff",border:"none",borderRadius:10,fontSize:13.5,fontWeight:800,cursor:"pointer",whiteSpace:"nowrap",boxShadow:"0 2px 8px rgba(220,38,38,.3)"}}>
+            style={{padding:"10px 20px",background:contractView==="checklist"?"#DC2626":"linear-gradient(135deg,#DC2626,#EF4444)",color:"#fff",border:"none",borderRadius:8,fontSize:13,fontWeight:800,cursor:"pointer",whiteSpace:"nowrap",boxShadow:"0 2px 8px rgba(220,38,38,.3)"}}>
             {contractView==="checklist"?"✏ 계약서 작성":"✅ 체크리스트 검토"}
           </button>
         </div>
@@ -5454,7 +5455,7 @@ function ContractTab({projects, currentUser}) {
       {/* ── 계약서 작성 뷰 ── */}
       <div style={{display:contractView!=="checklist"?"block":"none"}}>
       <div style={card2}>
-        <div style={{fontSize:16,fontWeight:800,color:"#111827",marginBottom:16}}>1. 계약 기본정보</div>
+        <div style={{fontSize:16,fontWeight:800,color:"#0F172A",marginBottom:16}}>1. 계약 기본정보</div>
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14}}>
           <div><label style={lbl2()}>계약일자</label><input type="date" value={form.contractDate} onChange={e=>u("contractDate",e.target.value)} style={inp2}/></div>
           <div><label style={lbl2()}>계약금액 (원, VAT별도)</label><input value={form.totalFee} onChange={e=>u("totalFee",e.target.value)} placeholder="예: 2,378,000,000" style={inp2}/></div>
@@ -5470,7 +5471,7 @@ function ContractTab({projects, currentUser}) {
 
       {/* 갑 정보 */}
       <div style={card2}>
-        <div style={{fontSize:16,fontWeight:800,color:"#111827",marginBottom:16}}>2. "갑" (발주처) 정보</div>
+        <div style={{fontSize:16,fontWeight:800,color:"#0F172A",marginBottom:16}}>2. "갑" (발주처) 정보</div>
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14}}>
           <div><label style={lbl2()}>상호/회사명</label><input value={form.gabName} onChange={e=>u("gabName",e.target.value)} style={inp2}/></div>
           <div><label style={lbl2()}>대표자 성명</label><input value={form.gabCeo} onChange={e=>u("gabCeo",e.target.value)} placeholder="홍 길 동" style={inp2}/></div>
@@ -5482,8 +5483,8 @@ function ContractTab({projects, currentUser}) {
 
       {/* 을 정보 */}
       <div style={card2}>
-        <div style={{fontSize:16,fontWeight:800,color:"#111827",marginBottom:4}}>3. "을" (상지서울) 정보</div>
-        <div style={{fontSize:13,color:"#6B7280",marginBottom:14}}>기본값이 입력되어 있습니다. 변경 시 수정하세요.</div>
+        <div style={{fontSize:16,fontWeight:800,color:"#0F172A",marginBottom:4}}>3. "을" (상지서울) 정보</div>
+        <div style={{fontSize:13,color:"#64748B",marginBottom:14}}>기본값이 입력되어 있습니다. 변경 시 수정하세요.</div>
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14}}>
           <div><label style={lbl2()}>상호명</label><input value={form.eulName} onChange={e=>u("eulName",e.target.value)} style={inp2}/></div>
           <div><label style={lbl2()}>대표자 성명</label><input value={form.eulCeo} onChange={e=>u("eulCeo",e.target.value)} style={inp2}/></div>
@@ -5495,37 +5496,37 @@ function ContractTab({projects, currentUser}) {
 
       {/* 대금 지불 일정 */}
       <div style={card2}>
-        <div style={{fontSize:16,fontWeight:800,color:"#111827",marginBottom:14}}>4. 대금 지불 일정</div>
+        <div style={{fontSize:16,fontWeight:800,color:"#0F172A",marginBottom:14}}>4. 대금 지불 일정</div>
         <div style={{overflowX:"auto"}}>
           <table style={{width:"100%",borderCollapse:"collapse"}}>
             <thead><tr style={{background:"#F8FAFC"}}>
-              <th style={{padding:"11px 14px",textAlign:"left",fontSize:13,fontWeight:700,color:"#6B7280",border:"1px solid #E5E7EB"}}>지불 시기</th>
-              <th style={{padding:"11px 14px",textAlign:"center",fontSize:13,fontWeight:700,color:"#6B7280",border:"1px solid #E5E7EB",width:90}}>비율(%)</th>
-              <th style={{padding:"11px 14px",textAlign:"right",fontSize:13,fontWeight:700,color:"#6B7280",border:"1px solid #E5E7EB",width:160}}>금액 (자동계산)</th>
-              <th style={{padding:"11px 14px",textAlign:"left",fontSize:13,fontWeight:700,color:"#6B7280",border:"1px solid #E5E7EB"}}>비고</th>
+              <th style={{padding:"11px 14px",textAlign:"left",fontSize:13,fontWeight:700,color:"#64748B",border:"1px solid #E5E7EB"}}>지불 시기</th>
+              <th style={{padding:"11px 14px",textAlign:"center",fontSize:13,fontWeight:700,color:"#64748B",border:"1px solid #E5E7EB",width:90}}>비율(%)</th>
+              <th style={{padding:"11px 14px",textAlign:"right",fontSize:13,fontWeight:700,color:"#64748B",border:"1px solid #E5E7EB",width:160}}>금액 (자동계산)</th>
+              <th style={{padding:"11px 14px",textAlign:"left",fontSize:13,fontWeight:700,color:"#64748B",border:"1px solid #E5E7EB"}}>비고</th>
             </tr></thead>
             <tbody>
               {form.payments.map((row,i)=>(
                 <tr key={i}>
                   <td style={{padding:"8px 12px",border:"1px solid #E5E7EB"}}>
-                    <input value={row.stage} onChange={e=>setForm(p=>({...p,payments:p.payments.map((r,ri)=>ri===i?{...r,stage:e.target.value}:r)}))} style={{...inp2,padding:"6px 10px",fontSize:13.5}}/>
+                    <input value={row.stage} onChange={e=>setForm(p=>({...p,payments:p.payments.map((r,ri)=>ri===i?{...r,stage:e.target.value}:r)}))} style={{...inp2,padding:"6px 10px",fontSize:13}}/>
                   </td>
                   <td style={{padding:"8px 12px",border:"1px solid #E5E7EB"}}>
-                    <input type="number" value={row.ratio} onChange={e=>setForm(p=>({...p,payments:p.payments.map((r,ri)=>ri===i?{...r,ratio:parseInt(e.target.value)||0}:r)}))} style={{...inp2,padding:"6px 10px",fontSize:13.5,textAlign:"center"}}/>
+                    <input type="number" value={row.ratio} onChange={e=>setForm(p=>({...p,payments:p.payments.map((r,ri)=>ri===i?{...r,ratio:parseInt(e.target.value)||0}:r)}))} style={{...inp2,padding:"6px 10px",fontSize:13,textAlign:"center"}}/>
                   </td>
-                  <td style={{padding:"8px 12px",border:"1px solid #E5E7EB",textAlign:"right",fontWeight:700,color:"#6366F1",fontSize:14}}>
+                  <td style={{padding:"8px 12px",border:"1px solid #E5E7EB",textAlign:"right",fontWeight:700,color:"#2563EB",fontSize:14}}>
                     {payments[i].amount>0?`₩ ${payments[i].amount.toLocaleString()}`:"-"}
                   </td>
                   <td style={{padding:"8px 12px",border:"1px solid #E5E7EB"}}>
-                    <input value={row.note} onChange={e=>setForm(p=>({...p,payments:p.payments.map((r,ri)=>ri===i?{...r,note:e.target.value}:r)}))} style={{...inp2,padding:"6px 10px",fontSize:13.5}}/>
+                    <input value={row.note} onChange={e=>setForm(p=>({...p,payments:p.payments.map((r,ri)=>ri===i?{...r,note:e.target.value}:r)}))} style={{...inp2,padding:"6px 10px",fontSize:13}}/>
                   </td>
                 </tr>
               ))}
-              <tr style={{background:"#EEF2FF",fontWeight:700}}>
+              <tr style={{background:"#EFF6FF",fontWeight:700}}>
                 <td style={{padding:"11px 14px",border:"1px solid #E5E7EB",fontSize:14}}>합계</td>
                 <td style={{padding:"11px 14px",border:"1px solid #E5E7EB",textAlign:"center",fontSize:14,color:totalRatio===100?"#059669":"#DC2626"}}>{totalRatio}% {totalRatio!==100&&"⚠"}</td>
-                <td style={{padding:"11px 14px",border:"1px solid #E5E7EB",textAlign:"right",fontSize:15,color:"#312E81"}}>₩ {feeNum.toLocaleString()}</td>
-                <td style={{padding:"11px 14px",border:"1px solid #E5E7EB",fontSize:13,color:"#6B7280"}}>부가가치세 별도</td>
+                <td style={{padding:"11px 14px",border:"1px solid #E5E7EB",textAlign:"right",fontSize:15,color:"#1E3A8A"}}>₩ {feeNum.toLocaleString()}</td>
+                <td style={{padding:"11px 14px",border:"1px solid #E5E7EB",fontSize:13,color:"#64748B"}}>부가가치세 별도</td>
               </tr>
             </tbody>
           </table>
@@ -5536,10 +5537,10 @@ function ContractTab({projects, currentUser}) {
       {/* 생성 버튼 */}
       <div style={{...card2,textAlign:"center"}}>
         <button onClick={generateContract} disabled={generating||totalRatio!==100||!form.contractTitle||!form.gabName}
-          style={{...S.btn(),padding:"14px 40px",fontSize:16,borderRadius:12,opacity:(generating||totalRatio!==100||!form.contractTitle||!form.gabName)?.5:1}}>
+          style={{...S.btn(),padding:"14px 40px",fontSize:16,borderRadius:8,opacity:(generating||totalRatio!==100||!form.contractTitle||!form.gabName)?.5:1}}>
           {generating?"생성 중...":"📄 계약서 Word(.docx) 생성"}
         </button>
-        <div style={{fontSize:12.5,color:"#6B7280",marginTop:10}}>
+        <div style={{fontSize:13,color:"#64748B",marginTop:10}}>
           생성된 파일을 한글(HWP)에서 열어 HWP로 저장하거나, Word에서 바로 사용하세요.<br/>
           기안 첨부, 이메일 발송, 인트라넷 업로드 등에 활용 가능합니다.
         </div>
@@ -5696,21 +5697,21 @@ ${uploadedText ? uploadedText.slice(0,2000) : "업로드 없음"}
     reader.readAsText(file, "utf-8")
   }
 
-  const INP2 = {padding:"6px 10px",border:"1.5px solid #E5E7EB",borderRadius:7,fontSize:12.5,width:"100%",boxSizing:"border-box",fontFamily:"inherit",outline:"none",background:"#fff"}
+  const INP2 = {padding:"6px 10px",border:"1.5px solid #E5E7EB",borderRadius:7,fontSize:13,width:"100%",boxSizing:"border-box",fontFamily:"inherit",outline:"none",background:"#fff"}
 
   return (
     <div>
       {/* 진행률 헤더 */}
-      <div style={{background:"linear-gradient(135deg,#DC2626,#EF4444)",borderRadius:14,padding:"18px 20px",marginBottom:16,color:"#fff",display:"flex",gap:20,flexWrap:"wrap",alignItems:"center"}}>
+      <div style={{background:"linear-gradient(135deg,#DC2626,#EF4444)",borderRadius:8,padding:"14px 18px",marginBottom:16,color:"#fff",display:"flex",gap:20,flexWrap:"wrap",alignItems:"center"}}>
         <div style={{flex:1}}>
           <div style={{fontSize:16,fontWeight:900,marginBottom:4}}>✅ 계약서 체크리스트 검토</div>
-          <div style={{fontSize:12.5,opacity:.8}}>표준계약서 기준 · 필수 {required.length}항목 · 전체 {allItems.length}항목</div>
+          <div style={{fontSize:13,opacity:.8}}>표준계약서 기준 · 필수 {required.length}항목 · 전체 {allItems.length}항목</div>
         </div>
         <div style={{display:"flex",gap:14}}>
           {[["필수 완료",`${checkedRequired.length}/${required.length}`,`${requiredRate}%`,"#FDE68A"],
             ["전체 달성",`${totalChecked}/${allItems.length}`,`${completionRate}%`,"#A7F3D0"]].map(([l,v,r,c])=>(
-            <div key={l} style={{textAlign:"center",background:"rgba(255,255,255,.15)",borderRadius:10,padding:"10px 16px"}}>
-              <div style={{fontSize:10.5,opacity:.8}}>{l}</div>
+            <div key={l} style={{textAlign:"center",background:"rgba(255,255,255,.15)",borderRadius:8,padding:"10px 16px"}}>
+              <div style={{fontSize:11,opacity:.8}}>{l}</div>
               <div style={{fontSize:18,fontWeight:900,color:c}}>{r}</div>
               <div style={{fontSize:11,opacity:.7}}>{v}</div>
             </div>
@@ -5723,39 +5724,39 @@ ${uploadedText ? uploadedText.slice(0,2000) : "업로드 없음"}
       </div>
 
       {/* 계약서 업로드 + AI 검토 */}
-      <div style={{background:"#EEF2FF",borderRadius:12,border:"2px solid #6366F1",padding:"14px 16px",marginBottom:16,display:"flex",gap:10,alignItems:"center",flexWrap:"wrap"}}>
-        <div style={{fontSize:13.5,fontWeight:700,color:"#312E81",flex:1}}>
+      <div style={{background:"#EFF6FF",borderRadius:8,border:"2px solid #6366F1",padding:"14px 16px",marginBottom:16,display:"flex",gap:10,alignItems:"center",flexWrap:"wrap"}}>
+        <div style={{fontSize:13,fontWeight:700,color:"#1E3A8A",flex:1}}>
           📄 계약서 파일 업로드 후 AI 자동 검토
-          {activeFile&&<span style={{fontSize:12,fontWeight:400,color:"#6366F1",marginLeft:8}}>({activeFile})</span>}
+          {activeFile&&<span style={{fontSize:12,fontWeight:400,color:"#2563EB",marginLeft:8}}>({activeFile})</span>}
         </div>
-        <label style={{padding:"7px 14px",background:"#6366F1",color:"#fff",border:"none",borderRadius:9,fontSize:13,fontWeight:700,cursor:"pointer",display:"inline-flex",alignItems:"center",gap:5}}>
+        <label style={{padding:"7px 14px",background:"#2563EB",color:"#fff",border:"none",borderRadius:6,fontSize:13,fontWeight:700,cursor:"pointer",display:"inline-flex",alignItems:"center",gap:5}}>
           📎 파일 선택
           <input type="file" accept=".txt,.pdf,.docx,.hwp" style={{display:"none"}} onChange={handleFileUpload}/>
         </label>
         <button onClick={runAIReview} disabled={aiLoading}
-          style={{padding:"7px 18px",background:aiLoading?"#9CA3AF":"#DC2626",color:"#fff",border:"none",borderRadius:9,fontSize:13,fontWeight:700,cursor:"pointer"}}>
+          style={{padding:"7px 18px",background:aiLoading?"#94A3B8":"#DC2626",color:"#fff",border:"none",borderRadius:6,fontSize:13,fontWeight:700,cursor:"pointer"}}>
           {aiLoading?"⏳ 검토 중...":"🤖 AI 검토 실행"}
         </button>
         <button onClick={()=>{setChecks({});localStorage.removeItem("sjs_contract_checklist")}}
-          style={{padding:"7px 12px",background:"#F3F4F6",color:"#6B7280",border:"none",borderRadius:9,fontSize:12,cursor:"pointer"}}>
+          style={{padding:"7px 12px",background:"#F8FAFC",color:"#64748B",border:"none",borderRadius:6,fontSize:12,cursor:"pointer"}}>
           🔄 초기화
         </button>
       </div>
 
       {/* AI 검토 결과 */}
       {aiReview&&(
-        <div style={{background:"#fff",borderRadius:12,border:"2px solid #6366F1",padding:"16px 18px",marginBottom:16}}>
-          <div style={{fontSize:14,fontWeight:800,color:"#312E81",marginBottom:10}}>🤖 AI 계약서 검토 결과</div>
-          <div style={{fontSize:13.5,lineHeight:1.8,color:"#374151",whiteSpace:"pre-wrap"}}>{aiReview}</div>
+        <div style={{background:"#fff",borderRadius:8,border:"2px solid #6366F1",padding:"16px 18px",marginBottom:16}}>
+          <div style={{fontSize:14,fontWeight:800,color:"#1E3A8A",marginBottom:10}}>🤖 AI 계약서 검토 결과</div>
+          <div style={{fontSize:13,lineHeight:1.8,color:"#334155",whiteSpace:"pre-wrap"}}>{aiReview}</div>
         </div>
       )}
 
       {/* 체크리스트 카테고리별 */}
       {CONTRACT_CHECKLIST.map(cat=>(
-        <div key={cat.category} style={{background:"#fff",borderRadius:12,border:"1px solid #E5E7EB",marginBottom:12,overflow:"hidden"}}>
-          <div style={{padding:"12px 16px",background:"#F8FAFC",borderBottom:"1px solid #E5E7EB",fontSize:14,fontWeight:800,color:"#111827",display:"flex",justifyContent:"space-between"}}>
+        <div key={cat.category} style={{background:"#fff",borderRadius:8,border:"1px solid #E5E7EB",marginBottom:12,overflow:"hidden"}}>
+          <div style={{padding:"12px 16px",background:"#F8FAFC",borderBottom:"1px solid #E5E7EB",fontSize:14,fontWeight:800,color:"#0F172A",display:"flex",justifyContent:"space-between"}}>
             <span>{cat.category}</span>
-            <span style={{fontSize:12,fontWeight:600,color:"#6B7280"}}>
+            <span style={{fontSize:12,fontWeight:600,color:"#64748B"}}>
               {cat.items.filter(i=>checks[i.id]==="ok").length}/{cat.items.length} 확인
             </span>
           </div>
@@ -5764,19 +5765,19 @@ ${uploadedText ? uploadedText.slice(0,2000) : "업로드 없음"}
               const status = checks[item.id]
               return (
                 <div key={item.id} style={{padding:"12px 16px",borderBottom:ii<cat.items.length-1?"1px solid #F3F4F6":"none",
-                  background:status==="ok"?"#F0FDF4":status==="no"?"#FEF2F2":status==="na"?"#F9FAFB":"#fff"}}>
+                  background:status==="ok"?"#F0FDF4":status==="no"?"#FEF2F2":status==="na"?"#F8FAFC":"#fff"}}>
                   <div style={{display:"flex",gap:10,alignItems:"flex-start"}}>
                     {/* 상태 버튼 */}
                     <div style={{display:"flex",gap:4,flexShrink:0,marginTop:1}}>
-                      {[["ok","✅","#059669","#D1FAE5"],["no","❌","#DC2626","#FEE2E2"],["na","➖","#9CA3AF","#F3F4F6"]].map(([v,icon,fg,bg])=>(
+                      {[["ok","✅","#059669","#D1FAE5"],["no","❌","#DC2626","#FEE2E2"],["na","➖","#94A3B8","#F8FAFC"]].map(([v,icon,fg,bg])=>(
                         <button key={v} onClick={()=>toggle(item.id,v)}
-                          style={{width:28,height:28,border:`2px solid ${status===v?fg:"#E5E7EB"}`,borderRadius:7,background:status===v?bg:"#fff",cursor:"pointer",fontSize:13,display:"flex",alignItems:"center",justifyContent:"center",transition:"all .15s"}}>
+                          style={{width:28,height:28,border:`2px solid ${status===v?fg:"#E2E8F0"}`,borderRadius:7,background:status===v?bg:"#fff",cursor:"pointer",fontSize:13,display:"flex",alignItems:"center",justifyContent:"center",transition:"all .15s"}}>
                           {icon}
                         </button>
                       ))}
                     </div>
                     <div style={{flex:1}}>
-                      <div style={{fontSize:13.5,color:"#111827",lineHeight:1.6,marginBottom:status?4:0}}>
+                      <div style={{fontSize:13,color:"#0F172A",lineHeight:1.6,marginBottom:status?4:0}}>
                         {item.required&&<span style={{fontSize:10,background:"#FEE2E2",color:"#DC2626",padding:"1px 5px",borderRadius:5,fontWeight:700,marginRight:5}}>필수</span>}
                         {item.text}
                       </div>
@@ -5787,8 +5788,8 @@ ${uploadedText ? uploadedText.slice(0,2000) : "업로드 없음"}
                           style={{...INP2,marginTop:4}}/>
                       )}
                     </div>
-                    <div style={{flexShrink:0,fontSize:11.5,fontWeight:700,
-                      color:status==="ok"?"#059669":status==="no"?"#DC2626":status==="na"?"#9CA3AF":"#D1D5DB"}}>
+                    <div style={{flexShrink:0,fontSize:12,fontWeight:700,
+                      color:status==="ok"?"#059669":status==="no"?"#DC2626":status==="na"?"#94A3B8":"#D1D5DB"}}>
                       {status==="ok"?"확인":status==="no"?"미비":status==="na"?"해당없음":"미확인"}
                     </div>
                   </div>
@@ -5801,19 +5802,19 @@ ${uploadedText ? uploadedText.slice(0,2000) : "업로드 없음"}
 
       {/* 최종 의견 요약 */}
       {uncheckedRequired.length>0&&(
-        <div style={{background:"#FEF2F2",borderRadius:12,border:"2px solid #DC2626",padding:"14px 16px",marginBottom:12}}>
+        <div style={{background:"#FEF2F2",borderRadius:8,border:"2px solid #DC2626",padding:"14px 16px",marginBottom:12}}>
           <div style={{fontSize:14,fontWeight:800,color:"#DC2626",marginBottom:8}}>⚠️ 미확인 필수 항목 ({uncheckedRequired.length}건)</div>
           {uncheckedRequired.map(i=>(
-            <div key={i.id} style={{fontSize:13,color:"#374151",padding:"4px 0",borderBottom:"1px solid #FEE2E2",display:"flex",gap:8}}>
+            <div key={i.id} style={{fontSize:13,color:"#334155",padding:"4px 0",borderBottom:"1px solid #FEE2E2",display:"flex",gap:8}}>
               <span style={{color:"#DC2626"}}>•</span>{i.text}
             </div>
           ))}
         </div>
       )}
       {requiredRate===100&&(
-        <div style={{background:"#F0FDF4",borderRadius:12,border:"2px solid #059669",padding:"14px 16px",textAlign:"center"}}>
+        <div style={{background:"#F0FDF4",borderRadius:8,border:"2px solid #059669",padding:"14px 16px",textAlign:"center"}}>
           <div style={{fontSize:16,fontWeight:900,color:"#059669"}}>✅ 모든 필수 항목 확인 완료!</div>
-          <div style={{fontSize:13,color:"#6B7280",marginTop:4}}>계약서 검토가 완료되었습니다. AI 검토를 추가로 실행하면 더 상세한 분석을 받을 수 있습니다.</div>
+          <div style={{fontSize:13,color:"#64748B",marginTop:4}}>계약서 검토가 완료되었습니다. AI 검토를 추가로 실행하면 더 상세한 분석을 받을 수 있습니다.</div>
         </div>
       )}
     </div>
@@ -5917,18 +5918,18 @@ function ContractFormAIFill({currentUser, onApply, onClose}) {
           {status==="idle" && !parsed && (
             <div>
               <label style={{display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",
-                border:"2px dashed #C7D2FE",borderRadius:12,padding:"32px 16px",cursor:"pointer",background:file?"#EEF2FF":"#FAFAFA"}}>
+                border:"2px dashed #C7D2FE",borderRadius:8,padding:"32px 16px",cursor:"pointer",background:file?"#EFF6FF":"#FAFAFA"}}>
                 <input type="file" accept=".pdf,.png,.jpg,.jpeg,.webp" style={{display:"none"}} onChange={e=>handleFile(e.target.files?.[0])}/>
                 <span style={{fontSize:34,marginBottom:8}}>{file?"📄":"📤"}</span>
                 {file ? (
                   <div style={{textAlign:"center"}}>
-                    <div style={{fontSize:13.5,fontWeight:700,color:"#312E81"}}>{file.name}</div>
-                    <div style={{fontSize:11,color:"#6B7280",marginTop:2}}>클릭하여 다른 파일 선택</div>
+                    <div style={{fontSize:13,fontWeight:700,color:"#1E3A8A"}}>{file.name}</div>
+                    <div style={{fontSize:11,color:"#64748B",marginTop:2}}>클릭하여 다른 파일 선택</div>
                   </div>
                 ) : (
                   <div style={{textAlign:"center"}}>
-                    <div style={{fontSize:13.5,fontWeight:700,color:"#374151"}}>계약서 파일을 선택하세요</div>
-                    <div style={{fontSize:11,color:"#9CA3AF",marginTop:2}}>PDF, JPG, PNG 지원</div>
+                    <div style={{fontSize:13,fontWeight:700,color:"#334155"}}>계약서 파일을 선택하세요</div>
+                    <div style={{fontSize:11,color:"#94A3B8",marginTop:2}}>PDF, JPG, PNG 지원</div>
                   </div>
                 )}
               </label>
@@ -5936,8 +5937,8 @@ function ContractFormAIFill({currentUser, onApply, onClose}) {
                 <img src={preview} alt="미리보기" style={{width:"100%",display:"block",objectFit:"contain"}}/>
               </div>}
               <button onClick={analyze} disabled={!file}
-                style={{width:"100%",marginTop:14,padding:"11px",background:file?"linear-gradient(135deg,#6366F1,#8B5CF6)":"#E5E7EB",
-                  color:file?"#fff":"#9CA3AF",border:"none",borderRadius:10,fontSize:14,fontWeight:800,cursor:file?"pointer":"not-allowed"}}>
+                style={{width:"100%",marginTop:14,padding:"11px",background:file?"linear-gradient(135deg,#6366F1,#8B5CF6)":"#E2E8F0",
+                  color:file?"#fff":"#94A3B8",border:"none",borderRadius:8,fontSize:14,fontWeight:800,cursor:file?"pointer":"not-allowed"}}>
                 ✨ AI로 분석하기
               </button>
             </div>
@@ -5946,14 +5947,14 @@ function ContractFormAIFill({currentUser, onApply, onClose}) {
           {status==="analyzing" && (
             <div style={{textAlign:"center",padding:"40px 20px"}}>
               <div style={{fontSize:34,marginBottom:14}}>🔍</div>
-              <div style={{fontSize:14,fontWeight:700,color:"#374151"}}>AI가 계약서를 분석하는 중...</div>
+              <div style={{fontSize:14,fontWeight:700,color:"#334155"}}>AI가 계약서를 분석하는 중...</div>
             </div>
           )}
 
           {status==="error" && (
-            <div style={{background:"#FEE2E2",borderRadius:10,padding:"16px 18px",color:"#991B1B"}}>
+            <div style={{background:"#FEE2E2",borderRadius:8,padding:"16px 18px",color:"#991B1B"}}>
               <div style={{fontWeight:700,marginBottom:6}}>⚠ 분석 실패</div>
-              <div style={{fontSize:12.5}}>{errorMsg}</div>
+              <div style={{fontSize:13}}>{errorMsg}</div>
               <button onClick={()=>{setStatus("idle");setErrorMsg("")}}
                 style={{marginTop:10,padding:"6px 14px",background:"#fff",color:"#991B1B",border:"1px solid #FCA5A5",borderRadius:8,fontSize:12,fontWeight:700,cursor:"pointer"}}>
                 다시 시도
@@ -5963,10 +5964,10 @@ function ContractFormAIFill({currentUser, onApply, onClose}) {
 
           {status==="done" && parsed && (
             <div>
-              <div style={{background:"#D1FAE5",borderRadius:9,padding:"9px 13px",marginBottom:14,fontSize:12.5,color:"#065F46",fontWeight:600}}>
+              <div style={{background:"#D1FAE5",borderRadius:6,padding:"9px 13px",marginBottom:14,fontSize:13,color:"#065F46",fontWeight:600}}>
                 ✅ 분석 완료! 아래 내용을 확인 후 폼에 적용하세요.
               </div>
-              <div style={{background:"#F9FAFB",borderRadius:10,border:"1px solid #E5E7EB",padding:"14px 16px",fontSize:13,lineHeight:1.9}}>
+              <div style={{background:"#F8FAFC",borderRadius:8,border:"1px solid #E5E7EB",padding:"14px 16px",fontSize:13,lineHeight:1.9}}>
                 <div><strong>공사명:</strong> {parsed.name||"-"}</div>
                 <div><strong>대지위치:</strong> {parsed.siteAddr||"-"}</div>
                 <div><strong>용도/규모:</strong> {parsed.usage||"-"} / {parsed.scale||"-"}</div>
@@ -5976,11 +5977,11 @@ function ContractFormAIFill({currentUser, onApply, onClose}) {
               </div>
               <div style={{display:"flex",gap:8,marginTop:16}}>
                 <button onClick={()=>{setStatus("idle");setParsed(null)}}
-                  style={{padding:"9px 16px",background:"#F3F4F6",color:"#6B7280",border:"none",borderRadius:9,fontSize:12.5,fontWeight:600,cursor:"pointer"}}>
+                  style={{padding:"9px 16px",background:"#F8FAFC",color:"#64748B",border:"none",borderRadius:6,fontSize:13,fontWeight:600,cursor:"pointer"}}>
                   다시 분석
                 </button>
                 <button onClick={()=>onApply(parsed)}
-                  style={{flex:1,padding:"9px",background:"linear-gradient(135deg,#059669,#10B981)",color:"#fff",border:"none",borderRadius:9,fontSize:13.5,fontWeight:800,cursor:"pointer"}}>
+                  style={{flex:1,padding:"9px",background:"linear-gradient(135deg,#059669,#10B981)",color:"#fff",border:"none",borderRadius:6,fontSize:13,fontWeight:800,cursor:"pointer"}}>
                   📥 계약서 폼에 적용
                 </button>
               </div>
@@ -6002,7 +6003,7 @@ function ProjectHistoryPage({projects, currentUser, cashItems=[]}) {
 
   const CATEGORIES = ["일정","계약","월수금","주간보고","실행계획서","설계변경","공문","기타"]
   const CAT_ICON = {"일정":"📅","계약":"📝","월수금":"💧","주간보고":"📋","실행계획서":"📊","설계변경":"⚙️","공문":"📨","기타":"📌"}
-  const CAT_COLOR = {"일정":"#6366F1","계약":"#059669","월수금":"#0891B2","주간보고":"#7C3AED","실행계획서":"#D97706","설계변경":"#D97706","공문":"#374151","기타":"#9CA3AF"}
+  const CAT_COLOR = {"일정":"#2563EB","계약":"#059669","월수금":"#0891B2","주간보고":"#7C3AED","실행계획서":"#D97706","설계변경":"#D97706","공문":"#334155","기타":"#94A3B8"}
 
   const proj = projects.find(p=>p.id===selId)
   const wr   = proj?.weeklyReport || {}
@@ -6074,36 +6075,36 @@ function ProjectHistoryPage({projects, currentUser, cashItems=[]}) {
   },[allEvts])
 
 
-  if(!proj) return <div style={{padding:60,textAlign:"center",color:"#9CA3AF"}}>프로젝트를 선택하세요.</div>
+  if(!proj) return <div style={{padding:60,textAlign:"center",color:"#94A3B8"}}>프로젝트를 선택하세요.</div>
 
   return (
     <div style={{maxWidth:960,margin:"0 auto"}}>
       {/* 헤더 */}
-      <div style={{background:"#fff",borderRadius:14,border:"1px solid #E5E7EB",padding:"16px 20px",marginBottom:14,display:"flex",gap:12,alignItems:"center",flexWrap:"wrap"}}>
-        <div style={{fontSize:17,fontWeight:800,color:"#111827"}}>📜 프로젝트 히스토리</div>
+      <div style={{background:"#fff",borderRadius:8,border:"1px solid #E5E7EB",padding:"16px 20px",marginBottom:14,display:"flex",gap:12,alignItems:"center",flexWrap:"wrap"}}>
+        <div style={{fontSize:17,fontWeight:800,color:"#0F172A"}}>📜 프로젝트 히스토리</div>
         <select value={selId} onChange={e=>setSelId(e.target.value)}
           disabled={showAll}
-          style={{flex:1,maxWidth:380,padding:"8px 12px",border:"1.5px solid #E5E7EB",borderRadius:9,fontSize:14,fontFamily:"inherit",outline:"none",
+          style={{flex:1,maxWidth:380,padding:"8px 12px",border:"1.5px solid #E5E7EB",borderRadius:6,fontSize:14,fontFamily:"inherit",outline:"none",
             opacity:showAll?0.4:1,cursor:showAll?"not-allowed":"pointer"}}>
           {projects.map(p=><option key={p.id} value={p.id}>{p.name}</option>)}
         </select>
-        <div style={{display:"flex",gap:4,background:"#F3F4F6",borderRadius:8,padding:3,marginLeft:"auto"}}>
+        <div style={{display:"flex",gap:4,background:"#F8FAFC",borderRadius:8,padding:3,marginLeft:"auto"}}>
           {[["category","📂 카테고리별"],["date","📅 날짜순"]].map(([v,l])=>(
             <button key={v} onClick={()=>{setViewMode(v);setShowAll(false)}}
               style={{padding:"6px 14px",border:"none",borderRadius:6,fontSize:13,fontWeight:viewMode===v&&!showAll?700:400,cursor:"pointer",
-                background:viewMode===v&&!showAll?"#6366F1":"none",color:viewMode===v&&!showAll?"#fff":"#6B7280"}}>
+                background:viewMode===v&&!showAll?"#2563EB":"none",color:viewMode===v&&!showAll?"#fff":"#64748B"}}>
               {l}
             </button>
           ))}
           <button onClick={()=>setShowAll(v=>!v)}
             style={{padding:"6px 14px",border:"none",borderRadius:6,fontSize:13,fontWeight:showAll?700:400,cursor:"pointer",
-              background:showAll?"#D97706":"none",color:showAll?"#fff":"#6B7280"}}>
+              background:showAll?"#D97706":"none",color:showAll?"#fff":"#64748B"}}>
             🌐 전체 프로젝트
           </button>
         </div>
         {!showAll&&(
         <button onClick={()=>setShowAdd(v=>!v)}
-          style={{padding:"8px 16px",background:"#6366F1",color:"#fff",border:"none",borderRadius:9,fontSize:13,fontWeight:700,cursor:"pointer"}}>
+          style={{padding:"8px 16px",background:"#2563EB",color:"#fff",border:"none",borderRadius:6,fontSize:13,fontWeight:700,cursor:"pointer"}}>
           {showAdd?"✕ 취소":"+ 히스토리 추가"}
         </button>
         )}
@@ -6111,7 +6112,7 @@ function ProjectHistoryPage({projects, currentUser, cashItems=[]}) {
 
       {/* 프로젝트 정보 배너 - 전체 보기 시 숨김 */}
       {!showAll&&(
-      <div style={{background:"linear-gradient(135deg,#312E81,#6366F1)",borderRadius:14,padding:"14px 20px",marginBottom:14,color:"#fff",display:"flex",gap:20,flexWrap:"wrap",alignItems:"center"}}>
+      <div style={{background:"linear-gradient(135deg,#1E3A8A,#2563EB)",borderRadius:8,padding:"14px 20px",marginBottom:14,color:"#fff",display:"flex",gap:20,flexWrap:"wrap",alignItems:"center"}}>
         <div>
           <div style={{fontSize:14,fontWeight:800,marginBottom:4}}>{proj.name}</div>
           <div style={{fontSize:12,opacity:.8}}>{(proj.depts||[]).join(", ")} · {proj.type||"-"} · {proj.contractDate||proj.contractExpect||"일정 미정"}</div>
@@ -6129,7 +6130,7 @@ function ProjectHistoryPage({projects, currentUser, cashItems=[]}) {
 
       {/* 전체 프로젝트 보기 안내 배너 */}
       {showAll&&(
-      <div style={{background:"linear-gradient(135deg,#92400E,#D97706)",borderRadius:14,padding:"14px 20px",marginBottom:14,color:"#fff",display:"flex",gap:16,alignItems:"center"}}>
+      <div style={{background:"linear-gradient(135deg,#92400E,#D97706)",borderRadius:8,padding:"14px 20px",marginBottom:14,color:"#fff",display:"flex",gap:16,alignItems:"center"}}>
         <span style={{fontSize:24}}>🌐</span>
         <div>
           <div style={{fontSize:15,fontWeight:800,marginBottom:3}}>전체 프로젝트 통합 히스토리</div>
@@ -6138,30 +6139,30 @@ function ProjectHistoryPage({projects, currentUser, cashItems=[]}) {
       </div>
       )}
       {showAdd&&(
-        <div style={{background:"#EEF2FF",borderRadius:14,border:"2px solid #6366F1",padding:"18px 20px",marginBottom:14}}>
-          <div style={{fontSize:14,fontWeight:800,color:"#312E81",marginBottom:14}}>✏ 히스토리 항목 추가</div>
+        <div style={{background:"#EFF6FF",borderRadius:8,border:"2px solid #6366F1",padding:"14px 18px",marginBottom:14}}>
+          <div style={{fontSize:14,fontWeight:800,color:"#1E3A8A",marginBottom:14}}>✏ 히스토리 항목 추가</div>
           <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:12,marginBottom:12}}>
             <div>
-              <label style={{fontSize:12,fontWeight:700,color:"#374151",display:"block",marginBottom:5}}>날짜 *</label>
+              <label style={{fontSize:12,fontWeight:700,color:"#334155",display:"block",marginBottom:5}}>날짜 *</label>
               <input type="date" value={addForm.date} onChange={e=>setAddForm(p=>({...p,date:e.target.value}))} style={INP()}/>
             </div>
             <div>
-              <label style={{fontSize:12,fontWeight:700,color:"#374151",display:"block",marginBottom:5}}>카테고리</label>
+              <label style={{fontSize:12,fontWeight:700,color:"#334155",display:"block",marginBottom:5}}>카테고리</label>
               <select value={addForm.category} onChange={e=>setAddForm(p=>({...p,category:e.target.value}))} style={INP()}>
                 {CATEGORIES.map(c=><option key={c} value={c}>{CAT_ICON[c]} {c}</option>)}
               </select>
             </div>
             <div>
-              <label style={{fontSize:12,fontWeight:700,color:"#374151",display:"block",marginBottom:5}}>제목 *</label>
+              <label style={{fontSize:12,fontWeight:700,color:"#334155",display:"block",marginBottom:5}}>제목 *</label>
               <input value={addForm.title} onChange={e=>setAddForm(p=>({...p,title:e.target.value}))} placeholder="히스토리 내용" style={INP()}/>
             </div>
           </div>
           <div style={{marginBottom:12}}>
-            <label style={{fontSize:12,fontWeight:700,color:"#374151",display:"block",marginBottom:5}}>메모</label>
+            <label style={{fontSize:12,fontWeight:700,color:"#334155",display:"block",marginBottom:5}}>메모</label>
             <input value={addForm.memo} onChange={e=>setAddForm(p=>({...p,memo:e.target.value}))} placeholder="상세 내용 (선택)" style={INP()}/>
           </div>
           <button onClick={addHistory}
-            style={{padding:"9px 22px",background:"#6366F1",color:"#fff",border:"none",borderRadius:9,fontSize:14,fontWeight:700,cursor:"pointer"}}>
+            style={{padding:"9px 22px",background:"#2563EB",color:"#fff",border:"none",borderRadius:6,fontSize:14,fontWeight:700,cursor:"pointer"}}>
             💾 저장
           </button>
         </div>
@@ -6200,34 +6201,34 @@ function ProjectHistoryPage({projects, currentUser, cashItems=[]}) {
         // 연도별 그룹
         const byYear = {}
         sorted.forEach(e=>{const yr=(e.date||"").slice(0,4)||"미정";if(!byYear[yr])byYear[yr]=[];byYear[yr].push(e)})
-        const CAT_COLOR2 = {"일정":"#6366F1","계약":"#059669","월수금":"#0891B2","주간보고":"#7C3AED","실행계획서":"#D97706","설계변경":"#D97706","공문":"#374151","기타":"#9CA3AF"}
+        const CAT_COLOR2 = {"일정":"#2563EB","계약":"#059669","월수금":"#0891B2","주간보고":"#7C3AED","실행계획서":"#D97706","설계변경":"#D97706","공문":"#334155","기타":"#94A3B8"}
         const CAT_ICON2  = {"일정":"📅","계약":"📝","월수금":"💧","주간보고":"📋","실행계획서":"📊","설계변경":"⚙️","공문":"📨","기타":"📌"}
 
         return (
           <div>
-            <div style={{background:"#FEF3C7",borderRadius:12,padding:"10px 16px",marginBottom:12,border:"1px solid #D97706",fontSize:13,color:"#92400E",fontWeight:600}}>
+            <div style={{background:"#FEF3C7",borderRadius:8,padding:"10px 16px",marginBottom:12,border:"1px solid #D97706",fontSize:13,color:"#92400E",fontWeight:600}}>
               🌐 전체 프로젝트 통합 히스토리 — {sorted.length}건 · 최신순
             </div>
             {Object.entries(byYear).sort((a,b)=>b[0].localeCompare(a[0])).map(([yr,evts])=>(
-              <div key={yr} style={{background:"#fff",borderRadius:14,border:"1px solid #E5E7EB",overflow:"hidden",marginBottom:12}}>
-                <div style={{padding:"10px 20px",background:"#F8FAFC",borderBottom:"1px solid #E5E7EB",fontSize:15,fontWeight:800,color:"#312E81"}}>
+              <div key={yr} style={{background:"#fff",borderRadius:8,border:"1px solid #E5E7EB",overflow:"hidden",marginBottom:12}}>
+                <div style={{padding:"10px 20px",background:"#F8FAFC",borderBottom:"1px solid #E5E7EB",fontSize:15,fontWeight:800,color:"#1E3A8A"}}>
                   {yr}년 ({evts.length}건)
                 </div>
                 {evts.map((e,i)=>{
-                  const cc=CAT_COLOR2[e.category||"기타"]||"#9CA3AF"
+                  const cc=CAT_COLOR2[e.category||"기타"]||"#94A3B8"
                   return (
                     <div key={e.id||i} style={{padding:"10px 20px",borderBottom:"1px solid #F3F4F6",display:"flex",gap:10,alignItems:"flex-start"}}>
-                      <div style={{minWidth:80,fontSize:12,color:"#6B7280",fontWeight:600,flexShrink:0,paddingTop:2}}>{e.date}</div>
+                      <div style={{minWidth:80,fontSize:12,color:"#64748B",fontWeight:600,flexShrink:0,paddingTop:2}}>{e.date}</div>
                       <div style={{width:3,background:cc,borderRadius:2,alignSelf:"stretch",flexShrink:0,minHeight:20}}/>
                       <div style={{flex:1,minWidth:0}}>
                         <div style={{display:"flex",gap:6,flexWrap:"wrap",alignItems:"center",marginBottom:2}}>
-                          <span style={{fontSize:11,fontWeight:700,padding:"1px 7px",borderRadius:10,background:cc+"18",color:cc,flexShrink:0}}>{CAT_ICON2[e.category||"기타"]} {e.category||"기타"}</span>
-                          <span style={{fontSize:11,background:"#F3F4F6",color:"#374151",padding:"1px 7px",borderRadius:10,fontWeight:600,flexShrink:0,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",maxWidth:160}}>{e.projName}</span>
-                          <span style={{fontSize:13,fontWeight:600,color:"#111827"}}>{e.title}</span>
+                          <span style={{fontSize:11,fontWeight:700,padding:"1px 7px",borderRadius:8,background:cc+"18",color:cc,flexShrink:0}}>{CAT_ICON2[e.category||"기타"]} {e.category||"기타"}</span>
+                          <span style={{fontSize:11,background:"#F8FAFC",color:"#334155",padding:"1px 7px",borderRadius:8,fontWeight:600,flexShrink:0,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",maxWidth:160}}>{e.projName}</span>
+                          <span style={{fontSize:13,fontWeight:600,color:"#0F172A"}}>{e.title}</span>
                         </div>
-                        {e.memo&&<div style={{fontSize:12,color:"#6B7280"}}>{e.memo}</div>}
+                        {e.memo&&<div style={{fontSize:12,color:"#64748B"}}>{e.memo}</div>}
                       </div>
-                      {e.auto&&<span style={{fontSize:10,background:"#EEF2FF",color:"#6366F1",padding:"2px 6px",borderRadius:8,fontWeight:600,flexShrink:0}}>자동</span>}
+                      {e.auto&&<span style={{fontSize:10,background:"#EFF6FF",color:"#2563EB",padding:"2px 6px",borderRadius:8,fontWeight:600,flexShrink:0}}>자동</span>}
                     </div>
                   )
                 })}
@@ -6239,7 +6240,7 @@ function ProjectHistoryPage({projects, currentUser, cashItems=[]}) {
 
       {/* 내용 없음 */}
       {!showAll&&allEvts.length===0&&(
-        <div style={{background:"#fff",borderRadius:14,border:"1px solid #E5E7EB",padding:"48px",textAlign:"center",color:"#9CA3AF"}}>
+        <div style={{background:"#fff",borderRadius:8,border:"1px solid #E5E7EB",padding:"48px",textAlign:"center",color:"#94A3B8"}}>
           <div style={{fontSize:32,marginBottom:8}}>📜</div>
           <div style={{fontSize:15,fontWeight:600,marginBottom:6}}>히스토리가 없습니다</div>
           <div style={{fontSize:13}}>+ 히스토리 추가 버튼으로 기록을 시작하세요.</div>
@@ -6250,13 +6251,13 @@ function ProjectHistoryPage({projects, currentUser, cashItems=[]}) {
       {!showAll&&viewMode==="category"&&allEvts.length>0&&(
         <div>
           {/* 목차 (나무위키 스타일) */}
-          <div style={{background:"#FAFAFA",borderRadius:12,border:"1px solid #E5E7EB",padding:"14px 18px",marginBottom:14}}>
-            <div style={{fontSize:13,fontWeight:800,color:"#374151",marginBottom:10}}>📋 목차</div>
+          <div style={{background:"#FAFAFA",borderRadius:8,border:"1px solid #E5E7EB",padding:"14px 18px",marginBottom:14}}>
+            <div style={{fontSize:13,fontWeight:800,color:"#334155",marginBottom:10}}>📋 목차</div>
             <div style={{display:"flex",flexWrap:"wrap",gap:"4px 24px"}}>
               {Object.keys(byCategory).map((cat,i)=>(
                 <a key={cat} href={`#hist-cat-${cat}`}
-                  style={{fontSize:13,color:"#6366F1",textDecoration:"none",fontWeight:600,display:"flex",alignItems:"center",gap:4}}>
-                  <span style={{fontSize:11,color:"#9CA3AF"}}>{i+1}.</span>
+                  style={{fontSize:13,color:"#2563EB",textDecoration:"none",fontWeight:600,display:"flex",alignItems:"center",gap:4}}>
+                  <span style={{fontSize:11,color:"#94A3B8"}}>{i+1}.</span>
                   {CAT_ICON[cat]||"📌"} {cat} ({byCategory[cat].length}건)
                 </a>
               ))}
@@ -6265,26 +6266,26 @@ function ProjectHistoryPage({projects, currentUser, cashItems=[]}) {
 
           {/* 카테고리별 섹션 */}
           {Object.entries(byCategory).map(([cat,evts],ci)=>(
-            <div key={cat} id={`hist-cat-${cat}`} style={{background:"#fff",borderRadius:14,border:"1px solid #E5E7EB",overflow:"hidden",marginBottom:12}}>
+            <div key={cat} id={`hist-cat-${cat}`} style={{background:"#fff",borderRadius:8,border:"1px solid #E5E7EB",overflow:"hidden",marginBottom:12}}>
               {/* 카테고리 헤더 */}
-              <div style={{padding:"12px 20px",borderBottom:"1px solid #E5E7EB",display:"flex",alignItems:"center",gap:10,background:`${CAT_COLOR[cat]||"#6B7280"}0D`}}>
+              <div style={{padding:"12px 20px",borderBottom:"1px solid #E5E7EB",display:"flex",alignItems:"center",gap:10,background:`${CAT_COLOR[cat]||"#64748B"}0D`}}>
                 <span style={{fontSize:20}}>{CAT_ICON[cat]||"📌"}</span>
-                <div style={{fontSize:15,fontWeight:800,color:CAT_COLOR[cat]||"#374151"}}>{cat}</div>
-                <div style={{fontSize:13,color:"#6B7280",fontWeight:600}}>{evts.length}건</div>
-                <div style={{fontSize:11,color:"#9CA3AF",marginLeft:"auto"}}>{ci+1}.</div>
+                <div style={{fontSize:15,fontWeight:800,color:CAT_COLOR[cat]||"#334155"}}>{cat}</div>
+                <div style={{fontSize:13,color:"#64748B",fontWeight:600}}>{evts.length}건</div>
+                <div style={{fontSize:11,color:"#94A3B8",marginLeft:"auto"}}>{ci+1}.</div>
               </div>
               {/* 이벤트 목록 */}
               <div>
                 {evts.map((e,i)=>(
                   <div key={e.id||i} style={{padding:"12px 20px",borderBottom:i<evts.length-1?"1px solid #F3F4F6":"none",display:"flex",gap:14,alignItems:"flex-start"}}>
-                    <div style={{minWidth:90,fontSize:12,color:"#6B7280",fontWeight:600,paddingTop:2,flexShrink:0}}>{e.date}</div>
+                    <div style={{minWidth:90,fontSize:12,color:"#64748B",fontWeight:600,paddingTop:2,flexShrink:0}}>{e.date}</div>
                     <div style={{flex:1}}>
-                      <div style={{fontSize:13.5,fontWeight:600,color:"#111827",marginBottom:e.memo?4:0}}>{e.title}</div>
-                      {e.memo&&<div style={{fontSize:12,color:"#6B7280",lineHeight:1.5}}>{e.memo}</div>}
+                      <div style={{fontSize:13,fontWeight:600,color:"#0F172A",marginBottom:e.memo?4:0}}>{e.title}</div>
+                      {e.memo&&<div style={{fontSize:12,color:"#64748B",lineHeight:1.5}}>{e.memo}</div>}
                     </div>
                     <div style={{display:"flex",gap:6,alignItems:"center",flexShrink:0}}>
-                      {e.auto&&<span style={{fontSize:10,background:"#EEF2FF",color:"#6366F1",padding:"2px 7px",borderRadius:10,fontWeight:600}}>자동</span>}
-                      {e.createdBy&&<span style={{fontSize:11,color:"#9CA3AF"}}>{e.createdBy}</span>}
+                      {e.auto&&<span style={{fontSize:10,background:"#EFF6FF",color:"#2563EB",padding:"2px 7px",borderRadius:8,fontWeight:600}}>자동</span>}
+                      {e.createdBy&&<span style={{fontSize:11,color:"#94A3B8"}}>{e.createdBy}</span>}
                       {!e.auto&&<button onClick={()=>delHistory(e.id)}
                         style={{padding:"2px 8px",background:"#FEE2E2",color:"#DC2626",border:"none",borderRadius:6,fontSize:11,cursor:"pointer"}}>삭제</button>}
                     </div>
@@ -6298,8 +6299,8 @@ function ProjectHistoryPage({projects, currentUser, cashItems=[]}) {
 
       {/* ── 날짜순 보기 ── */}
       {!showAll&&viewMode==="date"&&allEvts.length>0&&(
-        <div style={{background:"#fff",borderRadius:14,border:"1px solid #E5E7EB",overflow:"hidden"}}>
-          <div style={{padding:"14px 20px",borderBottom:"1px solid #E5E7EB",fontSize:14,fontWeight:700,color:"#374151"}}>
+        <div style={{background:"#fff",borderRadius:8,border:"1px solid #E5E7EB",overflow:"hidden"}}>
+          <div style={{padding:"14px 20px",borderBottom:"1px solid #E5E7EB",fontSize:14,fontWeight:700,color:"#334155"}}>
             전체 {allEvts.length}건 — 최신순
           </div>
           {/* 연도별 그룹 */}
@@ -6312,27 +6313,27 @@ function ProjectHistoryPage({projects, currentUser, cashItems=[]}) {
             })
             return Object.entries(byYear).sort((a,b)=>b[0].localeCompare(a[0])).map(([yr,evts])=>(
               <div key={yr}>
-                <div style={{padding:"10px 20px",background:"#F8FAFC",borderBottom:"1px solid #E5E7EB",fontSize:14,fontWeight:800,color:"#312E81"}}>
+                <div style={{padding:"10px 20px",background:"#F8FAFC",borderBottom:"1px solid #E5E7EB",fontSize:14,fontWeight:800,color:"#1E3A8A"}}>
                   {yr}년 ({evts.length}건)
                 </div>
                 {evts.map((e,i)=>{
-                  const cc = CAT_COLOR[e.category||"기타"]||"#9CA3AF"
+                  const cc = CAT_COLOR[e.category||"기타"]||"#94A3B8"
                   return (
                     <div key={e.id||i} style={{padding:"11px 20px",borderBottom:"1px solid #F3F4F6",display:"flex",gap:12,alignItems:"flex-start"}}>
-                      <div style={{minWidth:80,fontSize:12,color:"#6B7280",fontWeight:600,paddingTop:3,flexShrink:0}}>{e.date}</div>
+                      <div style={{minWidth:80,fontSize:12,color:"#64748B",fontWeight:600,paddingTop:3,flexShrink:0}}>{e.date}</div>
                       <div style={{width:3,minHeight:40,background:cc,borderRadius:2,flexShrink:0,alignSelf:"stretch"}}/>
                       <div style={{flex:1}}>
                         <div style={{display:"flex",gap:8,alignItems:"center",marginBottom:3,flexWrap:"wrap"}}>
-                          <span style={{fontSize:11,fontWeight:700,padding:"2px 8px",borderRadius:10,background:cc+"18",color:cc}}>
+                          <span style={{fontSize:11,fontWeight:700,padding:"2px 8px",borderRadius:8,background:cc+"18",color:cc}}>
                             {CAT_ICON[e.category||"기타"]||"📌"} {e.category||"기타"}
                           </span>
-                          <span style={{fontSize:13.5,fontWeight:600,color:"#111827"}}>{e.title}</span>
+                          <span style={{fontSize:13,fontWeight:600,color:"#0F172A"}}>{e.title}</span>
                         </div>
-                        {e.memo&&<div style={{fontSize:12,color:"#6B7280",marginLeft:0,lineHeight:1.5}}>{e.memo}</div>}
+                        {e.memo&&<div style={{fontSize:12,color:"#64748B",marginLeft:0,lineHeight:1.5}}>{e.memo}</div>}
                       </div>
                       <div style={{display:"flex",gap:6,alignItems:"center",flexShrink:0}}>
-                        {e.auto&&<span style={{fontSize:10,background:"#EEF2FF",color:"#6366F1",padding:"2px 7px",borderRadius:10,fontWeight:600}}>자동</span>}
-                        {e.createdBy&&<span style={{fontSize:11,color:"#9CA3AF"}}>{e.createdBy}</span>}
+                        {e.auto&&<span style={{fontSize:10,background:"#EFF6FF",color:"#2563EB",padding:"2px 7px",borderRadius:8,fontWeight:600}}>자동</span>}
+                        {e.createdBy&&<span style={{fontSize:11,color:"#94A3B8"}}>{e.createdBy}</span>}
                         {!e.auto&&<button onClick={()=>delHistory(e.id)}
                           style={{padding:"2px 8px",background:"#FEE2E2",color:"#DC2626",border:"none",borderRadius:6,fontSize:11,cursor:"pointer"}}>삭제</button>}
                       </div>
@@ -6353,14 +6354,14 @@ export function AnalysisNoticeBar() {
   const notices = loadNotices().slice(0,5)
   if(!notices.length) return null
   return (
-    <div style={{background:"#fff",borderRadius:12,border:"1px solid #E5E7EB",padding:"12px 18px",marginBottom:14,boxShadow:"0 1px 3px rgba(0,0,0,.04)"}}>
+    <div style={{background:"#fff",borderRadius:8,border:"1px solid #E5E7EB",padding:"12px 18px",marginBottom:14,boxShadow:"0 1px 2px rgba(0,0,0,.04)"}}>
       <div style={{fontSize:13,fontWeight:800,color:"#DC2626",marginBottom:8}}>📢 최신 공지</div>
       {notices.map(n=>(
         <div key={n.id} style={{display:"flex",gap:8,alignItems:"center",padding:"5px 0",borderBottom:"1px solid #F3F4F6"}}>
           {n.important&&<span style={{fontSize:11,fontWeight:700,color:"#DC2626",flexShrink:0}}>●</span>}
-          <span style={{flex:1,fontSize:13.5,color:"#374151",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{n.title}</span>
-          <span style={{fontSize:11,color:"#9CA3AF",flexShrink:0}}>{n.createdAt?.slice(0,10)}</span>
-          <span style={{fontSize:11,color:"#9CA3AF",flexShrink:0}}>👁{n.views||0}</span>
+          <span style={{flex:1,fontSize:13,color:"#334155",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{n.title}</span>
+          <span style={{fontSize:11,color:"#94A3B8",flexShrink:0}}>{n.createdAt?.slice(0,10)}</span>
+          <span style={{fontSize:11,color:"#94A3B8",flexShrink:0}}>👁{n.views||0}</span>
         </div>
       ))}
     </div>
@@ -6415,60 +6416,60 @@ function StatsTab({projects}) {
 
   return (
     <div style={{maxWidth:960,margin:"0 auto"}}>
-      <div style={{background:"linear-gradient(135deg,#312E81,#6366F1)",borderRadius:16,padding:"20px 26px",marginBottom:16,color:"#fff"}}>
+      <div style={{background:"linear-gradient(135deg,#1E3A8A,#2563EB)",borderRadius:16,padding:"20px 26px",marginBottom:16,color:"#fff"}}>
         <div style={{fontSize:22,fontWeight:800,marginBottom:4}}>📈 시스템 사용 통계</div>
         <div style={{fontSize:13,opacity:.8}}>메뉴별 조회·수정 횟수 · 일별 접속 추이 · 시스템 개선 기초 데이터</div>
       </div>
 
       {/* 최근 7일 접속 */}
-      <div style={{background:"#fff",borderRadius:14,border:"1px solid #E5E7EB",padding:"20px 24px",marginBottom:14}}>
-        <div style={{fontSize:16,fontWeight:800,color:"#111827",marginBottom:16}}>📅 최근 7일 사용량</div>
+      <div style={{background:"#fff",borderRadius:8,border:"1px solid #E5E7EB",padding:"20px 24px",marginBottom:14}}>
+        <div style={{fontSize:16,fontWeight:800,color:"#0F172A",marginBottom:16}}>📅 최근 7일 사용량</div>
         <div style={{display:"flex",gap:8,alignItems:"flex-end",height:100}}>
           {last7.map(d=>(
             <div key={d.date} style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",gap:4}}>
-              <div style={{fontSize:11,fontWeight:700,color:"#6366F1"}}>{d.cnt||""}</div>
-              <div style={{width:"100%",background:d.cnt>0?"#6366F1":"#E5E7EB",borderRadius:"4px 4px 0 0",height:`${Math.max((d.cnt/maxDay)*80,d.cnt>0?4:2)}px`,transition:"height .3s"}}/>
-              <div style={{fontSize:11,color:"#6B7280"}}>{d.date}</div>
+              <div style={{fontSize:11,fontWeight:700,color:"#2563EB"}}>{d.cnt||""}</div>
+              <div style={{width:"100%",background:d.cnt>0?"#2563EB":"#E2E8F0",borderRadius:"4px 4px 0 0",height:`${Math.max((d.cnt/maxDay)*80,d.cnt>0?4:2)}px`,transition:"height .3s"}}/>
+              <div style={{fontSize:11,color:"#64748B"}}>{d.date}</div>
             </div>
           ))}
         </div>
       </div>
 
       {/* 메뉴별 사용 통계 */}
-      <div style={{background:"#fff",borderRadius:14,border:"1px solid #E5E7EB",padding:"20px 24px",marginBottom:14}}>
-        <div style={{fontSize:16,fontWeight:800,color:"#111827",marginBottom:16}}>🏆 메뉴별 사용 순위</div>
+      <div style={{background:"#fff",borderRadius:8,border:"1px solid #E5E7EB",padding:"20px 24px",marginBottom:14}}>
+        <div style={{fontSize:16,fontWeight:800,color:"#0F172A",marginBottom:16}}>🏆 메뉴별 사용 순위</div>
         {tabStats.map((t,i)=>(
           <div key={t.id} style={{display:"flex",gap:12,alignItems:"center",marginBottom:10}}>
-            <div style={{width:22,fontSize:13,fontWeight:800,color:i<3?["#D97706","#9CA3AF","#D85A30"][i]:"#9CA3AF",textAlign:"center"}}>{i+1}</div>
-            <div style={{width:90,fontSize:13.5,fontWeight:600,color:"#374151",flexShrink:0}}>{t.label}</div>
-            <div style={{flex:1,height:20,background:"#F3F4F6",borderRadius:10,overflow:"hidden",position:"relative"}}>
-              <div style={{position:"absolute",left:0,top:0,bottom:0,background:"#6366F1",borderRadius:10,width:`${(t.view/maxTotal)*100}%`,opacity:.7}}/>
-              <div style={{position:"absolute",left:`${(t.view/maxTotal)*100}%`,top:0,bottom:0,background:"#059669",borderRadius:10,width:`${(t.edit/maxTotal)*100}%`,opacity:.8}}/>
+            <div style={{width:22,fontSize:13,fontWeight:800,color:i<3?["#D97706","#94A3B8","#D85A30"][i]:"#94A3B8",textAlign:"center"}}>{i+1}</div>
+            <div style={{width:90,fontSize:13,fontWeight:600,color:"#334155",flexShrink:0}}>{t.label}</div>
+            <div style={{flex:1,height:20,background:"#F8FAFC",borderRadius:8,overflow:"hidden",position:"relative"}}>
+              <div style={{position:"absolute",left:0,top:0,bottom:0,background:"#2563EB",borderRadius:8,width:`${(t.view/maxTotal)*100}%`,opacity:.7}}/>
+              <div style={{position:"absolute",left:`${(t.view/maxTotal)*100}%`,top:0,bottom:0,background:"#059669",borderRadius:8,width:`${(t.edit/maxTotal)*100}%`,opacity:.8}}/>
             </div>
-            <div style={{fontSize:12,color:"#6B7280",width:80,textAlign:"right",flexShrink:0}}>
-              조회 <b style={{color:"#6366F1"}}>{t.view}</b> · 수정 <b style={{color:"#059669"}}>{t.edit}</b>
+            <div style={{fontSize:12,color:"#64748B",width:80,textAlign:"right",flexShrink:0}}>
+              조회 <b style={{color:"#2563EB"}}>{t.view}</b> · 수정 <b style={{color:"#059669"}}>{t.edit}</b>
             </div>
           </div>
         ))}
-        <div style={{display:"flex",gap:12,marginTop:8,fontSize:12,color:"#6B7280"}}>
-          <span>■ <span style={{color:"#6366F1"}}>파란색</span> = 조회수</span>
+        <div style={{display:"flex",gap:12,marginTop:8,fontSize:12,color:"#64748B"}}>
+          <span>■ <span style={{color:"#2563EB"}}>파란색</span> = 조회수</span>
           <span>■ <span style={{color:"#059669"}}>초록색</span> = 수정수</span>
         </div>
       </div>
 
       {/* 프로젝트 통계 */}
-      <div style={{background:"#fff",borderRadius:14,border:"1px solid #E5E7EB",padding:"20px 24px"}}>
-        <div style={{fontSize:16,fontWeight:800,color:"#111827",marginBottom:14}}>🏗 프로젝트 현황 요약</div>
+      <div style={{background:"#fff",borderRadius:8,border:"1px solid #E5E7EB",padding:"20px 24px"}}>
+        <div style={{fontSize:16,fontWeight:800,color:"#0F172A",marginBottom:14}}>🏗 프로젝트 현황 요약</div>
         <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:12}}>
           {[
-            ["전체 프로젝트",projects.length+"건","#6366F1"],
+            ["전체 프로젝트",projects.length+"건","#2563EB"],
             ["진행중",projects.filter(p=>p.type==="계약"||p.type==="확정").length+"건","#059669"],
             ["등록 협력업체",new Set(projects.flatMap(p=>((p.versions||[])[(p.versions||[]).length-1]?.vendors||[]).map(v=>v.name))).size+"개","#D97706"],
             ["총 용역비합",`${(projects.reduce((s,p)=>s+(p.serviceFee||0),0)/1e8).toFixed(1)}억`,"#4F46E5"],
           ].map(([label,val,color])=>(
-            <div key={label} style={{background:color+"12",borderRadius:12,padding:"16px",border:`1px solid ${color}33`,textAlign:"center"}}>
+            <div key={label} style={{background:color+"12",borderRadius:8,padding:"16px",border:`1px solid ${color}33`,textAlign:"center"}}>
               <div style={{fontSize:24,fontWeight:800,color,marginBottom:4}}>{val}</div>
-              <div style={{fontSize:13,color:"#6B7280"}}>{label}</div>
+              <div style={{fontSize:13,color:"#64748B"}}>{label}</div>
             </div>
           ))}
         </div>
@@ -6523,11 +6524,11 @@ function GamifyTab({projects, currentUser}) {
   return (
     <div style={{maxWidth:960,margin:"0 auto"}}>
       {/* 헤더 */}
-      <div style={{background:"linear-gradient(135deg,#4F46E5,#6366F1)",borderRadius:16,padding:"22px 28px",marginBottom:16,color:"#fff"}}>
+      <div style={{background:"linear-gradient(135deg,#4F46E5,#6366F1)",borderRadius:16,padding:"16px 20px",marginBottom:16,color:"#fff"}}>
         <div style={{fontSize:22,fontWeight:800,marginBottom:4}}>🎮 포인트 & 랭킹</div>
-        <div style={{fontSize:13.5,opacity:.85}}>기록할수록, 협업할수록 포인트 상승 · 아카이빙 우수 직원 시각화</div>
+        <div style={{fontSize:13,opacity:.85}}>기록할수록, 협업할수록 포인트 상승 · 아카이빙 우수 직원 시각화</div>
         {me&&(
-          <div style={{marginTop:14,display:"flex",alignItems:"center",gap:16,background:"rgba(255,255,255,.15)",borderRadius:12,padding:"12px 18px"}}>
+          <div style={{marginTop:14,display:"flex",alignItems:"center",gap:16,background:"rgba(255,255,255,.15)",borderRadius:8,padding:"12px 18px"}}>
             <div style={{fontSize:36}}>{me.badge?.split(" ")[0]||"🌱"}</div>
             <div>
               <div style={{fontSize:16,fontWeight:800}}>{currentUser.name} — {me.badge}</div>
@@ -6539,33 +6540,33 @@ function GamifyTab({projects, currentUser}) {
 
       <div style={{display:"grid",gridTemplateColumns:"1fr 320px",gap:14}}>
         {/* 랭킹 */}
-        <div style={{background:"#fff",borderRadius:14,border:"1px solid #E5E7EB",overflow:"hidden"}}>
+        <div style={{background:"#fff",borderRadius:8,border:"1px solid #E5E7EB",overflow:"hidden"}}>
           <div style={{padding:"16px 20px",borderBottom:"1px solid #F3F4F6",fontSize:16,fontWeight:800}}>🏆 전체 랭킹</div>
           {ranking.length===0
-            ?<div style={{padding:"40px",textAlign:"center",color:"#6B7280",fontSize:14}}>
+            ?<div style={{padding:"40px",textAlign:"center",color:"#64748B",fontSize:14}}>
                 <div style={{fontSize:40,marginBottom:10}}>🌱</div>
                 아직 포인트 기록이 없습니다.<br/>
                 문서 등록·실행계획서 업로드 등 활동하면 포인트가 쌓입니다!
               </div>
             :ranking.map((u,i)=>(
               <div key={u.name} onClick={()=>setSelUser(selUser===u.name?null:u.name)}
-                style={{display:"flex",alignItems:"center",gap:12,padding:"13px 20px",borderBottom:"1px solid #F3F4F6",cursor:"pointer",background:selUser===u.name?"#EEF2FF":"#fff",transition:"background .12s"}}
+                style={{display:"flex",alignItems:"center",gap:12,padding:"13px 20px",borderBottom:"1px solid #F3F4F6",cursor:"pointer",background:selUser===u.name?"#EFF6FF":"#fff",transition:"background .12s"}}
                 onMouseEnter={e=>{if(selUser!==u.name)e.currentTarget.style.background="#F8FAFC"}}
                 onMouseLeave={e=>{if(selUser!==u.name)e.currentTarget.style.background="#fff"}}>
-                <div style={{width:32,fontSize:18,fontWeight:800,color:i===0?"#D97706":i===1?"#9CA3AF":i===2?"#D85A30":"#6B7280",textAlign:"center"}}>{i+1}</div>
+                <div style={{width:32,fontSize:18,fontWeight:800,color:i===0?"#D97706":i===1?"#94A3B8":i===2?"#D85A30":"#64748B",textAlign:"center"}}>{i+1}</div>
                 <div style={{width:36,height:36,borderRadius:"50%",background:`hsl(${i*47},60%,55%)`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:16,fontWeight:700,color:"#fff",flexShrink:0}}>
                   {u.name?.charAt(0)||"?"}
                 </div>
                 <div style={{flex:1}}>
-                  <div style={{fontSize:14.5,fontWeight:700,color:"#111827"}}>{u.name} {u.badge}</div>
-                  <div style={{fontSize:12,color:"#6B7280",marginTop:2}}>최근: {u.history?.[0]?.label||"-"}</div>
+                  <div style={{fontSize:14,fontWeight:700,color:"#0F172A"}}>{u.name} {u.badge}</div>
+                  <div style={{fontSize:12,color:"#64748B",marginTop:2}}>최근: {u.history?.[0]?.label||"-"}</div>
                 </div>
                 {/* 포인트 바 */}
                 <div style={{width:120}}>
                   <div style={{display:"flex",justifyContent:"space-between",fontSize:12,marginBottom:3}}>
                     <span style={{fontWeight:700,color:"#4F46E5"}}>{u.total||0}pt</span>
                   </div>
-                  <div style={{height:6,background:"#F3F4F6",borderRadius:3}}>
+                  <div style={{height:6,background:"#F8FAFC",borderRadius:3}}>
                     <div style={{height:"100%",background:"linear-gradient(90deg,#4F46E5,#6366F1)",borderRadius:3,width:`${Math.min((u.total||0)/10,100)}%`}}/>
                   </div>
                 </div>
@@ -6577,12 +6578,12 @@ function GamifyTab({projects, currentUser}) {
         {/* 우측: 규칙 + 선택 유저 이력 */}
         <div style={{display:"flex",flexDirection:"column",gap:12}}>
           {/* 포인트 규칙 */}
-          <div style={{background:"#fff",borderRadius:14,border:"1px solid #E5E7EB",padding:"16px 18px"}}>
-            <div style={{fontSize:14,fontWeight:800,color:"#111827",marginBottom:12}}>🎯 포인트 획득 방법</div>
+          <div style={{background:"#fff",borderRadius:8,border:"1px solid #E5E7EB",padding:"16px 18px"}}>
+            <div style={{fontSize:14,fontWeight:800,color:"#0F172A",marginBottom:12}}>🎯 포인트 획득 방법</div>
             {POINT_RULES.map(r=>(
               <div key={r.action} style={{display:"flex",alignItems:"center",gap:8,marginBottom:7}}>
                 <span style={{fontSize:16,flexShrink:0}}>{r.icon}</span>
-                <span style={{flex:1,fontSize:13,color:"#374151"}}>{r.label}</span>
+                <span style={{flex:1,fontSize:13,color:"#334155"}}>{r.label}</span>
                 <span style={{fontSize:13,fontWeight:800,color:"#4F46E5"}}>+{r.pts}pt</span>
               </div>
             ))}
@@ -6590,11 +6591,11 @@ function GamifyTab({projects, currentUser}) {
 
           {/* 선택 유저 이력 */}
           {selUser&&data[selUser]&&(
-            <div style={{background:"#fff",borderRadius:14,border:"1px solid #E5E7EB",padding:"16px 18px"}}>
+            <div style={{background:"#fff",borderRadius:8,border:"1px solid #E5E7EB",padding:"16px 18px"}}>
               <div style={{fontSize:14,fontWeight:800,marginBottom:10}}>{selUser} 활동 이력</div>
               {(data[selUser].history||[]).slice(0,10).map((h,i)=>(
-                <div key={i} style={{display:"flex",gap:8,alignItems:"center",fontSize:12.5,marginBottom:6,color:"#374151"}}>
-                  <span style={{color:"#9CA3AF",flexShrink:0}}>{h.at?.slice(5,10)}</span>
+                <div key={i} style={{display:"flex",gap:8,alignItems:"center",fontSize:13,marginBottom:6,color:"#334155"}}>
+                  <span style={{color:"#94A3B8",flexShrink:0}}>{h.at?.slice(5,10)}</span>
                   <span style={{flex:1}}>{h.label}</span>
                   <span style={{fontWeight:700,color:"#4F46E5"}}>+{h.pts}</span>
                 </div>
@@ -6657,7 +6658,7 @@ function DeptDashTab({projects, vendorPayments, years}) {
 
       return {
         dept,
-        color: DEPT_COLORS[dept]||"#6366F1",
+        color: DEPT_COLORS[dept]||"#2563EB",
         projectCount: myProjects.length,
         contract,       // 수주 (억)
         cashPlan,       // 계획기성 (억)
@@ -6676,14 +6677,14 @@ function DeptDashTab({projects, vendorPayments, years}) {
   return (
     <div>
       {/* 헤더 */}
-      <div style={{background:"linear-gradient(135deg,#312E81,#6366F1)",borderRadius:16,padding:"20px 26px",marginBottom:16,color:"#fff"}}>
+      <div style={{background:"linear-gradient(135deg,#1E3A8A,#2563EB)",borderRadius:16,padding:"20px 26px",marginBottom:16,color:"#fff"}}>
         <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",flexWrap:"wrap",gap:12}}>
           <div>
             <div style={{fontSize:22,fontWeight:800,marginBottom:4}}>🏢 본부별 현황</div>
             <div style={{fontSize:13,opacity:.8}}>본부별 수주·매출(수금)·지출 현황을 한눈에</div>
           </div>
           <select value={selYear} onChange={e=>setSelYear(e.target.value)}
-            style={{padding:"8px 14px",borderRadius:9,border:"1.5px solid rgba(255,255,255,.4)",background:"rgba(255,255,255,.15)",color:"#fff",fontSize:14,fontWeight:700,cursor:"pointer"}}>
+            style={{padding:"8px 14px",borderRadius:6,border:"1.5px solid rgba(255,255,255,.4)",background:"rgba(255,255,255,.15)",color:"#fff",fontSize:14,fontWeight:700,cursor:"pointer"}}>
             {yearOpts.map(y=><option key={y} value={y} style={{color:"#111"}}>{y}년</option>)}
           </select>
         </div>
@@ -6695,7 +6696,7 @@ function DeptDashTab({projects, vendorPayments, years}) {
             ["참여 본부",deptStats.length+"개","🏢"],
             ["전체 프로젝트",projects.length+"건","🏗"],
           ].map(([label,val,icon])=>(
-            <div key={label} style={{background:"rgba(255,255,255,.15)",borderRadius:12,padding:"12px 18px",minWidth:140}}>
+            <div key={label} style={{background:"rgba(255,255,255,.15)",borderRadius:8,padding:"12px 18px",minWidth:140}}>
               <div style={{fontSize:12,opacity:.7,marginBottom:4}}>{icon} {label}</div>
               <div style={{fontSize:18,fontWeight:800}}>{val}</div>
             </div>
@@ -6706,11 +6707,11 @@ function DeptDashTab({projects, vendorPayments, years}) {
       {/* 본부별 카드 */}
       <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(320px,1fr))",gap:14,marginBottom:20}}>
         {deptStats.map(d=>(
-          <div key={d.dept} style={{background:"#fff",borderRadius:14,border:"1px solid #E5E7EB",overflow:"hidden",boxShadow:"0 1px 4px rgba(0,0,0,.05)"}}>
+          <div key={d.dept} style={{background:"#fff",borderRadius:8,border:"1px solid #E5E7EB",overflow:"hidden",boxShadow:"0 1px 4px rgba(0,0,0,.05)"}}>
             {/* 본부 헤더 */}
             <div style={{background:d.color+"18",borderBottom:`3px solid ${d.color}`,padding:"14px 18px",display:"flex",alignItems:"center",gap:10}}>
               <div style={{width:10,height:10,borderRadius:"50%",background:d.color,flexShrink:0}}/>
-              <div style={{fontSize:16,fontWeight:800,color:"#111827",flex:1}}>{d.dept}</div>
+              <div style={{fontSize:16,fontWeight:800,color:"#0F172A",flex:1}}>{d.dept}</div>
               <span style={{fontSize:12,padding:"3px 10px",borderRadius:20,background:d.color+"22",color:d.color,fontWeight:700}}>
                 {d.projectCount}건
               </span>
@@ -6719,13 +6720,13 @@ function DeptDashTab({projects, vendorPayments, years}) {
             <div style={{padding:"14px 18px"}}>
               <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:12}}>
                 {[
-                  ["수주 (지분 반영)",fA(d.contract),"#6366F1"],
-                  ["계획기성 ("+selYear+")",fA(d.cashPlan),"#6B7280"],
+                  ["수주 (지분 반영)",fA(d.contract),"#2563EB"],
+                  ["계획기성 ("+selYear+")",fA(d.cashPlan),"#64748B"],
                   ["입금실적 ("+selYear+")",fA(d.cashActual),"#059669"],
                   ["외주비 지출",fA(d.expense),"#DC2626"],
                 ].map(([label,val,color])=>(
-                  <div key={label} style={{background:"#F8FAFC",borderRadius:10,padding:"10px 12px"}}>
-                    <div style={{fontSize:11.5,color:"#6B7280",fontWeight:600,marginBottom:3}}>{label}</div>
+                  <div key={label} style={{background:"#F8FAFC",borderRadius:8,padding:"10px 12px"}}>
+                    <div style={{fontSize:12,color:"#64748B",fontWeight:600,marginBottom:3}}>{label}</div>
                     <div style={{fontSize:15,fontWeight:800,color}}>{val}</div>
                   </div>
                 ))}
@@ -6734,12 +6735,12 @@ function DeptDashTab({projects, vendorPayments, years}) {
               {d.cashPlan>0&&(
                 <div>
                   <div style={{display:"flex",justifyContent:"space-between",fontSize:12,marginBottom:5}}>
-                    <span style={{color:"#6B7280",fontWeight:600}}>수금 달성률</span>
+                    <span style={{color:"#64748B",fontWeight:600}}>수금 달성률</span>
                     <span style={{fontWeight:800,color:d.achieveRate>=100?"#059669":d.achieveRate>=70?"#D97706":"#DC2626"}}>
                       {d.achieveRate}%
                     </span>
                   </div>
-                  <div style={{height:8,background:"#F3F4F6",borderRadius:4,overflow:"hidden"}}>
+                  <div style={{height:8,background:"#F8FAFC",borderRadius:4,overflow:"hidden"}}>
                     <div style={{height:"100%",borderRadius:4,
                       background:d.achieveRate>=100?"#059669":d.achieveRate>=70?"#D97706":"#DC2626",
                       width:`${Math.min(d.achieveRate,100)}%`,transition:"width .5s"}}/>
@@ -6750,17 +6751,17 @@ function DeptDashTab({projects, vendorPayments, years}) {
               <div style={{marginTop:12,maxHeight:120,overflowY:"auto"}}>
                 {d.projects.slice(0,5).map(p=>(
                   <div key={p.id} style={{display:"flex",gap:8,alignItems:"center",padding:"4px 0",borderBottom:"1px solid #F9FAFB"}}>
-                    <span style={{fontSize:11.5,fontWeight:600,color:"#374151",flex:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{p.name}</span>
-                    <span style={{fontSize:11,color:"#9CA3AF",flexShrink:0}}>{fA(p.serviceFee)}</span>
+                    <span style={{fontSize:12,fontWeight:600,color:"#334155",flex:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{p.name}</span>
+                    <span style={{fontSize:11,color:"#94A3B8",flexShrink:0}}>{fA(p.serviceFee)}</span>
                   </div>
                 ))}
-                {d.projects.length>5&&<div style={{fontSize:11,color:"#9CA3AF",paddingTop:4}}>+{d.projects.length-5}건 더</div>}
+                {d.projects.length>5&&<div style={{fontSize:11,color:"#94A3B8",paddingTop:4}}>+{d.projects.length-5}건 더</div>}
               </div>
             </div>
           </div>
         ))}
         {deptStats.length===0&&(
-          <div style={{gridColumn:"1/-1",background:"#fff",borderRadius:14,border:"1px solid #E5E7EB",padding:"48px",textAlign:"center",color:"#6B7280",fontSize:14}}>
+          <div style={{gridColumn:"1/-1",background:"#fff",borderRadius:8,border:"1px solid #E5E7EB",padding:"48px",textAlign:"center",color:"#64748B",fontSize:14}}>
             <div style={{fontSize:40,marginBottom:12}}>🏢</div>
             프로젝트에 본부 정보가 입력되면 여기에 표시됩니다.
           </div>
@@ -6769,8 +6770,8 @@ function DeptDashTab({projects, vendorPayments, years}) {
 
       {/* 본부별 비교 테이블 */}
       {deptStats.length>0&&(
-        <div style={{background:"#fff",borderRadius:14,border:"1px solid #E5E7EB",overflow:"hidden"}}>
-          <div style={{padding:"16px 20px",borderBottom:"1px solid #E5E7EB",fontSize:15,fontWeight:800,color:"#111827"}}>
+        <div style={{background:"#fff",borderRadius:8,border:"1px solid #E5E7EB",overflow:"hidden"}}>
+          <div style={{padding:"16px 20px",borderBottom:"1px solid #E5E7EB",fontSize:15,fontWeight:800,color:"#0F172A"}}>
             📊 본부별 비교 ({selYear}년 기준)
           </div>
           <div style={{overflowX:"auto"}}>
@@ -6778,7 +6779,7 @@ function DeptDashTab({projects, vendorPayments, years}) {
               <thead>
                 <tr style={{background:"#F8FAFC"}}>
                   {["본부","프로젝트","수주(지분반영)","계획기성","입금실적","달성률","외주비"].map(h=>(
-                    <th key={h} style={{padding:"11px 14px",textAlign:h==="본부"?"left":"right",fontSize:12.5,fontWeight:700,color:"#6B7280",borderBottom:"2px solid #E5E7EB",whiteSpace:"nowrap"}}>{h}</th>
+                    <th key={h} style={{padding:"11px 14px",textAlign:h==="본부"?"left":"right",fontSize:13,fontWeight:700,color:"#64748B",borderBottom:"2px solid #E5E7EB",whiteSpace:"nowrap"}}>{h}</th>
                   ))}
                 </tr>
               </thead>
@@ -6788,25 +6789,25 @@ function DeptDashTab({projects, vendorPayments, years}) {
                     <td style={{padding:"12px 14px",borderBottom:"1px solid #F3F4F6"}}>
                       <div style={{display:"flex",alignItems:"center",gap:8}}>
                         <div style={{width:8,height:8,borderRadius:"50%",background:d.color}}/>
-                        <span style={{fontSize:14,fontWeight:700,color:"#111827"}}>{d.dept}</span>
+                        <span style={{fontSize:14,fontWeight:700,color:"#0F172A"}}>{d.dept}</span>
                       </div>
                     </td>
-                    <td style={{padding:"12px 14px",textAlign:"right",fontSize:13,color:"#374151",borderBottom:"1px solid #F3F4F6"}}>{d.projectCount}건</td>
-                    <td style={{padding:"12px 14px",textAlign:"right",fontSize:13,fontWeight:700,color:"#6366F1",borderBottom:"1px solid #F3F4F6"}}>{fA(d.contract)}</td>
-                    <td style={{padding:"12px 14px",textAlign:"right",fontSize:13,color:"#6B7280",borderBottom:"1px solid #F3F4F6"}}>{fA(d.cashPlan)}</td>
+                    <td style={{padding:"12px 14px",textAlign:"right",fontSize:13,color:"#334155",borderBottom:"1px solid #F3F4F6"}}>{d.projectCount}건</td>
+                    <td style={{padding:"12px 14px",textAlign:"right",fontSize:13,fontWeight:700,color:"#2563EB",borderBottom:"1px solid #F3F4F6"}}>{fA(d.contract)}</td>
+                    <td style={{padding:"12px 14px",textAlign:"right",fontSize:13,color:"#64748B",borderBottom:"1px solid #F3F4F6"}}>{fA(d.cashPlan)}</td>
                     <td style={{padding:"12px 14px",textAlign:"right",fontSize:13,fontWeight:700,color:"#059669",borderBottom:"1px solid #F3F4F6"}}>{fA(d.cashActual)}</td>
                     <td style={{padding:"12px 14px",textAlign:"right",fontSize:13,fontWeight:700,
-                      color:d.achieveRate==null?"#9CA3AF":d.achieveRate>=100?"#059669":d.achieveRate>=70?"#D97706":"#DC2626",
+                      color:d.achieveRate==null?"#94A3B8":d.achieveRate>=100?"#059669":d.achieveRate>=70?"#D97706":"#DC2626",
                       borderBottom:"1px solid #F3F4F6"}}>
                       {d.achieveRate!=null?d.achieveRate+"%":"-"}
                     </td>
                     <td style={{padding:"12px 14px",textAlign:"right",fontSize:13,color:"#DC2626",borderBottom:"1px solid #F3F4F6"}}>{fA(d.expense)}</td>
                   </tr>
                 ))}
-                <tr style={{background:"#EEF2FF",fontWeight:800}}>
-                  <td style={{padding:"12px 14px",fontSize:14,color:"#312E81"}}>합계</td>
+                <tr style={{background:"#EFF6FF",fontWeight:800}}>
+                  <td style={{padding:"12px 14px",fontSize:14,color:"#1E3A8A"}}>합계</td>
                   <td style={{padding:"12px 14px",textAlign:"right",fontSize:13}}>{projects.length}건</td>
-                  <td style={{padding:"12px 14px",textAlign:"right",fontSize:13,color:"#6366F1"}}>{fA(deptStats.reduce((s,d)=>s+d.contract,0))}</td>
+                  <td style={{padding:"12px 14px",textAlign:"right",fontSize:13,color:"#2563EB"}}>{fA(deptStats.reduce((s,d)=>s+d.contract,0))}</td>
                   <td style={{padding:"12px 14px",textAlign:"right",fontSize:13}}>{fA(deptStats.reduce((s,d)=>s+d.cashPlan,0))}</td>
                   <td style={{padding:"12px 14px",textAlign:"right",fontSize:13,color:"#059669"}}>{fA(deptStats.reduce((s,d)=>s+d.cashActual,0))}</td>
                   <td style={{padding:"12px 14px",textAlign:"right",fontSize:13}}>-</td>
@@ -7012,8 +7013,8 @@ function CashItemsView({cashItems, setCashItems, projects, setProjects, DEPTS, c
   const chartData = curAnnual ? (annualDept==="전체" ? curAnnual.monthly : (curAnnual.byDeptMonthly[annualDept]||[])) : []
   const maxBar = Math.max(...(chartData||[]).map(d=>d.total),1)
 
-  const ORDER_COLOR = {민간:"#6366F1", 공공:"#059669", 해외:"#D97706"}
-  const TYPE_COLOR  = {신규:"#D97706", 기성:"#6B7280", 정산:"#4F46E5", 세금계산서:"#059669", 확정:"#6366F1", 추진:"#D97706", 미정:"#9CA3AF", 선급금:"#0891B2", 어음:"#7C3AED"}
+  const ORDER_COLOR = {민간:"#2563EB", 공공:"#059669", 해외:"#D97706"}
+  const TYPE_COLOR  = {신규:"#D97706", 기성:"#64748B", 정산:"#4F46E5", 세금계산서:"#059669", 확정:"#2563EB", 추진:"#D97706", 미정:"#94A3B8", 선급금:"#0891B2", 어음:"#7C3AED"}
 
   const goToProj = (item) => {
     const proj = findMatchedProj(item.projectName)
@@ -7025,11 +7026,11 @@ function CashItemsView({cashItems, setCashItems, projects, setProjects, DEPTS, c
     <div>
       {/* 연도 선택 + 리셋 버튼 */}
       <div style={{display:"flex",gap:8,alignItems:"center",marginBottom:12,flexWrap:"wrap"}}>
-        <div style={{display:"flex",gap:4,background:"#F3F4F6",borderRadius:10,padding:3}}>
+        <div style={{display:"flex",gap:4,background:"#F8FAFC",borderRadius:8,padding:3}}>
           {["전체",...allYears].map(yr=>(
             <button key={yr} onClick={()=>setSelYear(yr)}
-              style={{padding:"6px 14px",background:selYear===yr?"#185FA5":"transparent",
-                color:selYear===yr?"#fff":"#6B7280",border:"none",borderRadius:8,
+              style={{padding:"6px 14px",background:selYear===yr?"#1D4ED8":"transparent",
+                color:selYear===yr?"#fff":"#64748B",border:"none",borderRadius:8,
                 fontSize:13,fontWeight:selYear===yr?700:500,cursor:"pointer",transition:"all .15s"}}>
               {yr==="전체"?"전체":yr+"년"}
             </button>
@@ -7068,49 +7069,49 @@ function CashItemsView({cashItems, setCashItems, projects, setProjects, DEPTS, c
 
       {/* KPI 카드 */}
       <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:10,marginBottom:14}}>
-        {[["전체 건수",items.length+"건","#6366F1"],["총 금액",fAmt(itemTotal),"#312E81"],["입금 완료",fAmt(itemPaid),"#059669"],["입금 예정",fAmt(itemExp),"#D97706"]].map(([l,v,c])=>(
-          <div key={l} style={{background:"#fff",borderRadius:12,border:"1px solid #E5E7EB",padding:"14px 16px",boxShadow:"0 1px 3px rgba(0,0,0,.04)"}}>
-            <div style={{fontSize:12,color:"#6B7280",fontWeight:600,marginBottom:4}}>{l}</div>
+        {[["전체 건수",items.length+"건","#2563EB"],["총 금액",fAmt(itemTotal),"#1E3A8A"],["입금 완료",fAmt(itemPaid),"#059669"],["입금 예정",fAmt(itemExp),"#D97706"]].map(([l,v,c])=>(
+          <div key={l} style={{background:"#fff",borderRadius:8,border:"1px solid #E5E7EB",padding:"14px 16px",boxShadow:"0 1px 2px rgba(0,0,0,.04)"}}>
+            <div style={{fontSize:12,color:"#64748B",fontWeight:600,marginBottom:4}}>{l}</div>
             <div style={{fontSize:18,fontWeight:800,color:c}}>{v}</div>
           </div>
         ))}
       </div>
 
       {/* 툴바 */}
-      <div style={{background:"#fff",borderRadius:12,border:"1px solid #E5E7EB",padding:"12px 16px",marginBottom:14,display:"flex",gap:8,flexWrap:"wrap",alignItems:"center"}}>
+      <div style={{background:"#fff",borderRadius:8,border:"1px solid #E5E7EB",padding:"12px 16px",marginBottom:14,display:"flex",gap:8,flexWrap:"wrap",alignItems:"center"}}>
         {/* 뷰 전환 */}
-        <div style={{display:"flex",gap:2,background:"#F3F4F6",borderRadius:8,padding:3}}>
+        <div style={{display:"flex",gap:2,background:"#F8FAFC",borderRadius:8,padding:3}}>
           {[["list","📋 목록"],["monthly","📅 월별"],["dept","🏢 본부별"],["annual","📊 연간현황"]].map(([v,l])=>(
             <button key={v} onClick={()=>setViewMode(v)}
-              style={{padding:"5px 12px",border:"none",borderRadius:6,fontSize:12.5,fontWeight:viewMode===v?700:400,cursor:"pointer",
-                background:viewMode===v?"#fff":"none",color:viewMode===v?isSale?"#059669":"#6366F1":"#6B7280"}}>
+              style={{padding:"5px 12px",border:"none",borderRadius:6,fontSize:13,fontWeight:viewMode===v?700:400,cursor:"pointer",
+                background:viewMode===v?"#fff":"none",color:viewMode===v?isSale?"#059669":"#2563EB":"#64748B"}}>
               {l}
             </button>
           ))}
         </div>
         {/* 필터 */}
-        <select value={filterDept} onChange={e=>setFilterDept(e.target.value)} style={{...INP(),width:120,padding:"6px 10px",fontSize:12.5}}>
+        <select value={filterDept} onChange={e=>setFilterDept(e.target.value)} style={{...INP(),width:120,padding:"6px 10px",fontSize:13}}>
           <option value="">전체 본부</option>
           {DEPTS.map(d=><option key={d} value={d}>{d}</option>)}
         </select>
-        <select value={filterType} onChange={e=>setFilterType(e.target.value)} style={{...INP(),width:100,padding:"6px 10px",fontSize:12.5}}>
+        <select value={filterType} onChange={e=>setFilterType(e.target.value)} style={{...INP(),width:100,padding:"6px 10px",fontSize:13}}>
           <option value="">전체 구분</option>
           {(isSale?["세금계산서","선급금"]:["기성","확정","미정","추진","신규","정산","선급금","어음"]).map(t=><option key={t} value={t}>{t}</option>)}
         </select>
         {/* 정렬 */}
-        <select value={sortBy} onChange={e=>setSortBy(e.target.value)} style={{...INP(),width:110,padding:"6px 10px",fontSize:12.5}}>
+        <select value={sortBy} onChange={e=>setSortBy(e.target.value)} style={{...INP(),width:110,padding:"6px 10px",fontSize:13}}>
           <option value="date">날짜순</option>
           <option value="project">프로젝트순</option>
           <option value="dept">본부순</option>
           <option value="amount">금액순</option>
         </select>
-        <span style={{fontSize:12,color:"#9CA3AF"}}>{filtered.length}건</span>
+        <span style={{fontSize:12,color:"#94A3B8"}}>{filtered.length}건</span>
         <button onClick={()=>{setForm(EMPTY);setEditId(null);setShowForm(v=>!v)}}
-          style={{marginLeft:"auto",padding:"8px 16px",background:isSale?"#059669":"#6366F1",color:"#fff",border:"none",borderRadius:9,fontSize:13.5,fontWeight:700,cursor:"pointer"}}>
+          style={{marginLeft:"auto",padding:"8px 16px",background:isSale?"#059669":"#2563EB",color:"#fff",border:"none",borderRadius:6,fontSize:13,fontWeight:700,cursor:"pointer"}}>
           {showForm&&!editId?"✕ 닫기":"+ "+(isSale?"매출내역":"기성내역")+" 추가"}
         </button>
         {!isSale&&<button onClick={()=>setShowBulk(v=>!v)}
-          style={{padding:"8px 14px",background:showBulk?"#374151":"#1E293B",color:"#fff",border:"none",borderRadius:9,fontSize:13,fontWeight:700,cursor:"pointer"}}>
+          style={{padding:"8px 14px",background:showBulk?"#334155":"#1E293B",color:"#fff",border:"none",borderRadius:6,fontSize:13,fontWeight:700,cursor:"pointer"}}>
           📋 {showBulk?"대량입력 닫기":"대량입력"}
         </button>}
       </div>
@@ -7133,25 +7134,25 @@ function CashItemsView({cashItems, setCashItems, projects, setProjects, DEPTS, c
           onClose={()=>setShowBulk(false)}
         />
       )}
-        <div style={{background:"#EEF2FF",borderRadius:14,border:"1.5px solid #6366F133",padding:"18px 20px",marginBottom:14}}>
-          <div style={{fontSize:15,fontWeight:800,color:"#6366F1",marginBottom:14}}>{editId?"✏ 수정":"+ 추가"}</div>
+        <div style={{background:"#EFF6FF",borderRadius:8,border:"1.5px solid #6366F133",padding:"14px 18px",marginBottom:14}}>
+          <div style={{fontSize:15,fontWeight:800,color:"#2563EB",marginBottom:14}}>{editId?"✏ 수정":"+ 추가"}</div>
           <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:10,marginBottom:10}}>
-            <div><label style={{fontSize:12,fontWeight:700,color:"#6B7280",display:"block",marginBottom:4}}>본부 *</label>
+            <div><label style={{fontSize:12,fontWeight:700,color:"#64748B",display:"block",marginBottom:4}}>본부 *</label>
               <select value={form.dept} onChange={e=>u("dept",e.target.value)} style={INP()}><option value="">선택</option>{DEPTS.map(d=><option key={d} value={d}>{d}</option>)}</select></div>
-            <div><label style={{fontSize:12,fontWeight:700,color:"#6B7280",display:"block",marginBottom:4}}>발주구분</label>
+            <div><label style={{fontSize:12,fontWeight:700,color:"#64748B",display:"block",marginBottom:4}}>발주구분</label>
               <select value={form.orderType} onChange={e=>u("orderType",e.target.value)} style={INP()}>{["민간","공공","해외"].map(t=><option key={t} value={t}>{t}</option>)}</select></div>
-            <div><label style={{fontSize:12,fontWeight:700,color:"#6B7280",display:"block",marginBottom:4}}>구분</label>
+            <div><label style={{fontSize:12,fontWeight:700,color:"#64748B",display:"block",marginBottom:4}}>구분</label>
               <select value={form.itemType} onChange={e=>u("itemType",e.target.value)} style={INP()}>
                 {(isSale?["세금계산서","선급금"]:["기성","확정","미정","추진","신규","정산","선급금","어음"]).map(t=><option key={t} value={t}>{t}</option>)}
               </select></div>
           </div>
           <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:10}}>
-            <div><label style={{fontSize:12,fontWeight:700,color:"#6B7280",display:"block",marginBottom:4}}>프로젝트명 *</label>
+            <div><label style={{fontSize:12,fontWeight:700,color:"#64748B",display:"block",marginBottom:4}}>프로젝트명 *</label>
               <input list="proj-list-ci" value={form.projectName} onChange={e=>u("projectName",e.target.value)} placeholder="프로젝트명" style={INP()}/>
               <datalist id="proj-list-ci">{projNames.map(n=><option key={n} value={n}/>)}</datalist>
               {form.projectName&&!findMatchedProj(form.projectName)&&<div style={{fontSize:11,color:"#D97706",marginTop:3}}>⚠ 프로젝트 목록에 없는 이름 — 유사명 자동매칭 시도됩니다</div>}
             </div>
-            <div><label style={{fontSize:12,fontWeight:700,color:"#6B7280",display:"block",marginBottom:4}}>기성단계</label>
+            <div><label style={{fontSize:12,fontWeight:700,color:"#64748B",display:"block",marginBottom:4}}>기성단계</label>
               <input value={form.stage} onChange={e=>u("stage",e.target.value)} placeholder="예: 1차 기성, 준공후" style={INP()}/></div>
           </div>
           <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10,marginBottom:10}}>
@@ -7159,15 +7160,15 @@ function CashItemsView({cashItems, setCashItems, projects, setProjects, DEPTS, c
               <input type="date" value={form.paidDate} onChange={e=>u("paidDate",e.target.value)} style={INP()}/></div>
             <div><label style={{fontSize:12,fontWeight:700,color:"#D97706",display:"block",marginBottom:4}}>📅 입금예상일</label>
               <input type="date" value={form.expectedDate} onChange={e=>u("expectedDate",e.target.value)} style={INP()}/></div>
-            <div><label style={{fontSize:12,fontWeight:700,color:"#6B7280",display:"block",marginBottom:4}}>금액 (원) *</label>
+            <div><label style={{fontSize:12,fontWeight:700,color:"#64748B",display:"block",marginBottom:4}}>금액 (원) *</label>
               <input type="number" value={form.amount||""} onChange={e=>u("amount",parseInt(e.target.value)||0)} placeholder="예: 3900000" style={INP()}/>
-              {form.amount>0&&<div style={{fontSize:12,color:"#6366F1",marginTop:3}}>= {fAmt(form.amount)}</div>}</div>
+              {form.amount>0&&<div style={{fontSize:12,color:"#2563EB",marginTop:3}}>= {fAmt(form.amount)}</div>}</div>
           </div>
-          <div style={{marginBottom:12}}><label style={{fontSize:12,fontWeight:700,color:"#6B7280",display:"block",marginBottom:4}}>메모</label>
+          <div style={{marginBottom:12}}><label style={{fontSize:12,fontWeight:700,color:"#64748B",display:"block",marginBottom:4}}>메모</label>
             <input value={form.memo} onChange={e=>u("memo",e.target.value)} placeholder="추가 메모" style={INP()}/></div>
           <div style={{display:"flex",gap:8}}>
-            <button onClick={save} style={{padding:"10px 22px",background:"#6366F1",color:"#fff",border:"none",borderRadius:10,fontSize:14,fontWeight:700,cursor:"pointer"}}>{editId?"수정 저장":"저장"}</button>
-            <button onClick={()=>{setShowForm(false);setEditId(null);setForm(EMPTY)}} style={{padding:"10px 16px",background:"#F3F4F6",color:"#374151",border:"none",borderRadius:10,fontSize:14,fontWeight:700,cursor:"pointer"}}>취소</button>
+            <button onClick={save} style={{padding:"10px 22px",background:"#2563EB",color:"#fff",border:"none",borderRadius:8,fontSize:14,fontWeight:700,cursor:"pointer"}}>{editId?"수정 저장":"저장"}</button>
+            <button onClick={()=>{setShowForm(false);setEditId(null);setForm(EMPTY)}} style={{padding:"10px 16px",background:"#F8FAFC",color:"#334155",border:"none",borderRadius:8,fontSize:14,fontWeight:700,cursor:"pointer"}}>취소</button>
           </div>
         </div>
       )}
@@ -7177,30 +7178,30 @@ function CashItemsView({cashItems, setCashItems, projects, setProjects, DEPTS, c
         <div>
           {/* 연도·본부 선택 */}
           <div style={{display:"flex",gap:10,marginBottom:14,alignItems:"center",flexWrap:"wrap"}}>
-            <div style={{display:"flex",gap:2,background:"#F3F4F6",borderRadius:8,padding:3}}>
+            <div style={{display:"flex",gap:2,background:"#F8FAFC",borderRadius:8,padding:3}}>
               {annualData.map(d=>(
                 <button key={d.yr} onClick={()=>setAnnualYear(String(d.yr))}
                   style={{padding:"5px 13px",border:"none",borderRadius:6,fontSize:13,fontWeight:String(d.yr)===annualYear?700:400,cursor:"pointer",
-                    background:String(d.yr)===annualYear?"#fff":"none",color:String(d.yr)===annualYear?"#6366F1":"#6B7280"}}>
+                    background:String(d.yr)===annualYear?"#fff":"none",color:String(d.yr)===annualYear?"#2563EB":"#64748B"}}>
                   {d.yr}년
                 </button>
               ))}
             </div>
-            <div style={{display:"flex",gap:2,background:"#F3F4F6",borderRadius:8,padding:3}}>
+            <div style={{display:"flex",gap:2,background:"#F8FAFC",borderRadius:8,padding:3}}>
               {["전체",...DEPTS].map(d=>(
                 <button key={d} onClick={()=>setAnnualDept(d)}
-                  style={{padding:"5px 12px",border:"none",borderRadius:6,fontSize:12.5,fontWeight:annualDept===d?700:400,cursor:"pointer",
-                    background:annualDept===d?"#fff":"none",color:annualDept===d?"#6366F1":"#6B7280"}}>
+                  style={{padding:"5px 12px",border:"none",borderRadius:6,fontSize:13,fontWeight:annualDept===d?700:400,cursor:"pointer",
+                    background:annualDept===d?"#fff":"none",color:annualDept===d?"#2563EB":"#64748B"}}>
                   {d}
                 </button>
               ))}
             </div>
-            {curAnnual&&<span style={{fontSize:13,color:"#6B7280",marginLeft:"auto"}}>연간합계: <strong style={{color:"#312E81"}}>{fAmt(curAnnual.total)}</strong></span>}
+            {curAnnual&&<span style={{fontSize:13,color:"#64748B",marginLeft:"auto"}}>연간합계: <strong style={{color:"#1E3A8A"}}>{fAmt(curAnnual.total)}</strong></span>}
           </div>
 
           {/* 월별 바 차트 */}
-          <div style={{background:"#fff",borderRadius:14,border:"1px solid #E5E7EB",padding:"20px 24px",marginBottom:14}}>
-            <div style={{fontSize:15,fontWeight:800,color:"#111827",marginBottom:16}}>
+          <div style={{background:"#fff",borderRadius:8,border:"1px solid #E5E7EB",padding:"20px 24px",marginBottom:14}}>
+            <div style={{fontSize:15,fontWeight:800,color:"#0F172A",marginBottom:16}}>
               📊 {annualYear}년 월별 {isSale?"매출":"수금"} 현황 — {annualDept}
             </div>
             <div style={{display:"flex",gap:6,alignItems:"flex-end",minHeight:220,borderBottom:"2px solid #E5E7EB",paddingBottom:4,overflow:"visible"}}>
@@ -7210,35 +7211,35 @@ function CashItemsView({cashItems, setCashItems, projects, setProjects, DEPTS, c
                 const total = d.paid+d.exp
                 return (
                   <div key={i} style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",gap:2,minWidth:0}}>
-                    {total>0&&<div style={{fontSize:10,fontWeight:700,color:"#312E81",textAlign:"center",whiteSpace:"nowrap"}}>
+                    {total>0&&<div style={{fontSize:10,fontWeight:700,color:"#1E3A8A",textAlign:"center",whiteSpace:"nowrap"}}>
                       {total>=1e8?(total/1e8).toFixed(1)+"억":Math.round(total/1e4)+"만"}
                     </div>}
                     <div style={{width:"100%",display:"flex",flexDirection:"column",alignItems:"center",gap:1}}>
                       {expH>0&&<div style={{width:"70%",height:expH,background:"#D97706",borderRadius:"3px 3px 0 0",opacity:.8}}/>}
                       {paidH>0&&<div style={{width:"70%",height:paidH,background:"#059669",borderRadius:expH>0?"0":"3px 3px 0 0"}}/>}
-                      {total===0&&<div style={{width:"70%",height:4,background:"#E5E7EB",borderRadius:2}}/>}
+                      {total===0&&<div style={{width:"70%",height:4,background:"#E2E8F0",borderRadius:2}}/>}
                     </div>
-                    <div style={{fontSize:10.5,color:"#6B7280",marginTop:3}}>{d.label}</div>
+                    <div style={{fontSize:11,color:"#64748B",marginTop:3}}>{d.label}</div>
                   </div>
                 )
               })}
             </div>
-            <div style={{display:"flex",gap:16,marginTop:10,fontSize:12,color:"#6B7280"}}>
+            <div style={{display:"flex",gap:16,marginTop:10,fontSize:12,color:"#64748B"}}>
               <span><span style={{display:"inline-block",width:10,height:10,background:"#059669",borderRadius:2,marginRight:5}}/>입금 완료</span>
               <span><span style={{display:"inline-block",width:10,height:10,background:"#D97706",borderRadius:2,marginRight:5,opacity:.8}}/>입금 예정</span>
             </div>
           </div>
 
           {/* 월별 상세 테이블 */}
-          <div style={{background:"#fff",borderRadius:14,border:"1px solid #E5E7EB",overflow:"hidden"}}>
+          <div style={{background:"#fff",borderRadius:8,border:"1px solid #E5E7EB",overflow:"hidden"}}>
             <table style={{width:"100%",borderCollapse:"collapse"}}>
               <thead>
                 <tr style={{background:"#F8FAFC"}}>
-                  <th style={{padding:"10px 14px",textAlign:"left",fontSize:12.5,fontWeight:700,color:"#6B7280",borderBottom:"2px solid #E5E7EB"}}>월</th>
-                  <th style={{padding:"10px 14px",textAlign:"right",fontSize:12.5,fontWeight:700,color:"#059669",borderBottom:"2px solid #E5E7EB"}}>입금 완료</th>
-                  <th style={{padding:"10px 14px",textAlign:"right",fontSize:12.5,fontWeight:700,color:"#D97706",borderBottom:"2px solid #E5E7EB"}}>입금 예정</th>
-                  <th style={{padding:"10px 14px",textAlign:"right",fontSize:12.5,fontWeight:700,color:"#312E81",borderBottom:"2px solid #E5E7EB"}}>합계</th>
-                  <th style={{padding:"10px 14px",textAlign:"left",fontSize:12.5,fontWeight:700,color:"#6B7280",borderBottom:"2px solid #E5E7EB"}}>프로젝트</th>
+                  <th style={{padding:"10px 14px",textAlign:"left",fontSize:13,fontWeight:700,color:"#64748B",borderBottom:"2px solid #E5E7EB"}}>월</th>
+                  <th style={{padding:"10px 14px",textAlign:"right",fontSize:13,fontWeight:700,color:"#059669",borderBottom:"2px solid #E5E7EB"}}>입금 완료</th>
+                  <th style={{padding:"10px 14px",textAlign:"right",fontSize:13,fontWeight:700,color:"#D97706",borderBottom:"2px solid #E5E7EB"}}>입금 예정</th>
+                  <th style={{padding:"10px 14px",textAlign:"right",fontSize:13,fontWeight:700,color:"#1E3A8A",borderBottom:"2px solid #E5E7EB"}}>합계</th>
+                  <th style={{padding:"10px 14px",textAlign:"left",fontSize:13,fontWeight:700,color:"#64748B",borderBottom:"2px solid #E5E7EB"}}>프로젝트</th>
                 </tr>
               </thead>
               <tbody>
@@ -7247,28 +7248,28 @@ function CashItemsView({cashItems, setCashItems, projects, setProjects, DEPTS, c
                   const monthItems = items.filter(item=>getYM(item)===ym&&(annualDept==="전체"||item.dept===annualDept))
                   return (
                     <tr key={i} style={{borderBottom:"1px solid #F3F4F6"}}>
-                      <td style={{padding:"10px 14px",fontSize:14,fontWeight:700,color:"#374151"}}>{d.label}</td>
-                      <td style={{padding:"10px 14px",textAlign:"right",fontSize:13.5,fontWeight:700,color:"#059669"}}>{d.paid>0?fAmt(d.paid):"-"}</td>
-                      <td style={{padding:"10px 14px",textAlign:"right",fontSize:13.5,fontWeight:600,color:"#D97706"}}>{d.exp>0?fAmt(d.exp):"-"}</td>
-                      <td style={{padding:"10px 14px",textAlign:"right",fontSize:14,fontWeight:800,color:"#312E81"}}>{fAmt(d.total)}</td>
+                      <td style={{padding:"10px 14px",fontSize:14,fontWeight:700,color:"#334155"}}>{d.label}</td>
+                      <td style={{padding:"10px 14px",textAlign:"right",fontSize:13,fontWeight:700,color:"#059669"}}>{d.paid>0?fAmt(d.paid):"-"}</td>
+                      <td style={{padding:"10px 14px",textAlign:"right",fontSize:13,fontWeight:600,color:"#D97706"}}>{d.exp>0?fAmt(d.exp):"-"}</td>
+                      <td style={{padding:"10px 14px",textAlign:"right",fontSize:14,fontWeight:800,color:"#1E3A8A"}}>{fAmt(d.total)}</td>
                       <td style={{padding:"10px 14px",fontSize:12}}>
                         {monthItems.slice(0,3).map((item,j)=>(
                           <span key={j} onClick={()=>goToProj(item)}
-                            style={{display:"inline-block",background:"#EEF2FF",color:"#6366F1",borderRadius:6,padding:"2px 7px",margin:"1px 2px",fontSize:11.5,cursor:"pointer",fontWeight:600}}
+                            style={{display:"inline-block",background:"#EFF6FF",color:"#2563EB",borderRadius:6,padding:"2px 7px",margin:"1px 2px",fontSize:12,cursor:"pointer",fontWeight:600}}
                             title={item.projectName}>
                             {item.projectName.slice(0,12)}{item.projectName.length>12?"…":""}
                           </span>
                         ))}
-                        {monthItems.length>3&&<span style={{fontSize:11,color:"#9CA3AF"}}>+{monthItems.length-3}건</span>}
+                        {monthItems.length>3&&<span style={{fontSize:11,color:"#94A3B8"}}>+{monthItems.length-3}건</span>}
                       </td>
                     </tr>
                   )
                 })}
-                <tr style={{background:"#EEF2FF",fontWeight:700}}>
-                  <td style={{padding:"10px 14px",fontSize:13.5,color:"#312E81"}}>연간 합계</td>
+                <tr style={{background:"#EFF6FF",fontWeight:700}}>
+                  <td style={{padding:"10px 14px",fontSize:13,color:"#1E3A8A"}}>연간 합계</td>
                   <td style={{padding:"10px 14px",textAlign:"right",fontSize:14,color:"#059669"}}>{fAmt((chartData||[]).reduce((s,d)=>s+d.paid,0))}</td>
                   <td style={{padding:"10px 14px",textAlign:"right",fontSize:14,color:"#D97706"}}>{fAmt((chartData||[]).reduce((s,d)=>s+d.exp,0))}</td>
-                  <td style={{padding:"10px 14px",textAlign:"right",fontSize:15,color:"#312E81"}}>{fAmt((chartData||[]).reduce((s,d)=>s+d.total,0))}</td>
+                  <td style={{padding:"10px 14px",textAlign:"right",fontSize:15,color:"#1E3A8A"}}>{fAmt((chartData||[]).reduce((s,d)=>s+d.total,0))}</td>
                   <td/>
                 </tr>
               </tbody>
@@ -7279,9 +7280,9 @@ function CashItemsView({cashItems, setCashItems, projects, setProjects, DEPTS, c
 
       {/* ── 📋 목록 뷰 ── */}
       {viewMode==="list"&&(
-        <div style={{background:"#fff",borderRadius:14,border:"1px solid #E5E7EB",overflow:"hidden"}}>
+        <div style={{background:"#fff",borderRadius:8,border:"1px solid #E5E7EB",overflow:"hidden"}}>
           {filtered.length===0
-            ?<div style={{padding:"48px",textAlign:"center",color:"#6B7280"}}>
+            ?<div style={{padding:"48px",textAlign:"center",color:"#64748B"}}>
                 <div style={{fontSize:36,marginBottom:10}}>💧</div>
                 기성내역을 추가하거나 엑셀 업로드를 이용해주세요.
               </div>
@@ -7289,7 +7290,7 @@ function CashItemsView({cashItems, setCashItems, projects, setProjects, DEPTS, c
               <thead>
                 <tr style={{background:"#F8FAFC"}}>
                   {["본부","발주","구분","프로젝트명","기성단계","입금완료일","입금예상일","금액",""].map((h,i)=>(
-                    <th key={i} style={{padding:"10px 12px",textAlign:i>=7?"right":"left",fontSize:12.5,fontWeight:700,color:"#6B7280",borderBottom:"2px solid #E5E7EB",whiteSpace:"nowrap"}}>{h}</th>
+                    <th key={i} style={{padding:"10px 12px",textAlign:i>=7?"right":"left",fontSize:13,fontWeight:700,color:"#64748B",borderBottom:"2px solid #E5E7EB",whiteSpace:"nowrap"}}>{h}</th>
                   ))}
                 </tr>
               </thead>
@@ -7302,10 +7303,10 @@ function CashItemsView({cashItems, setCashItems, projects, setProjects, DEPTS, c
                   const 기타List  = filtered.filter(x=>!x.paidDate&&!x.expectedDate&&x.itemType!=="추진")
                   const SECS = [
                     {label:"✅ 기성 (입금 완료)", color:"#059669", bg:"#D1FAE5", items:기성List},
-                    {label:"📅 확정 (입금 예정)", color:"#6366F1", bg:"#EEF2FF", items:확정List},
+                    {label:"📅 확정 (입금 예정)", color:"#2563EB", bg:"#EFF6FF", items:확정List},
                     {label:"🔶 추진", color:"#D97706", bg:"#FEF3C7", items:추진List},
                   ].filter(s=>s.items.length>0)
-                  if(기타List.length>0) SECS.push({label:"기타", color:"#6B7280", bg:"#F3F4F6", items:기타List})
+                  if(기타List.length>0) SECS.push({label:"기타", color:"#64748B", bg:"#F8FAFC", items:기타List})
 
                   const COLS = 9
                   const rows = []
@@ -7320,32 +7321,32 @@ function CashItemsView({cashItems, setCashItems, projects, setProjects, DEPTS, c
                       const matched = findMatchedProj(item.projectName)
                       rows.push(
                         <tr key={item.id} style={{background:i%2===0?"#fff":"#FAFAFA",borderBottom:"1px solid #F3F4F6"}}>
-                          <td style={{padding:"9px 12px",fontSize:12.5,fontWeight:700,color:"#374151",whiteSpace:"nowrap"}}>{item.dept||"-"}</td>
+                          <td style={{padding:"9px 12px",fontSize:13,fontWeight:700,color:"#334155",whiteSpace:"nowrap"}}>{item.dept||"-"}</td>
                           <td style={{padding:"9px 10px"}}>
-                            <span style={{fontSize:11.5,padding:"2px 7px",borderRadius:20,background:(ORDER_COLOR[item.orderType]||"#6B7280")+"18",color:ORDER_COLOR[item.orderType]||"#6B7280",fontWeight:700}}>{item.orderType||"-"}</span>
+                            <span style={{fontSize:12,padding:"2px 7px",borderRadius:20,background:(ORDER_COLOR[item.orderType]||"#64748B")+"18",color:ORDER_COLOR[item.orderType]||"#64748B",fontWeight:700}}>{item.orderType||"-"}</span>
                           </td>
                           <td style={{padding:"9px 10px"}}>
-                            <span style={{fontSize:11.5,padding:"2px 7px",borderRadius:20,background:(TYPE_COLOR[item.itemType]||"#6B7280")+"18",color:TYPE_COLOR[item.itemType]||"#6B7280",fontWeight:700}}>{item.itemType||"-"}</span>
+                            <span style={{fontSize:12,padding:"2px 7px",borderRadius:20,background:(TYPE_COLOR[item.itemType]||"#64748B")+"18",color:TYPE_COLOR[item.itemType]||"#64748B",fontWeight:700}}>{item.itemType||"-"}</span>
                           </td>
                           <td style={{padding:"9px 12px",minWidth:180,maxWidth:280,wordBreak:"keep-all",whiteSpace:"normal",lineHeight:1.4}}>
                             <span onClick={()=>goToProj(item)}
-                              style={{fontSize:13.5,fontWeight:600,color:matched?"#6366F1":"#111827",cursor:matched?"pointer":"default",textDecoration:matched?"underline":"none"}}>
+                              style={{fontSize:13,fontWeight:600,color:matched?"#2563EB":"#0F172A",cursor:matched?"pointer":"default",textDecoration:matched?"underline":"none"}}>
                               {item.projectName}
-                              {matched&&matched.name!==item.projectName&&<span style={{fontSize:10,color:"#9CA3AF",marginLeft:4,display:"block"}}>≈ {matched.name}</span>}
+                              {matched&&matched.name!==item.projectName&&<span style={{fontSize:10,color:"#94A3B8",marginLeft:4,display:"block"}}>≈ {matched.name}</span>}
                             </span>
                           </td>
-                          <td style={{padding:"9px 12px",fontSize:12,color:"#6B7280",whiteSpace:"nowrap"}}>{item.stage||"-"}</td>
-                          <td style={{padding:"9px 12px",fontSize:12.5,color:"#059669",fontWeight:item.paidDate?700:400,whiteSpace:"nowrap"}}>
+                          <td style={{padding:"9px 12px",fontSize:12,color:"#64748B",whiteSpace:"nowrap"}}>{item.stage||"-"}</td>
+                          <td style={{padding:"9px 12px",fontSize:13,color:"#059669",fontWeight:item.paidDate?700:400,whiteSpace:"nowrap"}}>
                             {item.paidDate?<>✅ {fmtDate(item.paidDate)}</>:"-"}
                           </td>
-                          <td style={{padding:"9px 12px",fontSize:12.5,color:"#D97706",fontWeight:item.expectedDate?600:400,whiteSpace:"nowrap"}}>
+                          <td style={{padding:"9px 12px",fontSize:13,color:"#D97706",fontWeight:item.expectedDate?600:400,whiteSpace:"nowrap"}}>
                             {item.expectedDate?<>📅 {fmtDate(item.expectedDate)}</>:"-"}
                           </td>
-                          <td style={{padding:"9px 12px",textAlign:"right",fontSize:14,fontWeight:800,color:"#312E81",whiteSpace:"nowrap"}}>{fAmt(item.amount||0)}</td>
+                          <td style={{padding:"9px 12px",textAlign:"right",fontSize:14,fontWeight:800,color:"#1E3A8A",whiteSpace:"nowrap"}}>{fAmt(item.amount||0)}</td>
                           <td style={{padding:"9px 8px",whiteSpace:"nowrap"}}>
                             <div style={{display:"flex",gap:4}}>
-                              <button onClick={()=>startEdit(item)} style={{padding:"3px 8px",background:"#EEF2FF",color:"#6366F1",border:"none",borderRadius:6,fontSize:11.5,fontWeight:600,cursor:"pointer"}}>{editId===item.id?"✕ 취소":"✏ 수정"}</button>
-                              <button onClick={()=>del(item.id)} style={{padding:"3px 8px",background:"#FEE2E2",color:"#DC2626",border:"none",borderRadius:6,fontSize:11.5,fontWeight:600,cursor:"pointer"}}>🗑 삭제</button>
+                              <button onClick={()=>startEdit(item)} style={{padding:"3px 8px",background:"#EFF6FF",color:"#2563EB",border:"none",borderRadius:6,fontSize:12,fontWeight:600,cursor:"pointer"}}>{editId===item.id?"✕ 취소":"✏ 수정"}</button>
+                              <button onClick={()=>del(item.id)} style={{padding:"3px 8px",background:"#FEE2E2",color:"#DC2626",border:"none",borderRadius:6,fontSize:12,fontWeight:600,cursor:"pointer"}}>🗑 삭제</button>
                             </div>
                           </td>
                       </tr>
@@ -7353,7 +7354,7 @@ function CashItemsView({cashItems, setCashItems, projects, setProjects, DEPTS, c
                     // 인라인 수정 폼
                     if(editId===item.id) rows.push(
                       <tr key={item.id+"-edit"}>
-                        <td colSpan={9} style={{padding:"12px 16px",background:"#EEF2FF",borderBottom:"2px solid #6366F1"}}>
+                        <td colSpan={9} style={{padding:"12px 16px",background:"#EFF6FF",borderBottom:"2px solid #6366F1"}}>
                           <InlineEditForm form={form} setForm={setForm} DEPTS={DEPTS} projNames={projNames} isSale={isSale} onSave={save} onCancel={()=>{setEditId(null);setForm(EMPTY)}}/>
                         </td>
                       </tr>
@@ -7362,14 +7363,14 @@ function CashItemsView({cashItems, setCashItems, projects, setProjects, DEPTS, c
                     // 소계 행
                     rows.push(<tr key={"sub-"+label} style={{background:bg}}>
                       <td colSpan={7} style={{padding:"9px 14px",fontSize:13,fontWeight:700,color}}>{label.split(" ")[1]||label} 소계</td>
-                      <td style={{padding:"9px 14px",textAlign:"right",fontSize:13.5,fontWeight:800,color}}>{fAmt(items.reduce((s,x)=>s+(x.amount||0),0))}</td>
+                      <td style={{padding:"9px 14px",textAlign:"right",fontSize:13,fontWeight:800,color}}>{fAmt(items.reduce((s,x)=>s+(x.amount||0),0))}</td>
                       <td/>
                     </tr>)
                   })
                   // 총합계
-                  rows.push(<tr key="total" style={{background:"#EEF2FF",borderTop:"2px solid #6366F1"}}>
-                    <td colSpan={7} style={{padding:"11px 14px",fontSize:14,fontWeight:800,color:"#312E81"}}>총 합계 ({filtered.length}건)</td>
-                    <td style={{padding:"11px 14px",textAlign:"right",fontSize:15,fontWeight:800,color:"#312E81"}}>{fAmt(filtered.reduce((s,x)=>s+(x.amount||0),0))}</td>
+                  rows.push(<tr key="total" style={{background:"#EFF6FF",borderTop:"2px solid #6366F1"}}>
+                    <td colSpan={7} style={{padding:"11px 14px",fontSize:14,fontWeight:800,color:"#1E3A8A"}}>총 합계 ({filtered.length}건)</td>
+                    <td style={{padding:"11px 14px",textAlign:"right",fontSize:15,fontWeight:800,color:"#1E3A8A"}}>{fAmt(filtered.reduce((s,x)=>s+(x.amount||0),0))}</td>
                     <td/>
                   </tr>)
                   return rows
@@ -7383,33 +7384,33 @@ function CashItemsView({cashItems, setCashItems, projects, setProjects, DEPTS, c
       {/* ── 📅 월별 뷰 ── */}
       {viewMode==="monthly"&&(
         <div>
-          {byMonth.length===0&&<div style={{background:"#fff",borderRadius:14,border:"1px solid #E5E7EB",padding:"48px",textAlign:"center",color:"#6B7280"}}>데이터 없음</div>}
+          {byMonth.length===0&&<div style={{background:"#fff",borderRadius:8,border:"1px solid #E5E7EB",padding:"48px",textAlign:"center",color:"#64748B"}}>데이터 없음</div>}
           {byMonth.map(([ym,monthItems])=>{
             const monthTotal = monthItems.reduce((s,x)=>s+(x.amount||0),0)
             const paidCnt  = monthItems.filter(x=>x.paidDate).length
             const expCnt   = monthItems.filter(x=>!x.paidDate&&x.expectedDate).length
             const ymLabel  = /^\d{4}-\d{2}$/.test(ym) ? ym.slice(0,4)+"년 "+parseInt(ym.slice(5))+"월" : (ym==="미정"?"날짜 미정":ym)
             return (
-              <div key={ym} style={{background:"#fff",borderRadius:14,border:"1px solid #E5E7EB",marginBottom:12,overflow:"hidden"}}>
+              <div key={ym} style={{background:"#fff",borderRadius:8,border:"1px solid #E5E7EB",marginBottom:12,overflow:"hidden"}}>
                 <div style={{background:"#F8FAFC",padding:"12px 18px",borderBottom:"1px solid #E5E7EB",display:"flex",alignItems:"center",gap:12}}>
-                  <div style={{fontSize:15,fontWeight:800,color:"#111827"}}>📆 {ymLabel}</div>
+                  <div style={{fontSize:15,fontWeight:800,color:"#0F172A"}}>📆 {ymLabel}</div>
                   <div style={{fontSize:13,color:"#059669",fontWeight:600}}>✅ 완료 {paidCnt}건</div>
                   <div style={{fontSize:13,color:"#D97706",fontWeight:600}}>📅 예정 {expCnt}건</div>
-                  <div style={{marginLeft:"auto",fontSize:16,fontWeight:800,color:"#312E81"}}>{fAmt(monthTotal)}</div>
+                  <div style={{marginLeft:"auto",fontSize:16,fontWeight:800,color:"#1E3A8A"}}>{fAmt(monthTotal)}</div>
                 </div>
                 <table style={{width:"100%",borderCollapse:"collapse"}}>
                   <tbody>
                     {monthItems.map((item,i)=>(
                       <tr key={item.id} style={{borderBottom:"1px solid #F9FAFB",background:i%2===0?"#fff":"#FAFAFA"}}>
-                        <td style={{padding:"9px 14px",fontSize:12.5,fontWeight:700,color:"#374151",width:120}}>{item.dept||"-"}</td>
-                        <td style={{padding:"9px 10px",width:50}}><span style={{fontSize:11,padding:"2px 6px",borderRadius:10,background:(ORDER_COLOR[item.orderType]||"#6B7280")+"18",color:ORDER_COLOR[item.orderType]||"#6B7280",fontWeight:700}}>{item.orderType}</span></td>
-                        <td style={{padding:"9px 10px",width:50}}><span style={{fontSize:11,padding:"2px 6px",borderRadius:10,background:(TYPE_COLOR[item.itemType]||"#6B7280")+"18",color:TYPE_COLOR[item.itemType]||"#6B7280",fontWeight:700}}>{item.itemType}</span></td>
-                        <td style={{padding:"9px 10px",fontSize:13.5,fontWeight:600,color:"#111827",cursor:"pointer"}} onClick={()=>goToProj(item)}>{item.projectName}</td>
-                        <td style={{padding:"9px 10px",fontSize:12.5,color:"#6B7280"}}>{item.stage||""}</td>
-                        <td style={{padding:"9px 10px",fontSize:12.5,color:item.paidDate?"#059669":"#D97706",fontWeight:600,whiteSpace:"nowrap"}}>
+                        <td style={{padding:"9px 14px",fontSize:13,fontWeight:700,color:"#334155",width:120}}>{item.dept||"-"}</td>
+                        <td style={{padding:"9px 10px",width:50}}><span style={{fontSize:11,padding:"2px 6px",borderRadius:8,background:(ORDER_COLOR[item.orderType]||"#64748B")+"18",color:ORDER_COLOR[item.orderType]||"#64748B",fontWeight:700}}>{item.orderType}</span></td>
+                        <td style={{padding:"9px 10px",width:50}}><span style={{fontSize:11,padding:"2px 6px",borderRadius:8,background:(TYPE_COLOR[item.itemType]||"#64748B")+"18",color:TYPE_COLOR[item.itemType]||"#64748B",fontWeight:700}}>{item.itemType}</span></td>
+                        <td style={{padding:"9px 10px",fontSize:13,fontWeight:600,color:"#0F172A",cursor:"pointer"}} onClick={()=>goToProj(item)}>{item.projectName}</td>
+                        <td style={{padding:"9px 10px",fontSize:13,color:"#64748B"}}>{item.stage||""}</td>
+                        <td style={{padding:"9px 10px",fontSize:13,color:item.paidDate?"#059669":"#D97706",fontWeight:600,whiteSpace:"nowrap"}}>
                           {item.paidDate?`✅ ${fmtDate(item.paidDate)}`:item.expectedDate?`📅 ${fmtDate(item.expectedDate)}`:"-"}
                         </td>
-                        <td style={{padding:"9px 14px",textAlign:"right",fontSize:14,fontWeight:800,color:"#312E81",whiteSpace:"nowrap"}}>{fAmt(item.amount||0)}</td>
+                        <td style={{padding:"9px 14px",textAlign:"right",fontSize:14,fontWeight:800,color:"#1E3A8A",whiteSpace:"nowrap"}}>{fAmt(item.amount||0)}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -7423,42 +7424,42 @@ function CashItemsView({cashItems, setCashItems, projects, setProjects, DEPTS, c
       {/* ── 🏢 본부별 뷰 ── */}
       {viewMode==="dept"&&(
         <div>
-          {byDept.length===0&&<div style={{background:"#fff",borderRadius:14,border:"1px solid #E5E7EB",padding:"48px",textAlign:"center",color:"#6B7280"}}>데이터 없음</div>}
+          {byDept.length===0&&<div style={{background:"#fff",borderRadius:8,border:"1px solid #E5E7EB",padding:"48px",textAlign:"center",color:"#64748B"}}>데이터 없음</div>}
           {byDept.map(([dept,deptItems])=>{
             const deptTotal = deptItems.reduce((s,x)=>s+(x.amount||0),0)
             const paidAmt   = deptItems.filter(x=>x.paidDate).reduce((s,x)=>s+(x.amount||0),0)
             const expAmt    = deptItems.filter(x=>!x.paidDate&&x.expectedDate).reduce((s,x)=>s+(x.amount||0),0)
             return (
-              <div key={dept} style={{background:"#fff",borderRadius:14,border:"1px solid #E5E7EB",marginBottom:12,overflow:"hidden"}}>
+              <div key={dept} style={{background:"#fff",borderRadius:8,border:"1px solid #E5E7EB",marginBottom:12,overflow:"hidden"}}>
                 <div style={{padding:"14px 18px",borderBottom:"2px solid #E5E7EB",display:"flex",alignItems:"center",gap:12,flexWrap:"wrap"}}>
-                  <div style={{fontSize:16,fontWeight:800,color:"#111827",flex:1}}>{dept}</div>
+                  <div style={{fontSize:16,fontWeight:800,color:"#0F172A",flex:1}}>{dept}</div>
                   <span style={{fontSize:13,color:"#059669",fontWeight:600}}>✅ {fAmt(paidAmt)}</span>
                   <span style={{fontSize:13,color:"#D97706",fontWeight:600}}>📅 {fAmt(expAmt)}</span>
-                  <span style={{fontSize:16,fontWeight:800,color:"#312E81"}}>합계 {fAmt(deptTotal)}</span>
+                  <span style={{fontSize:16,fontWeight:800,color:"#1E3A8A"}}>합계 {fAmt(deptTotal)}</span>
                 </div>
                 <table style={{width:"100%",borderCollapse:"collapse"}}>
                   <thead>
                     <tr style={{background:"#F8FAFC"}}>
                       {["발주","구분","프로젝트명","기성단계","입금완료일","입금예상일","금액"].map((h,i)=>(
-                        <th key={i} style={{padding:"8px 12px",textAlign:i===6?"right":"left",fontSize:12,fontWeight:700,color:"#6B7280",borderBottom:"1px solid #E5E7EB"}}>{h}</th>
+                        <th key={i} style={{padding:"8px 12px",textAlign:i===6?"right":"left",fontSize:12,fontWeight:700,color:"#64748B",borderBottom:"1px solid #E5E7EB"}}>{h}</th>
                       ))}
                     </tr>
                   </thead>
                   <tbody>
                     {deptItems.map((item,i)=>(
                       <tr key={item.id} style={{borderBottom:"1px solid #F9FAFB",background:i%2===0?"#fff":"#FAFAFA"}}>
-                        <td style={{padding:"9px 12px"}}><span style={{fontSize:11.5,padding:"2px 7px",borderRadius:10,background:(ORDER_COLOR[item.orderType]||"#6B7280")+"18",color:ORDER_COLOR[item.orderType]||"#6B7280",fontWeight:700}}>{item.orderType}</span></td>
-                        <td style={{padding:"9px 12px"}}><span style={{fontSize:11.5,padding:"2px 7px",borderRadius:10,background:(TYPE_COLOR[item.itemType]||"#6B7280")+"18",color:TYPE_COLOR[item.itemType]||"#6B7280",fontWeight:700}}>{item.itemType}</span></td>
-                        <td style={{padding:"9px 12px",fontSize:13.5,fontWeight:600,color:"#111827",cursor:"pointer"}} onClick={()=>goToProj(item)}>{item.projectName}</td>
-                        <td style={{padding:"9px 12px",fontSize:12.5,color:"#6B7280"}}>{item.stage||"-"}</td>
-                        <td style={{padding:"9px 12px",fontSize:12.5,color:"#059669",fontWeight:item.paidDate?600:400}}>{item.paidDate?`✅ ${fmtDate(item.paidDate)}`:"-"}</td>
-                        <td style={{padding:"9px 12px",fontSize:12.5,color:"#D97706",fontWeight:item.expectedDate?600:400}}>{item.expectedDate?`📅 ${fmtDate(item.expectedDate)}`:"-"}</td>
-                        <td style={{padding:"9px 14px",textAlign:"right",fontSize:14,fontWeight:800,color:"#312E81",whiteSpace:"nowrap"}}>{fAmt(item.amount||0)}</td>
+                        <td style={{padding:"9px 12px"}}><span style={{fontSize:12,padding:"2px 7px",borderRadius:8,background:(ORDER_COLOR[item.orderType]||"#64748B")+"18",color:ORDER_COLOR[item.orderType]||"#64748B",fontWeight:700}}>{item.orderType}</span></td>
+                        <td style={{padding:"9px 12px"}}><span style={{fontSize:12,padding:"2px 7px",borderRadius:8,background:(TYPE_COLOR[item.itemType]||"#64748B")+"18",color:TYPE_COLOR[item.itemType]||"#64748B",fontWeight:700}}>{item.itemType}</span></td>
+                        <td style={{padding:"9px 12px",fontSize:13,fontWeight:600,color:"#0F172A",cursor:"pointer"}} onClick={()=>goToProj(item)}>{item.projectName}</td>
+                        <td style={{padding:"9px 12px",fontSize:13,color:"#64748B"}}>{item.stage||"-"}</td>
+                        <td style={{padding:"9px 12px",fontSize:13,color:"#059669",fontWeight:item.paidDate?600:400}}>{item.paidDate?`✅ ${fmtDate(item.paidDate)}`:"-"}</td>
+                        <td style={{padding:"9px 12px",fontSize:13,color:"#D97706",fontWeight:item.expectedDate?600:400}}>{item.expectedDate?`📅 ${fmtDate(item.expectedDate)}`:"-"}</td>
+                        <td style={{padding:"9px 14px",textAlign:"right",fontSize:14,fontWeight:800,color:"#1E3A8A",whiteSpace:"nowrap"}}>{fAmt(item.amount||0)}</td>
                       </tr>
                     ))}
-                    <tr style={{background:"#EEF2FF"}}>
-                      <td colSpan={6} style={{padding:"10px 12px",fontSize:13.5,fontWeight:700,color:"#312E81"}}>소계</td>
-                      <td style={{padding:"10px 14px",textAlign:"right",fontSize:15,fontWeight:800,color:"#312E81"}}>{fAmt(deptTotal)}</td>
+                    <tr style={{background:"#EFF6FF"}}>
+                      <td colSpan={6} style={{padding:"10px 12px",fontSize:13,fontWeight:700,color:"#1E3A8A"}}>소계</td>
+                      <td style={{padding:"10px 14px",textAlign:"right",fontSize:15,fontWeight:800,color:"#1E3A8A"}}>{fAmt(deptTotal)}</td>
                     </tr>
                   </tbody>
                 </table>
@@ -7794,12 +7795,12 @@ function AnalysisDashboard({projects, cashItems, saleItems, DEPTS, DEPT_COLORS, 
   const totSaleTarget = saleByDept.reduce((s,d)=>s+d.revTarget,0)/1e8
 
   // 파이차트 데이터
-  const contractPie = DEPTS.map((d,i)=>({name:d.replace("본부",""),value:+(contractByDept[i].done).toFixed(2),color:DEPT_COLORS[d]||"#6B7280"}))
-  const salePie     = DEPTS.map((d,i)=>({name:d.replace("본부",""),value:+saleByDept[i].revCum.toFixed(2),color:DEPT_COLORS[d]||"#6B7280"}))
-  const expPie      = DEPTS.map((d,i)=>({name:d.replace("본부",""),value:+expByDept[i].paid.toFixed(2),color:DEPT_COLORS[d]||"#6B7280"}))
+  const contractPie = DEPTS.map((d,i)=>({name:d.replace("본부",""),value:+(contractByDept[i].done).toFixed(2),color:DEPT_COLORS[d]||"#64748B"}))
+  const salePie     = DEPTS.map((d,i)=>({name:d.replace("본부",""),value:+saleByDept[i].revCum.toFixed(2),color:DEPT_COLORS[d]||"#64748B"}))
+  const expPie      = DEPTS.map((d,i)=>({name:d.replace("본부",""),value:+expByDept[i].paid.toFixed(2),color:DEPT_COLORS[d]||"#64748B"}))
 
-  const tblH = {padding:"10px 12px",textAlign:"left",fontSize:12.5,fontWeight:700,color:"#6B7280",borderBottom:"2px solid #E5E7EB",whiteSpace:"nowrap",background:"#F8FAFC"}
-  const tblD = (align="left",bold=false,color="#374151")=>({padding:"10px 12px",textAlign:align,fontSize:13,fontWeight:bold?700:400,color,borderBottom:"1px solid #F3F4F6",whiteSpace:"nowrap"})
+  const tblH = {padding:"10px 12px",textAlign:"left",fontSize:13,fontWeight:700,color:"#64748B",borderBottom:"2px solid #E5E7EB",whiteSpace:"nowrap",background:"#F8FAFC"}
+  const tblD = (align="left",bold=false,color="#334155")=>({padding:"10px 12px",textAlign:align,fontSize:13,fontWeight:bold?700:400,color,borderBottom:"1px solid #F3F4F6",whiteSpace:"nowrap"})
 
   // ── contractItems 직접 집계 (업로드 데이터 우선) ──────────
   const contractItemsDone = useMemo(()=>{
@@ -7832,12 +7833,12 @@ function AnalysisDashboard({projects, cashItems, saleItems, DEPTS, DEPT_COLORS, 
     <div>
       {/* ── 전사 KPI 요약 카드 ── */}
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:12,marginBottom:20}}>
-        <div style={{background:"linear-gradient(135deg,#312E81,#6366F1)",borderRadius:14,padding:"18px 20px",color:"#fff"}}>
+        <div style={{background:"linear-gradient(135deg,#1E3A8A,#2563EB)",borderRadius:8,padding:"14px 18px",color:"#fff"}}>
           <div style={{fontSize:13,fontWeight:700,opacity:.8,marginBottom:6}}>📝 계약현황</div>
           <div style={{fontSize:34,fontWeight:900,letterSpacing:"-0.03em",marginBottom:2}}>{fA(totDone)}</div>
           <div style={{fontSize:12,opacity:.7,marginBottom:10}}>계약 완료 기준</div>
           <div style={{marginBottom:10}}>
-            <div style={{display:"flex",justifyContent:"space-between",fontSize:11.5,opacity:.8,marginBottom:4}}>
+            <div style={{display:"flex",justifyContent:"space-between",fontSize:12,opacity:.8,marginBottom:4}}>
               <span>달성률 {effectiveContractTarget>0?`(목표 ${effectiveContractTarget}억)`:"(목표 미설정)"}</span>
               <span style={{fontWeight:800,fontSize:14,color:"#34D399"}}>{effectiveContractTarget>0?`${contractRate}%`:"-"}</span>
             </div>
@@ -7846,7 +7847,7 @@ function AnalysisDashboard({projects, cashItems, saleItems, DEPTS, DEPT_COLORS, 
             </div>
           </div>
           <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:6}}>
-            {[["✅ 완료",fA(totDone),"#34D399",true],["📋 확정",fA(totConf),"#A5B4FC",false],["🔶 추진",fA(totPush),"#FDE68A",false]].map(([l,v,c,bold])=>(
+            {[["✅ 완료",fA(totDone),"#34D399",true],["📋 확정",fA(totConf),"#93C5FD",false],["🔶 추진",fA(totPush),"#FDE68A",false]].map(([l,v,c,bold])=>(
               <div key={l} style={{background:"rgba(255,255,255,.12)",borderRadius:8,padding:"8px 6px",textAlign:"center",border:bold?"1.5px solid rgba(255,255,255,.4)":"none"}}>
                 <div style={{fontSize:10,color:c,fontWeight:600,marginBottom:2}}>{l}</div>
                 <div style={{fontSize:bold?15:13,fontWeight:bold?900:600,color:"#fff"}}>{v}</div>
@@ -7854,12 +7855,12 @@ function AnalysisDashboard({projects, cashItems, saleItems, DEPTS, DEPT_COLORS, 
             ))}
           </div>
         </div>
-        <div style={{background:"linear-gradient(135deg,#065F46,#059669)",borderRadius:14,padding:"18px 20px",color:"#fff"}}>
+        <div style={{background:"linear-gradient(135deg,#065F46,#059669)",borderRadius:8,padding:"14px 18px",color:"#fff"}}>
           <div style={{fontSize:13,fontWeight:700,opacity:.8,marginBottom:6}}>💧 매출현황</div>
           <div style={{fontSize:34,fontWeight:900,letterSpacing:"-0.03em",marginBottom:2}}>{fA(totPaid_YTD)}</div>
           <div style={{fontSize:12,opacity:.7,marginBottom:10}}>현누계 (입금완료) 기준</div>
           <div style={{marginBottom:10}}>
-            <div style={{display:"flex",justifyContent:"space-between",fontSize:11.5,opacity:.8,marginBottom:4}}>
+            <div style={{display:"flex",justifyContent:"space-between",fontSize:12,opacity:.8,marginBottom:4}}>
               <span>달성률 {effectiveSaleTarget>0?`(목표 ${effectiveSaleTarget}억)`:"(목표 미설정)"}</span>
               <span style={{fontWeight:800,fontSize:14,color:"#34D399"}}>{effectiveSaleTarget>0?`${saleRate}%`:"-"}</span>
             </div>
@@ -7868,7 +7869,7 @@ function AnalysisDashboard({projects, cashItems, saleItems, DEPTS, DEPT_COLORS, 
             </div>
           </div>
           <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:6}}>
-            {[["✅ 현누계",fA(totPaid_YTD),"#34D399",true],["📋 확정",fA(totSaleConf),"#A5B4FC",false],["❓ 미정",fA(totSalePush),"#FDE68A",false]].map(([l,v,c,bold])=>(
+            {[["✅ 현누계",fA(totPaid_YTD),"#34D399",true],["📋 확정",fA(totSaleConf),"#93C5FD",false],["❓ 미정",fA(totSalePush),"#FDE68A",false]].map(([l,v,c,bold])=>(
               <div key={l} style={{background:"rgba(255,255,255,.12)",borderRadius:8,padding:"8px 6px",textAlign:"center",border:bold?"1.5px solid rgba(255,255,255,.4)":"none"}}>
                 <div style={{fontSize:10,color:c,fontWeight:600,marginBottom:2}}>{l}</div>
                 <div style={{fontSize:bold?15:13,fontWeight:bold?900:600,color:"#fff"}}>{v}</div>
@@ -7877,12 +7878,12 @@ function AnalysisDashboard({projects, cashItems, saleItems, DEPTS, DEPT_COLORS, 
           </div>
         </div>
         <div style={{display:"grid",gridTemplateRows:"1fr 1fr",gap:10}}>
-          <div style={{background:"linear-gradient(135deg,#7C1D1D,#DC2626)",borderRadius:12,padding:"14px 18px",color:"#fff"}}>
+          <div style={{background:"linear-gradient(135deg,#7C1D1D,#DC2626)",borderRadius:8,padding:"14px 18px",color:"#fff"}}>
             <div style={{fontSize:12,opacity:.8,marginBottom:4}}>💸 지출 합계 (현재 기준)</div>
             <div style={{fontSize:28,fontWeight:900,marginBottom:2}}>{fA(totExp)}</div>
             <div style={{fontSize:11,opacity:.7}}>{totPaid_YTD>0?`수금 대비 ${Math.round(totExp/totPaid_YTD*100)}%`:""}</div>
           </div>
-          <div style={{background:"linear-gradient(135deg,#374151,#6B7280)",borderRadius:12,padding:"14px 18px",color:"#fff",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+          <div style={{background:"linear-gradient(135deg,#374151,#6B7280)",borderRadius:8,padding:"14px 18px",color:"#fff",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
             <div><div style={{fontSize:12,opacity:.8,marginBottom:4}}>👥 총 인원</div><div style={{fontSize:28,fontWeight:800}}>{totalStaff}명</div></div>
             <div style={{fontSize:32,opacity:.4}}>👤</div>
           </div>
@@ -7890,20 +7891,20 @@ function AnalysisDashboard({projects, cashItems, saleItems, DEPTS, DEPT_COLORS, 
       </div>
 
       {/* ══ 계약현황 테이블 — ContractStatusPage byDept와 동일 ══ */}
-      <div style={{background:"#fff",borderRadius:14,border:"2px solid #6366F1",marginBottom:16,overflow:"hidden"}}>
-        <div style={{padding:"14px 20px",background:"linear-gradient(135deg,#312E81,#6366F1)",display:"flex",alignItems:"center",gap:10,flexWrap:"wrap"}}>
+      <div style={{background:"#fff",borderRadius:8,border:"2px solid #6366F1",marginBottom:16,overflow:"hidden"}}>
+        <div style={{padding:"14px 20px",background:"linear-gradient(135deg,#1E3A8A,#2563EB)",display:"flex",alignItems:"center",gap:10,flexWrap:"wrap"}}>
           <div style={{fontSize:16,fontWeight:800,color:"#fff"}}>📝 계약현황 — 본부별 계약 현황 (지분 반영)</div>
           <div style={{marginLeft:"auto",fontSize:12,color:"rgba(255,255,255,.7)"}}>단위: 억원 ({thisYear}년)</div>
         </div>
         <div style={{overflowX:"auto"}}>
           <table style={{width:"100%",borderCollapse:"collapse",minWidth:600}}>
             <thead>
-              <tr style={{background:"#EEF2FF"}}>
+              <tr style={{background:"#EFF6FF"}}>
                 {["본부","목표","✅ 계약","📋 확정","합계(계약+확정)","🔶 추진","달성률"].map((h,i)=>(
                   <th key={i} style={{padding:"10px 12px",textAlign:i===0?"left":"right",fontSize:12,fontWeight:700,
-                    color:i===2?"#059669":i===4?"#059669":i===3?"#6366F1":i===5?"#D97706":"#6B7280",
+                    color:i===2?"#059669":i===4?"#059669":i===3?"#2563EB":i===5?"#D97706":"#64748B",
                     borderBottom:"2px solid #6366F1",
-                    background:i===2||i===4?"#D1FAE5":i===3?"#EEF2FF":"#EEF2FF",
+                    background:i===2||i===4?"#D1FAE5":i===3?"#EFF6FF":"#EFF6FF",
                     whiteSpace:"nowrap"}}>{h}</th>
                 ))}
               </tr>
@@ -7913,30 +7914,30 @@ function AnalysisDashboard({projects, cashItems, saleItems, DEPTS, DEPT_COLORS, 
                 const done=d.done||0,conf=d.conf||0,push=d.push||0,target=d.target||0
                 const rate=target>0?Math.round(done/target*100):null
                 return (
-                  <tr key={d.dept} style={{background:i%2===0?"#fff":"#F9FAFB",borderBottom:"1px solid #E5E7EB"}}>
+                  <tr key={d.dept} style={{background:i%2===0?"#fff":"#F8FAFC",borderBottom:"1px solid #E5E7EB"}}>
                     <td style={{padding:"10px 12px"}}>
                       <div style={{display:"flex",alignItems:"center",gap:7}}>
-                        <div style={{width:9,height:9,borderRadius:"50%",background:DEPT_COLORS[d.dept]||"#6366F1",flexShrink:0}}/>
-                        <span style={{fontSize:13.5,fontWeight:700}}>{d.dept}</span>
+                        <div style={{width:9,height:9,borderRadius:"50%",background:DEPT_COLORS[d.dept]||"#2563EB",flexShrink:0}}/>
+                        <span style={{fontSize:13,fontWeight:700}}>{d.dept}</span>
                       </div>
                     </td>
                     <td style={{padding:"10px 12px",textAlign:"right",fontSize:13,color:"#DC2626",fontWeight:600}}>{target>0?`${target}억`:"-"}</td>
                     <td style={{padding:"10px 12px",textAlign:"right",fontSize:14,fontWeight:800,color:"#059669",background:"#F0FDF4"}}>{fA(done)||"-"}</td>
-                    <td style={{padding:"10px 12px",textAlign:"right",fontSize:13,color:"#6366F1"}}>{conf>0?fA(conf):"-"}</td>
+                    <td style={{padding:"10px 12px",textAlign:"right",fontSize:13,color:"#2563EB"}}>{conf>0?fA(conf):"-"}</td>
                     <td style={{padding:"10px 12px",textAlign:"right",fontSize:14,fontWeight:800,color:"#059669",background:"#DCFCE7"}}>{done+conf>0?fA(done+conf):"-"}</td>
                     <td style={{padding:"10px 12px",textAlign:"right",fontSize:13,color:"#D97706"}}>{push>0?fA(push):"-"}</td>
                     <td style={{padding:"10px 12px",textAlign:"right",fontSize:13,fontWeight:700,
-                      color:rate>=100?"#059669":rate>=70?"#185FA5":rate!=null?"#D97706":"#9CA3AF"}}>
+                      color:rate>=100?"#059669":rate>=70?"#1D4ED8":rate!=null?"#D97706":"#94A3B8"}}>
                       {rate!=null?`${rate}%`:"-"}
                     </td>
                   </tr>
                 )
               })}
-              <tr style={{background:"#EEF2FF",borderTop:"2px solid #6366F1"}}>
-                <td style={{padding:"10px 12px",fontSize:14,fontWeight:800,color:"#312E81"}}>합계</td>
+              <tr style={{background:"#EFF6FF",borderTop:"2px solid #6366F1"}}>
+                <td style={{padding:"10px 12px",fontSize:14,fontWeight:800,color:"#1E3A8A"}}>합계</td>
                 <td style={{padding:"10px 12px",textAlign:"right",fontSize:13,fontWeight:700,color:"#DC2626"}}>{effectiveContractTarget>0?`${effectiveContractTarget}억`:"-"}</td>
                 <td style={{padding:"10px 12px",textAlign:"right",fontSize:14,fontWeight:900,color:"#059669",background:"#F0FDF4"}}>{fA(totDone)}</td>
-                <td style={{padding:"10px 12px",textAlign:"right",fontSize:13,fontWeight:700,color:"#6366F1"}}>{fA(totConf)}</td>
+                <td style={{padding:"10px 12px",textAlign:"right",fontSize:13,fontWeight:700,color:"#2563EB"}}>{fA(totConf)}</td>
                 <td style={{padding:"10px 12px",textAlign:"right",fontSize:14,fontWeight:900,color:"#059669",background:"#DCFCE7"}}>{fA(totDone+totConf)}</td>
                 <td style={{padding:"10px 12px",textAlign:"right",fontSize:13,fontWeight:700,color:"#D97706"}}>{fA(totPush)}</td>
                 <td style={{padding:"10px 12px",textAlign:"right",fontSize:14,fontWeight:800,color:"#059669"}}>{contractRate>0?`${contractRate}%`:"-"}</td>
@@ -7947,7 +7948,7 @@ function AnalysisDashboard({projects, cashItems, saleItems, DEPTS, DEPT_COLORS, 
       </div>
 
       {/* ══ 월수금현황 테이블 — CashflowTab cashByDept와 동일 ══ */}
-      <div style={{background:"#fff",borderRadius:14,border:"2px solid #059669",marginBottom:16,overflow:"hidden"}}>
+      <div style={{background:"#fff",borderRadius:8,border:"2px solid #059669",marginBottom:16,overflow:"hidden"}}>
         <div style={{padding:"14px 20px",background:"linear-gradient(135deg,#065F46,#059669)",display:"flex",alignItems:"center",gap:10,flexWrap:"wrap"}}>
           <div style={{fontSize:16,fontWeight:800,color:"#fff"}}>💧 월수금현황 — {thisYear}년 본부별 수금 현황</div>
           <div style={{fontSize:12,background:"rgba(255,255,255,.2)",padding:"3px 10px",borderRadius:8,fontWeight:700,color:"#fff"}}>현누계 = 입금완료 기준</div>
@@ -7958,8 +7959,8 @@ function AnalysisDashboard({projects, cashItems, saleItems, DEPTS, DEPT_COLORS, 
             <thead>
               <tr style={{background:"#F0FDF4"}}>
                 {["구분","매출목표","✅ 현누계(입금완료)","인당(현누계)","기성+확정","인당(기성+확정)","❓ 미정","합계(현누계+기성)","합계(미정포함)"].map((h,i)=>(
-                  <th key={i} style={{padding:"10px 12px",textAlign:i===0?"left":"right",fontSize:11.5,fontWeight:700,
-                    color:i===2||i===3?"#059669":i===4||i===5?"#6366F1":i>=7?"#312E81":i===1?"#DC2626":i===6?"#D97706":"#6B7280",
+                  <th key={i} style={{padding:"10px 12px",textAlign:i===0?"left":"right",fontSize:12,fontWeight:700,
+                    color:i===2||i===3?"#059669":i===4||i===5?"#2563EB":i>=7?"#1E3A8A":i===1?"#DC2626":i===6?"#D97706":"#64748B",
                     borderBottom:"2px solid #059669",
                     background:i===2||i===3?"#D1FAE5":i>=7?"#D1FAE5":i===1?"#FFF0F0":"#F0FDF4",
                     whiteSpace:"nowrap"}}>{h}</th>
@@ -7977,21 +7978,21 @@ function AnalysisDashboard({projects, cashItems, saleItems, DEPTS, DEPT_COLORS, 
                 const perPaid=staff>0?paid/staff:0
                 const perConf=staff>0?(paid+conf)/staff:0
                 return (
-                  <tr key={d.dept} style={{background:i%2===0?"#fff":"#F9FAFB",borderBottom:"1px solid #E5E7EB"}}>
+                  <tr key={d.dept} style={{background:i%2===0?"#fff":"#F8FAFC",borderBottom:"1px solid #E5E7EB"}}>
                     <td style={{padding:"10px 12px"}}>
                       <div style={{display:"flex",alignItems:"center",gap:7}}>
                         <div style={{width:9,height:9,borderRadius:"50%",background:DEPT_COLORS[d.dept]||"#059669",flexShrink:0}}/>
-                        <span style={{fontSize:13.5,fontWeight:700}}>{d.dept}</span>
+                        <span style={{fontSize:13,fontWeight:700}}>{d.dept}</span>
                       </div>
                     </td>
                     <td style={{padding:"10px 12px",textAlign:"right",fontSize:13,color:"#DC2626",fontWeight:600}}>{revT>0?fA(revT):"-"}</td>
                     <td style={{padding:"10px 12px",textAlign:"right",fontSize:14,fontWeight:800,color:"#059669",background:"#F0FDF4"}}>{paid>0?fA(paid):"-"}</td>
-                    <td style={{padding:"10px 12px",textAlign:"right",fontSize:12.5,color:"#059669",background:"#ECFDF5"}}>{perPaid>=1e8?fA(perPaid):"-"}</td>
-                    <td style={{padding:"10px 12px",textAlign:"right",fontSize:13,color:"#6366F1"}}>{paid+conf>0?fA(paid+conf):"-"}</td>
-                    <td style={{padding:"10px 12px",textAlign:"right",fontSize:12.5,color:"#6366F1",background:"#EEF2FF"}}>{perConf>=1e8?fA(perConf):"-"}</td>
+                    <td style={{padding:"10px 12px",textAlign:"right",fontSize:13,color:"#059669",background:"#ECFDF5"}}>{perPaid>=1e8?fA(perPaid):"-"}</td>
+                    <td style={{padding:"10px 12px",textAlign:"right",fontSize:13,color:"#2563EB"}}>{paid+conf>0?fA(paid+conf):"-"}</td>
+                    <td style={{padding:"10px 12px",textAlign:"right",fontSize:13,color:"#2563EB",background:"#EFF6FF"}}>{perConf>=1e8?fA(perConf):"-"}</td>
                     <td style={{padding:"10px 12px",textAlign:"right",fontSize:13,color:"#D97706"}}>{push>0?fA(push):"-"}</td>
-                    <td style={{padding:"10px 12px",textAlign:"right",fontSize:14,fontWeight:800,color:"#312E81",background:"#D1FAE5"}}>{paid+conf>0?fA(paid+conf):"-"}</td>
-                    <td style={{padding:"10px 12px",textAlign:"right",fontSize:14,fontWeight:800,color:"#312E81",background:"#D1FAE5"}}>{paid+conf+push>0?fA(paid+conf+push):"-"}</td>
+                    <td style={{padding:"10px 12px",textAlign:"right",fontSize:14,fontWeight:800,color:"#1E3A8A",background:"#D1FAE5"}}>{paid+conf>0?fA(paid+conf):"-"}</td>
+                    <td style={{padding:"10px 12px",textAlign:"right",fontSize:14,fontWeight:800,color:"#1E3A8A",background:"#D1FAE5"}}>{paid+conf+push>0?fA(paid+conf+push):"-"}</td>
                   </tr>
                 )
               })}
@@ -8000,11 +8001,11 @@ function AnalysisDashboard({projects, cashItems, saleItems, DEPTS, DEPT_COLORS, 
                 <td style={{padding:"10px 12px",textAlign:"right",fontSize:13,fontWeight:700,color:"#DC2626"}}>{effectiveSaleTarget>0?`${effectiveSaleTarget}억`:"-"}</td>
                 <td style={{padding:"10px 12px",textAlign:"right",fontSize:14,fontWeight:900,color:"#059669",background:"#F0FDF4"}}>{fA(totPaid_YTD)}</td>
                 <td style={{padding:"10px 12px",textAlign:"right",background:"#ECFDF5"}}/>
-                <td style={{padding:"10px 12px",textAlign:"right",fontSize:14,fontWeight:900,color:"#312E81"}}>{fA(totPaid_YTD+totSaleConf)}</td>
-                <td style={{padding:"10px 12px",textAlign:"right",background:"#EEF2FF"}}/>
+                <td style={{padding:"10px 12px",textAlign:"right",fontSize:14,fontWeight:900,color:"#1E3A8A"}}>{fA(totPaid_YTD+totSaleConf)}</td>
+                <td style={{padding:"10px 12px",textAlign:"right",background:"#EFF6FF"}}/>
                 <td style={{padding:"10px 12px",textAlign:"right",fontSize:13,fontWeight:700,color:"#D97706"}}>{fA(totSalePush)}</td>
-                <td style={{padding:"10px 12px",textAlign:"right",fontSize:14,fontWeight:900,color:"#312E81",background:"#D1FAE5"}}>{fA(totPaid_YTD+totSaleConf)}</td>
-                <td style={{padding:"10px 12px",textAlign:"right",fontSize:14,fontWeight:900,color:"#312E81",background:"#D1FAE5"}}>{fA(totPaid_YTD+totSaleConf+totSalePush)}</td>
+                <td style={{padding:"10px 12px",textAlign:"right",fontSize:14,fontWeight:900,color:"#1E3A8A",background:"#D1FAE5"}}>{fA(totPaid_YTD+totSaleConf)}</td>
+                <td style={{padding:"10px 12px",textAlign:"right",fontSize:14,fontWeight:900,color:"#1E3A8A",background:"#D1FAE5"}}>{fA(totPaid_YTD+totSaleConf+totSalePush)}</td>
               </tr>
             </tbody>
           </table>
@@ -8012,7 +8013,7 @@ function AnalysisDashboard({projects, cashItems, saleItems, DEPTS, DEPT_COLORS, 
       </div>
 
       {/* ══ 지출현황 테이블 — 지출현황 탭 본부별 손익분석과 동일 ══ */}
-      <div style={{background:"#fff",borderRadius:14,border:"2px solid #DC2626",marginBottom:16,overflow:"hidden"}}>
+      <div style={{background:"#fff",borderRadius:8,border:"2px solid #DC2626",marginBottom:16,overflow:"hidden"}}>
         <div style={{padding:"14px 20px",background:"linear-gradient(135deg,#7C1D1D,#DC2626)",display:"flex",alignItems:"center",gap:10,flexWrap:"wrap"}}>
           <div style={{fontSize:16,fontWeight:800,color:"#fff"}}>💸 본부별 손익분석</div>
           <div style={{fontSize:12,color:"rgba(255,255,255,.8)"}}>— 지출현황 탭과 동일 데이터</div>
@@ -8024,9 +8025,9 @@ function AnalysisDashboard({projects, cashItems, saleItems, DEPTS, DEPT_COLORS, 
               <tr style={{background:"#FEF2F2"}}>
                 {["본부","매출목표","매출(현누계)","매출실행율","지출","지출실행율","손익"].map((h,i)=>(
                   <th key={i} style={{padding:"10px 12px",textAlign:i===0?"left":"right",fontSize:12,fontWeight:700,
-                    color:i===2||i===3?"#059669":i===4||i===5?"#DC2626":i===6?"#312E81":"#6B7280",
+                    color:i===2||i===3?"#059669":i===4||i===5?"#DC2626":i===6?"#1E3A8A":"#64748B",
                     borderBottom:"2px solid #DC2626",
-                    background:i===2||i===3?"#D1FAE5":i===4||i===5?"#FEE2E2":i===6?"#EEF2FF":"#FEF2F2",
+                    background:i===2||i===3?"#D1FAE5":i===4||i===5?"#FEE2E2":i===6?"#EFF6FF":"#FEF2F2",
                     whiteSpace:"nowrap"}}>{h}</th>
                 ))}
               </tr>
@@ -8045,14 +8046,14 @@ function AnalysisDashboard({projects, cashItems, saleItems, DEPTS, DEPT_COLORS, 
                     <td style={{padding:"10px 12px"}}>
                       <div style={{display:"flex",alignItems:"center",gap:7}}>
                         <div style={{width:9,height:9,borderRadius:"50%",background:DEPT_COLORS[dept]||"#DC2626",flexShrink:0}}/>
-                        <span style={{fontSize:13.5,fontWeight:700}}>{dept}</span>
+                        <span style={{fontSize:13,fontWeight:700}}>{dept}</span>
                       </div>
                     </td>
                     <td style={{padding:"10px 12px",textAlign:"right",fontSize:13,color:"#DC2626",fontWeight:600}}>{revT>0?fA(revT):"-"}</td>
                     <td style={{padding:"10px 12px",textAlign:"right",fontSize:14,fontWeight:800,color:"#059669",background:"#F0FDF4"}}>{sale>0?fA(sale):"-"}</td>
                     <td style={{padding:"10px 12px",textAlign:"right",fontSize:13,fontWeight:700,color:saleR>=100?"#059669":saleR>=70?"#D97706":"#DC2626"}}>{saleR!=null?`${saleR}%`:"-"}</td>
                     <td style={{padding:"10px 12px",textAlign:"right",fontSize:13,color:"#DC2626",background:"#FFF7F7"}}>{exp>0?fA(exp):"-"}</td>
-                    <td style={{padding:"10px 12px",textAlign:"right",fontSize:13,color:expR&&expR>80?"#DC2626":"#374151"}}>{expR!=null?`${expR}%`:"-"}</td>
+                    <td style={{padding:"10px 12px",textAlign:"right",fontSize:13,color:expR&&expR>80?"#DC2626":"#334155"}}>{expR!=null?`${expR}%`:"-"}</td>
                     <td style={{padding:"10px 12px",textAlign:"right",fontSize:14,fontWeight:800,color:pnl>=0?"#059669":"#DC2626",background:pnl>=0?"#F0FDF4":"#FEF2F2"}}>{sale>0||exp>0?fA(pnl):"-"}</td>
                   </tr>
                 )
@@ -8079,14 +8080,14 @@ function AnalysisDashboard({projects, cashItems, saleItems, DEPTS, DEPT_COLORS, 
 // ══════════════════════════════════════════════════════════════
 function NoPermScreen({tabId}) {
   return (
-    <div style={{display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",minHeight:320,gap:16,color:"#6B7280"}}>
+    <div style={{display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",minHeight:320,gap:16,color:"#64748B"}}>
       <div style={{fontSize:56}}>🔒</div>
-      <div style={{fontSize:20,fontWeight:800,color:"#374151"}}>접근 권한이 없습니다</div>
-      <div style={{fontSize:14,color:"#9CA3AF",textAlign:"center",maxWidth:360,lineHeight:1.7}}>
+      <div style={{fontSize:20,fontWeight:800,color:"#334155"}}>접근 권한이 없습니다</div>
+      <div style={{fontSize:14,color:"#94A3B8",textAlign:"center",maxWidth:360,lineHeight:1.7}}>
         이 메뉴는 관리자가 접근 권한을 부여해야 사용할 수 있습니다.<br/>
         관리자에게 <strong>권한관리 → 탭권한</strong>에서 권한 설정을 요청하세요.
       </div>
-      <div style={{background:"#F3F4F6",borderRadius:10,padding:"10px 20px",fontSize:13,color:"#6B7280",fontFamily:"monospace"}}>
+      <div style={{background:"#F8FAFC",borderRadius:8,padding:"10px 20px",fontSize:13,color:"#64748B",fontFamily:"monospace"}}>
         메뉴 ID: {tabId}
       </div>
     </div>
@@ -8166,21 +8167,21 @@ function ProjectCashflowDetail({proj, cashItems, setCashItems, DEPTS, DEPT_COLOR
   return (
     <div>
       {/* ── 기준일 잔금 카드 ── */}
-      <div style={{background:"linear-gradient(135deg,#312E81,#6366F1)",borderRadius:16,padding:"20px 24px",marginBottom:16,color:"#fff"}}>
+      <div style={{background:"linear-gradient(135deg,#1E3A8A,#2563EB)",borderRadius:16,padding:"20px 24px",marginBottom:16,color:"#fff"}}>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",flexWrap:"wrap",gap:12}}>
           <div>
-            <div style={{fontSize:12.5,opacity:.75,marginBottom:4}}>
+            <div style={{fontSize:13,opacity:.75,marginBottom:4}}>
               📅 기준일: <strong>{bl.baseDate||"미설정"}</strong>
               {bl.baseDate&&<span style={{fontSize:11,opacity:.6,marginLeft:8}}>({bl.baseDate} 이전 기수령액 기반)</span>}
             </div>
             <div style={{fontSize:13,opacity:.8,marginBottom:8}}>설계비 · 기수령액 · 잔금 (단위: 억원)</div>
             <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:12}}>
               {[
-                {label:"설계비(용역비)", val:bl.serviceFee>0?`${bl.serviceFee.toFixed(2)}억`:fAmt(proj.serviceFee||0), color:"#C7D2FE"},
+                {label:"설계비(용역비)", val:bl.serviceFee>0?`${bl.serviceFee.toFixed(2)}억`:fAmt(proj.serviceFee||0), color:"#BFDBFE"},
                 {label:`기수령액(${bl.baseDate||"기준일"} 전)`, val:bl.prevReceived>0?`${bl.prevReceived.toFixed(2)}억`:"-", color:"#34D399"},
                 {label:"잔금(기준일 기준)", val:bl.balance>0?`${bl.balance.toFixed(2)}억`:(feeBl>0?fAmt(feeBl):"-"), color:"#FDE68A"},
               ].map(c=>(
-                <div key={c.label} style={{background:"rgba(255,255,255,.12)",borderRadius:12,padding:"12px 14px"}}>
+                <div key={c.label} style={{background:"rgba(255,255,255,.12)",borderRadius:8,padding:"12px 14px"}}>
                   <div style={{fontSize:11,color:c.color,marginBottom:5,opacity:.9}}>{c.label}</div>
                   <div style={{fontSize:20,fontWeight:800,color:"#fff"}}>{c.val}</div>
                 </div>
@@ -8189,7 +8190,7 @@ function ProjectCashflowDetail({proj, cashItems, setCashItems, DEPTS, DEPT_COLOR
           </div>
           <div style={{display:"flex",flexDirection:"column",gap:8,alignItems:"flex-end"}}>
             <button onClick={startEditBL}
-              style={{padding:"8px 16px",background:"rgba(255,255,255,.2)",color:"#fff",border:"1px solid rgba(255,255,255,.4)",borderRadius:9,fontSize:13,fontWeight:700,cursor:"pointer"}}>
+              style={{padding:"8px 16px",background:"rgba(255,255,255,.2)",color:"#fff",border:"1px solid rgba(255,255,255,.4)",borderRadius:6,fontSize:13,fontWeight:700,cursor:"pointer"}}>
               ✏ 기준일 잔금 {bl.baseDate?"수정":"입력"}
             </button>
             {bl.updatedAt&&<div style={{fontSize:11,opacity:.6}}>수정: {bl.updatedAt.slice(0,10)}</div>}
@@ -8208,7 +8209,7 @@ function ProjectCashflowDetail({proj, cashItems, setCashItems, DEPTS, DEPT_COLOR
                 background:"linear-gradient(90deg,#34D399,#34D399)",
                 width:`${Math.min(totalRcv/feeBl*100,100)}%`,transition:"width .8s"}}/>
             </div>
-            <div style={{display:"flex",gap:16,marginTop:8,fontSize:11.5,opacity:.8}}>
+            <div style={{display:"flex",gap:16,marginTop:8,fontSize:12,opacity:.8}}>
               <span>기수령 {fAmt(prevRcv)}</span>
               <span>이후 완료 {fAmt(afterBasePaid)}</span>
               <span>예정 {fAmt(afterBaseExp)}</span>
@@ -8220,24 +8221,24 @@ function ProjectCashflowDetail({proj, cashItems, setCashItems, DEPTS, DEPT_COLOR
 
       {/* ── 기준일 입력 폼 ── */}
       {editBL&&(
-        <div style={{background:"#EEF2FF",border:"2px solid #6366F1",borderRadius:14,padding:"20px 22px",marginBottom:16}}>
-          <div style={{fontSize:15,fontWeight:800,color:"#312E81",marginBottom:16}}>
+        <div style={{background:"#EFF6FF",border:"2px solid #6366F1",borderRadius:8,padding:"20px 22px",marginBottom:16}}>
+          <div style={{fontSize:15,fontWeight:800,color:"#1E3A8A",marginBottom:16}}>
             📅 기준일 잔금 입력 — {proj.name}
           </div>
-          <div style={{background:"#FEF3C7",borderRadius:10,padding:"10px 14px",marginBottom:14,fontSize:12.5,color:"#92400E",lineHeight:1.6}}>
+          <div style={{background:"#FEF3C7",borderRadius:8,padding:"10px 14px",marginBottom:14,fontSize:13,color:"#92400E",lineHeight:1.6}}>
             <strong>💡 입력 방법:</strong> 기준일 이전까지 수령한 누적 금액을 "기수령액"에 입력하세요.<br/>
             기준일 이후는 월수금계획 탭에서 건별로 자동 집계됩니다.
           </div>
           <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:12,marginBottom:12}}>
             <div>
-              <label style={{fontSize:12,fontWeight:700,color:"#374151",display:"block",marginBottom:5}}>기준일 *</label>
+              <label style={{fontSize:12,fontWeight:700,color:"#334155",display:"block",marginBottom:5}}>기준일 *</label>
               <input type="date" value={blDraft.baseDate||""} onChange={e=>u("baseDate",e.target.value)} style={INP()}/>
             </div>
             <div>
-              <label style={{fontSize:12,fontWeight:700,color:"#374151",display:"block",marginBottom:5}}>설계비(용역비) — 억원</label>
+              <label style={{fontSize:12,fontWeight:700,color:"#334155",display:"block",marginBottom:5}}>설계비(용역비) — 억원</label>
               <input type="number" step="0.01" value={blDraft.serviceFee||""} onChange={e=>u("serviceFee",e.target.value)}
                 placeholder={proj.serviceFee>0?(proj.serviceFee/1e8).toFixed(4):""} style={INP()}/>
-              {proj.serviceFee>0&&<div style={{fontSize:11,color:"#6B7280",marginTop:3}}>
+              {proj.serviceFee>0&&<div style={{fontSize:11,color:"#64748B",marginTop:3}}>
                 프로젝트 등록 용역비: {fAmt(proj.serviceFee)}
               </div>}
             </div>
@@ -8248,19 +8249,19 @@ function ProjectCashflowDetail({proj, cashItems, setCashItems, DEPTS, DEPT_COLOR
               <input type="number" step="0.01" value={blDraft.prevReceived||""} onChange={e=>u("prevReceived",e.target.value)}
                 placeholder="예: 5.23" style={{...INP(),borderColor:"#059669"}}/>
               {blDraft.serviceFee&&blDraft.prevReceived&&(
-                <div style={{fontSize:12,fontWeight:700,color:"#6366F1",marginTop:4}}>
+                <div style={{fontSize:12,fontWeight:700,color:"#2563EB",marginTop:4}}>
                   잔금: {(parseFloat(blDraft.serviceFee||0)-parseFloat(blDraft.prevReceived||0)).toFixed(2)}억
                 </div>
               )}
             </div>
           </div>
           <div style={{marginBottom:12}}>
-            <label style={{fontSize:12,fontWeight:700,color:"#374151",display:"block",marginBottom:5}}>메모</label>
+            <label style={{fontSize:12,fontWeight:700,color:"#334155",display:"block",marginBottom:5}}>메모</label>
             <input value={blDraft.memo||""} onChange={e=>u("memo",e.target.value)} placeholder="특이사항, 계약조건 등" style={INP()}/>
           </div>
           <div style={{display:"flex",gap:8}}>
-            <button onClick={saveBL} style={{padding:"10px 22px",background:"#6366F1",color:"#fff",border:"none",borderRadius:10,fontSize:14,fontWeight:700,cursor:"pointer"}}>저장</button>
-            <button onClick={()=>setEditBL(false)} style={{padding:"10px 16px",background:"#F3F4F6",color:"#374151",border:"none",borderRadius:10,fontSize:14,fontWeight:700,cursor:"pointer"}}>취소</button>
+            <button onClick={saveBL} style={{padding:"10px 22px",background:"#2563EB",color:"#fff",border:"none",borderRadius:8,fontSize:14,fontWeight:700,cursor:"pointer"}}>저장</button>
+            <button onClick={()=>setEditBL(false)} style={{padding:"10px 16px",background:"#F8FAFC",color:"#334155",border:"none",borderRadius:8,fontSize:14,fontWeight:700,cursor:"pointer"}}>취소</button>
           </div>
         </div>
       )}
@@ -8268,13 +8269,13 @@ function ProjectCashflowDetail({proj, cashItems, setCashItems, DEPTS, DEPT_COLOR
       {/* ── KPI 카드 ── */}
       <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:12,marginBottom:16}}>
         {[
-          {label:"설계비(용역비)", val:bl.serviceFee>0?`${bl.serviceFee.toFixed(2)}억`:fAmt(proj.serviceFee||0), color:"#312E81"},
+          {label:"설계비(용역비)", val:bl.serviceFee>0?`${bl.serviceFee.toFixed(2)}억`:fAmt(proj.serviceFee||0), color:"#1E3A8A"},
           {label:"입금 완료(기준일 이후)", val:fAmt(afterBasePaid), color:"#059669"},
-          {label:"입금 예정", val:fAmt(afterBaseExp), color:"#6366F1"},
+          {label:"입금 예정", val:fAmt(afterBaseExp), color:"#2563EB"},
           {label:"최종 잔금 예상", val:fAmt(Math.max(balRemain,0)), color:"#D97706"},
         ].map(c=>(
-          <div key={c.label} style={{background:"#fff",borderRadius:12,border:"1px solid #E5E7EB",padding:"14px 16px",boxShadow:"0 1px 4px rgba(0,0,0,.04)"}}>
-            <div style={{fontSize:11.5,color:"#6B7280",fontWeight:600,marginBottom:6}}>{c.label}</div>
+          <div key={c.label} style={{background:"#fff",borderRadius:8,border:"1px solid #E5E7EB",padding:"14px 16px",boxShadow:"0 1px 4px rgba(0,0,0,.04)"}}>
+            <div style={{fontSize:12,color:"#64748B",fontWeight:600,marginBottom:6}}>{c.label}</div>
             <div style={{fontSize:18,fontWeight:800,color:c.color}}>{c.val}</div>
           </div>
         ))}
@@ -8282,34 +8283,34 @@ function ProjectCashflowDetail({proj, cashItems, setCashItems, DEPTS, DEPT_COLOR
 
       {/* ── 가로형 캘린더 테이블 ── */}
       {myItems.length===0
-        ?<div style={{background:"#F8FAFC",borderRadius:14,border:"1px solid #E5E7EB",padding:"48px",textAlign:"center",color:"#6B7280"}}>
+        ?<div style={{background:"#F8FAFC",borderRadius:8,border:"1px solid #E5E7EB",padding:"48px",textAlign:"center",color:"#64748B"}}>
             <div style={{fontSize:36,marginBottom:12}}>💧</div>
             <div style={{fontSize:16,fontWeight:600,marginBottom:8}}>기준일 이후 월수금 내역이 없습니다</div>
             <div style={{fontSize:13}}>월수금계획 탭에서 <strong>{proj.name}</strong> 관련 기성 내역을 등록하세요.</div>
           </div>
-        :<div style={{background:"#fff",borderRadius:14,border:"1px solid #E5E7EB",overflow:"hidden"}}>
-          <div style={{padding:"14px 18px",borderBottom:"1px solid #E5E7EB",fontSize:15,fontWeight:800,color:"#111827"}}>
+        :<div style={{background:"#fff",borderRadius:8,border:"1px solid #E5E7EB",overflow:"hidden"}}>
+          <div style={{padding:"14px 18px",borderBottom:"1px solid #E5E7EB",fontSize:15,fontWeight:800,color:"#0F172A"}}>
             💧 {YR}년 월수금 계획 — 가로형 캘린더 (단위: 억원)
           </div>
           <div style={{overflowX:"auto"}}>
             <table style={{width:"100%",borderCollapse:"collapse",minWidth:1000}}>
               <thead>
                 <tr style={{background:"#F8FAFC"}}>
-                  <th style={{padding:"9px 12px",textAlign:"left",fontSize:12,fontWeight:700,color:"#6B7280",borderBottom:"2px solid #E5E7EB",borderRight:"1px solid #E5E7EB",minWidth:150,position:"sticky",left:0,background:"#F8FAFC",zIndex:2}}>용역명</th>
-                  <th style={{padding:"9px 10px",textAlign:"right",fontSize:12,fontWeight:700,color:"#6B7280",borderBottom:"2px solid #E5E7EB",borderRight:"1px solid #E5E7EB",minWidth:65,background:"#F8FAFC"}}>용역비</th>
+                  <th style={{padding:"9px 12px",textAlign:"left",fontSize:12,fontWeight:700,color:"#64748B",borderBottom:"2px solid #E5E7EB",borderRight:"1px solid #E5E7EB",minWidth:150,position:"sticky",left:0,background:"#F8FAFC",zIndex:2}}>용역명</th>
+                  <th style={{padding:"9px 10px",textAlign:"right",fontSize:12,fontWeight:700,color:"#64748B",borderBottom:"2px solid #E5E7EB",borderRight:"1px solid #E5E7EB",minWidth:65,background:"#F8FAFC"}}>용역비</th>
                   <th style={{padding:"9px 10px",textAlign:"right",fontSize:12,fontWeight:700,color:"#059669",borderBottom:"2px solid #E5E7EB",borderRight:"2px solid #E5E7EB",minWidth:65,background:"#D1FAE5"}}>기수령액</th>
                   {MONTHS_LABEL.map((m,mi)=>(
-                    <th key={m} style={{padding:"9px 7px",textAlign:"right",fontSize:11.5,fontWeight:700,
-                      color:mi+1===parseInt(MONTH)?"#DC2626":"#6B7280",
+                    <th key={m} style={{padding:"9px 7px",textAlign:"right",fontSize:12,fontWeight:700,
+                      color:mi+1===parseInt(MONTH)?"#DC2626":"#64748B",
                       borderBottom:"2px solid #E5E7EB",
                       borderRight:mi+1===parseInt(MONTH)?"2px solid #DC2626":"1px solid #E5E7EB",
                       borderLeft:mi+1===parseInt(MONTH)?"2px solid #DC2626":"none",
                       minWidth:55,background:mi+1===parseInt(MONTH)?"#FEF2F2":"#F8FAFC"}}>{m}</th>
                   ))}
-                  <th style={{padding:"9px 10px",textAlign:"right",fontSize:11.5,fontWeight:700,color:"#059669",borderBottom:"2px solid #E5E7EB",borderLeft:"2px solid #E5E7EB",minWidth:65,background:"#D1FAE5"}}>{MONTH}월누계</th>
-                  <th style={{padding:"9px 10px",textAlign:"right",fontSize:11.5,fontWeight:700,color:"#6366F1",borderBottom:"2px solid #E5E7EB",minWidth:65,background:"#EEF2FF"}}>확정합계</th>
-                  <th style={{padding:"9px 10px",textAlign:"right",fontSize:11.5,fontWeight:700,color:"#312E81",borderBottom:"2px solid #E5E7EB",minWidth:65,background:"#EDE9FE"}}>{YR}합계</th>
-                  <th style={{padding:"9px 10px",textAlign:"right",fontSize:11.5,fontWeight:700,color:"#374151",borderBottom:"2px solid #E5E7EB",minWidth:65}}>이월예상</th>
+                  <th style={{padding:"9px 10px",textAlign:"right",fontSize:12,fontWeight:700,color:"#059669",borderBottom:"2px solid #E5E7EB",borderLeft:"2px solid #E5E7EB",minWidth:65,background:"#D1FAE5"}}>{MONTH}월누계</th>
+                  <th style={{padding:"9px 10px",textAlign:"right",fontSize:12,fontWeight:700,color:"#2563EB",borderBottom:"2px solid #E5E7EB",minWidth:65,background:"#EFF6FF"}}>확정합계</th>
+                  <th style={{padding:"9px 10px",textAlign:"right",fontSize:12,fontWeight:700,color:"#1E3A8A",borderBottom:"2px solid #E5E7EB",minWidth:65,background:"#DBEAFE"}}>{YR}합계</th>
+                  <th style={{padding:"9px 10px",textAlign:"right",fontSize:12,fontWeight:700,color:"#334155",borderBottom:"2px solid #E5E7EB",minWidth:65}}>이월예상</th>
                 </tr>
               </thead>
               <tbody>
@@ -8330,34 +8331,34 @@ function ProjectCashflowDetail({proj, cashItems, setCashItems, DEPTS, DEPT_COLOR
                   const carry     = blFee - prevPaidBl - yearTotal
                   return (
                     <tr key={pName} style={{background:ri%2===0?"#fff":"#FAFAFA",borderBottom:"1px solid #E5E7EB"}}>
-                      <td style={{padding:"9px 12px",fontSize:12.5,fontWeight:600,color:"#111827",borderRight:"1px solid #E5E7EB",position:"sticky",left:0,background:ri%2===0?"#fff":"#FAFAFA",zIndex:1}}
+                      <td style={{padding:"9px 12px",fontSize:13,fontWeight:600,color:"#0F172A",borderRight:"1px solid #E5E7EB",position:"sticky",left:0,background:ri%2===0?"#fff":"#FAFAFA",zIndex:1}}
                         title={pName}>{pName.length>20?pName.slice(0,20)+"…":pName}</td>
-                      <td style={{padding:"9px 10px",textAlign:"right",fontSize:12,color:"#374151",borderRight:"1px solid #E5E7EB"}}>
+                      <td style={{padding:"9px 10px",textAlign:"right",fontSize:12,color:"#334155",borderRight:"1px solid #E5E7EB"}}>
                         {bl.serviceFee>0?bl.serviceFee.toFixed(2):fC(proj.serviceFee||0)}
                       </td>
                       <td style={{padding:"9px 10px",textAlign:"right",fontSize:12,fontWeight:700,color:"#059669",borderRight:"2px solid #E5E7EB",background:"#ECFDF5"}}>
                         {prevPaidBl>0?fC(prevPaidBl):"-"}
                       </td>
                       {monthly.map((m,mi)=>(
-                        <td key={mi} style={{padding:"9px 7px",textAlign:"right",fontSize:12.5,fontWeight:m.paid+m.exp>0?700:400,
-                          color:m.paid>0?"#059669":m.exp>0?"#6366F1":"#D1D5DB",
+                        <td key={mi} style={{padding:"9px 7px",textAlign:"right",fontSize:13,fontWeight:m.paid+m.exp>0?700:400,
+                          color:m.paid>0?"#059669":m.exp>0?"#2563EB":"#D1D5DB",
                           borderRight:mi+1===parseInt(MONTH)?"2px solid #DC2626":"1px solid #E5E7EB",
                           borderLeft:mi+1===parseInt(MONTH)?"2px solid #DC2626":"none",
-                          background:mi+1===parseInt(MONTH)?"#FEF2F2":m.paid>0?"#ECFDF5":m.exp>0?"#EEF2FF":"transparent"}}>
+                          background:mi+1===parseInt(MONTH)?"#FEF2F2":m.paid>0?"#ECFDF5":m.exp>0?"#EFF6FF":"transparent"}}>
                           {m.paid>0?fC(m.paid):m.exp>0?fC(m.exp):"-"}
                         </td>
                       ))}
-                      <td style={{padding:"9px 10px",textAlign:"right",fontSize:12.5,fontWeight:700,color:"#059669",borderLeft:"2px solid #E5E7EB",background:"#D1FAE5"}}>{cumToNow>0?fC(cumToNow):"-"}</td>
-                      <td style={{padding:"9px 10px",textAlign:"right",fontSize:12.5,fontWeight:700,color:"#6366F1",background:"#EEF2FF"}}>{confTotal>0?fC(confTotal):"-"}</td>
-                      <td style={{padding:"9px 10px",textAlign:"right",fontSize:12.5,fontWeight:800,color:"#312E81",background:"#EDE9FE"}}>{yearTotal>0?fC(yearTotal):"-"}</td>
-                      <td style={{padding:"9px 10px",textAlign:"right",fontSize:12.5,color:carry>0?"#374151":"#D1D5DB"}}>{carry>0?fC(carry):"-"}</td>
+                      <td style={{padding:"9px 10px",textAlign:"right",fontSize:13,fontWeight:700,color:"#059669",borderLeft:"2px solid #E5E7EB",background:"#D1FAE5"}}>{cumToNow>0?fC(cumToNow):"-"}</td>
+                      <td style={{padding:"9px 10px",textAlign:"right",fontSize:13,fontWeight:700,color:"#2563EB",background:"#EFF6FF"}}>{confTotal>0?fC(confTotal):"-"}</td>
+                      <td style={{padding:"9px 10px",textAlign:"right",fontSize:13,fontWeight:800,color:"#1E3A8A",background:"#DBEAFE"}}>{yearTotal>0?fC(yearTotal):"-"}</td>
+                      <td style={{padding:"9px 10px",textAlign:"right",fontSize:13,color:carry>0?"#334155":"#D1D5DB"}}>{carry>0?fC(carry):"-"}</td>
                     </tr>
                   )
                 })}
                 {/* 합계 행 */}
-                <tr style={{background:"#EEF2FF",fontWeight:700,borderTop:"2px solid #E5E7EB"}}>
-                  <td style={{padding:"10px 12px",fontSize:13,fontWeight:800,color:"#312E81",borderRight:"1px solid #E5E7EB",position:"sticky",left:0,background:"#EEF2FF",zIndex:1}}>합계</td>
-                  <td style={{padding:"10px 10px",textAlign:"right",fontSize:13,color:"#312E81",borderRight:"1px solid #E5E7EB"}}>
+                <tr style={{background:"#EFF6FF",fontWeight:700,borderTop:"2px solid #E5E7EB"}}>
+                  <td style={{padding:"10px 12px",fontSize:13,fontWeight:800,color:"#1E3A8A",borderRight:"1px solid #E5E7EB",position:"sticky",left:0,background:"#EFF6FF",zIndex:1}}>합계</td>
+                  <td style={{padding:"10px 10px",textAlign:"right",fontSize:13,color:"#1E3A8A",borderRight:"1px solid #E5E7EB"}}>
                     {bl.serviceFee>0?bl.serviceFee.toFixed(2):fC(proj.serviceFee||0)}
                   </td>
                   <td style={{padding:"10px 10px",textAlign:"right",fontSize:13,fontWeight:800,color:"#059669",borderRight:"2px solid #E5E7EB",background:"#D1FAE5"}}>
@@ -8368,7 +8369,7 @@ function ProjectCashflowDetail({proj, cashItems, setCashItems, DEPTS, DEPT_COLOR
                     const paid=myItems.filter(i=>i.paidDate&&fixDate(i.paidDate).slice(0,7)===ym).reduce((s,i)=>s+(i.amount||0),0)
                     const exp =myItems.filter(i=>!i.paidDate&&i.expectedDate&&i.itemType!=="미정"&&i.itemType!=="추진"&&fixDate(i.expectedDate).slice(0,7)===ym).reduce((s,i)=>s+(i.amount||0),0)
                     return <td key={mi} style={{padding:"10px 7px",textAlign:"right",fontSize:13,fontWeight:800,
-                      color:paid>0?"#059669":exp>0?"#6366F1":"#D1D5DB",
+                      color:paid>0?"#059669":exp>0?"#2563EB":"#D1D5DB",
                       borderRight:mi+1===parseInt(MONTH)?"2px solid #DC2626":"1px solid #E5E7EB",
                       borderLeft:mi+1===parseInt(MONTH)?"2px solid #DC2626":"none",
                       background:mi+1===parseInt(MONTH)?"#FEF2F2":"transparent"}}>
@@ -8376,8 +8377,8 @@ function ProjectCashflowDetail({proj, cashItems, setCashItems, DEPTS, DEPT_COLOR
                     </td>
                   })}
                   <td style={{padding:"10px 10px",textAlign:"right",fontSize:13,fontWeight:800,color:"#059669",borderLeft:"2px solid #E5E7EB",background:"#D1FAE5"}}>{fC(afterBasePaid)}</td>
-                  <td style={{padding:"10px 10px",textAlign:"right",fontSize:13,fontWeight:800,color:"#6366F1",background:"#EEF2FF"}}>{fC(afterBasePaid+afterBaseExp)}</td>
-                  <td style={{padding:"10px 10px",textAlign:"right",fontSize:14,fontWeight:800,color:"#312E81",background:"#C4B5FD"}}>{fC(thisYearAmt)}</td>
+                  <td style={{padding:"10px 10px",textAlign:"right",fontSize:13,fontWeight:800,color:"#2563EB",background:"#EFF6FF"}}>{fC(afterBasePaid+afterBaseExp)}</td>
+                  <td style={{padding:"10px 10px",textAlign:"right",fontSize:14,fontWeight:800,color:"#1E3A8A",background:"#C4B5FD"}}>{fC(thisYearAmt)}</td>
                   <td style={{padding:"10px 10px",textAlign:"right",fontSize:13,fontWeight:700,color:balRemain>0?"#D97706":"#059669"}}>
                     {fAmt(Math.max(balRemain,0))}
                   </td>
@@ -8386,11 +8387,11 @@ function ProjectCashflowDetail({proj, cashItems, setCashItems, DEPTS, DEPT_COLOR
             </table>
           </div>
           {/* 범례 */}
-          <div style={{display:"flex",gap:16,fontSize:11.5,color:"#6B7280",padding:"10px 18px",borderTop:"1px solid #E5E7EB",flexWrap:"wrap"}}>
+          <div style={{display:"flex",gap:16,fontSize:12,color:"#64748B",padding:"10px 18px",borderTop:"1px solid #E5E7EB",flexWrap:"wrap"}}>
             <span><span style={{display:"inline-block",width:12,height:12,background:"#D1FAE5",border:"1px solid #059669",borderRadius:2,marginRight:4}}/>입금 완료</span>
-            <span><span style={{display:"inline-block",width:12,height:12,background:"#EEF2FF",border:"1px solid #6366F1",borderRadius:2,marginRight:4}}/>입금 예정</span>
+            <span><span style={{display:"inline-block",width:12,height:12,background:"#EFF6FF",border:"1px solid #6366F1",borderRadius:2,marginRight:4}}/>입금 예정</span>
             <span><span style={{display:"inline-block",width:12,height:12,background:"#FEF2F2",border:"2px solid #DC2626",borderRadius:2,marginRight:4}}/>현재월</span>
-            <span style={{marginLeft:"auto",color:"#312E81",fontWeight:600}}>단위: 억원 (소수점 2자리)</span>
+            <span style={{marginLeft:"auto",color:"#1E3A8A",fontWeight:600}}>단위: 억원 (소수점 2자리)</span>
           </div>
         </div>
       }
@@ -8403,8 +8404,8 @@ function ProjectCashflowDetail({proj, cashItems, setCashItems, DEPTS, DEPT_COLOR
 function ProjectContractDetail({proj, setProjects, canWrite}) {
   const fAmt = n => n>=1e8?`${(n/1e8).toFixed(2)}억`:n>0?n.toLocaleString()+"원":"-"
   return (
-    <div style={{background:"#fff",borderRadius:14,border:"1px solid #E5E7EB",padding:"20px 24px"}}>
-      <div style={{fontSize:16,fontWeight:800,color:"#111827",marginBottom:16}}>📝 계약 정보</div>
+    <div style={{background:"#fff",borderRadius:8,border:"1px solid #E5E7EB",padding:"20px 24px"}}>
+      <div style={{fontSize:16,fontWeight:800,color:"#0F172A",marginBottom:16}}>📝 계약 정보</div>
       <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:12,marginBottom:16}}>
         {[
           ["총 설계비", proj.totalFee>0?fAmt(proj.totalFee):"-"],
@@ -8417,21 +8418,21 @@ function ProjectContractDetail({proj, setProjects, canWrite}) {
           ["공동이행", proj.jvType||"단독이행"],
           ["발주처", proj.client||"-"],
         ].map(([label,val])=>(
-          <div key={label} style={{background:"#F8FAFC",borderRadius:10,padding:"12px 14px"}}>
-            <div style={{fontSize:12,color:"#6B7280",fontWeight:600,marginBottom:4}}>{label}</div>
-            <div style={{fontSize:14,fontWeight:700,color:"#111827"}}>{val}</div>
+          <div key={label} style={{background:"#F8FAFC",borderRadius:8,padding:"12px 14px"}}>
+            <div style={{fontSize:12,color:"#64748B",fontWeight:600,marginBottom:4}}>{label}</div>
+            <div style={{fontSize:14,fontWeight:700,color:"#0F172A"}}>{val}</div>
           </div>
         ))}
       </div>
       {(proj.jvMembers||[]).length>0&&(
         <div>
-          <div style={{fontSize:14,fontWeight:700,color:"#374151",marginBottom:10}}>공동이행 구성원</div>
+          <div style={{fontSize:14,fontWeight:700,color:"#334155",marginBottom:10}}>공동이행 구성원</div>
           {proj.jvMembers.map((m,i)=>(
-            <div key={i} style={{display:"flex",gap:12,padding:"10px 14px",background:"#F8FAFC",borderRadius:10,marginBottom:8}}>
-              <span style={{fontWeight:700,color:"#111827",flex:1}}>{m.name}</span>
-              <span style={{color:"#6366F1",fontWeight:600}}>{m.ratio}%</span>
+            <div key={i} style={{display:"flex",gap:12,padding:"10px 14px",background:"#F8FAFC",borderRadius:8,marginBottom:8}}>
+              <span style={{fontWeight:700,color:"#0F172A",flex:1}}>{m.name}</span>
+              <span style={{color:"#2563EB",fontWeight:600}}>{m.ratio}%</span>
               <span style={{color:"#059669",fontWeight:600}}>{m.amount>0?fAmt(m.amount):"-"}</span>
-              <span style={{color:"#6B7280"}}>{m.role}</span>
+              <span style={{color:"#64748B"}}>{m.role}</span>
             </div>
           ))}
         </div>
@@ -8464,34 +8465,34 @@ function ProjectExpenseDetail({proj, cashItems, YEAR, YR}) {
     <div>
       <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:12,marginBottom:16}}>
         {[
-          {label:"외주비 계획", val:totalVendor>0?fAmt(totalVendor*1e8):"-", color:"#312E81"},
+          {label:"외주비 계획", val:totalVendor>0?fAmt(totalVendor*1e8):"-", color:"#1E3A8A"},
           {label:"기성 입금 합계", val:fAmt(paidItems.reduce((s,i)=>s+(i.amount||0),0)), color:"#059669"},
           {label:"미수금 예정", val:fAmt(myItems.filter(i=>!i.paidDate&&i.expectedDate).reduce((s,i)=>s+(i.amount||0),0)), color:"#D97706"},
         ].map(c=>(
-          <div key={c.label} style={{background:"#fff",borderRadius:12,border:"1px solid #E5E7EB",padding:"14px 16px"}}>
-            <div style={{fontSize:12,color:"#6B7280",fontWeight:600,marginBottom:6}}>{c.label}</div>
+          <div key={c.label} style={{background:"#fff",borderRadius:8,border:"1px solid #E5E7EB",padding:"14px 16px"}}>
+            <div style={{fontSize:12,color:"#64748B",fontWeight:600,marginBottom:6}}>{c.label}</div>
             <div style={{fontSize:18,fontWeight:800,color:c.color}}>{c.val}</div>
           </div>
         ))}
       </div>
       {vendors.length>0&&(
-        <div style={{background:"#fff",borderRadius:14,border:"1px solid #E5E7EB",overflow:"hidden"}}>
-          <div style={{padding:"14px 18px",borderBottom:"1px solid #E5E7EB",fontSize:14,fontWeight:800,color:"#111827"}}>협력업체 외주비</div>
+        <div style={{background:"#fff",borderRadius:8,border:"1px solid #E5E7EB",overflow:"hidden"}}>
+          <div style={{padding:"14px 18px",borderBottom:"1px solid #E5E7EB",fontSize:14,fontWeight:800,color:"#0F172A"}}>협력업체 외주비</div>
           <table style={{width:"100%",borderCollapse:"collapse"}}>
             <thead>
               <tr style={{background:"#F8FAFC"}}>
                 {["업체명","공종","계약금액","지급률"].map((h,i)=>(
-                  <th key={i} style={{padding:"9px 12px",textAlign:i>=2?"right":"left",fontSize:12.5,fontWeight:700,color:"#6B7280",borderBottom:"2px solid #E5E7EB"}}>{h}</th>
+                  <th key={i} style={{padding:"9px 12px",textAlign:i>=2?"right":"left",fontSize:13,fontWeight:700,color:"#64748B",borderBottom:"2px solid #E5E7EB"}}>{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
               {vendors.map((v,i)=>(
                 <tr key={i} style={{background:i%2===0?"#fff":"#FAFAFA",borderBottom:"1px solid #F3F4F6"}}>
-                  <td style={{padding:"9px 12px",fontSize:13.5,fontWeight:600,color:"#111827"}}>{v.name}</td>
-                  <td style={{padding:"9px 12px",fontSize:12.5,color:"#6B7280"}}>{v.type||"-"}</td>
-                  <td style={{padding:"9px 12px",textAlign:"right",fontSize:13.5,fontWeight:700,color:"#312E81"}}>{v.amount>0?`${v.amount}억`:"-"}</td>
-                  <td style={{padding:"9px 12px",textAlign:"right",fontSize:12.5,color:"#374151"}}>{v.ratio>0?`${v.ratio}%`:"-"}</td>
+                  <td style={{padding:"9px 12px",fontSize:13,fontWeight:600,color:"#0F172A"}}>{v.name}</td>
+                  <td style={{padding:"9px 12px",fontSize:13,color:"#64748B"}}>{v.type||"-"}</td>
+                  <td style={{padding:"9px 12px",textAlign:"right",fontSize:13,fontWeight:700,color:"#1E3A8A"}}>{v.amount>0?`${v.amount}억`:"-"}</td>
+                  <td style={{padding:"9px 12px",textAlign:"right",fontSize:13,color:"#334155"}}>{v.ratio>0?`${v.ratio}%`:"-"}</td>
                 </tr>
               ))}
             </tbody>
@@ -8548,7 +8549,7 @@ function CashPlanEditor({proj, cashItems, setCashItems}) {
   const remain       = (proj.serviceFee||0) - totalPaid
 
   return (
-    <div style={{marginTop:16,background:"#fff",borderRadius:14,border:"1px solid #E5E7EB",overflow:"hidden"}}>
+    <div style={{marginTop:16,background:"#fff",borderRadius:8,border:"1px solid #E5E7EB",overflow:"hidden"}}>
       {/* 헤더 */}
       <div style={{background:"linear-gradient(135deg,#059669,#10B981)",padding:"14px 18px",color:"#fff",display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:8}}>
         <div>
@@ -8557,8 +8558,8 @@ function CashPlanEditor({proj, cashItems, setCashItems}) {
         </div>
         <div style={{display:"flex",gap:12}}>
           {[["계획합계",totalPlanned,"#D1FAE5","#059669"],["수금완료",totalPaid,"#A7F3D0","#065F46"],["잔액",remain,"#FEF3C7","#D97706"]].map(([l,v,bg,c])=>(
-            <div key={l} style={{background:"rgba(255,255,255,.15)",borderRadius:9,padding:"8px 14px",textAlign:"center"}}>
-              <div style={{fontSize:10.5,opacity:.8,marginBottom:2}}>{l}</div>
+            <div key={l} style={{background:"rgba(255,255,255,.15)",borderRadius:6,padding:"8px 14px",textAlign:"center"}}>
+              <div style={{fontSize:11,opacity:.8,marginBottom:2}}>{l}</div>
               <div style={{fontSize:14,fontWeight:800}}>{fAmt(v)}</div>
             </div>
           ))}
@@ -8568,7 +8569,7 @@ function CashPlanEditor({proj, cashItems, setCashItems}) {
       {/* 기성 목록 */}
       <div style={{padding:"14px 16px"}}>
         {myItems.filter(i=>i.itemType==="기성").length===0 && !showAdd && (
-          <div style={{textAlign:"center",padding:"24px",color:"#9CA3AF",fontSize:13.5}}>
+          <div style={{textAlign:"center",padding:"24px",color:"#94A3B8",fontSize:13}}>
             아직 등록된 기성 수금 계획이 없습니다.
           </div>
         )}
@@ -8578,7 +8579,7 @@ function CashPlanEditor({proj, cashItems, setCashItems}) {
               <thead>
                 <tr style={{background:"#F0FDF4"}}>
                   {["단계","수금 예정일","금액","수금 완료일","메모",""].map((h,i)=>(
-                    <th key={h+i} style={{padding:"8px 12px",textAlign:i>=1&&i<=2?"center":"left",fontSize:12.5,fontWeight:700,color:"#059669",borderBottom:"2px solid #D1FAE5"}}>{h}</th>
+                    <th key={h+i} style={{padding:"8px 12px",textAlign:i>=1&&i<=2?"center":"left",fontSize:13,fontWeight:700,color:"#059669",borderBottom:"2px solid #D1FAE5"}}>{h}</th>
                   ))}
                 </tr>
               </thead>
@@ -8588,29 +8589,29 @@ function CashPlanEditor({proj, cashItems, setCashItems}) {
                   .map((item,i)=>{
                     const isPaid = !!item.paidDate
                     return (
-                      <tr key={item.id} style={{background:isPaid?"#F0FDF4":i%2===0?"#fff":"#F9FAFB"}}>
+                      <tr key={item.id} style={{background:isPaid?"#F0FDF4":i%2===0?"#fff":"#F8FAFC"}}>
                         <td style={{padding:"9px 12px",fontSize:13}}>
-                          <span style={{background:isPaid?"#D1FAE5":"#EEF2FF",color:isPaid?"#059669":"#6366F1",padding:"2px 8px",borderRadius:6,fontSize:12,fontWeight:700}}>
+                          <span style={{background:isPaid?"#D1FAE5":"#EFF6FF",color:isPaid?"#059669":"#2563EB",padding:"2px 8px",borderRadius:6,fontSize:12,fontWeight:700}}>
                             {item.stage||"기타"}
                           </span>
                         </td>
-                        <td style={{padding:"9px 12px",textAlign:"center",fontSize:13,fontWeight:600,color:"#374151"}}>{item.expectedDate||"-"}</td>
-                        <td style={{padding:"9px 12px",textAlign:"right",fontSize:14,fontWeight:800,color:"#185FA5"}}>{fAmt(item.amount||0)}</td>
+                        <td style={{padding:"9px 12px",textAlign:"center",fontSize:13,fontWeight:600,color:"#334155"}}>{item.expectedDate||"-"}</td>
+                        <td style={{padding:"9px 12px",textAlign:"right",fontSize:14,fontWeight:800,color:"#1D4ED8"}}>{fAmt(item.amount||0)}</td>
                         <td style={{padding:"9px 12px",textAlign:"center"}}>
                           {isPaid
-                            ? <span style={{fontSize:12.5,fontWeight:700,color:"#059669"}}>✅ {item.paidDate}</span>
-                            : <span style={{fontSize:12,color:"#9CA3AF"}}>미수금</span>}
+                            ? <span style={{fontSize:13,fontWeight:700,color:"#059669"}}>✅ {item.paidDate}</span>
+                            : <span style={{fontSize:12,color:"#94A3B8"}}>미수금</span>}
                         </td>
-                        <td style={{padding:"9px 12px",fontSize:12.5,color:"#6B7280"}}>{item.note||""}</td>
+                        <td style={{padding:"9px 12px",fontSize:13,color:"#64748B"}}>{item.note||""}</td>
                         <td style={{padding:"6px 8px",textAlign:"center"}}>
                           {!isPaid&&(
                             <button onClick={()=>setCashItems(prev=>(prev||[]).map(ci=>ci.id===item.id?{...ci,paidDate:new Date().toISOString().slice(0,10)}:ci))}
-                              style={{padding:"3px 8px",background:"#D1FAE5",color:"#059669",border:"none",borderRadius:6,fontSize:11.5,cursor:"pointer",fontWeight:700,marginRight:4}}>
+                              style={{padding:"3px 8px",background:"#D1FAE5",color:"#059669",border:"none",borderRadius:6,fontSize:12,cursor:"pointer",fontWeight:700,marginRight:4}}>
                               수금처리
                             </button>
                           )}
                           <button onClick={()=>delItem(item.id)}
-                            style={{padding:"3px 8px",background:"#FEE2E2",color:"#DC2626",border:"none",borderRadius:6,fontSize:11.5,cursor:"pointer"}}>🗑</button>
+                            style={{padding:"3px 8px",background:"#FEE2E2",color:"#DC2626",border:"none",borderRadius:6,fontSize:12,cursor:"pointer"}}>🗑</button>
                         </td>
                       </tr>
                     )
@@ -8628,8 +8629,8 @@ function CashPlanEditor({proj, cashItems, setCashItems}) {
 
         {/* 추가 폼 */}
         {showAdd && (
-          <div style={{background:"#F0FDF4",borderRadius:12,border:"2px solid #059669",padding:"14px 16px",marginBottom:12}}>
-            <div style={{fontSize:13.5,fontWeight:700,color:"#065F46",marginBottom:10}}>+ 기성 수금 계획 등록</div>
+          <div style={{background:"#F0FDF4",borderRadius:8,border:"2px solid #059669",padding:"14px 16px",marginBottom:12}}>
+            <div style={{fontSize:13,fontWeight:700,color:"#065F46",marginBottom:10}}>+ 기성 수금 계획 등록</div>
             <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr 1fr",gap:10,marginBottom:10}}>
               <div>
                 <label style={{fontSize:11,fontWeight:700,color:"#059669",display:"block",marginBottom:3}}>설계 단계</label>
@@ -8664,16 +8665,16 @@ function CashPlanEditor({proj, cashItems, setCashItems}) {
             </div>
             <div style={{display:"flex",gap:8}}>
               <button onClick={addPlan}
-                style={{padding:"8px 20px",background:"#059669",color:"#fff",border:"none",borderRadius:9,fontSize:13,fontWeight:700,cursor:"pointer"}}>💾 등록</button>
+                style={{padding:"8px 20px",background:"#059669",color:"#fff",border:"none",borderRadius:6,fontSize:13,fontWeight:700,cursor:"pointer"}}>💾 등록</button>
               <button onClick={()=>setShowAdd(false)}
-                style={{padding:"8px 14px",background:"#F3F4F6",color:"#6B7280",border:"none",borderRadius:9,fontSize:13,cursor:"pointer"}}>취소</button>
+                style={{padding:"8px 14px",background:"#F8FAFC",color:"#64748B",border:"none",borderRadius:6,fontSize:13,cursor:"pointer"}}>취소</button>
             </div>
           </div>
         )}
 
         {!showAdd&&(
           <button onClick={()=>setShowAdd(true)}
-            style={{padding:"8px 18px",background:"#059669",color:"#fff",border:"none",borderRadius:9,fontSize:13,fontWeight:700,cursor:"pointer"}}>
+            style={{padding:"8px 18px",background:"#059669",color:"#fff",border:"none",borderRadius:6,fontSize:13,fontWeight:700,cursor:"pointer"}}>
             + 기성 수금 계획 등록
           </button>
         )}
@@ -8687,9 +8688,9 @@ function CashPlanEditor({proj, cashItems, setCashItems}) {
 // ══════════════════════════════════════════════════════════════
 function ProjTabError() {
   return (
-    <div style={{padding:40,textAlign:"center",color:"#6B7280"}}>
+    <div style={{padding:40,textAlign:"center",color:"#64748B"}}>
       <div style={{fontSize:40,marginBottom:12}}>⚠️</div>
-      <div style={{fontSize:15,fontWeight:700,color:"#374151",marginBottom:8}}>프로젝트를 먼저 선택해주세요</div>
+      <div style={{fontSize:15,fontWeight:700,color:"#334155",marginBottom:8}}>프로젝트를 먼저 선택해주세요</div>
       <div style={{fontSize:13}}>왼쪽 목록에서 프로젝트를 선택하면 상세 정보를 볼 수 있습니다.</div>
     </div>
   )
@@ -8720,7 +8721,7 @@ function AnalysisHub({deptStaff,setDeptStaff,years,setYears,canWrite,isAdmin,cas
         {SUBS.map(t=>(
           <button key={t.id} onClick={()=>setSubTab(t.id)}
             style={{padding:"10px 16px",border:"none",background:"none",fontSize:13,fontWeight:subTab===t.id?800:500,cursor:"pointer",
-              color:subTab===t.id?"#6366F1":"#6B7280",flexShrink:0,
+              color:subTab===t.id?"#2563EB":"#64748B",flexShrink:0,
               borderBottom:subTab===t.id?"3px solid #6366F1":"3px solid transparent",marginBottom:-2}}>
             {t.label}
           </button>
@@ -8764,7 +8765,7 @@ function StaffStatusPanel({DEPT_COLORS, deptStaff={}, staffMonthly={}, staffTarg
     const avg     = filled.length>0 ? Math.round(filled.reduce((s,v)=>s+num(v),0)/filled.length*10)/10 : 0
     const li      = monthly.reduce((best,v,i)=>num(v)>0?i:best, -1)
     const current = li>=0 ? num(monthly[li]) : (deptStaff[dept]?.total||0)
-    return {dept, target, avg, current, monthly, color:DEPT_COLORS[dept]||"#6366F1"}
+    return {dept, target, avg, current, monthly, color:DEPT_COLORS[dept]||"#2563EB"}
   })
 
   const totTarget  = rows.reduce((s,d)=>s+d.target,0)
@@ -8778,30 +8779,30 @@ function StaffStatusPanel({DEPT_COLORS, deptStaff={}, staffMonthly={}, staffTarg
       <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:14,marginBottom:20}}>
         {[
           {label:"목표 인원",   val:totTarget+"명", color:"#DC2626",bg:"#FEF2F2"},
-          {label:"연평균 인원", val:totAvg+"명",    color:"#6B7280",bg:"#F9FAFB"},
-          {label:"현재 인원",   val:totCurrent+"명",color:"#312E81",bg:"#EEF2FF"},
+          {label:"연평균 인원", val:totAvg+"명",    color:"#64748B",bg:"#F8FAFC"},
+          {label:"현재 인원",   val:totCurrent+"명",color:"#1E3A8A",bg:"#EFF6FF"},
         ].map(c=>(
-          <div key={c.label} style={{background:"#fff",borderRadius:14,border:"1px solid #E5E7EB",padding:"18px 22px",boxShadow:"0 1px 4px rgba(0,0,0,.04)"}}>
-            <div style={{fontSize:12.5,color:"#6B7280",fontWeight:600,marginBottom:8}}>{c.label}</div>
+          <div key={c.label} style={{background:"#fff",borderRadius:8,border:"1px solid #E5E7EB",padding:"18px 22px",boxShadow:"0 1px 4px rgba(0,0,0,.04)"}}>
+            <div style={{fontSize:13,color:"#64748B",fontWeight:600,marginBottom:8}}>{c.label}</div>
             <div style={{fontSize:28,fontWeight:800,color:c.color}}>{c.val}</div>
           </div>
         ))}
       </div>
 
-      <div style={{background:"#fff",borderRadius:14,border:"1px solid #E5E7EB",overflow:"hidden"}}>
-        <div style={{padding:"14px 18px",borderBottom:"1px solid #E5E7EB",fontSize:15,fontWeight:800,color:"#111827"}}>
+      <div style={{background:"#fff",borderRadius:8,border:"1px solid #E5E7EB",overflow:"hidden"}}>
+        <div style={{padding:"14px 18px",borderBottom:"1px solid #E5E7EB",fontSize:15,fontWeight:800,color:"#0F172A"}}>
           {YEAR}년 본부별 인원 현황 (단위: 명)
         </div>
         <div style={{overflowX:"auto"}}>
           <table style={{width:"100%",borderCollapse:"collapse",minWidth:900}}>
             <thead>
               <tr>
-                <th style={{...TH("left","#374151"),minWidth:120}}>본부</th>
+                <th style={{...TH("left","#334155"),minWidth:120}}>본부</th>
                 <th style={TH("right","#DC2626","#FEF2F2")}>목표</th>
-                <th style={TH("right","#6B7280")}>연평균</th>
-                <th style={TH("right","#312E81","#EEF2FF")}>현재</th>
+                <th style={TH("right","#64748B")}>연평균</th>
+                <th style={TH("right","#1E3A8A","#EFF6FF")}>현재</th>
                 {MONTHS.map((m,mi)=>(
-                  <th key={m} style={TH("right",mi===curMonth?"#DC2626":"#6B7280",mi===curMonth?"#FEF2F2":"#F8FAFC")}>{m}</th>
+                  <th key={m} style={TH("right",mi===curMonth?"#DC2626":"#64748B",mi===curMonth?"#FEF2F2":"#F8FAFC")}>{m}</th>
                 ))}
               </tr>
             </thead>
@@ -8811,27 +8812,27 @@ function StaffStatusPanel({DEPT_COLORS, deptStaff={}, staffMonthly={}, staffTarg
                   <td style={{padding:"9px 11px",textAlign:"left",borderBottom:"1px solid #F3F4F6"}}>
                     <div style={{display:"flex",alignItems:"center",gap:8}}>
                       <div style={{width:9,height:9,borderRadius:"50%",background:d.color,flexShrink:0}}/>
-                      <span style={{fontSize:13.5,fontWeight:700,color:"#111827"}}>{d.dept}</span>
+                      <span style={{fontSize:13,fontWeight:700,color:"#0F172A"}}>{d.dept}</span>
                     </div>
                   </td>
                   <td style={TD("#DC2626",true,"#FEF2F2")}>{d.target>0?d.target:"-"}</td>
-                  <td style={TD("#6B7280")}>{d.avg>0?d.avg:"-"}</td>
-                  <td style={TD("#312E81",true,"#EEF2FF")}>{d.current>0?d.current:"-"}</td>
+                  <td style={TD("#64748B")}>{d.avg>0?d.avg:"-"}</td>
+                  <td style={TD("#1E3A8A",true,"#EFF6FF")}>{d.current>0?d.current:"-"}</td>
                   {d.monthly.map((v,mi)=>(
-                    <td key={mi} style={TD(num(v)>0?"#374151":"#D1D5DB",mi===curMonth,mi===curMonth?"#FEF2F2":"transparent")}>
+                    <td key={mi} style={TD(num(v)>0?"#334155":"#D1D5DB",mi===curMonth,mi===curMonth?"#FEF2F2":"transparent")}>
                       {num(v)>0?v:"-"}
                     </td>
                   ))}
                 </tr>
               ))}
-              <tr style={{background:"#EEF2FF",borderTop:"2px solid #E5E7EB"}}>
-                <td style={{padding:"10px 11px",textAlign:"left",fontSize:14,fontWeight:800,color:"#312E81"}}>합계</td>
+              <tr style={{background:"#EFF6FF",borderTop:"2px solid #E5E7EB"}}>
+                <td style={{padding:"10px 11px",textAlign:"left",fontSize:14,fontWeight:800,color:"#1E3A8A"}}>합계</td>
                 <td style={TD("#DC2626",true,"#C4B5FD")}>{totTarget||"-"}</td>
-                <td style={TD("#6B7280",true)}>{totAvg||"-"}</td>
-                <td style={TD("#312E81",true,"#C4B5FD")}>{totCurrent}</td>
+                <td style={TD("#64748B",true)}>{totAvg||"-"}</td>
+                <td style={TD("#1E3A8A",true,"#C4B5FD")}>{totCurrent}</td>
                 {Array.from({length:12},(_,mi)=>{
                   const s = rows.reduce((acc,d)=>acc+num(d.monthly[mi]),0)
-                  return <td key={mi} style={TD(s>0?"#312E81":"#D1D5DB",true,mi===curMonth?"#FEF2F2":"transparent")}>{s||"-"}</td>
+                  return <td key={mi} style={TD(s>0?"#1E3A8A":"#D1D5DB",true,mi===curMonth?"#FEF2F2":"transparent")}>{s||"-"}</td>
                 })}
               </tr>
             </tbody>
@@ -8890,64 +8891,64 @@ function ProjectContractDetailFull({proj, setProjects, canWrite, projects=[]}) {
   const u = (k,v) => setDraft(p=>({...p,[k]:v}))
   const toggleDept = d => { const cur=draft.depts||[]; u("depts",cur.includes(d)?cur.filter(x=>x!==d):[...cur,d]) }
 
-  const TYPE_C = {확정:"#6366F1",계약:"#059669",추진:"#D97706",완료:"#9CA3AF"}
+  const TYPE_C = {확정:"#2563EB",계약:"#059669",추진:"#D97706",완료:"#94A3B8"}
 
   if(!editing) return (
     <div>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}>
         <div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap"}}>
-          {proj.type&&<span style={{padding:"4px 14px",borderRadius:20,fontSize:13,fontWeight:700,background:(TYPE_C[proj.type]||"#9CA3AF")+"18",color:TYPE_C[proj.type]||"#9CA3AF"}}>{proj.type}</span>}
+          {proj.type&&<span style={{padding:"4px 14px",borderRadius:20,fontSize:13,fontWeight:700,background:(TYPE_C[proj.type]||"#94A3B8")+"18",color:TYPE_C[proj.type]||"#94A3B8"}}>{proj.type}</span>}
           {proj.priority&&<span style={{fontSize:13,fontWeight:700,color:"#D97706"}}>⭐ 우선순위</span>}
-          {proj.orderType&&<span style={{padding:"3px 10px",borderRadius:20,fontSize:12,background:"#EEF2FF",color:"#6366F1",fontWeight:600}}>{proj.orderType}</span>}
+          {proj.orderType&&<span style={{padding:"3px 10px",borderRadius:20,fontSize:12,background:"#EFF6FF",color:"#2563EB",fontWeight:600}}>{proj.orderType}</span>}
           {proj.bidType&&<span style={{padding:"3px 10px",borderRadius:20,fontSize:12,background:"#F0FDF4",color:"#059669",fontWeight:600}}>{proj.bidType}</span>}
         </div>
-        {canWrite&&<button onClick={startEdit} style={{padding:"8px 16px",background:"#EEF2FF",color:"#6366F1",border:"none",borderRadius:9,fontSize:13,fontWeight:700,cursor:"pointer"}}>✏ 수정</button>}
+        {canWrite&&<button onClick={startEdit} style={{padding:"8px 16px",background:"#EFF6FF",color:"#2563EB",border:"none",borderRadius:6,fontSize:13,fontWeight:700,cursor:"pointer"}}>✏ 수정</button>}
       </div>
       <div style={{display:"grid",gridTemplateColumns:"repeat(2,1fr)",gap:14}}>
-        <div style={{background:"#fff",borderRadius:12,border:"1px solid #E5E7EB",padding:"16px 18px"}}>
-          <div style={{fontSize:13,fontWeight:800,color:"#374151",marginBottom:10}}>기본 정보</div>
+        <div style={{background:"#fff",borderRadius:8,border:"1px solid #E5E7EB",padding:"16px 18px"}}>
+          <div style={{fontSize:13,fontWeight:800,color:"#334155",marginBottom:10}}>기본 정보</div>
           {[["담당 본부",(proj.depts||[]).join(", ")||"-"],["발주구분",proj.orderType||"-"],["수주형태",proj.bidType||"-"],["공동이행",proj.jvType||"단독이행"]].map(([k,v])=>(
             <div key={k} style={{display:"flex",gap:10,padding:"7px 0",borderBottom:"1px solid #F3F4F6"}}>
-              <span style={{fontSize:12,color:"#6B7280",fontWeight:600,width:80,flexShrink:0}}>{k}</span>
-              <span style={{fontSize:13.5,fontWeight:600,color:"#111827"}}>{v}</span>
+              <span style={{fontSize:12,color:"#64748B",fontWeight:600,width:80,flexShrink:0}}>{k}</span>
+              <span style={{fontSize:13,fontWeight:600,color:"#0F172A"}}>{v}</span>
             </div>
           ))}
         </div>
-        <div style={{background:"#fff",borderRadius:12,border:"1px solid #E5E7EB",padding:"16px 18px"}}>
-          <div style={{fontSize:13,fontWeight:800,color:"#374151",marginBottom:10}}>금액 정보</div>
+        <div style={{background:"#fff",borderRadius:8,border:"1px solid #E5E7EB",padding:"16px 18px"}}>
+          <div style={{fontSize:13,fontWeight:800,color:"#334155",marginBottom:10}}>금액 정보</div>
           {[["총 설계비",proj.totalFee>0?fAmt(proj.totalFee):proj.serviceFee>0?fAmt(proj.serviceFee):"-"],["상지 지분",proj.shareRatio>0?`${(proj.shareRatio*100).toFixed(0)}%`:"-"],["용역비(상지)",proj.serviceFee>0?fAmt(proj.serviceFee):"-"]].map(([k,v])=>(
             <div key={k} style={{display:"flex",gap:10,padding:"7px 0",borderBottom:"1px solid #F3F4F6"}}>
-              <span style={{fontSize:12,color:"#6B7280",fontWeight:600,width:80,flexShrink:0}}>{k}</span>
-              <span style={{fontSize:13.5,fontWeight:700,color:"#312E81"}}>{v}</span>
+              <span style={{fontSize:12,color:"#64748B",fontWeight:600,width:80,flexShrink:0}}>{k}</span>
+              <span style={{fontSize:13,fontWeight:700,color:"#1E3A8A"}}>{v}</span>
             </div>
           ))}
         </div>
-        <div style={{background:"#fff",borderRadius:12,border:"1px solid #E5E7EB",padding:"16px 18px"}}>
-          <div style={{fontSize:13,fontWeight:800,color:"#374151",marginBottom:10}}>일정 정보</div>
+        <div style={{background:"#fff",borderRadius:8,border:"1px solid #E5E7EB",padding:"16px 18px"}}>
+          <div style={{fontSize:13,fontWeight:800,color:"#334155",marginBottom:10}}>일정 정보</div>
           {[["수행시점",proj.execDate||"-"],["계약예상",proj.contractExpect||"-"],["공고일",proj.announcementDate||"-"],["계약일",proj.contractDate||"-"],["수주일",proj.orderDate||"-"]].map(([k,v])=>(
             <div key={k} style={{display:"flex",gap:10,padding:"7px 0",borderBottom:"1px solid #F3F4F6"}}>
-              <span style={{fontSize:12,color:"#6B7280",fontWeight:600,width:80,flexShrink:0}}>{k}</span>
-              <span style={{fontSize:13.5,color:"#374151"}}>{v}</span>
+              <span style={{fontSize:12,color:"#64748B",fontWeight:600,width:80,flexShrink:0}}>{k}</span>
+              <span style={{fontSize:13,color:"#334155"}}>{v}</span>
             </div>
           ))}
         </div>
         {(proj.note||proj.memo)&&(
-          <div style={{background:"#fff",borderRadius:12,border:"1px solid #E5E7EB",padding:"16px 18px"}}>
-            <div style={{fontSize:13,fontWeight:800,color:"#374151",marginBottom:10}}>비고 / 메모</div>
-            {proj.note&&<div style={{fontSize:13.5,color:"#374151",marginBottom:8,lineHeight:1.7}}>{proj.note}</div>}
-            {proj.memo&&<div style={{fontSize:13,color:"#6B7280",lineHeight:1.7}}>{proj.memo}</div>}
+          <div style={{background:"#fff",borderRadius:8,border:"1px solid #E5E7EB",padding:"16px 18px"}}>
+            <div style={{fontSize:13,fontWeight:800,color:"#334155",marginBottom:10}}>비고 / 메모</div>
+            {proj.note&&<div style={{fontSize:13,color:"#334155",marginBottom:8,lineHeight:1.7}}>{proj.note}</div>}
+            {proj.memo&&<div style={{fontSize:13,color:"#64748B",lineHeight:1.7}}>{proj.memo}</div>}
           </div>
         )}
       </div>
       {(proj.jvMembers||[]).length>0&&(
-        <div style={{background:"#fff",borderRadius:12,border:"1px solid #E5E7EB",padding:"16px 18px",marginTop:14}}>
-          <div style={{fontSize:13,fontWeight:800,color:"#374151",marginBottom:10}}>컨소시엄 구성</div>
+        <div style={{background:"#fff",borderRadius:8,border:"1px solid #E5E7EB",padding:"16px 18px",marginTop:14}}>
+          <div style={{fontSize:13,fontWeight:800,color:"#334155",marginBottom:10}}>컨소시엄 구성</div>
           {proj.jvMembers.map((m,i)=>(
             <div key={i} style={{display:"flex",gap:12,padding:"8px 0",borderBottom:"1px solid #F3F4F6",alignItems:"center"}}>
-              <span style={{fontSize:13.5,fontWeight:700,color:"#111827",flex:1}}>{m.name||"-"}</span>
-              <span style={{fontSize:13,color:"#6366F1",fontWeight:600}}>{m.ratio>0?m.ratio+"%":""}</span>
+              <span style={{fontSize:13,fontWeight:700,color:"#0F172A",flex:1}}>{m.name||"-"}</span>
+              <span style={{fontSize:13,color:"#2563EB",fontWeight:600}}>{m.ratio>0?m.ratio+"%":""}</span>
               <span style={{fontSize:13,color:"#059669",fontWeight:600}}>{m.amount>0?m.amount+"억":""}</span>
-              <span style={{fontSize:12,color:"#6B7280"}}>{m.role||""}</span>
+              <span style={{fontSize:12,color:"#64748B"}}>{m.role||""}</span>
             </div>
           ))}
         </div>
@@ -8958,60 +8959,60 @@ function ProjectContractDetailFull({proj, setProjects, canWrite, projects=[]}) {
   return (
     <div>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}>
-        <div style={{fontSize:15,fontWeight:800,color:"#312E81"}}>📝 계약 정보 수정</div>
+        <div style={{fontSize:15,fontWeight:800,color:"#1E3A8A"}}>📝 계약 정보 수정</div>
         <div style={{display:"flex",gap:8}}>
-          <button onClick={save} style={{padding:"9px 20px",background:"#6366F1",color:"#fff",border:"none",borderRadius:10,fontSize:14,fontWeight:700,cursor:"pointer"}}>저장</button>
-          <button onClick={()=>setEditing(false)} style={{padding:"9px 16px",background:"#F3F4F6",color:"#374151",border:"none",borderRadius:10,fontSize:14,fontWeight:700,cursor:"pointer"}}>취소</button>
+          <button onClick={save} style={{padding:"9px 20px",background:"#2563EB",color:"#fff",border:"none",borderRadius:8,fontSize:14,fontWeight:700,cursor:"pointer"}}>저장</button>
+          <button onClick={()=>setEditing(false)} style={{padding:"9px 16px",background:"#F8FAFC",color:"#334155",border:"none",borderRadius:8,fontSize:14,fontWeight:700,cursor:"pointer"}}>취소</button>
         </div>
       </div>
 
       {/* 단계 + 우선순위 */}
-      <div style={{background:"#fff",borderRadius:12,border:"1px solid #E5E7EB",padding:"16px 18px",marginBottom:12}}>
+      <div style={{background:"#fff",borderRadius:8,border:"1px solid #E5E7EB",padding:"16px 18px",marginBottom:12}}>
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:12}}>
           <div>
-            <label style={{fontSize:12,fontWeight:700,color:"#374151",display:"block",marginBottom:5}}>프로젝트 단계</label>
+            <label style={{fontSize:12,fontWeight:700,color:"#334155",display:"block",marginBottom:5}}>프로젝트 단계</label>
             <select value={draft.type||""} onChange={e=>u("type",e.target.value)} style={INP()}>
               {["추진","확정","계약","완료"].map(t=><option key={t} value={t}>{t}</option>)}
             </select>
           </div>
-          <div style={{display:"flex",alignItems:"center",gap:12,background:"#FEF3C7",borderRadius:10,padding:"12px 16px",border:"1px solid #D97706"}}>
+          <div style={{display:"flex",alignItems:"center",gap:12,background:"#FEF3C7",borderRadius:8,padding:"12px 16px",border:"1px solid #D97706"}}>
             <input type="checkbox" id="priority-chk" checked={draft.priority||false} onChange={e=>u("priority",e.target.checked)} style={{width:16,height:16,cursor:"pointer"}}/>
-            <label htmlFor="priority-chk" style={{fontSize:13.5,fontWeight:700,color:"#92400E",cursor:"pointer"}}>⭐ 우선순위 프로젝트 (목록 상단 고정)</label>
+            <label htmlFor="priority-chk" style={{fontSize:13,fontWeight:700,color:"#92400E",cursor:"pointer"}}>⭐ 우선순위 프로젝트 (목록 상단 고정)</label>
           </div>
         </div>
 
         {/* 담당 본부 다중선택 */}
         <div>
-          <label style={{fontSize:12,fontWeight:700,color:"#374151",display:"block",marginBottom:8}}>담당 본부 (복수 선택)</label>
+          <label style={{fontSize:12,fontWeight:700,color:"#334155",display:"block",marginBottom:8}}>담당 본부 (복수 선택)</label>
           <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
             {DEPTS.map(d=>{
               const sel=(draft.depts||[]).includes(d)
               return <button key={d} onClick={()=>toggleDept(d)}
-                style={{padding:"6px 14px",border:`2px solid ${sel?"#6366F1":"#E5E7EB"}`,borderRadius:20,fontSize:13,fontWeight:600,cursor:"pointer",
-                  background:sel?"#EEF2FF":"#fff",color:sel?"#6366F1":"#6B7280"}}>{d}</button>
+                style={{padding:"6px 14px",border:`2px solid ${sel?"#2563EB":"#E2E8F0"}`,borderRadius:20,fontSize:13,fontWeight:600,cursor:"pointer",
+                  background:sel?"#EFF6FF":"#fff",color:sel?"#2563EB":"#64748B"}}>{d}</button>
             })}
           </div>
         </div>
       </div>
 
       {/* 금액 */}
-      <div style={{background:"#fff",borderRadius:12,border:"1px solid #E5E7EB",padding:"16px 18px",marginBottom:12}}>
-        <div style={{fontSize:13,fontWeight:800,color:"#374151",marginBottom:12}}>금액 정보</div>
+      <div style={{background:"#fff",borderRadius:8,border:"1px solid #E5E7EB",padding:"16px 18px",marginBottom:12}}>
+        <div style={{fontSize:13,fontWeight:800,color:"#334155",marginBottom:12}}>금액 정보</div>
         <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:12}}>
           <div>
-            <label style={{fontSize:12,fontWeight:700,color:"#374151",display:"block",marginBottom:5}}>총 설계비(예상) — 원</label>
+            <label style={{fontSize:12,fontWeight:700,color:"#334155",display:"block",marginBottom:5}}>총 설계비(예상) — 원</label>
             <input type="number" value={draft.totalFee||""} onChange={e=>u("totalFee",parseInt(e.target.value)||0)} style={INP()}/>
-            {draft.totalFee>0&&<div style={{fontSize:11,color:"#6366F1",marginTop:3}}>{fAmt(draft.totalFee)}</div>}
+            {draft.totalFee>0&&<div style={{fontSize:11,color:"#2563EB",marginTop:3}}>{fAmt(draft.totalFee)}</div>}
           </div>
           <div>
-            <label style={{fontSize:12,fontWeight:700,color:"#374151",display:"block",marginBottom:5}}>상지 지분 (%)</label>
+            <label style={{fontSize:12,fontWeight:700,color:"#334155",display:"block",marginBottom:5}}>상지 지분 (%)</label>
             <input type="number" min={0} max={100} value={Math.round((draft.shareRatio||0)*100)||""} onChange={e=>u("shareRatio",(parseFloat(e.target.value)||0)/100)} style={INP()}/>
           </div>
           <div>
-            <label style={{fontSize:12,fontWeight:700,color:"#6366F1",display:"block",marginBottom:5}}>용역비(예상) — 원</label>
-            <input type="number" value={draft.serviceFee||""} onChange={e=>u("serviceFee",parseInt(e.target.value)||0)} style={{...INP(),borderColor:"#6366F1"}}/>
+            <label style={{fontSize:12,fontWeight:700,color:"#2563EB",display:"block",marginBottom:5}}>용역비(예상) — 원</label>
+            <input type="number" value={draft.serviceFee||""} onChange={e=>u("serviceFee",parseInt(e.target.value)||0)} style={{...INP(),borderColor:"#2563EB"}}/>
             {draft.totalFee>0&&draft.shareRatio>0&&<button onClick={()=>u("serviceFee",Math.round(draft.totalFee*(draft.shareRatio||1)))}
-              style={{marginTop:5,padding:"4px 10px",background:"#EEF2FF",color:"#6366F1",border:"none",borderRadius:6,fontSize:11.5,fontWeight:700,cursor:"pointer"}}>
+              style={{marginTop:5,padding:"4px 10px",background:"#EFF6FF",color:"#2563EB",border:"none",borderRadius:6,fontSize:12,fontWeight:700,cursor:"pointer"}}>
               지분기준 자동계산 ({fAmt(Math.round(draft.totalFee*(draft.shareRatio||1)))})
             </button>}
           </div>
@@ -9019,17 +9020,17 @@ function ProjectContractDetailFull({proj, setProjects, canWrite, projects=[]}) {
       </div>
 
       {/* 일정 */}
-      <div style={{background:"#fff",borderRadius:12,border:"1px solid #E5E7EB",padding:"16px 18px",marginBottom:12}}>
-        <div style={{fontSize:13,fontWeight:800,color:"#374151",marginBottom:12}}>일정 정보</div>
+      <div style={{background:"#fff",borderRadius:8,border:"1px solid #E5E7EB",padding:"16px 18px",marginBottom:12}}>
+        <div style={{fontSize:13,fontWeight:800,color:"#334155",marginBottom:12}}>일정 정보</div>
         <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:12}}>
           {[["수행시점(예상)","execDate"],["계약 예상 시점","contractExpect"],["공고일(예정)","announcementDate"],["계약일","contractDate"],["수주일","orderDate"]].map(([label,key])=>(
             <div key={key}>
-              <label style={{fontSize:12,fontWeight:700,color:"#374151",display:"block",marginBottom:5}}>{label}</label>
+              <label style={{fontSize:12,fontWeight:700,color:"#334155",display:"block",marginBottom:5}}>{label}</label>
               <input type="date" value={draft[key]||""} onChange={e=>u(key,e.target.value)} style={INP()}/>
             </div>
           ))}
           <div>
-            <label style={{fontSize:12,fontWeight:700,color:"#374151",display:"block",marginBottom:5}}>발주구분</label>
+            <label style={{fontSize:12,fontWeight:700,color:"#334155",display:"block",marginBottom:5}}>발주구분</label>
             <select value={draft.orderType||"공공"} onChange={e=>u("orderType",e.target.value)} style={INP()}>
               {["공공","민간","해외"].map(t=><option key={t} value={t}>{t}</option>)}
             </select>
@@ -9038,14 +9039,14 @@ function ProjectContractDetailFull({proj, setProjects, canWrite, projects=[]}) {
       </div>
 
       {/* 수주형태 */}
-      <div style={{background:"#fff",borderRadius:12,border:"1px solid #E5E7EB",padding:"16px 18px",marginBottom:12}}>
-        <div style={{fontSize:13,fontWeight:800,color:"#374151",marginBottom:10}}>수주형태</div>
+      <div style={{background:"#fff",borderRadius:8,border:"1px solid #E5E7EB",padding:"16px 18px",marginBottom:12}}>
+        <div style={{fontSize:13,fontWeight:800,color:"#334155",marginBottom:10}}>수주형태</div>
         <div style={{display:"flex",gap:8,flexWrap:"wrap",marginBottom:10}}>
           {bidTypes.map(bt=>{
             const sel=draft.bidType===bt
             return <button key={bt} onClick={()=>u("bidType",bt)}
-              style={{padding:"6px 14px",border:`2px solid ${sel?"#6366F1":"#E5E7EB"}`,borderRadius:20,fontSize:12.5,fontWeight:600,cursor:"pointer",
-                background:sel?"#EEF2FF":"#fff",color:sel?"#6366F1":"#6B7280"}}>{bt}</button>
+              style={{padding:"6px 14px",border:`2px solid ${sel?"#2563EB":"#E2E8F0"}`,borderRadius:20,fontSize:13,fontWeight:600,cursor:"pointer",
+                background:sel?"#EFF6FF":"#fff",color:sel?"#2563EB":"#64748B"}}>{bt}</button>
           })}
         </div>
         <div style={{display:"flex",gap:8}}>
@@ -9053,22 +9054,22 @@ function ProjectContractDetailFull({proj, setProjects, canWrite, projects=[]}) {
             onKeyDown={e=>e.key==="Enter"&&newBT.trim()&&(setBidTypes(p=>[...p,newBT.trim()]),setNewBT(""))}
             style={{...INP(),flex:1}}/>
           <button onClick={()=>newBT.trim()&&(setBidTypes(p=>[...p,newBT.trim()]),setNewBT(""))}
-            style={{padding:"9px 14px",background:"#6366F1",color:"#fff",border:"none",borderRadius:9,fontSize:13,fontWeight:700,cursor:"pointer"}}>추가</button>
+            style={{padding:"9px 14px",background:"#2563EB",color:"#fff",border:"none",borderRadius:6,fontSize:13,fontWeight:700,cursor:"pointer"}}>추가</button>
           {draft.bidType&&<button onClick={()=>{setBidTypes(p=>p.filter(b=>b!==draft.bidType));u("bidType","")}}
-            style={{padding:"9px 12px",background:"#FEE2E2",color:"#DC2626",border:"none",borderRadius:9,fontSize:13,cursor:"pointer"}}>삭제</button>}
+            style={{padding:"9px 12px",background:"#FEE2E2",color:"#DC2626",border:"none",borderRadius:6,fontSize:13,cursor:"pointer"}}>삭제</button>}
         </div>
       </div>
 
       {/* 컨소시엄 */}
-      <div style={{background:"#fff",borderRadius:12,border:"1px solid #E5E7EB",padding:"16px 18px",marginBottom:12}}>
+      <div style={{background:"#fff",borderRadius:8,border:"1px solid #E5E7EB",padding:"16px 18px",marginBottom:12}}>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
-          <div style={{fontSize:13,fontWeight:800,color:"#374151"}}>컨소시엄 구성</div>
+          <div style={{fontSize:13,fontWeight:800,color:"#334155"}}>컨소시엄 구성</div>
           <div style={{display:"flex",gap:8,alignItems:"center"}}>
             <select value={draft.jvType||"단독이행"} onChange={e=>u("jvType",e.target.value)} style={{...INP(),width:"auto",padding:"7px 10px"}}>
               {["단독이행","공동이행","분리이행"].map(t=><option key={t} value={t}>{t}</option>)}
             </select>
             <button onClick={()=>u("jvMembers",[...(draft.jvMembers||[]),{name:"",ratio:0,amount:0,role:""}])}
-              style={{padding:"8px 14px",background:"#EEF2FF",color:"#6366F1",border:"none",borderRadius:9,fontSize:13,fontWeight:700,cursor:"pointer"}}>+ 추가</button>
+              style={{padding:"8px 14px",background:"#EFF6FF",color:"#2563EB",border:"none",borderRadius:6,fontSize:13,fontWeight:700,cursor:"pointer"}}>+ 추가</button>
           </div>
         </div>
         {(draft.jvMembers||[]).map((m,mi)=>(
@@ -9086,14 +9087,14 @@ function ProjectContractDetailFull({proj, setProjects, canWrite, projects=[]}) {
       </div>
 
       {/* 비고/메모 */}
-      <div style={{background:"#fff",borderRadius:12,border:"1px solid #E5E7EB",padding:"16px 18px"}}>
+      <div style={{background:"#fff",borderRadius:8,border:"1px solid #E5E7EB",padding:"16px 18px"}}>
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
           <div>
-            <label style={{fontSize:12,fontWeight:700,color:"#374151",display:"block",marginBottom:5}}>비고</label>
+            <label style={{fontSize:12,fontWeight:700,color:"#334155",display:"block",marginBottom:5}}>비고</label>
             <textarea value={draft.note||""} onChange={e=>u("note",e.target.value)} rows={3} style={{...INP(),resize:"vertical"}}/>
           </div>
           <div>
-            <label style={{fontSize:12,fontWeight:700,color:"#374151",display:"block",marginBottom:5}}>메모</label>
+            <label style={{fontSize:12,fontWeight:700,color:"#334155",display:"block",marginBottom:5}}>메모</label>
             <textarea value={draft.memo||""} onChange={e=>u("memo",e.target.value)} rows={3} style={{...INP(),resize:"vertical"}}/>
           </div>
         </div>
@@ -9218,7 +9219,7 @@ function BulkInputTool({DEPTS, projects, onSave, onClose}) {
   }
 
   return (
-    <div style={{background:"#1E293B",borderRadius:14,padding:"18px 20px",marginBottom:14,color:"#fff"}}>
+    <div style={{background:"#1E293B",borderRadius:8,padding:"14px 18px",marginBottom:14,color:"#fff"}}>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}>
         <div>
           <div style={{fontSize:16,fontWeight:800,marginBottom:4}}>📋 대량 입력 도구</div>
@@ -9227,7 +9228,7 @@ function BulkInputTool({DEPTS, projects, onSave, onClose}) {
             컬럼 순서: 본부 → 발주구분 → 구분 → 프로젝트명 → 기성단계 → 입금완료일 → 입금예상일 → 금액 → 메모
           </div>
         </div>
-        <button onClick={onClose} style={{padding:"6px 12px",background:"#374151",color:"#fff",border:"none",borderRadius:8,fontSize:13,cursor:"pointer"}}>✕ 닫기</button>
+        <button onClick={onClose} style={{padding:"6px 12px",background:"#334155",color:"#fff",border:"none",borderRadius:8,fontSize:13,cursor:"pointer"}}>✕ 닫기</button>
       </div>
 
       {pasteMsg&&<div style={{background:"#059669",color:"#fff",padding:"8px 14px",borderRadius:8,marginBottom:10,fontSize:13,fontWeight:700}}>{pasteMsg}</div>}
@@ -9237,7 +9238,7 @@ function BulkInputTool({DEPTS, projects, onSave, onClose}) {
           <thead>
             <tr style={{background:"#334155"}}>
               {[["#","32px"],["본부","100px"],["발주","70px"],["구분","70px"],["프로젝트명","220px"],["기성단계","120px"],["입금완료일","120px"],["입금예상일","120px"],["금액(원)","130px"],["미리보기","80px"],["메모","120px"],["삭제","40px"]].map(([h,w])=>(
-                <th key={h} style={{padding:"8px 6px",textAlign:"center",fontSize:11.5,fontWeight:700,color:"#94A3B8",borderBottom:"2px solid #475569",minWidth:w,width:w,whiteSpace:"nowrap"}}>{h}</th>
+                <th key={h} style={{padding:"8px 6px",textAlign:"center",fontSize:12,fontWeight:700,color:"#94A3B8",borderBottom:"2px solid #475569",minWidth:w,width:w,whiteSpace:"nowrap"}}>{h}</th>
               ))}
             </tr>
           </thead>
@@ -9346,14 +9347,14 @@ function BulkInputTool({DEPTS, projects, onSave, onClose}) {
             {rows.filter(r=>r.projectName?.trim()).length}행 입력됨
           </div>
           <button onClick={handleSave}
-            style={{padding:"10px 24px",background:"#6366F1",color:"#fff",border:"none",borderRadius:10,fontSize:14,fontWeight:800,cursor:"pointer"}}>
+            style={{padding:"10px 24px",background:"#2563EB",color:"#fff",border:"none",borderRadius:8,fontSize:14,fontWeight:800,cursor:"pointer"}}>
             💾 저장
           </button>
         </div>
       </div>
 
       {/* 입력 가이드 */}
-      <div style={{marginTop:12,padding:"10px 14px",background:"#0F172A",borderRadius:10,fontSize:12,color:"#64748B",lineHeight:1.8}}>
+      <div style={{marginTop:12,padding:"10px 14px",background:"#0F172A",borderRadius:8,fontSize:12,color:"#64748B",lineHeight:1.8}}>
         <strong style={{color:"#94A3B8"}}>💡 사용 팁</strong><br/>
         • 엑셀에서 데이터를 복사 후 <strong style={{color:"#C4B5FD"}}>첫 번째 셀 클릭 → Ctrl+V</strong> 로 한번에 붙여넣기<br/>
         • 날짜는 <strong style={{color:"#C4B5FD"}}>YYYY-MM-DD</strong> 형식으로 입력 (또는 달력 선택)<br/>
@@ -9381,7 +9382,7 @@ function ToastProvider({children}) {
   const TYPE = {
     success: {bg:"#059669", icon:"✅"},
     error:   {bg:"#DC2626", icon:"❌"},
-    info:    {bg:"#6366F1", icon:"ℹ️"},
+    info:    {bg:"#2563EB", icon:"ℹ️"},
     warning: {bg:"#D97706", icon:"⚠️"},
   }
 
@@ -9394,7 +9395,7 @@ function ToastProvider({children}) {
           return (
             <div key={t.id} style={{
               background:s.bg, color:"#fff", padding:"12px 20px",
-              borderRadius:12, fontSize:14, fontWeight:600,
+              borderRadius:8, fontSize:14, fontWeight:600,
               boxShadow:"0 4px 20px rgba(0,0,0,.25)",
               display:"flex", alignItems:"center", gap:10,
               minWidth:220, maxWidth:380,
@@ -9424,48 +9425,48 @@ function InlineEditForm({form, setForm, DEPTS, projNames, isSale, onSave, onCanc
   return (
     <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr 1fr 1fr 1fr 1fr 1fr auto",gap:8,alignItems:"end"}}>
       <div>
-        <div style={{fontSize:11,color:"#6366F1",fontWeight:700,marginBottom:3}}>본부</div>
+        <div style={{fontSize:11,color:"#2563EB",fontWeight:700,marginBottom:3}}>본부</div>
         <select value={form.dept||""} onChange={e=>u("dept",e.target.value)} style={INP()}>
           <option value="">선택</option>
           {DEPTS.map(d=><option key={d} value={d}>{d}</option>)}
         </select>
       </div>
       <div>
-        <div style={{fontSize:11,color:"#6366F1",fontWeight:700,marginBottom:3}}>발주구분</div>
+        <div style={{fontSize:11,color:"#2563EB",fontWeight:700,marginBottom:3}}>발주구분</div>
         <select value={form.orderType||"민간"} onChange={e=>u("orderType",e.target.value)} style={INP()}>
           {["민간","공공","해외"].map(t=><option key={t} value={t}>{t}</option>)}
         </select>
       </div>
       <div>
-        <div style={{fontSize:11,color:"#6366F1",fontWeight:700,marginBottom:3}}>구분</div>
+        <div style={{fontSize:11,color:"#2563EB",fontWeight:700,marginBottom:3}}>구분</div>
         <select value={form.itemType||""} onChange={e=>u("itemType",e.target.value)} style={INP()}>
           {ITEM_TYPES.map(t=><option key={t} value={t}>{t}</option>)}
         </select>
       </div>
       <div style={{gridColumn:"span 2"}}>
-        <div style={{fontSize:11,color:"#6366F1",fontWeight:700,marginBottom:3}}>프로젝트명</div>
+        <div style={{fontSize:11,color:"#2563EB",fontWeight:700,marginBottom:3}}>프로젝트명</div>
         <input list="inline-proj-list" value={form.projectName||""} onChange={e=>u("projectName",e.target.value)} style={INP()} placeholder="프로젝트명"/>
         <datalist id="inline-proj-list">{projNames.map(n=><option key={n} value={n}/>)}</datalist>
       </div>
       <div>
-        <div style={{fontSize:11,color:"#6366F1",fontWeight:700,marginBottom:3}}>입금완료일</div>
+        <div style={{fontSize:11,color:"#2563EB",fontWeight:700,marginBottom:3}}>입금완료일</div>
         <input type="date" value={form.paidDate||""} onChange={e=>u("paidDate",e.target.value)} style={INP()}/>
       </div>
       <div>
-        <div style={{fontSize:11,color:"#6366F1",fontWeight:700,marginBottom:3}}>입금예상일</div>
+        <div style={{fontSize:11,color:"#2563EB",fontWeight:700,marginBottom:3}}>입금예상일</div>
         <input type="date" value={form.expectedDate||""} onChange={e=>u("expectedDate",e.target.value)} style={INP()}/>
       </div>
       <div>
-        <div style={{fontSize:11,color:"#6366F1",fontWeight:700,marginBottom:3}}>금액(원)</div>
+        <div style={{fontSize:11,color:"#2563EB",fontWeight:700,marginBottom:3}}>금액(원)</div>
         <input type="number" value={form.amount||""} onChange={e=>u("amount",parseInt(e.target.value)||0)} style={INP()} placeholder="원 단위"/>
       </div>
       <div style={{display:"flex",gap:6,paddingBottom:0}}>
         <button onClick={onSave}
-          style={{padding:"8px 16px",background:"#6366F1",color:"#fff",border:"none",borderRadius:8,fontSize:13,fontWeight:700,cursor:"pointer",whiteSpace:"nowrap"}}>
+          style={{padding:"8px 16px",background:"#2563EB",color:"#fff",border:"none",borderRadius:8,fontSize:13,fontWeight:700,cursor:"pointer",whiteSpace:"nowrap"}}>
           💾 저장
         </button>
         <button onClick={onCancel}
-          style={{padding:"8px 12px",background:"#F3F4F6",color:"#374151",border:"none",borderRadius:8,fontSize:13,cursor:"pointer"}}>
+          style={{padding:"8px 12px",background:"#F8FAFC",color:"#334155",border:"none",borderRadius:8,fontSize:13,cursor:"pointer"}}>
           취소
         </button>
       </div>
@@ -9492,8 +9493,8 @@ function MobileHub({setTab, tabOrder=[], currentUser, projects=[], cashItems=[]}
   const HUB_MENUS = [
     {
       group: "📊 경영관리",
-      color: "#6366F1",
-      bg: "#EEF2FF",
+      color: "#2563EB",
+      bg: "#EFF6FF",
       items: [
         {id:"analysis", icon:"📊", label:"경영분석",    sub:"MANAGEMENT ANALYSIS"},
         {id:"deptdash", icon:"🏢", label:"본부별 현황", sub:"DEPT DASHBOARD"},
@@ -9536,7 +9537,7 @@ function MobileHub({setTab, tabOrder=[], currentUser, projects=[], cashItems=[]}
     {
       group: "🔧 분석·설정",
       color: "#7C3AED",
-      bg: "#EDE9FE",
+      bg: "#DBEAFE",
       items: [
         {id:"pnl",      icon:"📉", label:"손익분석",    sub:"P&L ANALYSIS"},
         {id:"optimize", icon:"⚙️", label:"경영최적화",  sub:"OPTIMIZATION"},
@@ -9589,7 +9590,7 @@ function MobileHub({setTab, tabOrder=[], currentUser, projects=[], cashItems=[]}
         </button>
         {/* 아이콘 */}
         <div style={{
-          width:52,height:52,borderRadius:14,
+          width:52,height:52,borderRadius:8,
           background:"white",
           display:"flex",alignItems:"center",justifyContent:"center",
           fontSize:26,marginBottom:10,
@@ -9610,7 +9611,7 @@ function MobileHub({setTab, tabOrder=[], currentUser, projects=[], cashItems=[]}
   return (
     <div style={{maxWidth:680,margin:"0 auto",padding:"0 0 80px"}}>
       {/* 헤더 */}
-      <div style={{background:"linear-gradient(135deg,#312E81,#6366F1)",padding:"24px 20px 20px",marginBottom:0}}>
+      <div style={{background:"linear-gradient(135deg,#1E3A8A,#2563EB)",padding:"24px 20px 20px",marginBottom:0}}>
         <div style={{fontSize:12,color:"rgba(255,255,255,.7)",marginBottom:4}}>
           {currentUser?.dept||""} {currentUser?.name||""}님
         </div>
@@ -9625,7 +9626,7 @@ function MobileHub({setTab, tabOrder=[], currentUser, projects=[], cashItems=[]}
             {label:"현누계",         val:fA(totalPaid),                                                   icon:"✅"},
             {label:"기성+확정",      val:fA(totalPaid+totalConf),                                         icon:"💧"},
           ].map(k=>(
-            <div key={k.label} style={{background:"rgba(255,255,255,.15)",borderRadius:12,padding:"10px 12px",textAlign:"center"}}>
+            <div key={k.label} style={{background:"rgba(255,255,255,.15)",borderRadius:8,padding:"10px 12px",textAlign:"center"}}>
               <div style={{fontSize:18,marginBottom:4}}>{k.icon}</div>
               <div style={{fontSize:15,fontWeight:800,color:"#fff"}}>{k.val}</div>
               <div style={{fontSize:10,color:"rgba(255,255,255,.7)",marginTop:2}}>{k.label}</div>
@@ -9634,12 +9635,12 @@ function MobileHub({setTab, tabOrder=[], currentUser, projects=[], cashItems=[]}
         </div>
 
         {/* 검색 */}
-        <div style={{background:"white",borderRadius:12,padding:"10px 14px",display:"flex",gap:8,alignItems:"center"}}>
+        <div style={{background:"white",borderRadius:8,padding:"10px 14px",display:"flex",gap:8,alignItems:"center"}}>
           <span style={{fontSize:16}}>🔍</span>
           <input value={search} onChange={e=>setSearch(e.target.value)}
             placeholder="메뉴 검색 — 이름 입력..."
             style={{border:"none",outline:"none",fontSize:14,flex:1,fontFamily:"inherit",background:"transparent"}}/>
-          {search&&<button onClick={()=>setSearch("")} style={{border:"none",background:"none",cursor:"pointer",fontSize:14,color:"#9CA3AF"}}>✕</button>}
+          {search&&<button onClick={()=>setSearch("")} style={{border:"none",background:"none",cursor:"pointer",fontSize:14,color:"#94A3B8"}}>✕</button>}
         </div>
       </div>
 
@@ -9648,7 +9649,7 @@ function MobileHub({setTab, tabOrder=[], currentUser, projects=[], cashItems=[]}
         {/* 검색 결과 */}
         {search.trim()&&(
           <div style={{marginBottom:20}}>
-            <div style={{fontSize:14,fontWeight:700,color:"#374151",marginBottom:10}}>
+            <div style={{fontSize:14,fontWeight:700,color:"#334155",marginBottom:10}}>
               🔍 검색 결과 {filtered.length}건
             </div>
             <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
@@ -9656,14 +9657,14 @@ function MobileHub({setTab, tabOrder=[], currentUser, projects=[], cashItems=[]}
                 <CardItem key={i} item={item} groupColor={item.color} groupBg={item.bg}/>
               ))}
             </div>
-            {filtered.length===0&&<div style={{color:"#9CA3AF",fontSize:14,textAlign:"center",padding:"20px 0"}}>검색 결과가 없습니다.</div>}
+            {filtered.length===0&&<div style={{color:"#94A3B8",fontSize:14,textAlign:"center",padding:"20px 0"}}>검색 결과가 없습니다.</div>}
           </div>
         )}
 
         {/* 즐겨찾기 */}
         {!search&&favItems.length>0&&(
           <div style={{marginBottom:20}}>
-            <div style={{fontSize:14,fontWeight:800,color:"#374151",marginBottom:10}}>
+            <div style={{fontSize:14,fontWeight:800,color:"#334155",marginBottom:10}}>
               ⭐ 즐겨찾기 {favItems.length}
             </div>
             <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
@@ -9725,7 +9726,7 @@ function MobileHub({setTab, tabOrder=[], currentUser, projects=[], cashItems=[]}
             style={{flex:1,border:"none",background:"none",cursor:"pointer",padding:"4px 0",
               display:"flex",flexDirection:"column",alignItems:"center",gap:2}}>
             <span style={{fontSize:22}}>{icon}</span>
-            <span style={{fontSize:10,fontWeight:600,color:id==="home"?"#6366F1":"#9CA3AF"}}>{label}</span>
+            <span style={{fontSize:10,fontWeight:600,color:id==="home"?"#2563EB":"#94A3B8"}}>{label}</span>
           </button>
         ))}
       </div>
@@ -9825,7 +9826,7 @@ function ContractStatusPage({contractItems=[], setContractItems, DEPTS, DEPT_COL
   // 구분별 섹션 (SECS) - CashItemsView와 독립적으로 선언
   const SECS = [
     {type:"계약", label:"✅ 완료(계약)", color:"#059669", bg:"#F0FDF4", border:"#059669", items:계약Items, sum:계약Sum},
-    {type:"확정", label:"🔵 확정",       color:"#6366F1", bg:"#EEF2FF", border:"#6366F1", items:확정Items, sum:확정Sum},
+    {type:"확정", label:"🔵 확정",       color:"#2563EB", bg:"#EFF6FF", border:"#2563EB", items:확정Items, sum:확정Sum},
     {type:"추진", label:"🟡 추진",       color:"#D97706", bg:"#FFFBEB", border:"#D97706", items:추진Items, sum:추진Sum},
   ]
 
@@ -9849,7 +9850,7 @@ function ContractStatusPage({contractItems=[], setContractItems, DEPTS, DEPT_COL
     const 확정 = items확정.reduce((s,i)=>s+feeOf(i)*deptShare(i,dept),0)
     const 추진 = items추진.reduce((s,i)=>s+feeOf(i)*deptShare(i,dept),0)
     const 목표 = ((deptBiz||{})[dept]?.orderTarget||0)*1e8
-    return {dept,계약,확정,추진,합계:계약+확정,목표,color:DEPT_COLORS[dept]||"#6B7280",
+    return {dept,계약,확정,추진,합계:계약+확정,목표,color:DEPT_COLORS[dept]||"#64748B",
       items계약, items확정, items추진, items합계:[...items계약,...items확정]}
   }).filter(d=>d.합계+d.추진+d.목표>0)
 
@@ -9916,13 +9917,13 @@ function ContractStatusPage({contractItems=[], setContractItems, DEPTS, DEPT_COL
     }
     const bizCompFeePreview = Math.round((d.serviceFeeExpect||0)*(d.bizCompPct||100)/100)
 
-    const inp = {padding:"6px 8px",border:"1.5px solid #C7D2FE",borderRadius:7,fontSize:12.5,width:"100%",boxSizing:"border-box",fontFamily:"inherit",outline:"none"}
-    const lbl = {fontSize:11,fontWeight:700,color:"#6366F1",display:"block",marginBottom:3}
+    const inp = {padding:"6px 8px",border:"1.5px solid #C7D2FE",borderRadius:7,fontSize:13,width:"100%",boxSizing:"border-box",fontFamily:"inherit",outline:"none"}
+    const lbl = {fontSize:11,fontWeight:700,color:"#2563EB",display:"block",marginBottom:3}
 
     return (
       <tr>
-        <td colSpan={9} style={{padding:0,background:"#EEF2FF"}}>
-          <div style={{padding:"16px 18px",border:"2px solid #6366F1",borderRadius:10,margin:6}}>
+        <td colSpan={9} style={{padding:0,background:"#EFF6FF"}}>
+          <div style={{padding:"16px 18px",border:"2px solid #6366F1",borderRadius:8,margin:6}}>
             <div style={{display:"grid",gridTemplateColumns:"2fr 1fr 1fr",gap:10,marginBottom:10}}>
               <div>
                 <label style={lbl}>프로젝트명</label>
@@ -9951,12 +9952,12 @@ function ContractStatusPage({contractItems=[], setContractItems, DEPTS, DEPT_COL
                     </select>
                     <input type="number" value={s.share} onChange={e=>uDeptShare(idx,"share",parseFloat(e.target.value)||0)}
                       style={{...inp,flex:1}} placeholder="지분%"/>
-                    <span style={{fontSize:12,color:"#6B7280"}}>%</span>
+                    <span style={{fontSize:12,color:"#64748B"}}>%</span>
                     {(d.deptShares||[]).length>1&&
                       <button onClick={()=>removeDeptShare(idx)} style={{padding:"4px 9px",background:"#FEE2E2",color:"#DC2626",border:"none",borderRadius:6,fontSize:11,cursor:"pointer"}}>✕</button>}
                   </div>
                 ))}
-                <button onClick={addDeptShare} style={{padding:"5px 10px",background:"#E0E7FF",color:"#4338CA",border:"none",borderRadius:7,fontSize:11.5,fontWeight:600,cursor:"pointer",alignSelf:"flex-start"}}>
+                <button onClick={addDeptShare} style={{padding:"5px 10px",background:"#E0E7FF",color:"#4338CA",border:"none",borderRadius:7,fontSize:12,fontWeight:600,cursor:"pointer",alignSelf:"flex-start"}}>
                   + 본부 추가 (분할)
                 </button>
                 <div style={{fontSize:11,color:(d.deptShares||[]).reduce((s,x)=>s+(x.share||0),0)===100?"#059669":"#DC2626"}}>
@@ -10014,8 +10015,8 @@ function ContractStatusPage({contractItems=[], setContractItems, DEPTS, DEPT_COL
             </div>
 
             <div style={{display:"flex",gap:8,justifyContent:"flex-end"}}>
-              <button onClick={cancelEdit} style={{padding:"7px 16px",background:"#F3F4F6",color:"#6B7280",border:"none",borderRadius:8,fontSize:12.5,fontWeight:600,cursor:"pointer"}}>취소</button>
-              <button onClick={saveEdit} style={{padding:"7px 18px",background:"#6366F1",color:"#fff",border:"none",borderRadius:8,fontSize:12.5,fontWeight:700,cursor:"pointer"}}>💾 저장</button>
+              <button onClick={cancelEdit} style={{padding:"7px 16px",background:"#F8FAFC",color:"#64748B",border:"none",borderRadius:8,fontSize:13,fontWeight:600,cursor:"pointer"}}>취소</button>
+              <button onClick={saveEdit} style={{padding:"7px 18px",background:"#2563EB",color:"#fff",border:"none",borderRadius:8,fontSize:13,fontWeight:700,cursor:"pointer"}}>💾 저장</button>
             </div>
           </div>
         </td>
@@ -10028,11 +10029,11 @@ function ContractStatusPage({contractItems=[], setContractItems, DEPTS, DEPT_COL
       {/* 비정상 금액 데이터 경고 */}
       {/* 연도 선택 + 리셋 */}
       <div style={{display:"flex",gap:8,alignItems:"center",marginBottom:12,flexWrap:"wrap"}}>
-        <div style={{display:"flex",gap:4,background:"#F3F4F6",borderRadius:10,padding:3}}>
+        <div style={{display:"flex",gap:4,background:"#F8FAFC",borderRadius:8,padding:3}}>
           {["전체",...allContractYears].map(yr=>(
             <button key={yr} onClick={()=>setSelContractYear(yr)}
-              style={{padding:"6px 14px",background:selContractYear===yr?"#6366F1":"transparent",
-                color:selContractYear===yr?"#fff":"#6B7280",border:"none",borderRadius:8,
+              style={{padding:"6px 14px",background:selContractYear===yr?"#2563EB":"transparent",
+                color:selContractYear===yr?"#fff":"#64748B",border:"none",borderRadius:8,
                 fontSize:13,fontWeight:selContractYear===yr?700:500,cursor:"pointer"}}>
               {yr==="전체"?"전체":yr+"년"}
             </button>
@@ -10057,7 +10058,7 @@ function ContractStatusPage({contractItems=[], setContractItems, DEPTS, DEPT_COL
       </div>
 
       {hasAbnormalData && isAdmin && (
-        <div style={{background:"#FEE2E2",border:"2px solid #DC2626",borderRadius:12,padding:"12px 18px",marginBottom:14,display:"flex",alignItems:"center",gap:10}}>
+        <div style={{background:"#FEE2E2",border:"2px solid #DC2626",borderRadius:8,padding:"12px 18px",marginBottom:14,display:"flex",alignItems:"center",gap:10}}>
           <span style={{fontSize:20}}>⚠️</span>
           <div style={{flex:1,fontSize:13,color:"#991B1B"}}>
             <strong>금액 단위 오류가 감지되었습니다.</strong> 일부 프로젝트 금액이 비정상적으로 큰 값으로 표시됩니다.
@@ -10066,13 +10067,13 @@ function ContractStatusPage({contractItems=[], setContractItems, DEPTS, DEPT_COL
         </div>
       )}
       {/* KPI 배너 */}
-      <div style={{background:"linear-gradient(135deg,#065F46,#059669)",borderRadius:16,padding:"22px 28px",marginBottom:16,color:"#fff"}}>
+      <div style={{background:"linear-gradient(135deg,#065F46,#059669)",borderRadius:16,padding:"16px 20px",marginBottom:16,color:"#fff"}}>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",flexWrap:"wrap",gap:16}}>
           <div>
             <div style={{fontSize:13,opacity:.75,marginBottom:4}}>{YEAR}년 계약·확정 금액</div>
             <div style={{fontSize:36,fontWeight:800,marginBottom:10}}>{fA(합계)}</div>
             <div style={{display:"flex",gap:10,flexWrap:"wrap"}}>
-              {[["✅ 계약",계약Sum,"#34D399"],["📋 확정",확정Sum,"#A5B4FC"],["🔶 추진",추진Sum,"#FDE68A"]].map(([l,v,c])=>(
+              {[["✅ 계약",계약Sum,"#34D399"],["📋 확정",확정Sum,"#93C5FD"],["🔶 추진",추진Sum,"#FDE68A"]].map(([l,v,c])=>(
                 <span key={l} style={{background:"rgba(255,255,255,.15)",padding:"4px 12px",borderRadius:20,fontSize:13,fontWeight:700,color:c}}>{l} {fA(v)}</span>
               ))}
             </div>
@@ -10091,14 +10092,14 @@ function ContractStatusPage({contractItems=[], setContractItems, DEPTS, DEPT_COL
       {isAdmin&&(
         <div style={{display:"flex",gap:8,marginBottom:16,flexWrap:"wrap",alignItems:"center"}}>
           <button onClick={downloadContractTemplate}
-            style={{padding:"7px 14px",background:"#D1FAE5",color:"#059669",border:"none",borderRadius:9,fontSize:12.5,fontWeight:700,cursor:"pointer"}}>
+            style={{padding:"7px 14px",background:"#D1FAE5",color:"#059669",border:"none",borderRadius:6,fontSize:13,fontWeight:700,cursor:"pointer"}}>
             ⬇ 빈 양식
           </button>
           <button onClick={downloadAllContract}
-            style={{padding:"7px 14px",background:"#EDE9FE",color:"#7C3AED",border:"none",borderRadius:9,fontSize:12.5,fontWeight:700,cursor:"pointer"}}>
+            style={{padding:"7px 14px",background:"#DBEAFE",color:"#7C3AED",border:"none",borderRadius:6,fontSize:13,fontWeight:700,cursor:"pointer"}}>
             ⬇ 계약전체데이터
           </button>
-          <label style={{padding:"7px 14px",background:"#6366F1",color:"#fff",borderRadius:9,fontSize:12.5,fontWeight:700,cursor:"pointer",display:"inline-flex",alignItems:"center",gap:5}}>
+          <label style={{padding:"7px 14px",background:"#2563EB",color:"#fff",borderRadius:6,fontSize:13,fontWeight:700,cursor:"pointer",display:"inline-flex",alignItems:"center",gap:5}}>
             ⬆ 엑셀 업로드
             <input type="file" accept=".xlsx,.xls" style={{display:"none"}}
               onChange={e=>uploadContractExcel(e,contractItems,setContractItems,currentUser,toast)}/>
@@ -10118,30 +10119,30 @@ function ContractStatusPage({contractItems=[], setContractItems, DEPTS, DEPT_COL
               }
             }))
             toast&&toast("금액 단위 보정 완료","success")
-          }} style={{padding:"7px 14px",background:hasAbnormalData?"#DC2626":"#FEE2E2",color:hasAbnormalData?"#fff":"#DC2626",border:"none",borderRadius:9,fontSize:12.5,fontWeight:800,cursor:"pointer",animation:hasAbnormalData?"pulse 1.5s infinite":"none"}}>
+          }} style={{padding:"7px 14px",background:hasAbnormalData?"#DC2626":"#FEE2E2",color:hasAbnormalData?"#fff":"#DC2626",border:"none",borderRadius:6,fontSize:13,fontWeight:800,cursor:"pointer",animation:hasAbnormalData?"pulse 1.5s infinite":"none"}}>
             🔧 금액 단위 보정{hasAbnormalData?" (필요!)":""}
           </button>
           <style>{`@keyframes pulse{0%,100%{opacity:1}50%{opacity:.6}}`}</style>
           <div style={{display:"flex",gap:6,marginLeft:"auto"}}>
-            <button onClick={()=>addItem("계약")} style={{padding:"7px 13px",background:"#D1FAE5",color:"#059669",border:"none",borderRadius:9,fontSize:12,fontWeight:700,cursor:"pointer"}}>+ 계약 추가</button>
-            <button onClick={()=>addItem("확정")} style={{padding:"7px 13px",background:"#EEF2FF",color:"#6366F1",border:"none",borderRadius:9,fontSize:12,fontWeight:700,cursor:"pointer"}}>+ 확정 추가</button>
-            <button onClick={()=>addItem("추진")} style={{padding:"7px 13px",background:"#FEF3C7",color:"#D97706",border:"none",borderRadius:9,fontSize:12,fontWeight:700,cursor:"pointer"}}>+ 추진 추가</button>
+            <button onClick={()=>addItem("계약")} style={{padding:"7px 13px",background:"#D1FAE5",color:"#059669",border:"none",borderRadius:6,fontSize:12,fontWeight:700,cursor:"pointer"}}>+ 계약 추가</button>
+            <button onClick={()=>addItem("확정")} style={{padding:"7px 13px",background:"#EFF6FF",color:"#2563EB",border:"none",borderRadius:6,fontSize:12,fontWeight:700,cursor:"pointer"}}>+ 확정 추가</button>
+            <button onClick={()=>addItem("추진")} style={{padding:"7px 13px",background:"#FEF3C7",color:"#D97706",border:"none",borderRadius:6,fontSize:12,fontWeight:700,cursor:"pointer"}}>+ 추진 추가</button>
           </div>
         </div>
       )}
 
       {/* 본부별 요약 */}
       {byDept.length>0&&(
-        <div style={{background:"#fff",borderRadius:14,border:"1px solid #E5E7EB",overflow:"hidden",marginBottom:14}}>
-          <div style={{padding:"13px 18px",borderBottom:"1px solid #E5E7EB",fontSize:14,fontWeight:800,color:"#111827",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+        <div style={{background:"#fff",borderRadius:8,border:"1px solid #E5E7EB",overflow:"hidden",marginBottom:14}}>
+          <div style={{padding:"13px 18px",borderBottom:"1px solid #E5E7EB",fontSize:14,fontWeight:800,color:"#0F172A",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
             <span>📊 본부별 계약 현황 (지분 반영)</span>
-            <span style={{fontSize:11.5,fontWeight:500,color:"#9CA3AF"}}>금액 클릭 → 상세 프로젝트 보기</span>
+            <span style={{fontSize:12,fontWeight:500,color:"#94A3B8"}}>금액 클릭 → 상세 프로젝트 보기</span>
           </div>
           <div style={{overflowX:"auto"}}>
             <table style={{width:"100%",borderCollapse:"collapse"}}>
               <thead><tr>
                 {["본부","목표","계약","확정","합계(계약+확정)","추진","달성률"].map((h,i)=>(
-                  <th key={h} style={TH(i===0?"left":"right",i===4?"#059669":i===2?"#059669":i===3?"#6366F1":i===5?"#D97706":"#6B7280")}>{h}</th>
+                  <th key={h} style={TH(i===0?"left":"right",i===4?"#059669":i===2?"#059669":i===3?"#2563EB":i===5?"#D97706":"#64748B")}>{h}</th>
                 ))}
               </tr></thead>
               <tbody>
@@ -10165,14 +10166,14 @@ function ContractStatusPage({contractItems=[], setContractItems, DEPTS, DEPT_COL
                   }
                   return (
                     <tr key={d.dept} style={{background:i%2===0?"#fff":"#FAFAFA"}}>
-                      <td style={TD("left","#111827",true)}>
+                      <td style={TD("left","#0F172A",true)}>
                         <div style={{display:"flex",alignItems:"center",gap:7}}>
                           <div style={{width:8,height:8,borderRadius:"50%",background:d.color}}/>{d.dept}
                         </div>
                       </td>
                       <td style={TD("right","#DC2626")}>{d.목표>0?fA(d.목표):"-"}</td>
                       <Cell val={d.계약} items={d.items계약} type="계약" color="#059669" bold/>
-                      <Cell val={d.확정} items={d.items확정} type="확정" color="#6366F1"/>
+                      <Cell val={d.확정} items={d.items확정} type="확정" color="#2563EB"/>
                       <Cell val={d.합계} items={d.items합계} type="합계(계약+확정)" color="#059669" bg="#ECFDF5" bold/>
                       <Cell val={d.추진} items={d.items추진} type="추진" color="#D97706"/>
                       <td style={{...TD(),color:d.목표>0&&d.합계/d.목표>=1?"#059669":d.목표>0&&d.합계/d.목표>=0.7?"#D97706":"#DC2626",fontWeight:700}}>
@@ -10181,15 +10182,15 @@ function ContractStatusPage({contractItems=[], setContractItems, DEPTS, DEPT_COL
                     </tr>
                   )
                 })}
-                <tr style={{background:"#EEF2FF",borderTop:"2px solid #6366F1"}}>
-                  <td style={TD("left","#312E81",true)}>합계</td>
+                <tr style={{background:"#EFF6FF",borderTop:"2px solid #6366F1"}}>
+                  <td style={TD("left","#1E3A8A",true)}>합계</td>
                   <td style={TD("right","#DC2626",true)}>{fA(byDept.reduce((s,d)=>s+d.목표,0))}</td>
                   <td style={{...TD("right","#059669",true),cursor:계약Sum>0?"pointer":"default",textDecoration:계약Sum>0?"underline":"none",textDecorationStyle:"dotted"}}
                     onClick={()=>계약Sum>0&&setDetailView(prev=>prev?.type==="전체계약"?null:{dept:"전체",type:"전체계약",label:"전체 · 계약",items:계약Items,color:"#059669"})}>
                     {fA(계약Sum)}
                   </td>
-                  <td style={{...TD("right","#6366F1",true),cursor:확정Sum>0?"pointer":"default",textDecoration:확정Sum>0?"underline":"none",textDecorationStyle:"dotted"}}
-                    onClick={()=>확정Sum>0&&setDetailView(prev=>prev?.type==="전체확정"?null:{dept:"전체",type:"전체확정",label:"전체 · 확정",items:확정Items,color:"#6366F1"})}>
+                  <td style={{...TD("right","#2563EB",true),cursor:확정Sum>0?"pointer":"default",textDecoration:확정Sum>0?"underline":"none",textDecorationStyle:"dotted"}}
+                    onClick={()=>확정Sum>0&&setDetailView(prev=>prev?.type==="전체확정"?null:{dept:"전체",type:"전체확정",label:"전체 · 확정",items:확정Items,color:"#2563EB"})}>
                     {fA(확정Sum)}
                   </td>
                   <td style={{...TD("right","#059669",true),background:"#A7F3D0",cursor:합계>0?"pointer":"default",textDecoration:합계>0?"underline":"none",textDecorationStyle:"dotted"}}
@@ -10210,15 +10211,15 @@ function ContractStatusPage({contractItems=[], setContractItems, DEPTS, DEPT_COL
           {detailView&&(
             <div style={{borderTop:`3px solid ${detailView.color}`,background:`${detailView.color}0A`,padding:"14px 18px"}}>
               <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
-                <div style={{fontSize:13.5,fontWeight:800,color:detailView.color}}>
+                <div style={{fontSize:13,fontWeight:800,color:detailView.color}}>
                   📋 {detailView.label} — {detailView.items.length}건 / {fA(detailView.items.reduce((s,i)=>s+normFee(i.serviceFeeExpect||i.amount||0)*(detailView.dept==="전체"?1:deptShare(i,detailView.dept)),0))}
                 </div>
                 <button onClick={()=>setDetailView(null)}
-                  style={{padding:"4px 10px",background:"#fff",color:"#6B7280",border:"1px solid #E5E7EB",borderRadius:7,fontSize:11.5,cursor:"pointer"}}>
+                  style={{padding:"4px 10px",background:"#fff",color:"#64748B",border:"1px solid #E5E7EB",borderRadius:7,fontSize:12,cursor:"pointer"}}>
                   ✕ 닫기
                 </button>
               </div>
-              <div style={{background:"#fff",borderRadius:10,border:"1px solid #E5E7EB",overflow:"hidden"}}>
+              <div style={{background:"#fff",borderRadius:8,border:"1px solid #E5E7EB",overflow:"hidden"}}>
                 <table style={{width:"100%",borderCollapse:"collapse"}}>
                   <thead><tr style={{background:"#F8FAFC"}}>
                     {["연번","구분","본부(지분)","프로젝트명","해당금액","전체용역비"].map((h,i)=>(
@@ -10231,21 +10232,21 @@ function ContractStatusPage({contractItems=[], setContractItems, DEPTS, DEPT_COL
                       const sh = detailView.dept==="전체" ? 1 : deptShare(item, detailView.dept)
                       const myFee = fullFee*sh
                       const t = getType(item)
-                      const tColor = t==="계약"?"#059669":t==="확정"?"#6366F1":"#D97706"
+                      const tColor = t==="계약"?"#059669":t==="확정"?"#2563EB":"#D97706"
                       const deptLabel = (item.deptShares||[]).length>1
                         ? (item.deptShares||[]).map(s=>`${s.dept}:${s.share}%`).join(" / ")
                         : (item.depts||[]).join(", ")
                       return (
                         <tr key={item.id||i} style={{background:i%2===0?"#fff":"#FAFAFA",cursor:"pointer"}}
                           onClick={()=>startEdit(item)}>
-                          <td style={{...TD("center","#9CA3AF"),fontSize:11.5}}>{i+1}</td>
+                          <td style={{...TD("center","#94A3B8"),fontSize:12}}>{i+1}</td>
                           <td style={TD("left")}>
-                            <span style={{fontSize:10.5,padding:"1px 7px",borderRadius:9,background:tColor+"18",color:tColor,fontWeight:700}}>{t}</span>
+                            <span style={{fontSize:11,padding:"1px 7px",borderRadius:6,background:tColor+"18",color:tColor,fontWeight:700}}>{t}</span>
                           </td>
-                          <td style={{...TD("left","#6B7280"),fontSize:11.5}}>{deptLabel}</td>
-                          <td style={{...TD("left","#111827",true)}}>{item.name}</td>
+                          <td style={{...TD("left","#64748B"),fontSize:12}}>{deptLabel}</td>
+                          <td style={{...TD("left","#0F172A",true)}}>{item.name}</td>
                           <td style={{...TD("right",detailView.color,true)}}>{fA(myFee)}</td>
-                          <td style={{...TD("right","#9CA3AF"),fontSize:11.5}}>{fA(fullFee)}</td>
+                          <td style={{...TD("right","#94A3B8"),fontSize:12}}>{fA(fullFee)}</td>
                         </tr>
                       )
                     })}
@@ -10259,7 +10260,7 @@ function ContractStatusPage({contractItems=[], setContractItems, DEPTS, DEPT_COL
 
       {/* 구분별 프로젝트 목록 */}
       {SECS.map(sec=>(
-        <div key={sec.type} style={{background:"#fff",borderRadius:14,border:`2px solid ${sec.border}`,overflow:"hidden",marginBottom:14}}>
+        <div key={sec.type} style={{background:"#fff",borderRadius:8,border:`2px solid ${sec.border}`,overflow:"hidden",marginBottom:14}}>
           <div style={{padding:"12px 18px",background:sec.bg,borderBottom:`1px solid ${sec.border}33`,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
             <div style={{fontSize:15,fontWeight:800,color:sec.color}}>{sec.label} ({sec.items.length}건)</div>
             <div style={{fontSize:15,fontWeight:800,color:sec.color}}>{fA(sec.sum)}</div>
@@ -10274,7 +10275,7 @@ function ContractStatusPage({contractItems=[], setContractItems, DEPTS, DEPT_COL
               <tbody>
                 {sec.items.map((item,i)=>{
                   if(editId===item.id) return <EditRow key={item.id} item={item}/>
-                  const bidColor = {"공공":"#6366F1","민간":"#059669","해외":"#DC2626"}[item.orderType||"민간"]||"#6B7280"
+                  const bidColor = {"공공":"#2563EB","민간":"#059669","해외":"#DC2626"}[item.orderType||"민간"]||"#64748B"
                   const depts = (item.deptShares||[]).length>1
                     ? (item.deptShares||[]).map(s=>`${s.dept}:${s.share}%`).join(" / ")
                     : (item.depts||[]).join(", ")||"-"
@@ -10283,46 +10284,46 @@ function ContractStatusPage({contractItems=[], setContractItems, DEPTS, DEPT_COL
                   const bizFee = normFee(item.bizCompFee||0)
                   return (
                     <tr key={item.id||i} style={{background:i%2===0?"#fff":"#FAFAFA"}}>
-                      <td style={{...TD("center","#9CA3AF"),fontSize:11.5}}>{i+1}</td>
-                      <td style={{...TD("left","#6B7280"),fontSize:11.5,whiteSpace:"nowrap",maxWidth:140}}>
+                      <td style={{...TD("center","#94A3B8"),fontSize:12}}>{i+1}</td>
+                      <td style={{...TD("left","#64748B"),fontSize:12,whiteSpace:"nowrap",maxWidth:140}}>
                         <div style={{display:"flex",alignItems:"center",gap:4}}>
                           <span style={{fontSize:10,padding:"1px 5px",borderRadius:8,background:bidColor+"18",color:bidColor,fontWeight:700}}>{item.orderType||"민간"}</span>
                           {depts}
                         </div>
                       </td>
-                      <td style={{...TD("left","#6B7280"),fontSize:11.5}}>{item.bidType||"-"}</td>
-                      <td style={{...TD("left","#111827",true),minWidth:180,cursor:"pointer"}} onClick={()=>startEdit(item)}>
+                      <td style={{...TD("left","#64748B"),fontSize:12}}>{item.bidType||"-"}</td>
+                      <td style={{...TD("left","#0F172A",true),minWidth:180,cursor:"pointer"}} onClick={()=>startEdit(item)}>
                         {item.name}
                         {item.important&&
                           <span style={{marginLeft:0,marginRight:5,fontSize:9,background:"#DC2626",color:"#fff",padding:"1px 6px",borderRadius:5,fontWeight:800}}>⭐중요</span>}
                         {item.contractYear&&String(item.contractYear)===YR&&
                           <span style={{marginLeft:5,fontSize:9,background:sec.color,color:"#fff",padding:"1px 5px",borderRadius:5}}>{YR}신규</span>}
                       </td>
-                      <td style={{...TD("right","#374151"),whiteSpace:"nowrap"}}>{totalFee?fA(totalFee):"-"}</td>
-                      <td style={{...TD("right","#6366F1"),whiteSpace:"nowrap"}}>{item.shareRatioExpect?item.shareRatioExpect+"%":"-"}</td>
+                      <td style={{...TD("right","#334155"),whiteSpace:"nowrap"}}>{totalFee?fA(totalFee):"-"}</td>
+                      <td style={{...TD("right","#2563EB"),whiteSpace:"nowrap"}}>{item.shareRatioExpect?item.shareRatioExpect+"%":"-"}</td>
                       <td style={{...TD("right",sec.color,true),whiteSpace:"nowrap"}}>{fA(svcFee)}</td>
                       <td style={{...TD("right","#D97706"),whiteSpace:"nowrap"}}>{item.bizCompPct?item.bizCompPct+"%":"-"}</td>
                       <td style={{...TD("right","#D97706",true),whiteSpace:"nowrap"}}>{bizFee?fA(bizFee):"-"}</td>
-                      <td style={{...TD("right","#6B7280"),fontSize:11.5,whiteSpace:"nowrap"}}>{item.execTime||"-"}</td>
-                      <td style={{...TD("right","#6B7280"),fontSize:11.5,whiteSpace:"nowrap"}}>{item.contractTime||"-"}</td>
-                      <td style={{...TD("left","#6B7280"),fontSize:11.5,maxWidth:130,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}} title={item.consortium||""}>{item.consortium||"-"}</td>
-                      <td style={{...TD("left","#9CA3AF"),fontSize:11.5,maxWidth:120,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}} title={item.note||""}>{item.note||"-"}</td>
+                      <td style={{...TD("right","#64748B"),fontSize:12,whiteSpace:"nowrap"}}>{item.execTime||"-"}</td>
+                      <td style={{...TD("right","#64748B"),fontSize:12,whiteSpace:"nowrap"}}>{item.contractTime||"-"}</td>
+                      <td style={{...TD("left","#64748B"),fontSize:12,maxWidth:130,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}} title={item.consortium||""}>{item.consortium||"-"}</td>
+                      <td style={{...TD("left","#94A3B8"),fontSize:12,maxWidth:120,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}} title={item.note||""}>{item.note||"-"}</td>
                       {isAdmin&&(
                         <td style={{...TD("center"),whiteSpace:"nowrap"}}>
                           <div style={{display:"flex",gap:3,justifyContent:"center"}}>
                             <button onClick={()=>updateItem(item.id,{important:!item.important})}
                               title={item.important?"⭐ 중요 해제":"☆ 중요 설정"}
-                              style={{padding:"3px 7px",background:item.important?"#FEF3C7":"#F3F4F6",color:item.important?"#D97706":"#9CA3AF",border:`1.5px solid ${item.important?"#FDE68A":"#E5E7EB"}`,borderRadius:5,fontSize:10.5,cursor:"pointer",fontWeight:800}}>
+                              style={{padding:"3px 7px",background:item.important?"#FEF3C7":"#F8FAFC",color:item.important?"#D97706":"#94A3B8",border:`1.5px solid ${item.important?"#FDE68A":"#E2E8F0"}`,borderRadius:5,fontSize:11,cursor:"pointer",fontWeight:800}}>
                               {item.important?"⭐":"☆"}
                             </button>
                             <button onClick={()=>startEdit(item)} title="편집"
-                              style={{padding:"3px 7px",background:"#EEF2FF",color:"#6366F1",border:"none",borderRadius:5,fontSize:10.5,cursor:"pointer"}}>✏</button>
+                              style={{padding:"3px 7px",background:"#EFF6FF",color:"#2563EB",border:"none",borderRadius:5,fontSize:11,cursor:"pointer"}}>✏</button>
                             {sec.type!=="계약"&&<button onClick={()=>moveType(item,sec.type==="추진"?"확정":"계약")} title="상위 단계로 이동"
-                              style={{padding:"3px 7px",background:"#D1FAE5",color:"#059669",border:"none",borderRadius:5,fontSize:10.5,cursor:"pointer"}}>↑</button>}
+                              style={{padding:"3px 7px",background:"#D1FAE5",color:"#059669",border:"none",borderRadius:5,fontSize:11,cursor:"pointer"}}>↑</button>}
                             {sec.type!=="추진"&&<button onClick={()=>moveType(item,sec.type==="계약"?"확정":"추진")} title="하위 단계로 이동"
-                              style={{padding:"3px 7px",background:"#FEF3C7",color:"#D97706",border:"none",borderRadius:5,fontSize:10.5,cursor:"pointer"}}>↓</button>}
+                              style={{padding:"3px 7px",background:"#FEF3C7",color:"#D97706",border:"none",borderRadius:5,fontSize:11,cursor:"pointer"}}>↓</button>}
                             <button onClick={()=>deleteItem(item.id)} title="삭제"
-                              style={{padding:"3px 7px",background:"#FEE2E2",color:"#DC2626",border:"none",borderRadius:5,fontSize:10.5,cursor:"pointer"}}>✕</button>
+                              style={{padding:"3px 7px",background:"#FEE2E2",color:"#DC2626",border:"none",borderRadius:5,fontSize:11,cursor:"pointer"}}>✕</button>
                           </div>
                         </td>
                       )}
@@ -10341,9 +10342,9 @@ function ContractStatusPage({contractItems=[], setContractItems, DEPTS, DEPT_COL
       ))}
 
       {contractItems.length===0&&(
-        <div style={{background:"#fff",borderRadius:14,border:"2px dashed #E5E7EB",padding:"60px",textAlign:"center",color:"#9CA3AF"}}>
+        <div style={{background:"#fff",borderRadius:8,border:"2px dashed #E5E7EB",padding:"60px",textAlign:"center",color:"#94A3B8"}}>
           <div style={{fontSize:40,marginBottom:12}}>📋</div>
-          <div style={{fontSize:16,fontWeight:700,marginBottom:8,color:"#374151"}}>계약현황 데이터가 없습니다</div>
+          <div style={{fontSize:16,fontWeight:700,marginBottom:8,color:"#334155"}}>계약현황 데이터가 없습니다</div>
           <div style={{fontSize:13,marginBottom:16}}>⬇ 빈 양식을 다운로드하거나 + 추가 버튼으로 직접 입력하세요.</div>
         </div>
       )}
@@ -10368,12 +10369,12 @@ function SmartSchedulePage({projects=[], cashItems=[], contractItems=[], current
   const [notifPerm, setNotifPerm] = useState(Notification?.permission||"default")
   const [draftEvt, setDraftEvt] = useState({
     title:"", date:"", time:"09:00", endDate:"", type:"개인",
-    repeat:"none", alarm:"30", note:"", color:"#6366F1"
+    repeat:"none", alarm:"30", note:"", color:"#2563EB"
   })
 
   const TYPES = {
-    "개인":"#6366F1","회의":"#0891B2","납기":"#DC2626","기성":"#059669",
-    "계약":"#D97706","공문":"#7C3AED","기타":"#6B7280"
+    "개인":"#2563EB","회의":"#0891B2","납기":"#DC2626","기성":"#059669",
+    "계약":"#D97706","공문":"#7C3AED","기타":"#64748B"
   }
   const REPEAT = {"none":"반복없음","daily":"매일","weekly":"매주","monthly":"매월","yearly":"매년"}
   const ALARM  = {"0":"알람없음","10":"10분 전","30":"30분 전","60":"1시간 전","1440":"하루 전","2880":"2일 전"}
@@ -10453,7 +10454,7 @@ function SmartSchedulePage({projects=[], cashItems=[], contractItems=[], current
     if(editEvt) setSchedules(prev=>prev.map(e=>e.id===editEvt.id?evt:e))
     else setSchedules(prev=>[...prev, evt])
     setShowAdd(false); setEditEvt(null)
-    setDraftEvt({title:"",date:"",time:"09:00",endDate:"",type:"개인",repeat:"none",alarm:"30",note:"",color:"#6366F1"})
+    setDraftEvt({title:"",date:"",time:"09:00",endDate:"",type:"개인",repeat:"none",alarm:"30",note:"",color:"#2563EB"})
   }
 
   const deleteEvent = (id) => {
@@ -10474,29 +10475,29 @@ function SmartSchedulePage({projects=[], cashItems=[], contractItems=[], current
     <div>
       {/* 헤더 */}
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14,flexWrap:"wrap",gap:8}}>
-        <div style={{fontSize:18,fontWeight:800,color:"#111827"}}>📅 일정 관리</div>
+        <div style={{fontSize:18,fontWeight:800,color:"#0F172A"}}>📅 일정 관리</div>
         <div style={{display:"flex",gap:6,flexWrap:"wrap",alignItems:"center"}}>
           {/* 알림 권한 */}
           <button onClick={requestNotif}
-            style={{padding:"6px 12px",background:notifPerm==="granted"?"#D1FAE5":"#EEF2FF",color:notifPerm==="granted"?"#059669":"#6366F1",border:"none",borderRadius:8,fontSize:12,fontWeight:700,cursor:"pointer"}}>
+            style={{padding:"6px 12px",background:notifPerm==="granted"?"#D1FAE5":"#EFF6FF",color:notifPerm==="granted"?"#059669":"#2563EB",border:"none",borderRadius:8,fontSize:12,fontWeight:700,cursor:"pointer"}}>
             {notifPerm==="granted"?"🔔 알림 ON":"🔔 알림 설정"}
           </button>
           {/* 뷰 전환 */}
-          <div style={{display:"flex",background:"#F3F4F6",borderRadius:8,padding:3,gap:2}}>
+          <div style={{display:"flex",background:"#F8FAFC",borderRadius:8,padding:3,gap:2}}>
             {[["month","월"],["week","주"],["list","목록"]].map(([v,l])=>(
               <button key={v} onClick={()=>setView(v)}
-                style={{padding:"5px 12px",border:"none",borderRadius:6,fontSize:12.5,fontWeight:view===v?700:400,cursor:"pointer",background:view===v?"#6366F1":"none",color:view===v?"#fff":"#6B7280"}}>{l}</button>
+                style={{padding:"5px 12px",border:"none",borderRadius:6,fontSize:13,fontWeight:view===v?700:400,cursor:"pointer",background:view===v?"#2563EB":"none",color:view===v?"#fff":"#64748B"}}>{l}</button>
             ))}
           </div>
           {/* 필터 */}
           <select value={filterType} onChange={e=>setFilterType(e.target.value)}
-            style={{padding:"6px 10px",border:"1px solid #E5E7EB",borderRadius:8,fontSize:12.5,fontFamily:"inherit",outline:"none"}}>
+            style={{padding:"6px 10px",border:"1px solid #E5E7EB",borderRadius:8,fontSize:13,fontFamily:"inherit",outline:"none"}}>
             <option value="all">전체</option>
             <option value="system">시스템 일정</option>
             {Object.keys(TYPES).map(t=><option key={t} value={t}>{t}</option>)}
           </select>
           <button onClick={()=>{setShowAdd(true);setEditEvt(null)}}
-            style={{padding:"7px 14px",background:"#6366F1",color:"#fff",border:"none",borderRadius:9,fontSize:13,fontWeight:700,cursor:"pointer"}}>
+            style={{padding:"7px 14px",background:"#2563EB",color:"#fff",border:"none",borderRadius:6,fontSize:13,fontWeight:700,cursor:"pointer"}}>
             + 일정 추가
           </button>
         </div>
@@ -10504,17 +10505,17 @@ function SmartSchedulePage({projects=[], cashItems=[], contractItems=[], current
 
       {/* 임박 일정 배너 */}
       {upcomingEvts.length>0&&(
-        <div style={{background:"#EEF2FF",borderRadius:12,padding:"12px 16px",marginBottom:14,border:"1px solid #C7D2FE"}}>
-          <div style={{fontSize:13,fontWeight:700,color:"#312E81",marginBottom:8}}>🔔 7일 내 일정 ({upcomingEvts.length}건)</div>
+        <div style={{background:"#EFF6FF",borderRadius:8,padding:"12px 16px",marginBottom:14,border:"1px solid #C7D2FE"}}>
+          <div style={{fontSize:13,fontWeight:700,color:"#1E3A8A",marginBottom:8}}>🔔 7일 내 일정 ({upcomingEvts.length}건)</div>
           <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
             {upcomingEvts.slice(0,6).map(e=>{
               const d = parseDate(e.date)
               const diff = d?Math.round((d-today)/(1000*60*60*24)):0
               const label = diff<0?"지남":diff===0?"오늘":diff===1?"내일":`${diff}일 후`
               return (
-                <div key={e.id} style={{background:"#fff",borderRadius:8,padding:"6px 12px",border:`1.5px solid ${e.color||TYPES[e.type]||"#6B7280"}`,display:"flex",alignItems:"center",gap:6}}>
-                  <span style={{fontSize:9,fontWeight:700,padding:"1px 5px",borderRadius:6,background:e.color||TYPES[e.type]||"#6B7280",color:"#fff"}}>{label}</span>
-                  <span style={{fontSize:12.5,fontWeight:600,color:"#111827"}}>{e.title}</span>
+                <div key={e.id} style={{background:"#fff",borderRadius:8,padding:"6px 12px",border:`1.5px solid ${e.color||TYPES[e.type]||"#64748B"}`,display:"flex",alignItems:"center",gap:6}}>
+                  <span style={{fontSize:9,fontWeight:700,padding:"1px 5px",borderRadius:6,background:e.color||TYPES[e.type]||"#64748B",color:"#fff"}}>{label}</span>
+                  <span style={{fontSize:13,fontWeight:600,color:"#0F172A"}}>{e.title}</span>
                 </div>
               )
             })}
@@ -10524,56 +10525,56 @@ function SmartSchedulePage({projects=[], cashItems=[], contractItems=[], current
 
       {/* 일정 추가/수정 폼 */}
       {showAdd&&(
-        <div style={{background:"#EEF2FF",borderRadius:14,border:"2px solid #6366F1",padding:"18px 20px",marginBottom:14}}>
-          <div style={{fontSize:14,fontWeight:800,color:"#312E81",marginBottom:12}}>{editEvt?"📝 일정 수정":"+ 일정 추가"}</div>
+        <div style={{background:"#EFF6FF",borderRadius:8,border:"2px solid #6366F1",padding:"14px 18px",marginBottom:14}}>
+          <div style={{fontSize:14,fontWeight:800,color:"#1E3A8A",marginBottom:12}}>{editEvt?"📝 일정 수정":"+ 일정 추가"}</div>
           <div style={{display:"grid",gridTemplateColumns:"2fr 1fr 1fr",gap:10,marginBottom:10}}>
-            <div><label style={{fontSize:11.5,fontWeight:700,color:"#6366F1",display:"block",marginBottom:3}}>제목 *</label>
+            <div><label style={{fontSize:12,fontWeight:700,color:"#2563EB",display:"block",marginBottom:3}}>제목 *</label>
               <input value={draftEvt.title} onChange={e=>setDraftEvt(p=>({...p,title:e.target.value}))} placeholder="일정 제목" style={INP()}/></div>
-            <div><label style={{fontSize:11.5,fontWeight:700,color:"#6366F1",display:"block",marginBottom:3}}>유형</label>
-              <select value={draftEvt.type} onChange={e=>setDraftEvt(p=>({...p,type:e.target.value,color:TYPES[e.target.value]||"#6366F1"}))} style={INP()}>
+            <div><label style={{fontSize:12,fontWeight:700,color:"#2563EB",display:"block",marginBottom:3}}>유형</label>
+              <select value={draftEvt.type} onChange={e=>setDraftEvt(p=>({...p,type:e.target.value,color:TYPES[e.target.value]||"#2563EB"}))} style={INP()}>
                 {Object.keys(TYPES).map(t=><option key={t} value={t}>{t}</option>)}</select></div>
-            <div><label style={{fontSize:11.5,fontWeight:700,color:"#6366F1",display:"block",marginBottom:3}}>알람</label>
+            <div><label style={{fontSize:12,fontWeight:700,color:"#2563EB",display:"block",marginBottom:3}}>알람</label>
               <select value={draftEvt.alarm} onChange={e=>setDraftEvt(p=>({...p,alarm:e.target.value}))} style={INP()}>
                 {Object.entries(ALARM).map(([v,l])=><option key={v} value={v}>{l}</option>)}</select></div>
           </div>
           <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr 1fr",gap:10,marginBottom:10}}>
-            <div><label style={{fontSize:11.5,fontWeight:700,color:"#6366F1",display:"block",marginBottom:3}}>날짜 *</label>
+            <div><label style={{fontSize:12,fontWeight:700,color:"#2563EB",display:"block",marginBottom:3}}>날짜 *</label>
               <input type="date" value={draftEvt.date} onChange={e=>setDraftEvt(p=>({...p,date:e.target.value}))} style={INP()}/></div>
-            <div><label style={{fontSize:11.5,fontWeight:700,color:"#6366F1",display:"block",marginBottom:3}}>시간</label>
+            <div><label style={{fontSize:12,fontWeight:700,color:"#2563EB",display:"block",marginBottom:3}}>시간</label>
               <input type="time" value={draftEvt.time} onChange={e=>setDraftEvt(p=>({...p,time:e.target.value}))} style={INP()}/></div>
-            <div><label style={{fontSize:11.5,fontWeight:700,color:"#6366F1",display:"block",marginBottom:3}}>종료일</label>
+            <div><label style={{fontSize:12,fontWeight:700,color:"#2563EB",display:"block",marginBottom:3}}>종료일</label>
               <input type="date" value={draftEvt.endDate} onChange={e=>setDraftEvt(p=>({...p,endDate:e.target.value}))} style={INP()}/></div>
-            <div><label style={{fontSize:11.5,fontWeight:700,color:"#6366F1",display:"block",marginBottom:3}}>반복</label>
+            <div><label style={{fontSize:12,fontWeight:700,color:"#2563EB",display:"block",marginBottom:3}}>반복</label>
               <select value={draftEvt.repeat} onChange={e=>setDraftEvt(p=>({...p,repeat:e.target.value}))} style={INP()}>
                 {Object.entries(REPEAT).map(([v,l])=><option key={v} value={v}>{l}</option>)}</select></div>
           </div>
           <div style={{marginBottom:10}}>
-            <label style={{fontSize:11.5,fontWeight:700,color:"#6366F1",display:"block",marginBottom:3}}>메모</label>
+            <label style={{fontSize:12,fontWeight:700,color:"#2563EB",display:"block",marginBottom:3}}>메모</label>
             <input value={draftEvt.note} onChange={e=>setDraftEvt(p=>({...p,note:e.target.value}))} placeholder="내용 메모" style={INP()}/>
           </div>
           <div style={{display:"flex",gap:8,justifyContent:"flex-end"}}>
-            <button onClick={()=>{setShowAdd(false);setEditEvt(null)}} style={{padding:"7px 16px",background:"#F3F4F6",color:"#6B7280",border:"none",borderRadius:8,fontSize:12.5,fontWeight:600,cursor:"pointer"}}>취소</button>
-            <button onClick={saveEvent} style={{padding:"7px 18px",background:"#6366F1",color:"#fff",border:"none",borderRadius:8,fontSize:12.5,fontWeight:700,cursor:"pointer"}}>💾 저장</button>
+            <button onClick={()=>{setShowAdd(false);setEditEvt(null)}} style={{padding:"7px 16px",background:"#F8FAFC",color:"#64748B",border:"none",borderRadius:8,fontSize:13,fontWeight:600,cursor:"pointer"}}>취소</button>
+            <button onClick={saveEvent} style={{padding:"7px 18px",background:"#2563EB",color:"#fff",border:"none",borderRadius:8,fontSize:13,fontWeight:700,cursor:"pointer"}}>💾 저장</button>
           </div>
         </div>
       )}
 
       {/* 월간 캘린더 뷰 */}
       {view==="month"&&(
-        <div style={{background:"#fff",borderRadius:14,border:"1px solid #E5E7EB",overflow:"hidden"}}>
+        <div style={{background:"#fff",borderRadius:8,border:"1px solid #E5E7EB",overflow:"hidden"}}>
           {/* 월 네비게이션 */}
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"14px 20px",borderBottom:"1px solid #E5E7EB"}}>
-            <button onClick={()=>setCurDate(new Date(curYear,curMonth-1,1))} style={{padding:"6px 12px",background:"#F3F4F6",border:"none",borderRadius:8,cursor:"pointer",fontSize:14}}>‹</button>
-            <div style={{fontSize:16,fontWeight:800,color:"#111827"}}>{curYear}년 {curMonth+1}월</div>
+            <button onClick={()=>setCurDate(new Date(curYear,curMonth-1,1))} style={{padding:"6px 12px",background:"#F8FAFC",border:"none",borderRadius:8,cursor:"pointer",fontSize:14}}>‹</button>
+            <div style={{fontSize:16,fontWeight:800,color:"#0F172A"}}>{curYear}년 {curMonth+1}월</div>
             <div style={{display:"flex",gap:6}}>
-              <button onClick={()=>setCurDate(new Date())} style={{padding:"5px 12px",background:"#EEF2FF",color:"#6366F1",border:"none",borderRadius:8,cursor:"pointer",fontSize:12,fontWeight:700}}>오늘</button>
-              <button onClick={()=>setCurDate(new Date(curYear,curMonth+1,1))} style={{padding:"6px 12px",background:"#F3F4F6",border:"none",borderRadius:8,cursor:"pointer",fontSize:14}}>›</button>
+              <button onClick={()=>setCurDate(new Date())} style={{padding:"5px 12px",background:"#EFF6FF",color:"#2563EB",border:"none",borderRadius:8,cursor:"pointer",fontSize:12,fontWeight:700}}>오늘</button>
+              <button onClick={()=>setCurDate(new Date(curYear,curMonth+1,1))} style={{padding:"6px 12px",background:"#F8FAFC",border:"none",borderRadius:8,cursor:"pointer",fontSize:14}}>›</button>
             </div>
           </div>
           {/* 요일 헤더 */}
           <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)"}}>
             {["일","월","화","수","목","금","토"].map((d,i)=>(
-              <div key={d} style={{padding:"8px",textAlign:"center",fontSize:12.5,fontWeight:700,color:i===0?"#DC2626":i===6?"#2563EB":"#6B7280",background:"#F8FAFC",borderBottom:"1px solid #E5E7EB"}}>{d}</div>
+              <div key={d} style={{padding:"8px",textAlign:"center",fontSize:13,fontWeight:700,color:i===0?"#DC2626":i===6?"#2563EB":"#64748B",background:"#F8FAFC",borderBottom:"1px solid #E5E7EB"}}>{d}</div>
             ))}
           </div>
           {/* 날짜 그리드 */}
@@ -10588,16 +10589,16 @@ function SmartSchedulePage({projects=[], cashItems=[], contractItems=[], current
               const dayEvts = evtsByDay[key]||[]
               const dow = (firstDow+idx)%7
               return (
-                <div key={day} style={{minHeight:80,borderRight:"1px solid #F3F4F6",borderBottom:"1px solid #F3F4F6",padding:"4px",position:"relative",background:isToday?"#EEF2FF":"#fff",cursor:"pointer"}}
+                <div key={day} style={{minHeight:80,borderRight:"1px solid #F3F4F6",borderBottom:"1px solid #F3F4F6",padding:"4px",position:"relative",background:isToday?"#EFF6FF":"#fff",cursor:"pointer"}}
                   onDoubleClick={()=>{setDraftEvt(p=>({...p,date:`${curYear}-${String(curMonth+1).padStart(2,"0")}-${String(day).padStart(2,"0")}`}));setShowAdd(true)}}>
-                  <div style={{width:22,height:22,borderRadius:"50%",background:isToday?"#6366F1":"none",display:"flex",alignItems:"center",justifyContent:"center",marginBottom:2,fontSize:12.5,fontWeight:isToday?700:400,color:isToday?"#fff":dow===0?"#DC2626":dow===6?"#2563EB":"#374151"}}>{day}</div>
+                  <div style={{width:22,height:22,borderRadius:"50%",background:isToday?"#2563EB":"none",display:"flex",alignItems:"center",justifyContent:"center",marginBottom:2,fontSize:13,fontWeight:isToday?700:400,color:isToday?"#fff":dow===0?"#DC2626":dow===6?"#2563EB":"#334155"}}>{day}</div>
                   {dayEvts.slice(0,3).map(e=>(
-                    <div key={e.id} style={{fontSize:10,padding:"1px 4px",borderRadius:4,marginBottom:1,background:(e.color||TYPES[e.type]||"#6B7280")+"22",color:e.color||TYPES[e.type]||"#6B7280",fontWeight:600,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",cursor:"pointer"}}
+                    <div key={e.id} style={{fontSize:10,padding:"1px 4px",borderRadius:4,marginBottom:1,background:(e.color||TYPES[e.type]||"#64748B")+"22",color:e.color||TYPES[e.type]||"#64748B",fontWeight:600,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",cursor:"pointer"}}
                       onClick={evt=>{evt.stopPropagation();if(!e.system){setEditEvt(e);setDraftEvt(e);setShowAdd(true)}}}>
                       {e.title}
                     </div>
                   ))}
-                  {dayEvts.length>3&&<div style={{fontSize:9,color:"#9CA3AF",fontWeight:600}}>+{dayEvts.length-3}건</div>}
+                  {dayEvts.length>3&&<div style={{fontSize:9,color:"#94A3B8",fontWeight:600}}>+{dayEvts.length-3}건</div>}
                 </div>
               )
             })}
@@ -10607,30 +10608,30 @@ function SmartSchedulePage({projects=[], cashItems=[], contractItems=[], current
 
       {/* 목록 뷰 */}
       {view==="list"&&(
-        <div style={{background:"#fff",borderRadius:14,border:"1px solid #E5E7EB",overflow:"hidden"}}>
-          <div style={{padding:"13px 18px",borderBottom:"1px solid #E5E7EB",fontSize:14,fontWeight:700,color:"#111827"}}>
+        <div style={{background:"#fff",borderRadius:8,border:"1px solid #E5E7EB",overflow:"hidden"}}>
+          <div style={{padding:"13px 18px",borderBottom:"1px solid #E5E7EB",fontSize:14,fontWeight:700,color:"#0F172A"}}>
             📋 전체 일정 ({allEvts.length}건)
           </div>
-          {allEvts.length===0&&<div style={{padding:"48px",textAlign:"center",color:"#9CA3AF"}}>등록된 일정이 없습니다.</div>}
+          {allEvts.length===0&&<div style={{padding:"48px",textAlign:"center",color:"#94A3B8"}}>등록된 일정이 없습니다.</div>}
           {allEvts.sort((a,b)=>(parseDate(a.date)||0)-(parseDate(b.date)||0)).map((e,i)=>{
             const d = parseDate(e.date)
             const diff = d?Math.round((d-today)/(1000*60*60*24)):null
             return (
               <div key={e.id} style={{padding:"12px 18px",borderBottom:"1px solid #F3F4F6",display:"flex",gap:12,alignItems:"flex-start",background:i%2===0?"#fff":"#FAFAFA"}}>
-                <div style={{width:4,background:e.color||TYPES[e.type]||"#6B7280",borderRadius:2,alignSelf:"stretch",flexShrink:0}}/>
+                <div style={{width:4,background:e.color||TYPES[e.type]||"#64748B",borderRadius:2,alignSelf:"stretch",flexShrink:0}}/>
                 <div style={{flex:1}}>
                   <div style={{display:"flex",gap:6,alignItems:"center",marginBottom:3,flexWrap:"wrap"}}>
-                    <span style={{fontSize:10.5,padding:"1px 7px",borderRadius:9,background:(e.color||TYPES[e.type]||"#6B7280")+"18",color:e.color||TYPES[e.type]||"#6B7280",fontWeight:700}}>{e.type||"개인"}</span>
-                    <span style={{fontSize:13.5,fontWeight:700,color:"#111827"}}>{e.title}</span>
-                    {e.system&&<span style={{fontSize:9,background:"#EEF2FF",color:"#6366F1",padding:"1px 5px",borderRadius:5,fontWeight:600}}>시스템</span>}
+                    <span style={{fontSize:11,padding:"1px 7px",borderRadius:6,background:(e.color||TYPES[e.type]||"#64748B")+"18",color:e.color||TYPES[e.type]||"#64748B",fontWeight:700}}>{e.type||"개인"}</span>
+                    <span style={{fontSize:13,fontWeight:700,color:"#0F172A"}}>{e.title}</span>
+                    {e.system&&<span style={{fontSize:9,background:"#EFF6FF",color:"#2563EB",padding:"1px 5px",borderRadius:5,fontWeight:600}}>시스템</span>}
                   </div>
-                  <div style={{fontSize:12,color:"#6B7280"}}>{e.date} {e.time||""} {e.note&&`· ${e.note}`}</div>
+                  <div style={{fontSize:12,color:"#64748B"}}>{e.date} {e.time||""} {e.note&&`· ${e.note}`}</div>
                 </div>
                 <div style={{flexShrink:0,display:"flex",gap:6,alignItems:"center"}}>
-                  {diff!==null&&<span style={{fontSize:11,fontWeight:700,color:diff<0?"#DC2626":diff===0?"#6366F1":"#6B7280"}}>{diff<0?"지남":diff===0?"오늘":`${diff}일 후`}</span>}
+                  {diff!==null&&<span style={{fontSize:11,fontWeight:700,color:diff<0?"#DC2626":diff===0?"#2563EB":"#64748B"}}>{diff<0?"지남":diff===0?"오늘":`${diff}일 후`}</span>}
                   {!e.system&&(
                     <>
-                      <button onClick={()=>{setEditEvt(e);setDraftEvt(e);setShowAdd(true)}} style={{padding:"3px 8px",background:"#EEF2FF",color:"#6366F1",border:"none",borderRadius:6,fontSize:11,cursor:"pointer"}}>✏</button>
+                      <button onClick={()=>{setEditEvt(e);setDraftEvt(e);setShowAdd(true)}} style={{padding:"3px 8px",background:"#EFF6FF",color:"#2563EB",border:"none",borderRadius:6,fontSize:11,cursor:"pointer"}}>✏</button>
                       <button onClick={()=>deleteEvent(e.id)} style={{padding:"3px 8px",background:"#FEE2E2",color:"#DC2626",border:"none",borderRadius:6,fontSize:11,cursor:"pointer"}}>✕</button>
                     </>
                   )}
@@ -10643,8 +10644,8 @@ function SmartSchedulePage({projects=[], cashItems=[], contractItems=[], current
 
       {/* 주간 뷰 */}
       {view==="week"&&(
-        <div style={{background:"#fff",borderRadius:14,border:"1px solid #E5E7EB",overflow:"hidden"}}>
-          <div style={{padding:"13px 18px",borderBottom:"1px solid #E5E7EB",fontSize:14,fontWeight:700,color:"#111827"}}>
+        <div style={{background:"#fff",borderRadius:8,border:"1px solid #E5E7EB",overflow:"hidden"}}>
+          <div style={{padding:"13px 18px",borderBottom:"1px solid #E5E7EB",fontSize:14,fontWeight:700,color:"#0F172A"}}>
             📅 이번 주 일정
           </div>
           {Array.from({length:7}).map((_,i)=>{
@@ -10654,17 +10655,17 @@ function SmartSchedulePage({projects=[], cashItems=[], contractItems=[], current
             const isToday = key===todayStr
             const DOW = ["일","월","화","수","목","금","토"]
             return (
-              <div key={i} style={{display:"flex",gap:0,borderBottom:"1px solid #F3F4F6",background:isToday?"#EEF2FF":"#fff"}}>
+              <div key={i} style={{display:"flex",gap:0,borderBottom:"1px solid #F3F4F6",background:isToday?"#EFF6FF":"#fff"}}>
                 <div style={{width:80,padding:"12px",textAlign:"center",flexShrink:0,borderRight:"1px solid #E5E7EB"}}>
-                  <div style={{fontSize:12,color:i===0?"#DC2626":i===6?"#2563EB":"#6B7280",fontWeight:700}}>{DOW[i]}</div>
-                  <div style={{fontSize:20,fontWeight:800,color:isToday?"#6366F1":"#374151"}}>{d.getDate()}</div>
+                  <div style={{fontSize:12,color:i===0?"#DC2626":i===6?"#2563EB":"#64748B",fontWeight:700}}>{DOW[i]}</div>
+                  <div style={{fontSize:20,fontWeight:800,color:isToday?"#2563EB":"#334155"}}>{d.getDate()}</div>
                 </div>
                 <div style={{flex:1,padding:"8px 12px",display:"flex",flexDirection:"column",gap:4}}>
                   {dayEvts.length===0&&<div style={{fontSize:12,color:"#D1D5DB",paddingTop:4}}>일정 없음</div>}
                   {dayEvts.map(e=>(
-                    <div key={e.id} style={{padding:"5px 10px",borderRadius:7,background:(e.color||TYPES[e.type]||"#6B7280")+"18",borderLeft:`3px solid ${e.color||TYPES[e.type]||"#6B7280"}`,display:"flex",justifyContent:"space-between"}}>
-                      <span style={{fontSize:12.5,fontWeight:600,color:"#111827"}}>{e.time?`${e.time} `:""}  {e.title}</span>
-                      <span style={{fontSize:10,color:e.color||TYPES[e.type]||"#6B7280",fontWeight:600}}>{e.type}</span>
+                    <div key={e.id} style={{padding:"5px 10px",borderRadius:7,background:(e.color||TYPES[e.type]||"#64748B")+"18",borderLeft:`3px solid ${e.color||TYPES[e.type]||"#64748B"}`,display:"flex",justifyContent:"space-between"}}>
+                      <span style={{fontSize:13,fontWeight:600,color:"#0F172A"}}>{e.time?`${e.time} `:""}  {e.title}</span>
+                      <span style={{fontSize:10,color:e.color||TYPES[e.type]||"#64748B",fontWeight:600}}>{e.type}</span>
                     </div>
                   ))}
                 </div>
@@ -10674,7 +10675,7 @@ function SmartSchedulePage({projects=[], cashItems=[], contractItems=[], current
         </div>
       )}
 
-      <div style={{marginTop:14,padding:"10px 14px",background:"#F9FAFB",borderRadius:10,fontSize:11.5,color:"#9CA3AF",border:"1px solid #F3F4F6"}}>
+      <div style={{marginTop:14,padding:"10px 14px",background:"#F8FAFC",borderRadius:8,fontSize:12,color:"#94A3B8",border:"1px solid #F3F4F6"}}>
         💡 날짜 더블클릭으로 일정 추가 · 시스템 일정은 계약현황·월수금계획에서 자동 수집 · 알림 설정 시 브라우저 푸시 알람 지원
       </div>
     </div>
@@ -10703,7 +10704,7 @@ function DocVaultPage({currentUser, projects=[]}) {
 
   const CATS = ["연간계약서","협력업체계약서","공문(수신)","공문(발신)","회의록","기타"]
   const CAT_ICON = {"연간계약서":"📝","협력업체계약서":"🤝","공문(수신)":"📨","공문(발신)":"📤","회의록":"📋","기타":"📌"}
-  const CAT_COLOR = {"연간계약서":"#6366F1","협력업체계약서":"#059669","공문(수신)":"#0891B2","공문(발신)":"#D97706","회의록":"#7C3AED","기타":"#6B7280"}
+  const CAT_COLOR = {"연간계약서":"#2563EB","협력업체계약서":"#059669","공문(수신)":"#0891B2","공문(발신)":"#D97706","회의록":"#7C3AED","기타":"#64748B"}
 
   const years = [...new Set([String(new Date().getFullYear()),...docs.map(d=>d.year)])].sort((a,b)=>b-a)
 
@@ -10774,7 +10775,7 @@ function DocVaultPage({currentUser, projects=[]}) {
           <div style={{fontSize:13,opacity:.85}}>계약서·공문·회의록 {docs.length}건 보관 중 · AI 자동 분류</div>
         </div>
         <button onClick={()=>setShowAdd(v=>!v)}
-          style={{padding:"9px 18px",background:"rgba(255,255,255,.2)",color:"#fff",border:"2px solid rgba(255,255,255,.4)",borderRadius:10,fontSize:13.5,fontWeight:800,cursor:"pointer"}}>
+          style={{padding:"9px 18px",background:"rgba(255,255,255,.2)",color:"#fff",border:"2px solid rgba(255,255,255,.4)",borderRadius:8,fontSize:13,fontWeight:800,cursor:"pointer"}}>
           {showAdd?"✕ 취소":"+ 문서 등록"}
         </button>
       </div>
@@ -10783,55 +10784,55 @@ function DocVaultPage({currentUser, projects=[]}) {
       <div style={{display:"grid",gridTemplateColumns:"repeat(6,1fr)",gap:8,marginBottom:14}}>
         {catStats.map(({cat,count})=>(
           <div key={cat} onClick={()=>setFilterCat(filterCat===cat?"전체":cat)}
-            style={{background:filterCat===cat?CAT_COLOR[cat]||"#6B7280":"#fff",borderRadius:11,padding:"10px 12px",textAlign:"center",cursor:"pointer",border:`1.5px solid ${CAT_COLOR[cat]||"#E5E7EB"}`,transition:"all .15s"}}>
+            style={{background:filterCat===cat?CAT_COLOR[cat]||"#64748B":"#fff",borderRadius:11,padding:"10px 12px",textAlign:"center",cursor:"pointer",border:`1.5px solid ${CAT_COLOR[cat]||"#E2E8F0"}`,transition:"all .15s"}}>
             <div style={{fontSize:18,marginBottom:3}}>{CAT_ICON[cat]||"📌"}</div>
-            <div style={{fontSize:11,fontWeight:700,color:filterCat===cat?"#fff":CAT_COLOR[cat]||"#374151",lineHeight:1.3}}>{cat.replace("계약서","").replace("(","\n(")}</div>
-            <div style={{fontSize:16,fontWeight:800,color:filterCat===cat?"#fff":"#111827",marginTop:2}}>{count}</div>
+            <div style={{fontSize:11,fontWeight:700,color:filterCat===cat?"#fff":CAT_COLOR[cat]||"#334155",lineHeight:1.3}}>{cat.replace("계약서","").replace("(","\n(")}</div>
+            <div style={{fontSize:16,fontWeight:800,color:filterCat===cat?"#fff":"#0F172A",marginTop:2}}>{count}</div>
           </div>
         ))}
       </div>
 
       {/* 문서 등록 폼 */}
       {showAdd&&(
-        <div style={{background:"#FEF9C3",borderRadius:14,border:"2px solid #D97706",padding:"18px 20px",marginBottom:14}}>
+        <div style={{background:"#FEF9C3",borderRadius:8,border:"2px solid #D97706",padding:"14px 18px",marginBottom:14}}>
           <div style={{fontSize:14,fontWeight:800,color:"#92400E",marginBottom:12}}>📁 새 문서 등록</div>
 
           {/* 파일 업로드 */}
-          <label style={{display:"flex",alignItems:"center",gap:10,border:"2px dashed #D97706",borderRadius:10,padding:"12px 16px",cursor:"pointer",background:"#fff",marginBottom:12}}>
+          <label style={{display:"flex",alignItems:"center",gap:10,border:"2px dashed #D97706",borderRadius:8,padding:"12px 16px",cursor:"pointer",background:"#fff",marginBottom:12}}>
             <input type="file" accept=".pdf,.png,.jpg,.jpeg,.docx,.hwp,.xlsx" style={{display:"none"}} onChange={e=>handleFile(e.target.files?.[0])}/>
             <span style={{fontSize:22}}>📤</span>
             <div>
-              <div style={{fontSize:13.5,fontWeight:700,color:"#92400E"}}>{draft.fileName||"파일 선택 (PDF/이미지/Word)"}</div>
-              {draft.fileName&&<div style={{fontSize:11,color:"#6B7280"}}>{(draft.fileSize/1024).toFixed(0)} KB · AI가 자동 분류합니다</div>}
+              <div style={{fontSize:13,fontWeight:700,color:"#92400E"}}>{draft.fileName||"파일 선택 (PDF/이미지/Word)"}</div>
+              {draft.fileName&&<div style={{fontSize:11,color:"#64748B"}}>{(draft.fileSize/1024).toFixed(0)} KB · AI가 자동 분류합니다</div>}
             </div>
             {analyzing&&<div style={{marginLeft:"auto",fontSize:12,color:"#D97706",fontWeight:700}}>🤖 AI 분석 중...</div>}
           </label>
 
           <div style={{display:"grid",gridTemplateColumns:"2fr 1fr 1fr 1fr",gap:10,marginBottom:10}}>
-            <div><label style={{fontSize:11.5,fontWeight:700,color:"#92400E",display:"block",marginBottom:3}}>문서 제목 *</label>
+            <div><label style={{fontSize:12,fontWeight:700,color:"#92400E",display:"block",marginBottom:3}}>문서 제목 *</label>
               <input value={draft.title} onChange={e=>setDraft(p=>({...p,title:e.target.value}))} placeholder="문서 제목" style={INP()}/></div>
-            <div><label style={{fontSize:11.5,fontWeight:700,color:"#92400E",display:"block",marginBottom:3}}>분류</label>
+            <div><label style={{fontSize:12,fontWeight:700,color:"#92400E",display:"block",marginBottom:3}}>분류</label>
               <select value={draft.category} onChange={e=>setDraft(p=>({...p,category:e.target.value}))} style={INP()}>
                 {CATS.map(c=><option key={c} value={c}>{c}</option>)}</select></div>
-            <div><label style={{fontSize:11.5,fontWeight:700,color:"#92400E",display:"block",marginBottom:3}}>연도</label>
+            <div><label style={{fontSize:12,fontWeight:700,color:"#92400E",display:"block",marginBottom:3}}>연도</label>
               <input value={draft.year} onChange={e=>setDraft(p=>({...p,year:e.target.value}))} placeholder="2026" style={INP()}/></div>
-            <div><label style={{fontSize:11.5,fontWeight:700,color:"#92400E",display:"block",marginBottom:3}}>문서일자</label>
+            <div><label style={{fontSize:12,fontWeight:700,color:"#92400E",display:"block",marginBottom:3}}>문서일자</label>
               <input type="date" value={draft.date} onChange={e=>setDraft(p=>({...p,date:e.target.value}))} style={INP()}/></div>
           </div>
           <div style={{display:"grid",gridTemplateColumns:"1fr 2fr",gap:10,marginBottom:10}}>
-            <div><label style={{fontSize:11.5,fontWeight:700,color:"#92400E",display:"block",marginBottom:3}}>관련 프로젝트</label>
+            <div><label style={{fontSize:12,fontWeight:700,color:"#92400E",display:"block",marginBottom:3}}>관련 프로젝트</label>
               <input list="proj-list-dv" value={draft.project} onChange={e=>setDraft(p=>({...p,project:e.target.value}))} placeholder="프로젝트명 검색" style={INP()}/>
               <datalist id="proj-list-dv">{projects.map(p=><option key={p.id} value={p.name}/>)}</datalist></div>
-            <div><label style={{fontSize:11.5,fontWeight:700,color:"#92400E",display:"block",marginBottom:3}}>태그 (쉼표 구분)</label>
+            <div><label style={{fontSize:12,fontWeight:700,color:"#92400E",display:"block",marginBottom:3}}>태그 (쉼표 구분)</label>
               <input value={draft.tags} onChange={e=>setDraft(p=>({...p,tags:e.target.value}))} placeholder="계약, 2026, 경남의료원" style={INP()}/></div>
           </div>
           <div style={{marginBottom:12}}>
-            <label style={{fontSize:11.5,fontWeight:700,color:"#92400E",display:"block",marginBottom:3}}>요약 / 내용</label>
+            <label style={{fontSize:12,fontWeight:700,color:"#92400E",display:"block",marginBottom:3}}>요약 / 내용</label>
             <textarea value={draft.summary} onChange={e=>setDraft(p=>({...p,summary:e.target.value}))} rows={2} placeholder="AI가 자동 요약하거나 직접 입력" style={{...INP(),resize:"vertical"}}/>
           </div>
           <div style={{display:"flex",gap:8,justifyContent:"flex-end"}}>
-            <button onClick={()=>setShowAdd(false)} style={{padding:"7px 16px",background:"#fff",color:"#6B7280",border:"1px solid #E5E7EB",borderRadius:8,fontSize:12.5,fontWeight:600,cursor:"pointer"}}>취소</button>
-            <button onClick={saveDoc} style={{padding:"7px 18px",background:"#D97706",color:"#fff",border:"none",borderRadius:8,fontSize:12.5,fontWeight:700,cursor:"pointer"}}>💾 저장</button>
+            <button onClick={()=>setShowAdd(false)} style={{padding:"7px 16px",background:"#fff",color:"#64748B",border:"1px solid #E5E7EB",borderRadius:8,fontSize:13,fontWeight:600,cursor:"pointer"}}>취소</button>
+            <button onClick={saveDoc} style={{padding:"7px 18px",background:"#D97706",color:"#fff",border:"none",borderRadius:8,fontSize:13,fontWeight:700,cursor:"pointer"}}>💾 저장</button>
           </div>
         </div>
       )}
@@ -10839,9 +10840,9 @@ function DocVaultPage({currentUser, projects=[]}) {
       {/* 검색 + 필터 */}
       <div style={{display:"flex",gap:8,marginBottom:12,flexWrap:"wrap"}}>
         <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="🔍 제목·요약·태그·프로젝트 검색"
-          style={{flex:1,padding:"8px 14px",border:"1.5px solid #E5E7EB",borderRadius:9,fontSize:13,fontFamily:"inherit",outline:"none"}}/>
+          style={{flex:1,padding:"8px 14px",border:"1.5px solid #E5E7EB",borderRadius:6,fontSize:13,fontFamily:"inherit",outline:"none"}}/>
         <select value={filterYear} onChange={e=>setFilterYear(e.target.value)}
-          style={{padding:"8px 12px",border:"1px solid #E5E7EB",borderRadius:9,fontSize:13,fontFamily:"inherit",outline:"none"}}>
+          style={{padding:"8px 12px",border:"1px solid #E5E7EB",borderRadius:6,fontSize:13,fontFamily:"inherit",outline:"none"}}>
           <option value="전체">전체 연도</option>
           {years.map(y=><option key={y} value={y}>{y}년</option>)}
         </select>
@@ -10849,38 +10850,38 @@ function DocVaultPage({currentUser, projects=[]}) {
 
       {/* 문서 목록 */}
       {filtered.length===0?(
-        <div style={{background:"#fff",borderRadius:14,border:"2px dashed #E5E7EB",padding:"60px",textAlign:"center",color:"#9CA3AF"}}>
+        <div style={{background:"#fff",borderRadius:8,border:"2px dashed #E5E7EB",padding:"60px",textAlign:"center",color:"#94A3B8"}}>
           <div style={{fontSize:36,marginBottom:8}}>📂</div>
-          <div style={{fontSize:15,fontWeight:600,marginBottom:6,color:"#374151"}}>등록된 문서가 없습니다</div>
+          <div style={{fontSize:15,fontWeight:600,marginBottom:6,color:"#334155"}}>등록된 문서가 없습니다</div>
           <div style={{fontSize:13}}>+ 문서 등록 버튼으로 계약서, 공문, 회의록 등을 보관하세요.</div>
         </div>
       ):(
-        <div style={{background:"#fff",borderRadius:14,border:"1px solid #E5E7EB",overflow:"hidden"}}>
-          <div style={{padding:"12px 18px",borderBottom:"1px solid #E5E7EB",fontSize:13.5,fontWeight:700,color:"#374151",display:"flex",justifyContent:"space-between"}}>
+        <div style={{background:"#fff",borderRadius:8,border:"1px solid #E5E7EB",overflow:"hidden"}}>
+          <div style={{padding:"12px 18px",borderBottom:"1px solid #E5E7EB",fontSize:13,fontWeight:700,color:"#334155",display:"flex",justifyContent:"space-between"}}>
             <span>검색결과 {filtered.length}건</span>
-            <span style={{fontSize:12,color:"#9CA3AF",fontWeight:400}}>최신순</span>
+            <span style={{fontSize:12,color:"#94A3B8",fontWeight:400}}>최신순</span>
           </div>
           {filtered.map((doc,i)=>(
             <div key={doc.id} style={{padding:"13px 18px",borderBottom:"1px solid #F3F4F6",display:"flex",gap:12,alignItems:"flex-start",background:i%2===0?"#fff":"#FAFAFA"}}>
               <div style={{fontSize:24,flexShrink:0,marginTop:2}}>{CAT_ICON[doc.category]||"📌"}</div>
               <div style={{flex:1,minWidth:0}}>
                 <div style={{display:"flex",gap:7,alignItems:"center",marginBottom:4,flexWrap:"wrap"}}>
-                  <span style={{fontSize:11,padding:"1px 7px",borderRadius:9,background:(CAT_COLOR[doc.category]||"#6B7280")+"18",color:CAT_COLOR[doc.category]||"#6B7280",fontWeight:700}}>{doc.category}</span>
-                  {doc.year&&<span style={{fontSize:11,color:"#9CA3AF"}}>{doc.year}년</span>}
-                  <span style={{fontSize:14,fontWeight:700,color:"#111827"}}>{doc.title}</span>
+                  <span style={{fontSize:11,padding:"1px 7px",borderRadius:6,background:(CAT_COLOR[doc.category]||"#64748B")+"18",color:CAT_COLOR[doc.category]||"#64748B",fontWeight:700}}>{doc.category}</span>
+                  {doc.year&&<span style={{fontSize:11,color:"#94A3B8"}}>{doc.year}년</span>}
+                  <span style={{fontSize:14,fontWeight:700,color:"#0F172A"}}>{doc.title}</span>
                 </div>
-                {doc.summary&&<div style={{fontSize:12.5,color:"#6B7280",marginBottom:4,lineHeight:1.5}}>{doc.summary}</div>}
+                {doc.summary&&<div style={{fontSize:13,color:"#64748B",marginBottom:4,lineHeight:1.5}}>{doc.summary}</div>}
                 <div style={{display:"flex",gap:8,flexWrap:"wrap",alignItems:"center"}}>
-                  {doc.project&&<span style={{fontSize:11.5,color:"#6366F1",fontWeight:600}}>🏗 {doc.project}</span>}
-                  {doc.date&&<span style={{fontSize:11.5,color:"#6B7280"}}>📅 {doc.date}</span>}
-                  {doc.fileName&&<span style={{fontSize:11,color:"#9CA3AF"}}>📎 {doc.fileName}</span>}
+                  {doc.project&&<span style={{fontSize:12,color:"#2563EB",fontWeight:600}}>🏗 {doc.project}</span>}
+                  {doc.date&&<span style={{fontSize:12,color:"#64748B"}}>📅 {doc.date}</span>}
+                  {doc.fileName&&<span style={{fontSize:11,color:"#94A3B8"}}>📎 {doc.fileName}</span>}
                   {doc.tags&&doc.tags.split(",").map(t=>t.trim()).filter(Boolean).map(t=>(
-                    <span key={t} style={{fontSize:10,padding:"1px 6px",borderRadius:8,background:"#F3F4F6",color:"#6B7280"}}>#{t}</span>
+                    <span key={t} style={{fontSize:10,padding:"1px 6px",borderRadius:8,background:"#F8FAFC",color:"#64748B"}}>#{t}</span>
                   ))}
                 </div>
               </div>
               <div style={{flexShrink:0}}>
-                <button onClick={()=>deleteDoc(doc.id)} style={{padding:"4px 9px",background:"#FEE2E2",color:"#DC2626",border:"none",borderRadius:6,fontSize:11.5,cursor:"pointer"}}>✕</button>
+                <button onClick={()=>deleteDoc(doc.id)} style={{padding:"4px 9px",background:"#FEE2E2",color:"#DC2626",border:"none",borderRadius:6,fontSize:12,cursor:"pointer"}}>✕</button>
               </div>
             </div>
           ))}
@@ -10909,38 +10910,38 @@ function ProjectMemoTab({proj, setProjects, currentUser}) {
 
   return (
     <div style={{maxWidth:760}}>
-      <div style={{background:"#EEF2FF",borderRadius:12,padding:"14px 16px",marginBottom:14,border:"1px solid #C7D2FE"}}>
-        <div style={{fontSize:13.5,fontWeight:700,color:"#312E81",marginBottom:10}}>📋 {proj.name} — 히스토리 메모</div>
+      <div style={{background:"#EFF6FF",borderRadius:8,padding:"14px 16px",marginBottom:14,border:"1px solid #C7D2FE"}}>
+        <div style={{fontSize:13,fontWeight:700,color:"#1E3A8A",marginBottom:10}}>📋 {proj.name} — 히스토리 메모</div>
         <div style={{display:"flex",gap:8}}>
           <input value={newText} onChange={e=>setNewText(e.target.value)}
             onKeyDown={e=>e.key==="Enter"&&addMemo()}
             placeholder="특이사항, 이슈, 진행현황 등 메모 입력 (Enter)"
             style={INP()}/>
           <button onClick={addMemo}
-            style={{padding:"9px 18px",background:"#6366F1",color:"#fff",border:"none",borderRadius:9,fontSize:13,fontWeight:700,cursor:"pointer",flexShrink:0}}>
+            style={{padding:"9px 18px",background:"#2563EB",color:"#fff",border:"none",borderRadius:6,fontSize:13,fontWeight:700,cursor:"pointer",flexShrink:0}}>
             + 기록
           </button>
         </div>
       </div>
 
       {memos.length===0 && (
-        <div style={{padding:"48px",textAlign:"center",color:"#9CA3AF",background:"#fff",borderRadius:12,border:"1px solid #E5E7EB"}}>
+        <div style={{padding:"48px",textAlign:"center",color:"#94A3B8",background:"#fff",borderRadius:8,border:"1px solid #E5E7EB"}}>
           <div style={{fontSize:28,marginBottom:8}}>📋</div>
-          <div style={{fontSize:14,fontWeight:600,marginBottom:4,color:"#374151"}}>기록된 히스토리가 없습니다</div>
+          <div style={{fontSize:14,fontWeight:600,marginBottom:4,color:"#334155"}}>기록된 히스토리가 없습니다</div>
           <div style={{fontSize:12}}>위 입력창에서 이슈, 진행사항, 특이사항 등을 날짜별로 기록하세요.</div>
         </div>
       )}
 
-      <div style={{background:"#fff",borderRadius:12,border:"1px solid #E5E7EB",overflow:"hidden"}}>
+      <div style={{background:"#fff",borderRadius:8,border:"1px solid #E5E7EB",overflow:"hidden"}}>
         {[...memos].reverse().map((m,i)=>(
           <div key={m.id||i} style={{padding:"13px 16px",borderBottom:"1px solid #F3F4F6",display:"flex",gap:12,alignItems:"flex-start",background:i%2===0?"#fff":"#FAFAFA"}}>
-            <div style={{width:3,background:"#6366F1",borderRadius:2,alignSelf:"stretch",flexShrink:0}}/>
+            <div style={{width:3,background:"#2563EB",borderRadius:2,alignSelf:"stretch",flexShrink:0}}/>
             <div style={{flex:1}}>
               <div style={{display:"flex",gap:10,alignItems:"center",marginBottom:4}}>
-                <span style={{fontSize:12,fontWeight:700,color:"#6366F1"}}>{m.date}</span>
-                {m.author&&<span style={{fontSize:11,color:"#9CA3AF"}}>by {m.author}</span>}
+                <span style={{fontSize:12,fontWeight:700,color:"#2563EB"}}>{m.date}</span>
+                {m.author&&<span style={{fontSize:11,color:"#94A3B8"}}>by {m.author}</span>}
               </div>
-              <div style={{fontSize:13.5,color:"#111827",lineHeight:1.65,whiteSpace:"pre-wrap"}}>{m.text}</div>
+              <div style={{fontSize:13,color:"#0F172A",lineHeight:1.65,whiteSpace:"pre-wrap"}}>{m.text}</div>
             </div>
             <button onClick={()=>delMemo(m.id)}
               style={{padding:"2px 9px",background:"#FEE2E2",color:"#DC2626",border:"none",borderRadius:6,fontSize:11,cursor:"pointer",flexShrink:0}}>✕</button>
@@ -11094,20 +11095,20 @@ function PlanWorkflow({proj, selVer, selVerIdx, pyF, pyS, editVend, setEditVend,
     XLSX.writeFile(wb, `실행계획서_협력업체비교_${proj.code||proj.name}_${selVer.ver||""}_${new Date().toISOString().slice(0,10)}.xlsx`)
   }
 
-  const C2 = {navyM:"#185FA5",navyL:"#E6F1FB",green:"#1D9E75",greenL:"#EAF3DE",amber:"#BA7517",amberL:"#FAEEDA",red:"#A32D2D",redL:"#FCEBEB",gray:"#888780",grayL:"#F1EFE8"}
-  const th = (a="left") => ({padding:"9px 12px",textAlign:a,fontSize:12.5,fontWeight:700,color:"#6B7280",background:"#F8FAFC",borderBottom:"2px solid #E5E7EB",whiteSpace:"nowrap"})
-  const td = (a="left",bold=false,color="#374151") => ({padding:"9px 12px",textAlign:a,fontSize:13,fontWeight:bold?700:400,color,borderBottom:"1px solid #F3F4F6"})
+  const C2 = {navyM:"#1D4ED8",navyL:"#E6F1FB",green:"#1D9E75",greenL:"#EAF3DE",amber:"#BA7517",amberL:"#FAEEDA",red:"#A32D2D",redL:"#FCEBEB",gray:"#888780",grayL:"#F1EFE8"}
+  const th = (a="left") => ({padding:"9px 12px",textAlign:a,fontSize:13,fontWeight:700,color:"#64748B",background:"#F8FAFC",borderBottom:"2px solid #E5E7EB",whiteSpace:"nowrap"})
+  const td = (a="left",bold=false,color="#334155") => ({padding:"9px 12px",textAlign:a,fontSize:13,fontWeight:bold?700:400,color,borderBottom:"1px solid #F3F4F6"})
 
   return (
-    <div style={{background:"#fff",borderRadius:14,border:"1px solid #E5E7EB",overflow:"hidden",marginTop:16}}>
+    <div style={{background:"#fff",borderRadius:8,border:"1px solid #E5E7EB",overflow:"hidden",marginTop:16}}>
       {/* 워크플로우 헤더 */}
       <div style={{background:"linear-gradient(135deg,#0C447C,#185FA5)",padding:"16px 20px",color:"#fff",display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:10}}>
         <div>
           <div style={{fontSize:16,fontWeight:900,marginBottom:3}}>📋 실행계획서 — 협력업체 비용 비교 · 기안</div>
-          <div style={{fontSize:12.5,opacity:.8}}>공종별 단가 비교 → NEGO → 지급계획 → 엑셀 다운로드</div>
+          <div style={{fontSize:13,opacity:.8}}>공종별 단가 비교 → NEGO → 지급계획 → 엑셀 다운로드</div>
         </div>
         <button onClick={downloadCompareExcel}
-          style={{padding:"9px 20px",background:"#34D399",color:"#fff",border:"none",borderRadius:10,fontSize:13.5,fontWeight:800,cursor:"pointer",display:"flex",alignItems:"center",gap:6}}>
+          style={{padding:"9px 20px",background:"#34D399",color:"#fff",border:"none",borderRadius:8,fontSize:13,fontWeight:800,cursor:"pointer",display:"flex",alignItems:"center",gap:6}}>
           ⬇ 비교표 엑셀 다운로드
         </button>
       </div>
@@ -11116,8 +11117,8 @@ function PlanWorkflow({proj, selVer, selVerIdx, pyF, pyS, editVend, setEditVend,
       <div style={{display:"flex",borderBottom:"2px solid #E5E7EB",background:"#F8FAFC"}}>
         {[["compare","📊 공종별 비교표"],["draft","✏ 비용 편집"],["payment","📅 단계별 지급계획"]].map(([id,label])=>(
           <button key={id} onClick={()=>setActiveTab(id)}
-            style={{padding:"11px 20px",border:"none",background:"none",fontSize:13.5,fontWeight:700,cursor:"pointer",
-              color:activeTab===id?"#185FA5":"#6B7280",
+            style={{padding:"11px 20px",border:"none",background:"none",fontSize:13,fontWeight:700,cursor:"pointer",
+              color:activeTab===id?"#1D4ED8":"#64748B",
               borderBottom:activeTab===id?"3px solid #185FA5":"3px solid transparent",
               marginBottom:-2,transition:"all .15s"}}>
             {label}
@@ -11130,7 +11131,7 @@ function PlanWorkflow({proj, selVer, selVerIdx, pyF, pyS, editVend, setEditVend,
         {/* ── ① 공종별 비교표 ── */}
         {activeTab==="compare"&&(
           <div>
-            <div style={{marginBottom:14,padding:"10px 14px",background:"#EEF2FF",borderRadius:10,fontSize:12.5,color:"#312E81",lineHeight:1.7}}>
+            <div style={{marginBottom:14,padding:"10px 14px",background:"#EFF6FF",borderRadius:8,fontSize:13,color:"#1E3A8A",lineHeight:1.7}}>
               💡 각 공종의 현재 입력 금액과 <strong>유사 프로젝트 실적</strong>을 비교합니다.
               공종명을 클릭하면 해당 공종 상세 비교가 펼쳐집니다.
               비교 후 <strong>엑셀 다운로드</strong>하여 기안 자료로 활용하세요.
@@ -11139,13 +11140,13 @@ function PlanWorkflow({proj, selVer, selVerIdx, pyF, pyS, editVend, setEditVend,
             {/* 전체 요약 */}
             <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:10,marginBottom:16}}>
               {[
-                ["공종 수",vendors.length+"개","#6366F1"],
-                ["원가 합계",fW2(vendors.reduce((s,v)=>s+v.contract,0)),"#185FA5"],
+                ["공종 수",vendors.length+"개","#2563EB"],
+                ["원가 합계",fW2(vendors.reduce((s,v)=>s+v.contract,0)),"#1D4ED8"],
                 ["NEGO 합계",fW2(vendors.reduce((s,v)=>s+(v.nego2||0),0)),"#059669"],
                 ["용역비 대비",proj.serviceFee>0?(vendors.reduce((s,v)=>s+v.contract,0)/proj.serviceFee*100).toFixed(1)+"%":"-","#D97706"],
               ].map(([l,v,c])=>(
-                <div key={l} style={{background:"#F8FAFC",borderRadius:10,padding:"12px 14px",border:"1px solid #E5E7EB"}}>
-                  <div style={{fontSize:12,color:"#9CA3AF",marginBottom:4}}>{l}</div>
+                <div key={l} style={{background:"#F8FAFC",borderRadius:8,padding:"12px 14px",border:"1px solid #E5E7EB"}}>
+                  <div style={{fontSize:12,color:"#94A3B8",marginBottom:4}}>{l}</div>
                   <div style={{fontSize:18,fontWeight:800,color:c}}>{v}</div>
                 </div>
               ))}
@@ -11182,23 +11183,23 @@ function PlanWorkflow({proj, selVer, selVerIdx, pyF, pyS, editVend, setEditVend,
                     return (
                       <>
                         <tr key={`${v.cat}_${i}`}
-                          style={{background:i%2===0?"#fff":"#F9FAFB",cursor:"pointer"}}
+                          style={{background:i%2===0?"#fff":"#F8FAFC",cursor:"pointer"}}
                           onClick={()=>setSelCatFocus(isExpanded?null:`${v.cat}_${i}`)}>
-                          <td style={td("left",true,"#185FA5")}>
+                          <td style={td("left",true,"#1D4ED8")}>
                             <span style={{display:"inline-flex",alignItems:"center",gap:5}}>
                               {v.cat}
-                              {hist.length>0&&<span style={{fontSize:10,background:"#EEF2FF",color:"#6366F1",padding:"1px 5px",borderRadius:5}}>{hist.length}건</span>}
+                              {hist.length>0&&<span style={{fontSize:10,background:"#EFF6FF",color:"#2563EB",padding:"1px 5px",borderRadius:5}}>{hist.length}건</span>}
                             </span>
                           </td>
                           <td style={td()}>{v.name||"-"}</td>
-                          <td style={td("right",false,"#9CA3AF")}>{areaM2>0?areaM2.toLocaleString():"-"}</td>
-                          <td style={td("right",false,"#9CA3AF")}>{py>0?Math.round(py).toLocaleString():"-"}</td>
-                          <td style={td("right",true,"#185FA5")}>{v.contract>0?fW2(v.contract):"-"}</td>
+                          <td style={td("right",false,"#94A3B8")}>{areaM2>0?areaM2.toLocaleString():"-"}</td>
+                          <td style={td("right",false,"#94A3B8")}>{py>0?Math.round(py).toLocaleString():"-"}</td>
+                          <td style={td("right",true,"#1D4ED8")}>{v.contract>0?fW2(v.contract):"-"}</td>
                           <td style={td("right",true,"#059669")}>{v.nego2>0?fW2(v.nego2):"-"}</td>
                           <td style={td("right")}>
                             {up1?<div>
-                              <div style={{fontSize:13.5,fontWeight:700}}>{Math.round(up1).toLocaleString()}<span style={{fontSize:10,fontWeight:400}}>원/평</span></div>
-                              {avgUp>0&&diffPct!==null&&<div style={{fontSize:10.5,color:diffPct>20?"#DC2626":diffPct<-20?"#059669":"#6B7280",fontWeight:600}}>
+                              <div style={{fontSize:13,fontWeight:700}}>{Math.round(up1).toLocaleString()}<span style={{fontSize:10,fontWeight:400}}>원/평</span></div>
+                              {avgUp>0&&diffPct!==null&&<div style={{fontSize:11,color:diffPct>20?"#DC2626":diffPct<-20?"#059669":"#64748B",fontWeight:600}}>
                                 평균대비 {diffPct>0?"+":""}{diffPct.toFixed(0)}%
                               </div>}
                             </div>:"-"}
@@ -11210,23 +11211,23 @@ function PlanWorkflow({proj, selVer, selVerIdx, pyF, pyS, editVend, setEditVend,
                             {proj.serviceFee>0?(v.contract/proj.serviceFee*100).toFixed(2)+"%":"-"}
                           </td>
                           <td style={td("center")}>
-                            <span style={{fontSize:12,color:"#6366F1",fontWeight:600}}>
+                            <span style={{fontSize:12,color:"#2563EB",fontWeight:600}}>
                               {isExpanded?"▲ 접기":hist.length>0?`▼ ${hist.length}건 보기`:"-"}
                             </span>
                           </td>
                         </tr>
                         {/* 유사 프로젝트 실적 펼침 */}
                         {isExpanded&&hist.map((h,hi)=>(
-                          <tr key={`hist_${i}_${hi}`} style={{background:"#EEF2FF"}}>
-                            <td style={{...td("left"),paddingLeft:24,fontSize:12,color:"#6B7280"}}>└ 유사실적</td>
-                            <td style={{...td(),fontSize:12,color:"#6366F1"}}>{h.vendorName}</td>
-                            <td style={{...td("right"),fontSize:12,color:"#9CA3AF"}}>{Math.round(h.areaM2).toLocaleString()}</td>
-                            <td style={{...td("right"),fontSize:12,color:"#9CA3AF"}}>{Math.round(h.py).toLocaleString()}</td>
+                          <tr key={`hist_${i}_${hi}`} style={{background:"#EFF6FF"}}>
+                            <td style={{...td("left"),paddingLeft:24,fontSize:12,color:"#64748B"}}>└ 유사실적</td>
+                            <td style={{...td(),fontSize:12,color:"#2563EB"}}>{h.vendorName}</td>
+                            <td style={{...td("right"),fontSize:12,color:"#94A3B8"}}>{Math.round(h.areaM2).toLocaleString()}</td>
+                            <td style={{...td("right"),fontSize:12,color:"#94A3B8"}}>{Math.round(h.py).toLocaleString()}</td>
                             <td style={{...td("right"),fontSize:12}}>{fW2(h.contract)}</td>
                             <td style={{...td("right"),fontSize:12,color:"#059669"}}>{h.nego2>0?fW2(h.nego2):"-"}</td>
                             <td style={{...td("right"),fontSize:12,fontWeight:600}}>{h.up>0?Math.round(h.up).toLocaleString()+"원/평":"-"}</td>
                             <td style={{...td("right"),fontSize:12,color:"#059669"}}>{h.up2>0?Math.round(h.up2).toLocaleString()+"원/평":"-"}</td>
-                            <td style={td("right",false,"#9CA3AF")} colSpan={2}>
+                            <td style={td("right",false,"#94A3B8")} colSpan={2}>
                               <span style={{fontSize:11}}>{h.projCode} {h.projName.slice(0,20)}</span>
                             </td>
                           </tr>
@@ -11235,9 +11236,9 @@ function PlanWorkflow({proj, selVer, selVerIdx, pyF, pyS, editVend, setEditVend,
                     )
                   })}
                   {/* 합계 행 */}
-                  <tr style={{background:"#EEF2FF",borderTop:"2px solid #6366F1"}}>
-                    <td style={td("left",true,"#312E81")} colSpan={4}>합계</td>
-                    <td style={td("right",true,"#185FA5")}>{fW2(vendors.reduce((s,v)=>s+v.contract,0))}</td>
+                  <tr style={{background:"#EFF6FF",borderTop:"2px solid #6366F1"}}>
+                    <td style={td("left",true,"#1E3A8A")} colSpan={4}>합계</td>
+                    <td style={td("right",true,"#1D4ED8")}>{fW2(vendors.reduce((s,v)=>s+v.contract,0))}</td>
                     <td style={td("right",true,"#059669")}>{fW2(vendors.reduce((s,v)=>s+(v.nego2||0),0))}</td>
                     <td colSpan={2}/>
                     <td style={td("right",true,"#D97706")}>
@@ -11257,19 +11258,19 @@ function PlanWorkflow({proj, selVer, selVerIdx, pyF, pyS, editVend, setEditVend,
             <div style={{display:"flex",gap:6,marginBottom:12,flexWrap:"wrap",alignItems:"center"}}>
               {canWrite&&(!editVend
                 ?<button onClick={()=>{setVDraft(selVer.vendors.map(v=>({...v})));setEditVend(true)}}
-                  style={{padding:"8px 16px",background:"#185FA5",color:"#fff",border:"none",borderRadius:9,fontSize:13,fontWeight:700,cursor:"pointer"}}>
+                  style={{padding:"8px 16px",background:"#1D4ED8",color:"#fff",border:"none",borderRadius:6,fontSize:13,fontWeight:700,cursor:"pointer"}}>
                   ✏ 편집 시작
                 </button>
                 :<>
                   <button onClick={saveVend}
-                    style={{padding:"8px 16px",background:"#059669",color:"#fff",border:"none",borderRadius:9,fontSize:13,fontWeight:700,cursor:"pointer"}}>✓ 저장</button>
+                    style={{padding:"8px 16px",background:"#059669",color:"#fff",border:"none",borderRadius:6,fontSize:13,fontWeight:700,cursor:"pointer"}}>✓ 저장</button>
                   <button onClick={()=>setVDraft(prev=>[...prev,{cat:"",name:"",contract:0,nego1:0,nego2:0}])}
-                    style={{padding:"8px 14px",background:"#EEF2FF",color:"#6366F1",border:"none",borderRadius:9,fontSize:13,fontWeight:700,cursor:"pointer"}}>+ 행 추가</button>
+                    style={{padding:"8px 14px",background:"#EFF6FF",color:"#2563EB",border:"none",borderRadius:6,fontSize:13,fontWeight:700,cursor:"pointer"}}>+ 행 추가</button>
                   <button onClick={()=>{setEditVend(false);setVDraft(null)}}
-                    style={{padding:"8px 14px",background:"#F3F4F6",color:"#6B7280",border:"none",borderRadius:9,fontSize:13,cursor:"pointer"}}>취소</button>
+                    style={{padding:"8px 14px",background:"#F8FAFC",color:"#64748B",border:"none",borderRadius:6,fontSize:13,cursor:"pointer"}}>취소</button>
                 </>
               )}
-              <div style={{fontSize:12.5,color:"#9CA3AF",marginLeft:"auto"}}>
+              <div style={{fontSize:13,color:"#94A3B8",marginLeft:"auto"}}>
                 토목·조경·흙막이·지반조사 → 대지면적 | 구조·기계·전기·소방·CG·건축외주 → 연면적 | 친환경·BIM·인테리어 → 1식
               </div>
             </div>
@@ -11287,23 +11288,23 @@ function PlanWorkflow({proj, selVer, selVerIdx, pyF, pyS, editVend, setEditVend,
                     const py=basis==="대지"?pyS:basis==="연면적"?pyF:0
                     const up1=py>0?v.contract/py:null, up2=py>0&&v.nego2?v.nego2/py:null
                     const bLabel=basis==="대지"?"대지면적":basis==="연면적"?"연면적":"1식"
-                    return <tr key={i} style={{background:i%2===0?"#fff":"#F9FAFB"}}>
-                      <td style={td()}>{editVend?<input value={v.cat} onChange={e=>upd(i,"cat",e.target.value)} style={{padding:"5px 8px",border:"1px solid #E5E7EB",borderRadius:6,fontSize:13,width:90,fontFamily:"inherit"}}/>:<span style={{padding:"2px 8px",background:"#EEF2FF",color:"#185FA5",borderRadius:6,fontSize:12.5,fontWeight:700}}>{v.cat}</span>}</td>
+                    return <tr key={i} style={{background:i%2===0?"#fff":"#F8FAFC"}}>
+                      <td style={td()}>{editVend?<input value={v.cat} onChange={e=>upd(i,"cat",e.target.value)} style={{padding:"5px 8px",border:"1px solid #E5E7EB",borderRadius:6,fontSize:13,width:90,fontFamily:"inherit"}}/>:<span style={{padding:"2px 8px",background:"#EFF6FF",color:"#1D4ED8",borderRadius:6,fontSize:13,fontWeight:700}}>{v.cat}</span>}</td>
                       <td style={td()}>{editVend?<input value={v.name} onChange={e=>upd(i,"name",e.target.value)} style={{padding:"5px 8px",border:"1px solid #E5E7EB",borderRadius:6,fontSize:13,width:160,fontFamily:"inherit"}}/>:v.name}</td>
-                      <td style={td("right",true,"#185FA5")}>{editVend?<input type="number" value={v.contract} onChange={e=>upd(i,"contract",e.target.value)} style={{padding:"5px 8px",border:"1px solid #E5E7EB",borderRadius:6,fontSize:13,width:120,textAlign:"right",fontFamily:"inherit"}}/>:fW2(v.contract)}</td>
-                      <td style={td("right",false,"#9CA3AF")}>{editVend?<input type="number" value={v.nego1||0} onChange={e=>upd(i,"nego1",e.target.value)} style={{padding:"5px 8px",border:"1px solid #E5E7EB",borderRadius:6,fontSize:13,width:100,textAlign:"right",fontFamily:"inherit"}}/>:v.nego1?fW2(v.nego1):"-"}</td>
+                      <td style={td("right",true,"#1D4ED8")}>{editVend?<input type="number" value={v.contract} onChange={e=>upd(i,"contract",e.target.value)} style={{padding:"5px 8px",border:"1px solid #E5E7EB",borderRadius:6,fontSize:13,width:120,textAlign:"right",fontFamily:"inherit"}}/>:fW2(v.contract)}</td>
+                      <td style={td("right",false,"#94A3B8")}>{editVend?<input type="number" value={v.nego1||0} onChange={e=>upd(i,"nego1",e.target.value)} style={{padding:"5px 8px",border:"1px solid #E5E7EB",borderRadius:6,fontSize:13,width:100,textAlign:"right",fontFamily:"inherit"}}/>:v.nego1?fW2(v.nego1):"-"}</td>
                       <td style={td("right",true,"#059669")}>{editVend?<input type="number" value={v.nego2||0} onChange={e=>upd(i,"nego2",e.target.value)} style={{padding:"5px 8px",border:"1px solid #6366F1",borderRadius:6,fontSize:13,width:100,textAlign:"right",fontFamily:"inherit"}}/>:v.nego2?fW2(v.nego2):"-"}</td>
-                      <td style={td("center")}><span style={{fontSize:11,padding:"2px 6px",borderRadius:5,background:basis==="대지"?"#FEF3C7":basis==="1식"?"#F3F4F6":"#D1FAE5",color:basis==="대지"?"#D97706":basis==="1식"?"#6B7280":"#059669"}}>{bLabel}</span></td>
-                      <td style={td("right",false,"#185FA5")}>{up1?`${Math.round(up1).toLocaleString()}원/평`:"1식"}</td>
+                      <td style={td("center")}><span style={{fontSize:11,padding:"2px 6px",borderRadius:5,background:basis==="대지"?"#FEF3C7":basis==="1식"?"#F8FAFC":"#D1FAE5",color:basis==="대지"?"#D97706":basis==="1식"?"#64748B":"#059669"}}>{bLabel}</span></td>
+                      <td style={td("right",false,"#1D4ED8")}>{up1?`${Math.round(up1).toLocaleString()}원/평`:"1식"}</td>
                       <td style={td("right",false,"#059669")}>{up2?`${Math.round(up2).toLocaleString()}원/평`:"-"}</td>
                       <td style={td("right")}>{proj.serviceFee>0?(v.contract/proj.serviceFee*100).toFixed(2)+"%":"-"}</td>
                       {editVend&&<td style={td("center")}><button onClick={()=>setVDraft(prev=>prev.filter((_,ri)=>ri!==i))} style={{padding:"3px 8px",background:"#FEE2E2",color:"#DC2626",border:"none",borderRadius:6,fontSize:12,cursor:"pointer"}}>✕</button></td>}
                     </tr>
                   })}
-                  <tr style={{background:"#EEF2FF",borderTop:"2px solid #185FA5"}}>
-                    <td style={td("left",true,"#0C447C")} colSpan={2}>합계</td>
-                    <td style={td("right",true,"#185FA5")}>{fW2(vendors.reduce((s,v)=>s+v.contract,0))}</td>
-                    <td style={td("right",false,"#9CA3AF")}>{fW2(vendors.reduce((s,v)=>s+(v.nego1||0),0))}</td>
+                  <tr style={{background:"#EFF6FF",borderTop:"2px solid #185FA5"}}>
+                    <td style={td("left",true,"#1E40AF")} colSpan={2}>합계</td>
+                    <td style={td("right",true,"#1D4ED8")}>{fW2(vendors.reduce((s,v)=>s+v.contract,0))}</td>
+                    <td style={td("right",false,"#94A3B8")}>{fW2(vendors.reduce((s,v)=>s+(v.nego1||0),0))}</td>
                     <td style={td("right",true,"#059669")}>{fW2(vendors.reduce((s,v)=>s+(v.nego2||0),0))}</td>
                     <td colSpan={3}/>
                     <td style={td("right",true,"#D97706")}>{proj.serviceFee>0?(vendors.reduce((s,v)=>s+v.contract,0)/proj.serviceFee*100).toFixed(1)+"%":"-"}</td>
@@ -11318,7 +11319,7 @@ function PlanWorkflow({proj, selVer, selVerIdx, pyF, pyS, editVend, setEditVend,
         {/* ── ③ 단계별 지급계획 ── */}
         {activeTab==="payment"&&(
           <div>
-            <div style={{marginBottom:12,padding:"10px 14px",background:"#FEF3C7",borderRadius:10,fontSize:12.5,color:"#92400E"}}>
+            <div style={{marginBottom:12,padding:"10px 14px",background:"#FEF3C7",borderRadius:8,fontSize:13,color:"#92400E"}}>
               💡 수주 후 계약체결 → 실행계획서 작성 → 단계별 수금에 맞춰 협력업체 지급 계획을 수립합니다.
               각 단계별 지급 비율을 조정하고 엑셀로 내보낼 수 있습니다.
             </div>
@@ -11335,9 +11336,9 @@ function PlanWorkflow({proj, selVer, selVerIdx, pyF, pyS, editVend, setEditVend,
                 <div>
                   <div style={{display:"flex",gap:8,marginBottom:14,flexWrap:"wrap"}}>
                     {STAGES.map(s=>(
-                      <div key={s.id} style={{flex:1,minWidth:100,background:"#F8FAFC",borderRadius:9,padding:"10px 12px",border:"1px solid #E5E7EB",textAlign:"center"}}>
-                        <div style={{fontSize:11.5,fontWeight:700,color:"#6366F1",marginBottom:4}}>{s.label}</div>
-                        <div style={{fontSize:16,fontWeight:900,color:"#374151"}}>{s.default}%</div>
+                      <div key={s.id} style={{flex:1,minWidth:100,background:"#F8FAFC",borderRadius:6,padding:"10px 12px",border:"1px solid #E5E7EB",textAlign:"center"}}>
+                        <div style={{fontSize:12,fontWeight:700,color:"#2563EB",marginBottom:4}}>{s.label}</div>
+                        <div style={{fontSize:16,fontWeight:900,color:"#334155"}}>{s.default}%</div>
                       </div>
                     ))}
                   </div>
@@ -11348,7 +11349,7 @@ function PlanWorkflow({proj, selVer, selVerIdx, pyF, pyS, editVend, setEditVend,
                           <th style={th()}>공종</th>
                           <th style={th()}>업체명</th>
                           <th style={th("right")}>최종금액(원)</th>
-                          {STAGES.map(s=><th key={s.id} style={th("right")}>{s.label}<br/><span style={{fontSize:10,fontWeight:400,color:"#9CA3AF"}}>{s.default}%</span></th>)}
+                          {STAGES.map(s=><th key={s.id} style={th("right")}>{s.label}<br/><span style={{fontSize:10,fontWeight:400,color:"#94A3B8"}}>{s.default}%</span></th>)}
                           <th style={th("right")}>합계</th>
                         </tr>
                       </thead>
@@ -11356,26 +11357,26 @@ function PlanWorkflow({proj, selVer, selVerIdx, pyF, pyS, editVend, setEditVend,
                         {vendors.map((v,i)=>{
                           const final = v.nego2||v.contract
                           return (
-                            <tr key={i} style={{background:i%2===0?"#fff":"#F9FAFB"}}>
-                              <td style={td("left",true,"#185FA5")}>
-                                <span style={{padding:"2px 7px",background:"#EEF2FF",color:"#185FA5",borderRadius:5,fontSize:12}}>{v.cat}</span>
+                            <tr key={i} style={{background:i%2===0?"#fff":"#F8FAFC"}}>
+                              <td style={td("left",true,"#1D4ED8")}>
+                                <span style={{padding:"2px 7px",background:"#EFF6FF",color:"#1D4ED8",borderRadius:5,fontSize:12}}>{v.cat}</span>
                               </td>
                               <td style={td()}>{v.name||"-"}</td>
                               <td style={td("right",true)}>{fW2(final)}</td>
-                              {STAGES.map(s=><td key={s.id} style={td("right",false,"#374151")}>
+                              {STAGES.map(s=><td key={s.id} style={td("right",false,"#334155")}>
                                 {fW2(Math.round(final*s.default/100))}
                               </td>)}
-                              <td style={td("right",true,"#185FA5")}>{fW2(final)}</td>
+                              <td style={td("right",true,"#1D4ED8")}>{fW2(final)}</td>
                             </tr>
                           )
                         })}
-                        <tr style={{background:"#EEF2FF",borderTop:"2px solid #185FA5"}}>
-                          <td style={td("left",true,"#0C447C")} colSpan={2}>합계</td>
-                          <td style={td("right",true,"#185FA5")}>{fW2(vendors.reduce((s,v)=>s+(v.nego2||v.contract),0))}</td>
-                          {STAGES.map(s=><td key={s.id} style={td("right",true,"#374151")}>
+                        <tr style={{background:"#EFF6FF",borderTop:"2px solid #185FA5"}}>
+                          <td style={td("left",true,"#1E40AF")} colSpan={2}>합계</td>
+                          <td style={td("right",true,"#1D4ED8")}>{fW2(vendors.reduce((s,v)=>s+(v.nego2||v.contract),0))}</td>
+                          {STAGES.map(s=><td key={s.id} style={td("right",true,"#334155")}>
                             {fW2(vendors.reduce((s2,v)=>s2+Math.round((v.nego2||v.contract)*s.default/100),0))}
                           </td>)}
-                          <td style={td("right",true,"#185FA5")}>{fW2(vendors.reduce((s,v)=>s+(v.nego2||v.contract),0))}</td>
+                          <td style={td("right",true,"#1D4ED8")}>{fW2(vendors.reduce((s,v)=>s+(v.nego2||v.contract),0))}</td>
                         </tr>
                       </tbody>
                     </table>
@@ -11459,7 +11460,7 @@ function YearEndForecast({cashItems=[],saleItems=[],contractItems=[],deptBiz={},
 
   // 시나리오 3가지
   const scenarios = [
-    {label:"보수적 (현 기조 유지)", icon:"🔵", color:"#6366F1",
+    {label:"보수적 (현 기조 유지)", icon:"🔵", color:"#2563EB",
      cash: cashPaid/1e8 + cashConf/1e8 * 0.6 + avgMonthly/1e8 * REMAINING * 0.5,
      desc:"확정 수금 60% 실현, 월평균 수금의 50%만 추가 발생"},
     {label:"기준 (현재 예상)", icon:"🟢", color:"#059669",
@@ -11470,23 +11471,23 @@ function YearEndForecast({cashItems=[],saleItems=[],contractItems=[],deptBiz={},
      desc:"미확정 40% 추가 실현, 월평균 수금 100% 달성"},
   ]
 
-  const Card2 = ({title,children,color="#6366F1"}) => (
-    <div style={{background:"#fff",borderRadius:14,border:"1px solid #E5E7EB",overflow:"hidden",marginBottom:14}}>
+  const Card2 = ({title,children,color="#2563EB"}) => (
+    <div style={{background:"#fff",borderRadius:8,border:"1px solid #E5E7EB",overflow:"hidden",marginBottom:14}}>
       <div style={{padding:"12px 16px",borderBottom:"2px solid "+color,display:"flex",alignItems:"center",gap:8}}>
         <div style={{width:4,height:20,background:color,borderRadius:2}}/>
-        <div style={{fontSize:14.5,fontWeight:800,color:"#111827"}}>{title}</div>
+        <div style={{fontSize:14,fontWeight:800,color:"#0F172A"}}>{title}</div>
       </div>
       <div style={{padding:"14px 16px"}}>{children}</div>
     </div>
   )
 
-  const StatRow = ({label,value,sub,color="#374151",badge}) => (
+  const StatRow = ({label,value,sub,color="#334155",badge}) => (
     <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"8px 0",borderBottom:"1px solid #F3F4F6"}}>
-      <div style={{fontSize:13.5,color:"#6B7280"}}>{label}</div>
+      <div style={{fontSize:13,color:"#64748B"}}>{label}</div>
       <div style={{display:"flex",gap:8,alignItems:"center"}}>
-        {badge&&<span style={{fontSize:10.5,padding:"1px 7px",borderRadius:8,background:badge.bg,color:badge.fg,fontWeight:700}}>{badge.text}</span>}
-        <div style={{fontSize:14.5,fontWeight:700,color}}>{value}</div>
-        {sub&&<div style={{fontSize:11.5,color:"#9CA3AF"}}>{sub}</div>}
+        {badge&&<span style={{fontSize:11,padding:"1px 7px",borderRadius:8,background:badge.bg,color:badge.fg,fontWeight:700}}>{badge.text}</span>}
+        <div style={{fontSize:14,fontWeight:700,color}}>{value}</div>
+        {sub&&<div style={{fontSize:12,color:"#94A3B8"}}>{sub}</div>}
       </div>
     </div>
   )
@@ -11495,10 +11496,10 @@ function YearEndForecast({cashItems=[],saleItems=[],contractItems=[],deptBiz={},
   const CashBar = ({label,pct,color,value}) => (
     <div style={{marginBottom:10}}>
       <div style={{display:"flex",justifyContent:"space-between",marginBottom:3}}>
-        <span style={{fontSize:12.5,color:"#6B7280"}}>{label}</span>
-        <span style={{fontSize:12.5,fontWeight:700,color}}>{value}</span>
+        <span style={{fontSize:13,color:"#64748B"}}>{label}</span>
+        <span style={{fontSize:13,fontWeight:700,color}}>{value}</span>
       </div>
-      <div style={{height:8,background:"#F3F4F6",borderRadius:4,overflow:"hidden"}}>
+      <div style={{height:8,background:"#F8FAFC",borderRadius:4,overflow:"hidden"}}>
         <div style={{height:"100%",width:`${Math.min(pct,100)}%`,background:color,borderRadius:4,transition:"width .5s"}}/>
       </div>
     </div>
@@ -11507,9 +11508,9 @@ function YearEndForecast({cashItems=[],saleItems=[],contractItems=[],deptBiz={},
   return (
     <div>
       {/* 헤더 */}
-      <div style={{background:"linear-gradient(135deg,#312E81,#6366F1)",borderRadius:16,padding:"18px 20px",marginBottom:16,color:"#fff"}}>
+      <div style={{background:"linear-gradient(135deg,#1E3A8A,#2563EB)",borderRadius:16,padding:"14px 18px",marginBottom:16,color:"#fff"}}>
         <div style={{fontSize:17,fontWeight:900,marginBottom:4}}>🔭 {YEAR}년 연말 손익 예상 분석 리포트</div>
-        <div style={{fontSize:12.5,opacity:.8}}>
+        <div style={{fontSize:13,opacity:.8}}>
           기준: {YEAR}.{MONTH}월 현재 · 잔여 {REMAINING}개월 · 수금 실현율 {realizationRate.toFixed(0)}%
         </div>
         <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:10,marginTop:14}}>
@@ -11518,7 +11519,7 @@ function YearEndForecast({cashItems=[],saleItems=[],contractItems=[],deptBiz={},
             ["연말 예상 수금",fB(forecastCashAmt),"#FDE68A"],
             ["수금 목표",`${targetCash}억`,"#C4B5FD"],
           ].map(([l,v,c])=>(
-            <div key={l} style={{background:"rgba(255,255,255,.12)",borderRadius:10,padding:"10px 12px",textAlign:"center"}}>
+            <div key={l} style={{background:"rgba(255,255,255,.12)",borderRadius:8,padding:"10px 12px",textAlign:"center"}}>
               <div style={{fontSize:11,opacity:.8,marginBottom:3}}>{l}</div>
               <div style={{fontSize:16,fontWeight:800,color:c}}>{v}</div>
             </div>
@@ -11527,14 +11528,14 @@ function YearEndForecast({cashItems=[],saleItems=[],contractItems=[],deptBiz={},
       </div>
 
       {/* 시나리오 3가지 */}
-      <Card2 title="📊 연말 수금 시나리오" color="#6366F1">
+      <Card2 title="📊 연말 수금 시나리오" color="#2563EB">
         {scenarios.map((sc,i)=>(
-          <div key={i} style={{padding:"12px 14px",marginBottom:8,borderRadius:10,background:i===1?"#EEF2FF":"#F9FAFB",border:`1.5px solid ${i===1?"#6366F1":"#E5E7EB"}`}}>
+          <div key={i} style={{padding:"12px 14px",marginBottom:8,borderRadius:8,background:i===1?"#EFF6FF":"#F8FAFC",border:`1.5px solid ${i===1?"#2563EB":"#E2E8F0"}`}}>
             <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:4}}>
-              <div style={{fontSize:13.5,fontWeight:700,color:sc.color}}>{sc.icon} {sc.label}</div>
+              <div style={{fontSize:13,fontWeight:700,color:sc.color}}>{sc.icon} {sc.label}</div>
               <div style={{fontSize:17,fontWeight:900,color:sc.color}}>{sc.cash.toFixed(2)}억</div>
             </div>
-            <div style={{fontSize:11.5,color:"#9CA3AF"}}>{sc.desc}</div>
+            <div style={{fontSize:12,color:"#94A3B8"}}>{sc.desc}</div>
             {targetCash>0&&(
               <div style={{marginTop:6}}>
                 <CashBar label="" pct={sc.cash/targetCash*100} color={sc.color} value={`목표 ${(sc.cash/targetCash*100).toFixed(0)}%`}/>
@@ -11548,20 +11549,20 @@ function YearEndForecast({cashItems=[],saleItems=[],contractItems=[],deptBiz={},
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:14}}>
         <Card2 title="💧 수금 현황" color="#059669">
           <StatRow label="실제 수금 완료" value={fA(cashPaid)} color="#059669"/>
-          <StatRow label="확정 예정" value={fA(cashConf)} color="#6366F1"/>
+          <StatRow label="확정 예정" value={fA(cashConf)} color="#2563EB"/>
           <StatRow label="미확정" value={fA(cashUnconf)} color="#D97706"
             badge={{text:"가능성↑",bg:"#FEF3C7",fg:"#D97706"}}/>
           <div style={{marginTop:10,paddingTop:10,borderTop:"1px solid #E5E7EB"}}>
-            <div style={{fontSize:12,color:"#6B7280",marginBottom:6}}>월평균 수금 실적</div>
+            <div style={{fontSize:12,color:"#64748B",marginBottom:6}}>월평균 수금 실적</div>
             <div style={{fontSize:18,fontWeight:900,color:"#059669"}}>{(avgMonthly/1e8).toFixed(2)}억/월</div>
           </div>
         </Card2>
         <Card2 title="💸 지출 현황" color="#DC2626">
           <StatRow label="YTD 지출 합계" value={`${(expTotal/1e8).toFixed(2)}억`} color="#DC2626"/>
           <StatRow label="월평균 지출" value={`${avgMonthlyExp.toFixed(2)}억`} color="#D97706"/>
-          <StatRow label="연말 추정 지출" value={`${forecastExpAmt.toFixed(2)}억`} color="#374151"/>
+          <StatRow label="연말 추정 지출" value={`${forecastExpAmt.toFixed(2)}억`} color="#334155"/>
           <div style={{marginTop:10,paddingTop:10,borderTop:"1px solid #E5E7EB"}}>
-            <div style={{fontSize:12,color:"#6B7280",marginBottom:6}}>예상 손익률</div>
+            <div style={{fontSize:12,color:"#64748B",marginBottom:6}}>예상 손익률</div>
             <div style={{fontSize:18,fontWeight:900,color:Number(profitRate)>=0?"#059669":"#DC2626"}}>
               {profitRate}%
             </div>
@@ -11570,22 +11571,22 @@ function YearEndForecast({cashItems=[],saleItems=[],contractItems=[],deptBiz={},
       </div>
 
       {/* 계약 수주 현황 */}
-      <Card2 title="📝 계약 수주 현황" color="#185FA5">
+      <Card2 title="📝 계약 수주 현황" color="#1D4ED8">
         <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:8,marginBottom:12}}>
           {[
             ["계약 완료",`${contractDone.toFixed(2)}억`,"#059669"],
-            ["확정",`${contractConf.toFixed(2)}억`,"#6366F1"],
+            ["확정",`${contractConf.toFixed(2)}억`,"#2563EB"],
             ["추진",`${contractPush.toFixed(2)}억`,"#D97706"],
-            ["합계",`${contractTotal.toFixed(2)}억`,"#185FA5"],
+            ["합계",`${contractTotal.toFixed(2)}억`,"#1D4ED8"],
           ].map(([l,v,c])=>(
-            <div key={l} style={{textAlign:"center",background:"#F8FAFC",borderRadius:9,padding:"10px 6px",border:"1px solid #E5E7EB"}}>
-              <div style={{fontSize:11.5,color:"#9CA3AF",marginBottom:4}}>{l}</div>
+            <div key={l} style={{textAlign:"center",background:"#F8FAFC",borderRadius:6,padding:"10px 6px",border:"1px solid #E5E7EB"}}>
+              <div style={{fontSize:12,color:"#94A3B8",marginBottom:4}}>{l}</div>
               <div style={{fontSize:14,fontWeight:800,color:c}}>{v}</div>
             </div>
           ))}
         </div>
         {targetOrder>0&&(
-          <CashBar label={`수주 목표 달성률 (목표: ${targetOrder}억)`} pct={contractTotal/targetOrder*100} color="#185FA5" value={`${(contractTotal/targetOrder*100).toFixed(0)}%`}/>
+          <CashBar label={`수주 목표 달성률 (목표: ${targetOrder}억)`} pct={contractTotal/targetOrder*100} color="#1D4ED8" value={`${(contractTotal/targetOrder*100).toFixed(0)}%`}/>
         )}
       </Card2>
 
@@ -11596,17 +11597,17 @@ function YearEndForecast({cashItems=[],saleItems=[],contractItems=[],deptBiz={},
             <div key={d.dept} style={{marginBottom:12}}>
               <div style={{display:"flex",justifyContent:"space-between",marginBottom:4}}>
                 <div style={{display:"flex",gap:6,alignItems:"center"}}>
-                  <div style={{width:8,height:8,borderRadius:"50%",background:DEPT_COLORS[d.dept]||"#6366F1"}}/>
-                  <span style={{fontSize:13.5,fontWeight:600,color:"#374151"}}>{d.dept}</span>
+                  <div style={{width:8,height:8,borderRadius:"50%",background:DEPT_COLORS[d.dept]||"#2563EB"}}/>
+                  <span style={{fontSize:13,fontWeight:600,color:"#334155"}}>{d.dept}</span>
                 </div>
                 <div style={{display:"flex",gap:10,alignItems:"center"}}>
-                  <span style={{fontSize:12,color:"#9CA3AF"}}>{d.done+d.conf}억/{d.target}억</span>
-                  <span style={{fontSize:13,fontWeight:800,color:Number(d.rate)>=100?"#059669":Number(d.rate)>=70?"#185FA5":"#D97706"}}>{d.rate}%</span>
+                  <span style={{fontSize:12,color:"#94A3B8"}}>{d.done+d.conf}억/{d.target}억</span>
+                  <span style={{fontSize:13,fontWeight:800,color:Number(d.rate)>=100?"#059669":Number(d.rate)>=70?"#1D4ED8":"#D97706"}}>{d.rate}%</span>
                 </div>
               </div>
-              <div style={{height:7,background:"#F3F4F6",borderRadius:4,overflow:"hidden"}}>
+              <div style={{height:7,background:"#F8FAFC",borderRadius:4,overflow:"hidden"}}>
                 <div style={{height:"100%",width:`${Math.min(Number(d.rate),100)}%`,
-                  background:Number(d.rate)>=100?"#059669":Number(d.rate)>=70?"#185FA5":"#D97706",
+                  background:Number(d.rate)>=100?"#059669":Number(d.rate)>=70?"#1D4ED8":"#D97706",
                   borderRadius:4,transition:"width .5s"}}/>
               </div>
             </div>
@@ -11615,24 +11616,24 @@ function YearEndForecast({cashItems=[],saleItems=[],contractItems=[],deptBiz={},
       )}
 
       {/* 종합 의견 */}
-      <Card2 title="📋 종합 분석 의견" color="#374151">
-        <div style={{fontSize:13.5,lineHeight:1.8,color:"#374151"}}>
+      <Card2 title="📋 종합 분석 의견" color="#334155">
+        <div style={{fontSize:13,lineHeight:1.8,color:"#334155"}}>
           <div style={{marginBottom:8}}>
             <strong>수금:</strong> {MONTH}월 기준 실제 수금 <strong style={{color:"#059669"}}>{(cashPaid/1e8).toFixed(2)}억원</strong>으로,
             월평균 <strong>{(avgMonthly/1e8).toFixed(2)}억원</strong> 속도입니다.
             {targetCash>0 && ` 연간 목표 ${targetCash}억 대비 현재 달성률은 ${(cashPaid/1e8/targetCash*100).toFixed(0)}%입니다.`}
           </div>
           <div style={{marginBottom:8}}>
-            <strong>수주:</strong> 계약 완료 <strong style={{color:"#059669"}}>{contractDone.toFixed(2)}억</strong> + 확정 <strong style={{color:"#6366F1"}}>{contractConf.toFixed(2)}억</strong>으로
+            <strong>수주:</strong> 계약 완료 <strong style={{color:"#059669"}}>{contractDone.toFixed(2)}억</strong> + 확정 <strong style={{color:"#2563EB"}}>{contractConf.toFixed(2)}억</strong>으로
             {targetOrder>0&&` 목표 ${targetOrder}억 대비 ${(contractTotal/targetOrder*100).toFixed(0)}% 달성 중입니다.`}
             {contractPush>0&&` 추진 중 ${contractPush.toFixed(2)}억이 추가 전환 가능합니다.`}
           </div>
           <div style={{marginBottom:8}}>
-            <strong>손익:</strong> 현재 기조 유지 시 연말 예상 수금 <strong style={{color:"#6366F1"}}>{forecastCashAmt.toFixed(2)}억</strong>,
+            <strong>손익:</strong> 현재 기조 유지 시 연말 예상 수금 <strong style={{color:"#2563EB"}}>{forecastCashAmt.toFixed(2)}억</strong>,
             지출 <strong style={{color:"#DC2626"}}>{forecastExpAmt.toFixed(2)}억</strong>으로
             예상 손익률 <strong style={{color:Number(profitRate)>=0?"#059669":"#DC2626"}}>{profitRate}%</strong>입니다.
           </div>
-          <div style={{background:"#FEF3C7",borderRadius:8,padding:"10px 12px",marginTop:10,fontSize:12.5,color:"#92400E"}}>
+          <div style={{background:"#FEF3C7",borderRadius:8,padding:"10px 12px",marginTop:10,fontSize:13,color:"#92400E"}}>
             ⚠ 본 리포트는 입력된 월수금계획·계약현황·지출현황 데이터 기반 예측입니다.
             실제 수금 실현율, 신규 수주 등에 따라 달라질 수 있습니다.
           </div>
