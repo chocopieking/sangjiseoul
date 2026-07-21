@@ -7772,7 +7772,7 @@ function AnalysisDashboard({projects, cashItems, saleItems, DEPTS, DEPT_COLORS, 
       return {dept, target, done, conf, push, 합계:done+conf,
               rate, staff, perCapita:staff>0?(done+conf)/staff:0,
               items계약, items확정, items추진}
-    }).filter(d=>d.합계+d.push+d.target>0)
+    }).filter(d=>d.합계+d.push+d.target!==0 || d.done!==0 || d.conf!==0)
   },[DEPTS,DEPT_BIZ,deptStaff,contractItems,thisYear])
 
   // ── 매출현황 집계 — CashflowTab cashByDept와 완전 동일한 로직 ──
@@ -9931,7 +9931,7 @@ function ContractStatusPage({contractItems=[], setContractItems, DEPTS, DEPT_COL
     const 목표 = ((deptBiz||{})[dept]?.orderTarget||0)*1e8
     return {dept,계약,확정,추진,합계:계약+확정,목표,color:DEPT_COLORS[dept]||"#64748B",
       items계약, items확정, items추진, items합계:[...items계약,...items확정]}
-  }).filter(d=>d.합계+d.추진+d.목표>0)
+  }).filter(d=>d.합계+d.추진+d.목표!==0 || d.계약!==0 || d.확정!==0)
 
   const [detailView, setDetailView] = useState(null)
 
@@ -10240,10 +10240,12 @@ function ContractStatusPage({contractItems=[], setContractItems, DEPTS, DEPT_COL
               <tbody>
                 {byDept.map((d,i)=>{
                   const Cell = ({val, items, type, color, bg, bold}) => {
-                    const clickable = val>0 && items && items.length>0
+                    const clickable = val!==0 && items && items.length>0
                     const isActive = detailView&&detailView.dept===d.dept&&detailView.type===type
+                    // 음수: 빨간색으로 (감액 반영)
+                    const dispColor = val<0 ? "#DC2626" : color
                     return (
-                      <td style={{...TD("right",color,bold),background:isActive?"#FEF9C3":bg,
+                      <td style={{...TD("right",dispColor,bold),background:isActive?"#FEF9C3":bg,
                         cursor:clickable?"pointer":"default",
                         textDecoration:clickable?"underline":"none",
                         textDecorationStyle:"dotted",textUnderlineOffset:3}}
@@ -10252,7 +10254,7 @@ function ContractStatusPage({contractItems=[], setContractItems, DEPTS, DEPT_COL
                           if(isActive) setDetailView(null)
                           else setDetailView({dept:d.dept, type, label:`${d.dept} · ${type}`, items, color})
                         }}>
-                        {val>0?fA(val):"-"}
+                        {val!==0?fA(val):"-"}
                       </td>
                     )
                   }
