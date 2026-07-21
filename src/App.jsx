@@ -7723,9 +7723,8 @@ function AnalysisDashboard({projects, cashItems, saleItems, DEPTS, DEPT_COLORS, 
     const normFeeD = v => {
       const n = Number(v) || 0; if(n===0) return 0
       const abs = Math.abs(n)
-      // 100만원(1e6) 이상 = 원 단위 → 억원 변환 (부호 유지)
-      if(abs >= 1e6) return n/1e8
-      return n
+      if(abs >= 1e6) return n          // 원 단위 그대로
+      return Math.round(n * 1e8)       // 억원 → 원 변환
     }
     const getTypeD = item => {
       const t = (item.type||"").trim()
@@ -7751,7 +7750,7 @@ function AnalysisDashboard({projects, cashItems, saleItems, DEPTS, DEPT_COLORS, 
 
     return DEPTS.map(dept=>{
       const db    = (DEPT_BIZ||{})[dept] || {}
-      const target= db.orderTarget || 0  // 억원
+      const target= (db.orderTarget || 0) * 1e8  // 억원 → 원 단위로 통일
       const staff = (deptStaff||{})[dept]?.total || 1
       const my    = filtered.filter(i=>
         (i.depts||[]).includes(dept)||(i.deptShares||[]).some(s=>s.dept===dept)
@@ -9827,10 +9826,10 @@ function ContractStatusPage({contractItems=[], setContractItems, DEPTS, DEPT_COL
   const normFee = v => {
     const n = Number(v) || 0; if(n===0) return 0
     const abs = Math.abs(n)
-    // 100만원(1e6) 이상 = 원 단위 저장 → 억원으로 변환 (부호 유지)
-    // 100만원 미만 = 이미 억원 단위 → 그대로
-    if(abs >= 1e6) return n / 1e8
-    return n
+    // 100만원(1e6) 이상 → 이미 원 단위 → 그대로 반환 (원)
+    // 100만원 미만 → 억원 단위로 저장된 값 → ×1e8 변환 (원으로)
+    if(abs >= 1e6) return n          // 원 단위 그대로
+    return Math.round(n * 1e8)       // 억원 → 원 변환
   }
   const fAin   = v => v>0?(v/1e8).toFixed(2):""
 
@@ -11512,7 +11511,7 @@ function YearEndForecast({cashItems=[],saleItems=[],contractItems=[],deptBiz={},
 
   // ── 계약 현황 분석 ───────────────────────────────────────────
   const thisYearContracts = contractItems.filter(i=>String(i.contractYear||"").startsWith(YEAR))
-  const normFee = v => { const n=Number(v)||0; if(n===0)return 0; const a=Math.abs(n); return a>=1e6?n/1e8:n }
+  const normFee = v => { const n=Number(v)||0; if(n===0)return 0; const a=Math.abs(n); return a>=1e6?n:Math.round(n*1e8) }
   const contractDone = thisYearContracts.filter(i=>(i.type||"").includes("계약")).reduce((s,i)=>s+normFee(i.serviceFeeExpect||i.amount||0),0)
   const contractConf = thisYearContracts.filter(i=>i.type==="확정").reduce((s,i)=>s+normFee(i.serviceFeeExpect||i.amount||0),0)
   const contractPush = thisYearContracts.filter(i=>i.type==="추진").reduce((s,i)=>s+normFee(i.serviceFeeExpect||i.amount||0),0)
