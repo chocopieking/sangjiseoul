@@ -2041,11 +2041,11 @@ function SimplePieChart({data=[], total=0}) {
           <div style={{background:"linear-gradient(135deg,#065F46,#059669)",borderRadius:16,padding:"16px 20px",marginBottom:20,color:"#fff"}}>
             <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",flexWrap:"wrap",gap:16}}>
               <div>
-                <div style={{fontSize:13,opacity:.75,marginBottom:4}}>💧 {YEAR}년 현누계 (입금 완료)</div>
-                <div style={{fontSize:38,fontWeight:900,marginBottom:8,letterSpacing:"-0.03em"}}>{fAmt(totalPaid)}</div>
+                <div style={{fontSize:13,opacity:.75,marginBottom:4}}>💧 {YEAR}년 매출현황 (입금 완료)</div>
+                <div style={{fontSize:38,fontWeight:900,marginBottom:4,letterSpacing:"-0.03em"}}>{fAmt(totalPaid)}</div>
+                <div style={{fontSize:14,opacity:.8,marginBottom:8}}>기성+확정 {fAmt(totalCash)}</div>
                 <div style={{display:"flex",gap:8,fontSize:13,flexWrap:"wrap"}}>
-                  <span style={{background:"rgba(255,255,255,.2)",padding:"4px 12px",borderRadius:20}}>기성+확정 {fAmt(totalCash)}</span>
-                  <span style={{background:"rgba(255,255,255,.1)",padding:"4px 12px",borderRadius:20}}>미정 {fAmt(totalPush)}</span>
+                  <span style={{background:"rgba(255,255,255,.2)",padding:"4px 12px",borderRadius:20}}>미정 {fAmt(totalPush)}</span>
                 </div>
               </div>
               <div style={{textAlign:"right"}}>
@@ -2844,6 +2844,7 @@ const cardNote2 = {fontSize:13,color:C.gray,marginBottom:8}
 // 프로젝트 탭
 // ════════════════════════════════════════════════════════════
 function ProjectsTab({projects,setProjects,selProjId,setSelProjId,selVerIdx,setSelVerIdx,cmpIds,setCmpIds,showNewVer,setShowNewVer,canWrite,contractTypes,currentUser,setDetailTab:_extSetDetailTab,detailTab:_extDetailTab,cashItems=[],setCashItems,vendorsDB={},projBaseline={},setProjBaseline}) {
+  const toast = useToast()
   const [view, setView] = useState("list")
   const [deptFilter,     setDeptFilter]     = useState("")
   const [typeFilter,     setTypeFilter]     = useState("")
@@ -8218,6 +8219,38 @@ function AnalysisDashboard({projects, cashItems, saleItems, DEPTS, DEPT_COLORS, 
             </tbody>
           </table>
         </div>
+        {/* 매출현황 파이차트 */}
+        <div style={{padding:"16px",borderTop:"1px solid #E2E8F0",background:"#FAFAFA"}}>
+          <div style={{fontSize:12,fontWeight:700,color:"#64748B",marginBottom:10}}>본부별 매출현황(현누계) 비율</div>
+          <div style={{display:"flex",gap:12,alignItems:"flex-end",height:100}}>
+            {(()=>{
+              const maxV = Math.max(...saleByDept.map(d=>d.revCum),1)
+              return saleByDept.filter(d=>d.revCum>0).map(d=>{
+                const h = Math.round(d.revCum/maxV*80)
+                const pct = saleByDept.reduce((s,x)=>s+x.revCum,0)>0
+                  ? Math.round(d.revCum/saleByDept.reduce((s,x)=>s+x.revCum,0)*100)
+                  : 0
+                return (
+                  <div key={d.dept} style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",gap:2}}>
+                    <div style={{fontSize:11,fontWeight:700,color:DEPT_COLORS[d.dept]||"#059669"}}>{pct}%</div>
+                    <div style={{width:"100%",height:h,background:DEPT_COLORS[d.dept]||"#059669",borderRadius:"3px 3px 0 0",opacity:.85}}/>
+                    <div style={{fontSize:10,color:"#64748B",textAlign:"center",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",maxWidth:"100%"}}>
+                      {d.dept.replace("본부","").slice(0,4)}
+                    </div>
+                  </div>
+                )
+              })
+            })()}
+          </div>
+          <div style={{marginTop:8,fontSize:11,color:"#64748B",display:"flex",gap:8,flexWrap:"wrap"}}>
+            {saleByDept.filter(d=>d.revCum>0).map(d=>(
+              <span key={d.dept} style={{display:"flex",alignItems:"center",gap:3}}>
+                <span style={{width:8,height:8,background:DEPT_COLORS[d.dept]||"#059669",borderRadius:2,display:"inline-block"}}/>
+                {d.dept.replace("본부","")} {fA(d.revCum)}
+              </span>
+            ))}
+          </div>
+        </div>
       </div>
 
       {/* ══ 3. 지출현황 (본부별 손익분석) 테이블 + 시각화 ══ */}
@@ -8948,12 +8981,12 @@ function AnalysisHub({deptStaff,setDeptStaff,years,setYears,canWrite,isAdmin,cas
 
   const SUBS = [
     {id:"dashboard", label:"📊 경영 대시보드"},
-    {id:"cash",      label:"💧 월수금현황"},
     {id:"contract",  label:"📝 계약현황"},
+    {id:"cash",      label:"💧 매출현황"},
     {id:"expense",   label:"💸 지출현황"},
     {id:"staff",     label:"👥 인원 현황"},
     {id:"projects",  label:"🏗 프로젝트현황"},
-    {id:"history",   label:"📈 과거실적"},
+    {id:"history",   label:"📈 연도별실적분석"},
   ]
 
   return (
@@ -9121,7 +9154,7 @@ function HistoricalDataTab({canWrite, isAdmin, DEPTS=[], DEPT_COLORS={}}) {
     <div>
       {/* 헤더 */}
       <div style={{background:"#fff",borderRadius:8,border:"1px solid #E2E8F0",padding:"14px 18px",marginBottom:14,display:"flex",alignItems:"center",gap:12,flexWrap:"wrap"}}>
-        <div style={{fontSize:15,fontWeight:800,color:"#0F172A"}}>📈 과거실적 — 분기/반기/연도별 계약·매출·지출·손익</div>
+        <div style={{fontSize:15,fontWeight:800,color:"#0F172A"}}>📈 연도별 실적 분석 — 분기/반기/연도별 계약·매출·지출·손익</div>
         <div style={{fontSize:12,color:"#64748B"}}>단위: 억원 | 셀 클릭 → 직접 입력 | 손익 = 매출 − 지출 자동계산</div>
         <div style={{marginLeft:"auto",display:"flex",gap:8,alignItems:"center",flexWrap:"wrap"}}>
           {/* 뷰 전환 */}
@@ -10799,8 +10832,9 @@ function ContractStatusPage({contractItems=[], setContractItems, DEPTS, DEPT_COL
       <div style={{background:"linear-gradient(135deg,#065F46,#059669)",borderRadius:16,padding:"16px 20px",marginBottom:16,color:"#fff"}}>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",flexWrap:"wrap",gap:16}}>
           <div>
-            <div style={{fontSize:13,opacity:.75,marginBottom:4}}>{YEAR}년 계약·확정 금액</div>
-            <div style={{fontSize:36,fontWeight:800,marginBottom:10}}>{fA(합계)}</div>
+            <div style={{fontSize:13,opacity:.75,marginBottom:4}}>{YEAR}년 계약현황</div>
+            <div style={{fontSize:36,fontWeight:800,marginBottom:10}}>{fA(계약Sum)}</div>
+            <div style={{fontSize:13,opacity:.75}}>기성+확정 {fA(합계)}</div>
             <div style={{display:"flex",gap:10,flexWrap:"wrap"}}>
               {[["✅ 계약",계약Sum,"#34D399"],["📋 확정",확정Sum,"#93C5FD"],["🔶 추진",추진Sum,"#FDE68A"]].map(([l,v,c])=>(
                 <span key={l} style={{background:"rgba(255,255,255,.15)",padding:"4px 12px",borderRadius:20,fontSize:13,fontWeight:700,color:c}}>{l} {fA(v)}</span>
