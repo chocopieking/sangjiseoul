@@ -7978,14 +7978,14 @@ function AnalysisDashboard({projects, cashItems, saleItems, DEPTS, DEPT_COLORS, 
     })
   },[DEPTS,DEPT_BIZ,cashItems,thisYear])
 
-  // 전사 합계
-  const totContract   = contractByDept.reduce((s,d)=>s+d.done+d.conf,0)
-  const totTarget     = contractByDept.reduce((s,d)=>s+d.target,0)
-  const totPaid_YTD   = saleByDept.reduce((s,d)=>s+d.revCum,0)/1e8   // 억원
-  const totSaleConf   = saleByDept.reduce((s,d)=>s+d.revConf,0)/1e8
-  const totSalePush   = saleByDept.reduce((s,d)=>s+d.revPush,0)/1e8
-  const totSaleTarget = saleByDept.reduce((s,d)=>s+d.revTarget,0)/1e8
-  const totExp        = expByDept.reduce((s,d)=>s+d.paid,0)           // 억원
+  // 전사 합계 (모두 원 단위로 통일)
+  const totContract   = contractByDept.reduce((s,d)=>s+d.done+d.conf,0)  // 원
+  const totTarget     = contractByDept.reduce((s,d)=>s+d.target,0)        // 원
+  const totPaid_YTD   = saleByDept.reduce((s,d)=>s+d.revCum,0)           // 원 (revCum이 원 단위)
+  const totSaleConf   = saleByDept.reduce((s,d)=>s+d.revConf,0)          // 원
+  const totSalePush   = saleByDept.reduce((s,d)=>s+d.revPush,0)          // 원
+  const totSaleTarget = saleByDept.reduce((s,d)=>s+d.revTarget,0)        // 원
+  const totExp        = expByDept.reduce((s,d)=>s+d.paid,0)              // 억원 (별도)
 
   // 파이차트 데이터
   const contractPie = DEPTS.map((d,i)=>({name:d.replace("본부",""),value:+(contractByDept[i].done).toFixed(2),color:DEPT_COLORS[d]||"#64748B"}))
@@ -8003,15 +8003,23 @@ function AnalysisDashboard({projects, cashItems, saleItems, DEPTS, DEPT_COLORS, 
   const totConf = contractByDept.reduce((s,d)=>s+d.conf,0)  // 원 단위
   const totPush = contractByDept.reduce((s,d)=>s+d.push,0)  // 원 단위
 
-  // 목표: yearTargets 우선, 없으면 DEPT_BIZ 합산 폴백
-  const effectiveContractTarget = CONTRACT_TARGET > 0 ? CONTRACT_TARGET
-    : contractByDept.reduce((s,d)=>s+d.target,0)
-  const effectiveSaleTarget     = SALES_TARGET > 0 ? SALES_TARGET
-    : saleByDept.reduce((s,d)=>s+d.revTarget,0)
+  // 목표 (원 단위로 통일)
+  // CONTRACT_TARGET: 억원 단위 → ×1e8 변환 필요
+  // contractByDept.target: 이미 원 단위
+  const effectiveContractTarget = CONTRACT_TARGET > 0
+    ? CONTRACT_TARGET * 1e8                                // 억원 → 원
+    : contractByDept.reduce((s,d)=>s+d.target,0)          // 원
+  // SALES_TARGET: 억원 단위 → ×1e8 변환 필요
+  // saleByDept.revTarget: 이미 원 단위
+  const effectiveSaleTarget = SALES_TARGET > 0
+    ? SALES_TARGET * 1e8                                   // 억원 → 원
+    : saleByDept.reduce((s,d)=>s+d.revTarget,0)           // 원
 
-  // 달성률: 계약완료만 / 현누계(입금완료)만
-  const contractRate = effectiveContractTarget>0 ? Math.round(totDone/effectiveContractTarget*100) : 0
-  const saleRate     = effectiveSaleTarget>0     ? Math.round(totPaid_YTD/effectiveSaleTarget*100) : 0
+  // 달성률 (원/원 = 올바른 단위)
+  const contractRate = effectiveContractTarget > 0
+    ? Math.round(totDone / effectiveContractTarget * 100) : 0
+  const saleRate = effectiveSaleTarget > 0
+    ? Math.round(totPaid_YTD / effectiveSaleTarget * 100) : 0
 
   return (
     <div style={{padding:"0 0 24px"}}>
@@ -8019,8 +8027,8 @@ function AnalysisDashboard({projects, cashItems, saleItems, DEPTS, DEPT_COLORS, 
       {/* ══ KPI 요약 카드 ══ */}
       <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:12,marginBottom:20}}>
         {[
-          {l:"📝 계약현황",   v:fA(totDone),      sub:`계약계약목표 대비 ${contractRate||0}%`, color:"#2563EB", bg:"#EFF6FF", bar:Math.min(contractRate||0,100)},
-          {l:"💧 매출현황",   v:fA(totPaid_YTD),  sub:`현누계 매출목표 달성률 ${saleRate||0}%`,     color:"#059669", bg:"#F0FDF4", bar:Math.min(saleRate||0,100)},
+          {l:"📝 계약현황",   v:fA(totDone),      sub:`계약목표 달성률 ${contractRate||0}%`, color:"#2563EB", bg:"#EFF6FF", bar:Math.min(contractRate||0,100)},
+          {l:"💧 매출현황",   v:fA(totPaid_YTD),  sub:`매출목표 달성률 ${saleRate||0}%`,     color:"#059669", bg:"#F0FDF4", bar:Math.min(saleRate||0,100)},
           {l:"💸 지출 합계",  v:fA(totExp),       sub:totPaid_YTD>0?`수금대비 ${Math.round(totExp/totPaid_YTD*100)}%`:"데이터 없음", color:"#DC2626", bg:"#FEF2F2", bar:totPaid_YTD>0?Math.min(Math.round(totExp/totPaid_YTD*100),100):0},
           {l:"👥 총 인원",    v:`${totalStaff}명`, sub:`${DEPTS.length}개 본부`,            color:"#64748B", bg:"#F8FAFC", bar:null},
         ].map(({l,v,sub,color,bg,bar})=>(
