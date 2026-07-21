@@ -2503,22 +2503,35 @@ function SimplePieChart({data=[], total=0}) {
   )
 }
 
-// 계약 엑셀 양식 다운로드
+// 계약 엑셀 양식 다운로드 (v2 - 총설계비/지분율 안내 강화)
 function downloadContractTemplate() {
-  const ws = XLSX.utils.aoa_to_sheet([
-    ["■ 상지서울건축사사무소 — 계약현황 입력 양식"],
-    ["※ 4행부터 데이터 입력. 구분: 계약/확정/추진"],
-    ["※ 복수본부: '본부명:지분%,본부명:지분%' 형식으로 입력"],
-    ["※ 금액은 억원 단위로 입력 (예: 17.55)"],
+  const HDR = ["본부(복수시 '본부명:지분%')","발주구분","구분","프로젝트명","공모형식",
+               "총설계비예상(억)","상지지분예상(%)","용역비예상(억)","사업자공모비율(%)",
+               "수행예상시점","계약예상시점","컨소시엄","내용","[시스템ID]"]
+  const DESC= ["디자인본부/설계1본부/설계2본부/주거디자인본부","민간/공공","계약/확정/추진","프로젝트 전체명","기술제안/수의계약 등",
+               "⚠ 억원 입력(예:91.15) 원단위 아님","⚠ % 입력(예:35) 소수 아님(0.35X)","억원 입력(예:12.76)","% 입력(예:40)",
+               "예:2026-06","예:2026-12","컨소시엄 업체명","비고","신규 입력시 비워두세요"]
+  const EX  = [
+    ["디자인본부","민간","계약","서부산행정복합타운 건립공사(실시TP)","",91.15,35,12.76,100,"2026-04","2026-06","","31.9억 중 40%",""],
+    ["설계1본부","민간","계약","서부산행정복합타운 건립공사(실시TP)","",91.15,60,19.14,100,"2026-04","2026-06","","31.9억 중 60%",""],
+    ["설계1본부","공공","계약","경상남도 서부의료원 기본 및 실시설계 용역(용역금액 증액)","",8.05,20,1.47,100,"","2026-02","","",""],
+    ["설계2본부","민간","추진","예시 추진 프로젝트","기술제안",50,40,20,40,"2026-09","2026-12","A사,B사","기술제안 준비중",""],
+    ["설계2본부:60,주거디자인본부:40","민간","확정","예시 복수본부 프로젝트","",30,100,30,100,"2026-08","2026-10","","지분:설2 60%,주거 40%",""],
+  ]
+  const data = [
+    ["■ 상지서울건축사사무소 — 계약현황 업로드 양식 (5행 헤더, 7행부터 데이터 입력)"],
+    ["⚠ 중요: 총설계비예상(억) = 억원 단위 숫자만 입력 (예: 91.15)  |  상지지분예상(%) = % 숫자만 입력 (예: 35)  ← 소수점(0.35) 입력 시 오류!"],
+    ["※ 복수본부: '설계1본부:60,디자인본부:40' 형식  |  구분: 계약(수주완료)/확정/추진  |  금액: 감액 시 음수 입력 (예: -4.40)"],
     [],
-    ["본부(복수시 '본부명:지분%')","발주구분","구분","프로젝트명","공모형식","총설계비예상(억)","상지지분예상(%)","용역비예상(억)","사업자공모비율(%)","수행예상시점","계약예상시점","컨소시엄","내용","[시스템ID]"],
-    ["설계1본부:60%,디자인본부:40%","민간","추진","서부산 행정복합타운 건립공사 실시설계 기술제안","기술제안",50.13,35,17.55,40,"2026년 1월","2026년 12월","토문건축,상지건축,이림건축","9/12 공고",""],
-    ["설계1본부","공공","계약","경상남도 서부의료원 설립 설계용역","수의계약",14.7,100,1.47,100,"2026년 2월","2026년 1월","","",""],
-  ])
-  ws["!cols"] = [{wch:30},{wch:9},{wch:7},{wch:38},{wch:12},{wch:14},{wch:13},{wch:13},{wch:13},{wch:13},{wch:13},{wch:22},{wch:20},{wch:18}]
+    HDR, DESC,
+    ...EX,
+    ...Array(30).fill(Array(14).fill("")),
+  ]
+  const ws = XLSX.utils.aoa_to_sheet(data)
+  ws["!cols"] = [30,9,7,40,12,14,13,13,10,12,12,22,20,18].map(w=>({wch:w}))
   const wb = XLSX.utils.book_new()
   XLSX.utils.book_append_sheet(wb, ws, "계약현황")
-  XLSX.writeFile(wb, "상지서울_계약현황_입력양식.xlsx")
+  XLSX.writeFile(wb, "상지서울_계약현황_입력양식_v2.xlsx")
 }
 
 // 계약현황 엑셀 업로드 → contractItems로 변환
@@ -2532,8 +2545,10 @@ function uploadContractExcel(e, contractItems, setContractItems, currentUser, to
       const rows = XLSX.utils.sheet_to_json(ws, {header:1, defval:""})
 
       let headerRow=2, dataStart=3
-      for(let i=0;i<6;i++){
-        if(rows[i].some(c=>String(c).includes("프로젝트명"))){headerRow=i;dataStart=i+1;break}
+      for(let i=0;i<8;i++){
+        if(rows[i].some(c=>String(c).includes("프로젝트명")&&!String(c).includes("예시")&&!String(c).includes("전체명"))){
+          headerRow=i; dataStart=i+2; break  // +2: 설명행(DESC) 건너뜀
+        }
       }
       const headers = rows[headerRow].map(h=>String(h).trim())
       const ciExact = (name) => headers.findIndex(h=>h===name)
@@ -10100,6 +10115,10 @@ function ContractStatusPage({contractItems=[], setContractItems, DEPTS, DEPT_COL
             ✅ 중복 {contractItems.length-dedupedContracts.length}건 자동 제거됨
           </div>
         )}
+        <button onClick={()=>downloadContractTemplate&&downloadContractTemplate()}
+          style={{padding:"6px 12px",background:"#EFF6FF",color:"#2563EB",border:"1px solid #BFDBFE",borderRadius:6,fontSize:12,fontWeight:600,cursor:"pointer"}}>
+          📥 업로드 양식 다운로드
+        </button>
         {isAdmin && (
           <button onClick={()=>{
             if(!window.confirm("⚠️ 계약현황 데이터를 전부 삭제합니까?\n삭제 후 새 파일을 업로드하세요.")) return
@@ -10165,17 +10184,23 @@ function ContractStatusPage({contractItems=[], setContractItems, DEPTS, DEPT_COL
             if(!window.confirm("금액 단위 오류를 자동 보정합니다. 계속하시겠습니까?")) return
             setContractItems(prev=>prev.map(i=>{
               const fixedSvc   = normFee(i.serviceFeeExpect||i.amount||0)
-              const fixedTotal = normFee(i.totalFeeExpect||0)
+              // totalFeeExpect가 0이면 수동입력된 totalFee에서 복구 시도
+              const rawTotal   = i.totalFeeExpect||i.totalFee||0
+              const fixedTotal = rawTotal ? normFee(rawTotal) : 0
               const fixedBiz   = normFee(i.bizCompFee||0)
+              // shareRatioExpect: 0~1 소수로 저장된 경우 %로 변환
+              const rawShare   = i.shareRatioExpect||i.shareRatio||100
+              const fixedShare = rawShare<=1&&rawShare>0 ? Math.round(rawShare*100) : rawShare
               return {
                 ...i,
                 serviceFeeExpect: fixedSvc,
-                amount: fixedSvc,  // amount와 serviceFeeExpect를 동일한 정규화값으로 통일
+                amount: fixedSvc,
                 totalFeeExpect: fixedTotal,
                 bizCompFee: fixedBiz,
+                shareRatioExpect: fixedShare,
               }
             }))
-            toast&&toast("금액 단위 보정 완료","success")
+            toast&&toast(`✅ 금액·지분율 보정 완료 — 총설계비/지분율이 올바르게 표시됩니다`,"success")
           }} style={{padding:"7px 14px",background:hasAbnormalData?"#DC2626":"#FEE2E2",color:hasAbnormalData?"#fff":"#DC2626",border:"none",borderRadius:6,fontSize:13,fontWeight:800,cursor:"pointer",animation:hasAbnormalData?"pulse 1.5s infinite":"none"}}>
             🔧 금액 단위 보정{hasAbnormalData?" (필요!)":""}
           </button>
