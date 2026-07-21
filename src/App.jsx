@@ -2643,16 +2643,22 @@ function uploadContractExcel(e, contractItems, setContractItems, currentUser, to
         let next = [...prev]
         newItems.forEach(np=>{
           const byId = next.find(p=>p.id===np.id&&np.id&&np.id!=="")
-          if(byId) { next = next.map(p=>p.id===np.id?{...p,...np}:p); updated++; return }
-          // 이름+구분+본부 모두 일치해야 같은 항목으로 판단 (본부가 다르면 별도 항목)
+          if(byId) {
+            // ID 일치: 새 값으로 완전 덮어쓰기 (totalFeeExpect 포함 모든 필드)
+            next = next.map(p=>p.id===np.id ? {...p,...np} : p)
+            updated++; return
+          }
           const npDept = (np.depts||[])[0]||""
           const byNameTypeDept = next.find(p=>
             p.name.trim()===np.name.trim() &&
             p.type===np.type &&
             ((p.depts||[])[0]||"")=== npDept
           )
-          if(byNameTypeDept) { next = next.map(p=>p.id===byNameTypeDept.id?{...p,...np,id:byNameTypeDept.id}:p); updated++; return }
-          // 같은 이름이지만 본부가 다른 경우 → 별도 추가 (중복 아님)
+          if(byNameTypeDept) {
+            // 이름+구분+본부 일치: 새 값으로 완전 덮어쓰기 (id는 기존 것 유지)
+            next = next.map(p=>p.id===byNameTypeDept.id ? {...p,...np, id:byNameTypeDept.id} : p)
+            updated++; return
+          }
           next.push(np); added++
         })
         return next
@@ -9813,6 +9819,11 @@ function ContractStatusPage({contractItems=[], setContractItems, DEPTS, DEPT_COL
   setSelProjId, setTab, isAdmin, setDetailTab}) {
 
   const toast  = useToast()
+
+  // ── updateItem: contractItems 내 특정 id 항목을 부분 업데이트 ──
+  const updateItem = (id, patch) => {
+    setContractItems(prev => (prev||[]).map(i => i.id===id ? {...i, ...patch} : i))
+  }
   const normFee = v => {
     const n = Number(v) || 0; if(n===0) return 0
     const abs = Math.abs(n)
