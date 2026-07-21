@@ -2743,6 +2743,7 @@ function ProjectsTab({projects,setProjects,selProjId,setSelProjId,selVerIdx,setS
   const [editVend, setEditVend]     = useState(false)
   const [vDraft, setVDraft]         = useState(null)
   const [editProj, setEditProj]     = useState(false)
+  const [editVerIdx, setEditVerIdx] = useState(null)   // 회차 수정 모달 인덱스
   const [inlineEditId, setInlineEditId] = useState(null)   // 인라인 이름 편집
   const [inlineEditName, setInlineEditName] = useState("")
   const [cfEditing, setCfEditing]   = useState(false)
@@ -3259,7 +3260,6 @@ function ProjectsTab({projects,setProjects,selProjId,setSelProjId,selVerIdx,setS
                     ? <div style={{width:"100%",padding:"20px",textAlign:"center",color:"#64748B",fontSize:14,background:"#F8FAFC",borderRadius:8}}>아직 등록된 실행계획서가 없습니다.</div>
                     : selProj.versions.map((v,i)=>{
                         const active = i===selVerIdx
-                        const [editRound, setEditRound] = [null, ()=>{}]  // placeholder — real edit below
                         return (
                           <div key={i} onClick={()=>setSelVerIdx(i)} style={{
                             padding:"12px 16px",borderRadius:8,cursor:"pointer",minWidth:160,
@@ -3270,16 +3270,63 @@ function ProjectsTab({projects,setProjects,selProjId,setSelProjId,selVerIdx,setS
                           }}>
                             <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:4}}>
                               <span style={{fontSize:20,fontWeight:800,color:active?C.navyM:"#334155"}}>{v.round||i+1}차</span>
-                              {canWrite&&<button onClick={e=>{e.stopPropagation();const nr=window.prompt(`"${v.ver}" 의 회차 번호를 수정하세요:`,v.round||i+1);if(nr!==null){const n=parseInt(nr)||v.round||i+1;setProjects(prev=>prev.map(p=>p.id===selProj.id?{...p,versions:p.versions.map((vv,vi)=>vi===i?{...vv,round:n,ver:`${n}차 실행계획서`}:vv)}:p))}}} style={{background:"none",border:"none",cursor:"pointer",fontSize:12,color:"#94A3B8",padding:"2px 4px"}} title="회차 수정">✏</button>}
+                              {/* PDF 뱃지 */}
+                              {v.pdfData&&(
+                                <span onClick={e=>{e.stopPropagation();const a=document.createElement("a");a.href=v.pdfData;a.download=`실행계획서_${selProj.code||""}${v.round||i+1}차.pdf`;a.click()}}
+                                  title="PDF 다운로드" style={{cursor:"pointer",fontSize:11,background:"#FEE2E2",color:"#DC2626",padding:"1px 6px",borderRadius:4,fontWeight:700}}>PDF↓</span>
+                              )}
                             </div>
                             <div style={{fontSize:12,color:"#64748B",fontWeight:500}}>{v.ver}</div>
                             <div style={{fontSize:11,color:"#94A3B8",marginTop:2}}>{v.date}</div>
                             {active&&<div style={{position:"absolute",top:8,right:10,width:8,height:8,borderRadius:"50%",background:C.navyM}}/>}
+                            {/* 수정/삭제 버튼 */}
+                            {canWrite&&(
+                              <div onClick={e=>e.stopPropagation()} style={{display:"flex",gap:4,marginTop:8}}>
+                                <button onClick={()=>setEditVerIdx(i)}
+                                  style={{flex:1,padding:"4px 0",background:"#EFF6FF",color:"#2563EB",border:"none",borderRadius:5,fontSize:11,fontWeight:600,cursor:"pointer"}}>✏ 수정</button>
+                                <button onClick={()=>{
+                                  if(!window.confirm(`${v.round||i+1}차 실행계획서를 삭제합니까?\n\n이 작업은 되돌릴 수 없습니다.`)) return
+                                  setProjects(prev=>prev.map(p=>p.id===selProj.id?{...p,versions:p.versions.filter((_,vi)=>vi!==i)}:p))
+                                  if(selVerIdx>=i) setSelVerIdx(Math.max(0,selVerIdx-1))
+                                }}
+                                  style={{padding:"4px 8px",background:"#FEE2E2",color:"#DC2626",border:"none",borderRadius:5,fontSize:11,cursor:"pointer"}}>🗑</button>
+                              </div>
+                            )}
                           </div>
                         )
                       })
                   }
                 </div>
+
+                {/* PDF 업로드 영역 */}
+                {selVer&&canWrite&&(
+                  <div style={{marginTop:10,padding:"10px 14px",background:"#F8FAFC",borderRadius:8,border:"1px dashed #CBD5E1",display:"flex",alignItems:"center",gap:10,flexWrap:"wrap"}}>
+                    <span style={{fontSize:12,color:"#64748B",fontWeight:600}}>📎 {selVer.round||selVerIdx+1}차 실행계획서 PDF</span>
+                    {selVer.pdfData
+                      ? <>
+                          <span style={{fontSize:12,color:"#059669",fontWeight:600}}>✅ PDF 첨부됨</span>
+                          <button onClick={()=>{const a=document.createElement("a");a.href=selVer.pdfData;a.download=`실행계획서_${selProj.code||""}${selVer.round||selVerIdx+1}차.pdf`;a.click()}}
+                            style={{padding:"4px 10px",background:"#D1FAE5",color:"#059669",border:"none",borderRadius:6,fontSize:12,fontWeight:600,cursor:"pointer"}}>📥 다운로드</button>
+                          <button onClick={()=>{if(!window.confirm("PDF를 삭제합니까?")) return;setProjects(prev=>prev.map(p=>p.id===selProj.id?{...p,versions:p.versions.map((vv,vi)=>vi===selVerIdx?{...vv,pdfData:null,pdfName:null}:vv)}:p))}}
+                            style={{padding:"4px 10px",background:"#FEE2E2",color:"#DC2626",border:"none",borderRadius:6,fontSize:12,cursor:"pointer"}}>🗑 PDF 삭제</button>
+                        </>
+                      : <label style={{padding:"4px 12px",background:"#2563EB",color:"#fff",borderRadius:6,fontSize:12,fontWeight:600,cursor:"pointer"}}>
+                          📎 PDF 업로드
+                          <input type="file" accept=".pdf" style={{display:"none"}} onChange={e=>{
+                            const file=e.target.files?.[0]; if(!file) return
+                            if(file.size>10*1024*1024){alert("PDF는 10MB 이하만 업로드 가능합니다.");return}
+                            const reader=new FileReader()
+                            reader.onload=evt=>{
+                              const b64=evt.target.result
+                              setProjects(prev=>prev.map(p=>p.id===selProj.id?{...p,versions:p.versions.map((vv,vi)=>vi===selVerIdx?{...vv,pdfData:b64,pdfName:file.name}:vv)}:p))
+                            }
+                            reader.readAsDataURL(file)
+                          }}/>
+                        </label>
+                    }
+                    {selVer.pdfName&&<span style={{fontSize:11,color:"#94A3B8"}}>{selVer.pdfName}</span>}
+                  </div>
+                )}
               </div>
 
               {selVer && (
@@ -3337,6 +3384,19 @@ function ProjectsTab({projects,setProjects,selProjId,setSelProjId,selVerIdx,setS
                 </>
               )}
               {showNewVer&&<NewVerModal proj={selProj} onClose={()=>setShowNewVer(false)} onSave={v=>{setProjects(prev=>prev.map(p=>p.id===selProj.id?{...p,versions:[...p.versions,v]}:p));setSelVerIdx(selProj.versions.length);setShowNewVer(false)}}/>}
+              {editVerIdx!=null&&selProj.versions[editVerIdx]&&(
+                <NewVerModal
+                  proj={selProj}
+                  initial={selProj.versions[editVerIdx]}
+                  onClose={()=>setEditVerIdx(null)}
+                  onSave={v=>{
+                    setProjects(prev=>prev.map(p=>p.id===selProj.id
+                      ?{...p,versions:p.versions.map((vv,vi)=>vi===editVerIdx?{...vv,...v}:vv)}
+                      :p))
+                    setEditVerIdx(null)
+                  }}
+                />
+              )}
               {editProj&&<NewProjModal initial={selProj} onClose={()=>setEditProj(false)} onSave={f=>{setProjects(prev=>prev.map(p=>p.id===selProj.id?normalizeProject({...p,...f}):p));setEditProj(false)}}/>}
               </>}
             </>
@@ -4920,15 +4980,18 @@ function NewProjModal({onClose,onSave,initial=null}) {
   )
 }
 
-function NewVerModal({proj,onClose,onSave}) {
-  const last = proj.versions[proj.versions.length-1]
-  const nextRound = (proj.versions.reduce((mx,v)=>Math.max(mx,v.round||0),0)||0)+1
+function NewVerModal({proj,onClose,onSave,initial}) {
+  const isEdit = !!initial
+  const last = initial || proj.versions[proj.versions.length-1]
+  const nextRound = isEdit
+    ? (initial.round || 1)
+    : (proj.versions.reduce((mx,v)=>Math.max(mx,v.round||0),0)||0)+1
 
   // 기본 필드
   const [round,setRound]   = useState(nextRound)
-  const [ver,setVer]       = useState(`${nextRound}차 실행계획서`)
-  const [date,setDate]     = useState(new Date().toISOString().slice(0,10))
-  const [reason,setReason] = useState("")
+  const [ver,setVer]       = useState(isEdit ? initial.ver : `${nextRound}차 실행계획서`)
+  const [date,setDate]     = useState(isEdit ? (initial.date||new Date().toISOString().slice(0,10)) : new Date().toISOString().slice(0,10))
+  const [reason,setReason] = useState(isEdit ? (initial.reason||"") : "")
   const [laborCost,setLaborCost] = useState(last?.laborCost||0)
   const [directExp,setDirectExp] = useState(last?.directExp||0)
   const [indirect,setIndirect]   = useState(last?.indirect||null)
@@ -4953,14 +5016,14 @@ function NewVerModal({proj,onClose,onSave}) {
   const removeV = i => setVendors(p=>p.filter((_,xi)=>xi!==i))
   const moveV   = (i,d) => setVendors(p=>{ const a=[...p]; [a[i],a[i+d]]=[a[i+d],a[i]]; return a })
 
-  const save = () => onSave({ver,round,date,reason,laborCost,directExp,subContract:subTotal,indirect,profit,vendors})
+  const save = () => onSave({...(initial||{}), ver,round,date,reason,laborCost,directExp,subContract:subTotal,indirect,profit,vendors})
 
   return (
     <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.45)",display:"flex",alignItems:"flex-start",justifyContent:"center",zIndex:400,padding:20,overflowY:"auto"}}>
       <div style={{...S.card(),width:"100%",maxWidth:820,marginTop:20}}>
         {/* 헤더 */}
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:18}}>
-          <div style={{fontSize:18,fontWeight:700,color:C.navy}}>📋 실행계획서 작성</div>
+          <div style={{fontSize:18,fontWeight:700,color:C.navy}}>{isEdit?"✏️ 실행계획서 수정":"📋 실행계획서 작성"}</div>
           <button onClick={onClose} style={{background:"none",border:"none",cursor:"pointer",fontSize:20,color:C.gray}}>✕</button>
         </div>
 
@@ -9810,6 +9873,58 @@ function MobileHub({setTab, tabOrder=[], currentUser, projects=[], cashItems=[]}
 }
 
 // ══════════════════════════════════════════════════════════════
+// 🔀 공통 정렬 훅 — 모든 테이블에서 재사용
+// ══════════════════════════════════════════════════════════════
+function useSortTable(defaultKey="contractTime", defaultDir="asc") {
+  const [sortKey, setSortKey] = React.useState(defaultKey)
+  const [sortDir, setSortDir] = React.useState(defaultDir) // "asc" | "desc"
+
+  const toggleSort = (key) => {
+    if(sortKey===key) setSortDir(d=>d==="asc"?"desc":"asc")
+    else { setSortKey(key); setSortDir("asc") }
+  }
+
+  const sortFn = (a, b) => {
+    let av = a[sortKey], bv = b[sortKey]
+    // null/undefined → 항상 맨 뒤
+    if(!av && !bv) return 0
+    if(!av) return 1
+    if(!bv) return -1
+    // 숫자 비교
+    const an = Number(av), bn = Number(bv)
+    if(!isNaN(an)&&!isNaN(bn)) return sortDir==="asc" ? an-bn : bn-an
+    // 문자열 비교
+    const as = String(av).toLowerCase(), bs = String(bv).toLowerCase()
+    const cmp = as.localeCompare(bs,"ko")
+    return sortDir==="asc" ? cmp : -cmp
+  }
+
+  // 헤더 셀 렌더링 헬퍼
+  const SortTh = ({label, skey, align="left", style={}}) => {
+    const active = sortKey===skey
+    return (
+      <th onClick={()=>toggleSort(skey)}
+        style={{padding:"9px 12px",textAlign:align,fontSize:11,fontWeight:700,
+          background:active?"#EFF6FF":"#F8FAFC",
+          color:active?"#2563EB":"#64748B",
+          borderBottom:"2px solid #E2E8F0",
+          whiteSpace:"nowrap",cursor:"pointer",userSelect:"none",
+          transition:"background .1s",
+          ...style}}
+        title={`${label} 정렬`}>
+        {label}
+        <span style={{marginLeft:4,fontSize:10,color:active?"#2563EB":"#CBD5E1"}}>
+          {active?(sortDir==="asc"?"▲":"▼"):"⇅"}
+        </span>
+      </th>
+    )
+  }
+
+  return {sortKey, sortDir, toggleSort, sortFn, SortTh}
+}
+
+
+// ══════════════════════════════════════════════════════════════
 // 📝 계약현황 페이지 — contractItems 독립 저장소 사용
 //    projects와 완전 분리. 엑셀 업로드 → contractItems에만 저장
 // ══════════════════════════════════════════════════════════════
@@ -9875,6 +9990,60 @@ function ContractStatusPage({contractItems=[], setContractItems, DEPTS, DEPT_COL
 
   const [editId, setEditId] = useState(null)   // 인라인 편집중인 항목 id
   const [draft,  setDraft]  = useState(null)
+  // ── 섹션별 정렬 상태 (기본: 계약(예상)일 오름차순) ──────────────
+  const [secSort, setSecSort] = useState({
+    계약: {key:"contractTime", dir:"asc"},
+    확정: {key:"contractTime", dir:"asc"},
+    추진: {key:"contractTime", dir:"asc"},
+  })
+  const toggleSecSort = (type, key) => {
+    setSecSort(prev=>{
+      const cur = prev[type]||{key:"contractTime",dir:"asc"}
+      return {...prev, [type]:{key, dir: cur.key===key&&cur.dir==="asc"?"desc":"asc"}}
+    })
+  }
+  const sortItems = (items, type) => {
+    const {key, dir} = secSort[type]||{key:"contractTime",dir:"asc"}
+    return [...items].sort((a,b)=>{
+      // important 항목 항상 위
+      if(a.important&&!b.important) return -1
+      if(!a.important&&b.important) return 1
+
+      let av = key==="svcFee"    ? (a.serviceFeeExpect||a.amount||0)
+             : key==="totalFee"  ? (a.totalFeeExpect||0)
+             : key==="dept"      ? ((a.depts||[])[0]||"")
+             : key==="shareRatioExpect" ? (a.shareRatioExpect||0)
+             : a[key]
+      let bv = key==="svcFee"    ? (b.serviceFeeExpect||b.amount||0)
+             : key==="totalFee"  ? (b.totalFeeExpect||0)
+             : key==="dept"      ? ((b.depts||[])[0]||"")
+             : key==="shareRatioExpect" ? (b.shareRatioExpect||0)
+             : b[key]
+
+      // null/undefined → 맨 뒤
+      if(!av&&av!==0&&!bv&&bv!==0) return 0
+      if(!av&&av!==0) return 1
+      if(!bv&&bv!==0) return -1
+
+      // 날짜 문자열 비교 (YYYY-MM-DD 또는 YYYY년 M월 형식)
+      if(key==="contractTime"||key==="execTime") {
+        const toDate = s => {
+          if(!s) return "9999-99-99"
+          const m = String(s).match(/(\d{4})[-년\s]*(\d{1,2})?[-월\s]*(\d{1,2})?/)
+          if(!m) return "9999-99-99"
+          return `${m[1]}-${(m[2]||"12").padStart(2,"0")}-${(m[3]||"31").padStart(2,"0")}`
+        }
+        const da = toDate(av), db = toDate(bv)
+        const cmp = da.localeCompare(db)
+        return dir==="asc" ? cmp : -cmp
+      }
+
+      const an=Number(av), bn=Number(bv)
+      if(!isNaN(an)&&!isNaN(bn)) return dir==="asc"?an-bn:bn-an
+      const cmp=String(av).localeCompare(String(bv),"ko")
+      return dir==="asc"?cmp:-cmp
+    })
+  }
   const [expandedDept, setExpandedDept] = useState(null) // 본부별 펼침
 
   // 구분(type) 기준 분류 — 오직 이 필드만 사용
@@ -9888,13 +10057,7 @@ function ContractStatusPage({contractItems=[], setContractItems, DEPTS, DEPT_COL
 
   const 계약Items = yearFilteredContracts.filter(i=>getType(i)==="계약")
   const 확정Items = yearFilteredContracts.filter(i=>getType(i)==="확정")
-  const 추진Items = yearFilteredContracts.filter(i=>getType(i)==="추진").sort((a,b)=>{
-    if(a.important&&!b.important) return -1
-    if(!a.important&&b.important) return 1
-    const da = a.execTime||a.contractTime||"9999"
-    const db = b.execTime||b.contractTime||"9999"
-    return String(da).localeCompare(String(db))
-  })
+  const 추진Items = yearFilteredContracts.filter(i=>getType(i)==="추진")
 
   const sum = arr => arr.reduce((s,i)=>s+normFee(i.serviceFeeExpect||i.amount||0),0)
   const 계약Sum = sum(계약Items)
@@ -10353,7 +10516,27 @@ function ContractStatusPage({contractItems=[], setContractItems, DEPTS, DEPT_COL
       )}
 
       {/* 구분별 프로젝트 목록 */}
-      {SECS.map(sec=>(
+      {SECS.map(sec=>{
+        const sorted = sortItems(sec.items, sec.type)
+        const ss = secSort[sec.type]||{key:"contractTime",dir:"asc"}
+        const STh = ({label, skey, align="left", minW}) => {
+          const active = ss.key===skey
+          return (
+            <th onClick={()=>toggleSecSort(sec.type, skey)}
+              style={{padding:"8px 10px",textAlign:align,fontSize:11,fontWeight:700,
+                background:active?"#EFF6FF":"#F8FAFC",color:active?"#2563EB":"#64748B",
+                borderBottom:"2px solid #E2E8F0",whiteSpace:"nowrap",
+                cursor:"pointer",userSelect:"none",transition:"background .1s",
+                minWidth:minW||undefined}}
+              title={`${label} 기준 정렬`}>
+              {label}
+              <span style={{marginLeft:3,fontSize:10,color:active?"#2563EB":"#CBD5E1"}}>
+                {active?(ss.dir==="asc"?"▲":"▼"):"⇅"}
+              </span>
+            </th>
+          )
+        }
+        return (
         <div key={sec.type} style={{background:"#fff",borderRadius:8,border:`2px solid ${sec.border}`,overflow:"hidden",marginBottom:14}}>
           <div style={{padding:"12px 18px",background:sec.bg,borderBottom:`1px solid ${sec.border}33`,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
             <div style={{fontSize:15,fontWeight:800,color:sec.color}}>{sec.label} ({sec.items.length}건)</div>
@@ -10362,12 +10545,23 @@ function ContractStatusPage({contractItems=[], setContractItems, DEPTS, DEPT_COL
           <div style={{overflowX:"auto"}}>
             <table style={{width:"100%",borderCollapse:"collapse",minWidth:1300}}>
               <thead><tr>
-                {["연번","본부","공모형식","프로젝트명","총설계비(예상)","상지지분(예상)","용역비(예상)","사업자공모","최종설계비","수행예상","계약예상","컨소시엄","내용",isAdmin?"관리":null].filter(Boolean).map((h,i)=>(
-                  <th key={h} style={TH(i>=4&&i<=8?"right":i===0?"center":"left")}>{h}</th>
-                ))}
+                <th style={{padding:"8px 10px",textAlign:"center",fontSize:11,fontWeight:700,color:"#64748B",background:"#F8FAFC",borderBottom:"2px solid #E2E8F0",whiteSpace:"nowrap"}}>연번</th>
+                <STh label="본부"        skey="dept"         align="left"  minW={80}/>
+                <STh label="공모형식"    skey="bidType"      align="left"  minW={70}/>
+                <STh label="프로젝트명"  skey="name"         align="left"  minW={180}/>
+                <STh label="총설계비(예상)" skey="totalFee"  align="right" minW={90}/>
+                <STh label="상지지분(예상)" skey="shareRatioExpect" align="right" minW={80}/>
+                <STh label="용역비(예상)" skey="svcFee"      align="right" minW={90}/>
+                <STh label="사업자공모"  skey="bizCompPct"   align="right" minW={70}/>
+                <STh label="최종설계비"  skey="bizCompFee"   align="right" minW={80}/>
+                <STh label="수행예상"    skey="execTime"     align="right" minW={80}/>
+                <STh label="계약(예상)일" skey="contractTime" align="right" minW={90}/>
+                <STh label="컨소시엄"   skey="consortium"    align="left"  minW={90}/>
+                <STh label="내용"        skey="note"         align="left"  minW={80}/>
+                {isAdmin&&<th style={{padding:"8px 10px",textAlign:"center",fontSize:11,fontWeight:700,color:"#64748B",background:"#F8FAFC",borderBottom:"2px solid #E2E8F0",whiteSpace:"nowrap"}}>관리</th>}
               </tr></thead>
               <tbody>
-                {sec.items.map((item,i)=>{
+                {sorted.map((item,i)=>{
                   if(editId===item.id) return <EditRow key={item.id} item={item}/>
                   const bidColor = {"공공":"#2563EB","민간":"#059669","해외":"#DC2626"}[item.orderType||"민간"]||"#64748B"
                   const depts = (item.deptShares||[]).length>1
@@ -10433,7 +10627,8 @@ function ContractStatusPage({contractItems=[], setContractItems, DEPTS, DEPT_COL
             </table>
           </div>
         </div>
-      ))}
+        )
+      })}
 
       {contractItems.length===0&&(
         <div style={{background:"#fff",borderRadius:8,border:"2px dashed #E5E7EB",padding:"60px",textAlign:"center",color:"#94A3B8"}}>
