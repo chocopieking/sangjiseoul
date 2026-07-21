@@ -7989,7 +7989,7 @@ function AnalysisDashboard({projects, cashItems, saleItems, DEPTS, DEPT_COLORS, 
                 })}
                 <tr style={{background:"#F0FDF4",fontWeight:700,borderTop:"2px solid #E2E8F0"}}>
                   <td style={{padding:"9px 12px",fontSize:13,fontWeight:700,color:"#065F46"}}>합계</td>
-                  <td style={{padding:"9px 12px",textAlign:"right",color:"#DC2626",fontWeight:700}}>{effectiveSaleTarget>0?`${effectiveSaleTarget}억`:"-"}</td>
+                  <td style={{padding:"9px 12px",textAlign:"right",color:"#DC2626",fontWeight:700}}>{effectiveSaleTarget>0?fA(effectiveSaleTarget):"-"}</td>
                   <td style={{padding:"9px 12px",textAlign:"right",fontWeight:800,color:"#059669",background:"#D1FAE5"}}>{fA(totPaid_YTD)}</td>
                   <td style={{padding:"9px 12px",background:"#D1FAE5"}}/>
                   <td style={{padding:"9px 12px",textAlign:"right",fontWeight:800,color:"#2563EB"}}>{fA(totPaid_YTD+totSaleConf)}</td>
@@ -8067,7 +8067,7 @@ function AnalysisDashboard({projects, cashItems, saleItems, DEPTS, DEPT_COLORS, 
                           {d.dept}
                         </div>
                       </td>
-                      <td style={{padding:"9px 12px",textAlign:"right",color:"#DC2626",fontWeight:600}}>{target>0?`${target}억`:"-"}</td>
+                      <td style={{padding:"9px 12px",textAlign:"right",color:"#DC2626",fontWeight:600}}>{target>0?fA(target):"-"}</td>
                       <td style={{padding:"9px 12px",textAlign:"right",fontWeight:700,color:"#059669",background:"#F0FDF4"}}>{done>0?fA(done):"-"}</td>
                       <td style={{padding:"9px 12px",textAlign:"right",color:"#2563EB"}}>{conf>0?fA(conf):"-"}</td>
                       <td style={{padding:"9px 12px",textAlign:"right",fontWeight:700,color:"#059669",background:"#DCFCE7"}}>{done+conf>0?fA(done+conf):"-"}</td>
@@ -8081,7 +8081,7 @@ function AnalysisDashboard({projects, cashItems, saleItems, DEPTS, DEPT_COLORS, 
                 })}
                 <tr style={{background:"#EFF6FF",fontWeight:700,borderTop:"2px solid #E2E8F0"}}>
                   <td style={{padding:"9px 12px",fontSize:13,fontWeight:700,color:"#1E3A8A"}}>합계</td>
-                  <td style={{padding:"9px 12px",textAlign:"right",color:"#DC2626"}}>{effectiveContractTarget>0?`${effectiveContractTarget}억`:"-"}</td>
+                  <td style={{padding:"9px 12px",textAlign:"right",color:"#DC2626"}}>{effectiveContractTarget>0?fA(effectiveContractTarget):"-"}</td>
                   <td style={{padding:"9px 12px",textAlign:"right",fontWeight:800,color:"#059669",background:"#D1FAE5"}}>{fA(totDone)}</td>
                   <td style={{padding:"9px 12px",textAlign:"right",fontWeight:700,color:"#2563EB"}}>{fA(totConf)}</td>
                   <td style={{padding:"9px 12px",textAlign:"right",fontWeight:800,color:"#059669",background:"#DCFCE7"}}>{fA(totDone+totConf)}</td>
@@ -8166,7 +8166,7 @@ function AnalysisDashboard({projects, cashItems, saleItems, DEPTS, DEPT_COLORS, 
                 })}
                 <tr style={{background:"#FEF2F2",fontWeight:700,borderTop:"2px solid #E2E8F0"}}>
                   <td style={{padding:"9px 12px",fontSize:13,fontWeight:700,color:"#7C1D1D"}}>합계</td>
-                  <td style={{padding:"9px 12px",textAlign:"right",color:"#DC2626"}}>{effectiveSaleTarget>0?`${effectiveSaleTarget}억`:"-"}</td>
+                  <td style={{padding:"9px 12px",textAlign:"right",color:"#DC2626"}}>{effectiveSaleTarget>0?fA(effectiveSaleTarget):"-"}</td>
                   <td style={{padding:"9px 12px",textAlign:"right",fontWeight:800,color:"#059669",background:"#D1FAE5"}}>{fA(totPaid_YTD)}</td>
                   <td style={{padding:"9px 12px",textAlign:"right",fontWeight:700,color:"#059669"}}>{effectiveSaleTarget>0?`${saleRate}%`:"-"}</td>
                   <td style={{padding:"9px 12px",textAlign:"right",fontWeight:800,color:"#DC2626",background:"#FEE2E2"}}>{fA(totExp)}</td>
@@ -8851,6 +8851,7 @@ function AnalysisHub({deptStaff,setDeptStaff,years,setYears,canWrite,isAdmin,cas
     {id:"expense",   label:"💸 지출현황"},
     {id:"staff",     label:"👥 인원 현황"},
     {id:"projects",  label:"🏗 프로젝트현황"},
+    {id:"history",   label:"📈 과거실적"},
   ]
 
   return (
@@ -8883,6 +8884,7 @@ function AnalysisHub({deptStaff,setDeptStaff,years,setYears,canWrite,isAdmin,cas
       {subTab==="staff" && <StaffStatusPanel DEPT_COLORS={DEPT_COLORS} deptStaff={deptStaff} staffMonthly={staffMonthly} staffTarget={staffTarget}/>}
 
       {subTab==="projects" && <ProjectsTab projects={projects} setProjects={setProjects} selProjId={selProjId} setSelProjId={setSelProjId} selVerIdx={selVerIdx||0} setSelVerIdx={setSelVerIdx||((v)=>{})} cmpIds={[]} setCmpIds={()=>{}} showNewVer={false} setShowNewVer={()=>{}} canWrite={canWrite} contractTypes={[]} currentUser={currentUser} setDetailTab={setDetailTab} detailTab={undefined} cashItems={cashItems} setCashItems={setCashItems} vendorsDB={{}}/>}
+      {subTab==="history" && <HistoricalDataTab canWrite={canWrite} isAdmin={isAdmin} DEPTS={DEPTS} DEPT_COLORS={DEPT_COLORS}/>}
     </div>
   )
 }
@@ -8890,6 +8892,382 @@ function AnalysisHub({deptStaff,setDeptStaff,years,setYears,canWrite,isAdmin,cas
 // ══════════════════════════════════════════════════════════════
 // 👥 인원 현황 패널
 // ══════════════════════════════════════════════════════════════
+// ══════════════════════════════════════════════════════════════
+// 📈 과거실적 탭 — 분기/반기/연도별 계약·매출·지출·손익 입력
+// ══════════════════════════════════════════════════════════════
+function HistoricalDataTab({canWrite, isAdmin, DEPTS=[], DEPT_COLORS={}}) {
+  const STORAGE_KEY = "sjs_historical_data"
+  const toast = useToast()
+
+  // 저장 데이터 구조: { [year]: { [quarter]: { contract, revenue, expense, profit, note, depts:{[dept]:{contract,revenue,expense}} } } }
+  const [data, setData] = React.useState(()=>{
+    try { return JSON.parse(localStorage.getItem(STORAGE_KEY)||"{}") } catch { return {} }
+  })
+  const [selYear, setSelYear] = React.useState(String(new Date().getFullYear()))
+  const [viewMode, setViewMode] = React.useState("quarter") // quarter | half | year
+  const [editCell, setEditCell] = React.useState(null) // {year,quarter,field}
+  const [showAddYear, setShowAddYear] = React.useState(false)
+  const [newYear, setNewYear] = React.useState("")
+
+  const save = (next) => {
+    setData(next)
+    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(next)) } catch {}
+    toast && toast("✅ 과거실적 저장 완료","success")
+  }
+
+  const QUARTERS = ["Q1 (1~3월)","Q2 (4~6월)","Q3 (7~9월)","Q4 (10~12월)"]
+  const Q_KEYS   = ["Q1","Q2","Q3","Q4"]
+  const FIELDS   = [
+    {key:"contract", label:"계약",  color:"#2563EB", bg:"#EFF6FF"},
+    {key:"revenue",  label:"매출",  color:"#059669", bg:"#F0FDF4"},
+    {key:"expense",  label:"지출",  color:"#DC2626", bg:"#FEF2F2"},
+    {key:"profit",   label:"손익",  color:"#7C3AED", bg:"#F5F3FF", calc:true},
+  ]
+
+  const years = [...new Set([...Object.keys(data), selYear])].sort().reverse()
+
+  const getQ = (year, q) => data[year]?.[q] || {contract:0,revenue:0,expense:0,profit:0,note:""}
+  const calcProfit = (year, q) => {
+    const d = getQ(year, q)
+    return (d.revenue||0) - (d.expense||0)
+  }
+  const setQField = (year, q, field, value) => {
+    const next = {
+      ...data,
+      [year]: {
+        ...(data[year]||{}),
+        [q]: {
+          ...getQ(year, q),
+          [field]: field==="note" ? value : parseFloat(String(value).replace(/[^0-9.\-]/g,"")||"0")||0
+        }
+      }
+    }
+    setData(next)
+  }
+  const saveAll = () => save(data)
+
+  const fAb = v => {
+    const n = Number(v)||0
+    if(n>0) return `${n.toFixed(2)}억`
+    if(n<0) return `(${(-n).toFixed(2)}억)`
+    return "-"
+  }
+
+  // 반기 집계
+  const getHalf = (year, half) => {
+    const qs = half===1 ? ["Q1","Q2"] : ["Q3","Q4"]
+    return qs.reduce((acc,q)=>{
+      const d=getQ(year,q)
+      return {
+        contract: acc.contract+(d.contract||0),
+        revenue:  acc.revenue+(d.revenue||0),
+        expense:  acc.expense+(d.expense||0),
+        profit:   acc.profit+((d.revenue||0)-(d.expense||0)),
+      }
+    },{contract:0,revenue:0,expense:0,profit:0})
+  }
+
+  // 연도 합계
+  const getYearTotal = (year) => {
+    return Q_KEYS.reduce((acc,q)=>{
+      const d=getQ(year,q)
+      return {
+        contract: acc.contract+(d.contract||0),
+        revenue:  acc.revenue+(d.revenue||0),
+        expense:  acc.expense+(d.expense||0),
+        profit:   acc.profit+((d.revenue||0)-(d.expense||0)),
+      }
+    },{contract:0,revenue:0,expense:0,profit:0})
+  }
+
+  const cellStyle = (color, bg, active) => ({
+    padding:"8px 10px", textAlign:"right", fontSize:13, fontWeight:600,
+    color, background: active ? "#FEF9C3" : bg,
+    border:"1px solid #E2E8F0", cursor:canWrite?"pointer":"default",
+    minWidth:90, whiteSpace:"nowrap"
+  })
+
+  const EditableCell = ({year, q, field, color, bg}) => {
+    const key = `${year}_${q}_${field}`
+    const isEdit = editCell===key
+    const val = field==="profit" ? calcProfit(year,q) : (getQ(year,q)[field]||0)
+    const [draft, setDraft] = React.useState(String(val||""))
+
+    if(field==="profit") return (
+      <td style={{...cellStyle(val>=0?"#059669":"#DC2626", val>=0?"#F0FDF4":"#FEF2F2", false)}}>
+        {fAb(val)}
+      </td>
+    )
+    if(!canWrite) return <td style={cellStyle(color,bg,false)}>{val?fAb(val):"-"}</td>
+
+    return (
+      <td style={cellStyle(color, bg, isEdit)}
+        onClick={()=>{ setEditCell(key); setDraft(String(val||"")) }}>
+        {isEdit ? (
+          <input autoFocus value={draft}
+            onChange={e=>setDraft(e.target.value)}
+            onBlur={()=>{ setQField(year,q,field,draft); setEditCell(null) }}
+            onKeyDown={e=>{ if(e.key==="Enter"||e.key==="Tab"){setQField(year,q,field,draft);setEditCell(null)} if(e.key==="Escape")setEditCell(null) }}
+            style={{width:70,padding:"2px 4px",border:"1.5px solid #2563EB",borderRadius:4,fontSize:12,textAlign:"right",outline:"none"}}
+          />
+        ) : val ? fAb(val) : <span style={{color:"#CBD5E1"}}>클릭</span>}
+      </td>
+    )
+  }
+
+  return (
+    <div>
+      {/* 헤더 */}
+      <div style={{background:"#fff",borderRadius:8,border:"1px solid #E2E8F0",padding:"14px 18px",marginBottom:14,display:"flex",alignItems:"center",gap:12,flexWrap:"wrap"}}>
+        <div style={{fontSize:15,fontWeight:800,color:"#0F172A"}}>📈 과거실적 — 분기/반기/연도별 계약·매출·지출·손익</div>
+        <div style={{fontSize:12,color:"#64748B"}}>단위: 억원 | 셀 클릭 → 직접 입력 | 손익 = 매출 − 지출 자동계산</div>
+        <div style={{marginLeft:"auto",display:"flex",gap:8,alignItems:"center",flexWrap:"wrap"}}>
+          {/* 뷰 전환 */}
+          {["quarter","half","year"].map((m,i)=>(
+            <button key={m} onClick={()=>setViewMode(m)}
+              style={{padding:"5px 12px",background:viewMode===m?"#2563EB":"#F1F5F9",color:viewMode===m?"#fff":"#334155",border:"none",borderRadius:6,fontSize:12,fontWeight:600,cursor:"pointer"}}>
+              {["분기별","반기별","연도별"][i]}
+            </button>
+          ))}
+          {canWrite&&<button onClick={saveAll} style={{padding:"6px 14px",background:"#059669",color:"#fff",border:"none",borderRadius:6,fontSize:12,fontWeight:700,cursor:"pointer"}}>💾 저장</button>}
+          {canWrite&&<button onClick={()=>setShowAddYear(true)} style={{padding:"6px 12px",background:"#EFF6FF",color:"#2563EB",border:"1px solid #BFDBFE",borderRadius:6,fontSize:12,fontWeight:600,cursor:"pointer"}}>+ 연도 추가</button>}
+        </div>
+      </div>
+
+      {/* 연도 추가 모달 */}
+      {showAddYear&&(
+        <div style={{background:"#fff",border:"2px solid #2563EB",borderRadius:8,padding:"14px 18px",marginBottom:14,display:"flex",gap:10,alignItems:"center"}}>
+          <span style={{fontSize:13,fontWeight:600}}>추가할 연도:</span>
+          <input value={newYear} onChange={e=>setNewYear(e.target.value)} placeholder="예: 2024" type="number"
+            style={{padding:"6px 10px",border:"1.5px solid #2563EB",borderRadius:6,fontSize:13,width:100}}/>
+          <button onClick={()=>{
+            if(!newYear) return
+            setData(prev=>({...prev,[newYear]:{}}))
+            setSelYear(newYear); setShowAddYear(false); setNewYear("")
+          }} style={{padding:"6px 14px",background:"#2563EB",color:"#fff",border:"none",borderRadius:6,fontSize:13,cursor:"pointer"}}>추가</button>
+          <button onClick={()=>setShowAddYear(false)} style={{padding:"6px 10px",background:"#F1F5F9",color:"#64748B",border:"none",borderRadius:6,fontSize:13,cursor:"pointer"}}>취소</button>
+        </div>
+      )}
+
+      {/* 연도 탭 */}
+      <div style={{display:"flex",gap:4,marginBottom:14,flexWrap:"wrap"}}>
+        {years.map(y=>(
+          <button key={y} onClick={()=>setSelYear(y)}
+            style={{padding:"7px 16px",background:selYear===y?"#0F172A":"#fff",color:selYear===y?"#fff":"#334155",border:"1px solid #E2E8F0",borderRadius:7,fontSize:13,fontWeight:selYear===y?700:500,cursor:"pointer"}}>
+            {y}년
+            {(()=>{const t=getYearTotal(y);return t.revenue>0?<span style={{fontSize:11,marginLeft:6,opacity:.7}}>매출 {fAb(t.revenue)}</span>:null})()}
+          </button>
+        ))}
+      </div>
+
+      {/* 분기별 뷰 */}
+      {viewMode==="quarter"&&(
+        <div style={{background:"#fff",borderRadius:8,border:"1px solid #E2E8F0",overflow:"hidden",marginBottom:16}}>
+          <div style={{padding:"12px 18px",borderBottom:"1px solid #E2E8F0",display:"flex",alignItems:"center",gap:10}}>
+            <span style={{fontSize:14,fontWeight:700}}>{selYear}년 분기별 실적</span>
+            <span style={{fontSize:11,color:"#94A3B8"}}>셀을 클릭하여 값 입력 (억원 단위)</span>
+          </div>
+          <div style={{overflowX:"auto"}}>
+            <table style={{width:"100%",borderCollapse:"collapse",minWidth:600}}>
+              <thead>
+                <tr style={{background:"#F8FAFC"}}>
+                  <th style={{padding:"9px 14px",textAlign:"left",fontSize:12,fontWeight:700,color:"#64748B",borderBottom:"2px solid #E2E8F0",minWidth:100}}>항목</th>
+                  {QUARTERS.map((q,i)=>(
+                    <th key={i} style={{padding:"9px 12px",textAlign:"right",fontSize:12,fontWeight:700,color:"#334155",borderBottom:"2px solid #E2E8F0",minWidth:100}}>{q}</th>
+                  ))}
+                  <th style={{padding:"9px 12px",textAlign:"right",fontSize:12,fontWeight:700,color:"#1E3A8A",borderBottom:"2px solid #E2E8F0",background:"#DBEAFE",minWidth:100}}>연간 합계</th>
+                </tr>
+              </thead>
+              <tbody>
+                {FIELDS.map(f=>{
+                  const yearTotal = Q_KEYS.reduce((s,q)=>s+(f.key==="profit"?calcProfit(selYear,q):(getQ(selYear,q)[f.key]||0)),0)
+                  return (
+                    <tr key={f.key}>
+                      <td style={{padding:"9px 14px",fontSize:13,fontWeight:700,color:f.color,background:f.bg,borderBottom:"1px solid #E2E8F0",borderRight:"1px solid #E2E8F0"}}>{f.label}</td>
+                      {Q_KEYS.map(q=>(
+                        <EditableCell key={q} year={selYear} q={q} field={f.key} color={f.color} bg={f.bg}/>
+                      ))}
+                      <td style={{padding:"9px 12px",textAlign:"right",fontSize:13,fontWeight:800,color:f.key==="profit"?(yearTotal>=0?"#059669":"#DC2626"):f.color,background:"#DBEAFE",borderBottom:"1px solid #E2E8F0"}}>
+                        {fAb(yearTotal)}
+                      </td>
+                    </tr>
+                  )
+                })}
+                {/* 비고 행 */}
+                {Q_KEYS.map(q=>{
+                  const d = getQ(selYear,q)
+                  return null // 비고는 별도 행으로 처리
+                })}
+                <tr>
+                  <td style={{padding:"9px 14px",fontSize:12,color:"#64748B",borderBottom:"1px solid #E2E8F0",borderRight:"1px solid #E2E8F0"}}>비고</td>
+                  {Q_KEYS.map(q=>{
+                    const val = getQ(selYear,q).note||""
+                    return (
+                      <td key={q} style={{padding:"6px 10px",borderBottom:"1px solid #E2E8F0",borderRight:"1px solid #E2E8F0"}}>
+                        {canWrite
+                          ? <input value={val} onChange={e=>setQField(selYear,q,"note",e.target.value)}
+                              placeholder="메모" style={{width:"100%",padding:"3px 6px",border:"1px solid #E2E8F0",borderRadius:4,fontSize:11,outline:"none"}}/>
+                          : <span style={{fontSize:11,color:"#94A3B8"}}>{val||"-"}</span>
+                        }
+                      </td>
+                    )
+                  })}
+                  <td style={{background:"#DBEAFE",borderBottom:"1px solid #E2E8F0"}}/>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* 반기별 뷰 */}
+      {viewMode==="half"&&(
+        <div style={{background:"#fff",borderRadius:8,border:"1px solid #E2E8F0",overflow:"hidden",marginBottom:16}}>
+          <div style={{padding:"12px 18px",borderBottom:"1px solid #E2E8F0"}}>
+            <span style={{fontSize:14,fontWeight:700}}>{selYear}년 반기별 실적</span>
+          </div>
+          <div style={{overflowX:"auto"}}>
+            <table style={{width:"100%",borderCollapse:"collapse"}}>
+              <thead>
+                <tr style={{background:"#F8FAFC"}}>
+                  <th style={{padding:"9px 14px",textAlign:"left",fontSize:12,fontWeight:700,color:"#64748B",borderBottom:"2px solid #E2E8F0",minWidth:100}}>항목</th>
+                  <th style={{padding:"9px 12px",textAlign:"right",fontSize:12,fontWeight:700,color:"#334155",borderBottom:"2px solid #E2E8F0",minWidth:120}}>상반기 (Q1+Q2)</th>
+                  <th style={{padding:"9px 12px",textAlign:"right",fontSize:12,fontWeight:700,color:"#334155",borderBottom:"2px solid #E2E8F0",minWidth:120}}>하반기 (Q3+Q4)</th>
+                  <th style={{padding:"9px 12px",textAlign:"right",fontSize:12,fontWeight:700,color:"#1E3A8A",borderBottom:"2px solid #E2E8F0",background:"#DBEAFE",minWidth:100}}>연간 합계</th>
+                </tr>
+              </thead>
+              <tbody>
+                {FIELDS.map(f=>{
+                  const h1 = getHalf(selYear,1)
+                  const h2 = getHalf(selYear,2)
+                  const v1 = h1[f.key]||0
+                  const v2 = h2[f.key]||0
+                  const vt = v1+v2
+                  return (
+                    <tr key={f.key}>
+                      <td style={{padding:"9px 14px",fontSize:13,fontWeight:700,color:f.color,background:f.bg,borderBottom:"1px solid #E2E8F0",borderRight:"1px solid #E2E8F0"}}>{f.label}</td>
+                      <td style={{padding:"9px 12px",textAlign:"right",fontSize:13,fontWeight:600,color:f.key==="profit"?(v1>=0?"#059669":"#DC2626"):f.color,background:f.bg,borderBottom:"1px solid #E2E8F0",borderRight:"1px solid #E2E8F0"}}>{fAb(v1)}</td>
+                      <td style={{padding:"9px 12px",textAlign:"right",fontSize:13,fontWeight:600,color:f.key==="profit"?(v2>=0?"#059669":"#DC2626"):f.color,background:f.bg,borderBottom:"1px solid #E2E8F0",borderRight:"1px solid #E2E8F0"}}>{fAb(v2)}</td>
+                      <td style={{padding:"9px 12px",textAlign:"right",fontSize:14,fontWeight:800,color:f.key==="profit"?(vt>=0?"#059669":"#DC2626"):f.color,background:"#DBEAFE",borderBottom:"1px solid #E2E8F0"}}>{fAb(vt)}</td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* 연도별 비교 뷰 */}
+      {viewMode==="year"&&(
+        <div style={{background:"#fff",borderRadius:8,border:"1px solid #E2E8F0",overflow:"hidden",marginBottom:16}}>
+          <div style={{padding:"12px 18px",borderBottom:"1px solid #E2E8F0"}}>
+            <span style={{fontSize:14,fontWeight:700}}>연도별 실적 비교</span>
+          </div>
+          <div style={{overflowX:"auto"}}>
+            <table style={{width:"100%",borderCollapse:"collapse",minWidth:600}}>
+              <thead>
+                <tr style={{background:"#F8FAFC"}}>
+                  <th style={{padding:"9px 14px",textAlign:"left",fontSize:12,fontWeight:700,color:"#64748B",borderBottom:"2px solid #E2E8F0",minWidth:100}}>항목</th>
+                  {years.slice().reverse().map(y=>(
+                    <th key={y} style={{padding:"9px 12px",textAlign:"right",fontSize:12,fontWeight:700,color:"#334155",borderBottom:"2px solid #E2E8F0",minWidth:110,cursor:"pointer"}}
+                      onClick={()=>setSelYear(y)}>
+                      {y}년 {selYear===y&&"✓"}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {FIELDS.map(f=>(
+                  <tr key={f.key}>
+                    <td style={{padding:"9px 14px",fontSize:13,fontWeight:700,color:f.color,background:f.bg,borderBottom:"1px solid #E2E8F0",borderRight:"1px solid #E2E8F0"}}>{f.label}</td>
+                    {years.slice().reverse().map(y=>{
+                      const t = getYearTotal(y)
+                      const v = t[f.key]||0
+                      // 최고/최저 강조
+                      const allVals = years.map(yy=>getYearTotal(yy)[f.key]||0)
+                      const maxV = Math.max(...allVals)
+                      const isMax = v===maxV && v>0
+                      return (
+                        <td key={y} style={{padding:"9px 12px",textAlign:"right",fontSize:13,fontWeight:isMax?800:600,
+                          color:f.key==="profit"?(v>=0?"#059669":"#DC2626"):f.color,
+                          background:isMax?(f.bg):y===selYear?"#FEF9C3":"#fff",
+                          borderBottom:"1px solid #E2E8F0",borderRight:"1px solid #E2E8F0"}}>
+                          {fAb(v)}
+                          {isMax&&<span style={{fontSize:9,marginLeft:3,color:"#D97706"}}>▲최고</span>}
+                        </td>
+                      )
+                    })}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          {/* 연도별 트렌드 차트 */}
+          {years.length>1&&(
+            <div style={{padding:"16px 18px",borderTop:"1px solid #E2E8F0"}}>
+              <div style={{fontSize:13,fontWeight:700,color:"#334155",marginBottom:12}}>📊 연도별 추이 (억원)</div>
+              <div style={{display:"flex",gap:16,alignItems:"flex-end",height:120}}>
+                {years.slice().reverse().map(y=>{
+                  const t = getYearTotal(y)
+                  const maxRev = Math.max(...years.map(yy=>getYearTotal(yy).revenue||0),1)
+                  const revH = Math.round((t.revenue||0)/maxRev*90)
+                  const expH = Math.round((t.expense||0)/maxRev*90)
+                  return (
+                    <div key={y} style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",gap:2}}>
+                      <div style={{fontSize:11,color:"#059669",fontWeight:700}}>{fAb(t.revenue)}</div>
+                      <div style={{display:"flex",gap:2,alignItems:"flex-end",height:90}}>
+                        <div title={`매출 ${fAb(t.revenue)}`} style={{width:20,height:revH||2,background:"#059669",borderRadius:"3px 3px 0 0"}}/>
+                        <div title={`지출 ${fAb(t.expense)}`} style={{width:20,height:expH||2,background:"#DC2626",borderRadius:"3px 3px 0 0"}}/>
+                      </div>
+                      <div style={{fontSize:11,fontWeight:700,color:selYear===y?"#2563EB":"#64748B"}}>{y}</div>
+                    </div>
+                  )
+                })}
+              </div>
+              <div style={{display:"flex",gap:16,marginTop:6}}>
+                <div style={{display:"flex",alignItems:"center",gap:4,fontSize:11,color:"#64748B"}}><div style={{width:10,height:10,background:"#059669",borderRadius:2}}/> 매출</div>
+                <div style={{display:"flex",alignItems:"center",gap:4,fontSize:11,color:"#64748B"}}><div style={{width:10,height:10,background:"#DC2626",borderRadius:2}}/> 지출</div>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* 데이터 관리 (관리자) */}
+      {isAdmin&&(
+        <div style={{background:"#F8FAFC",borderRadius:8,border:"1px dashed #CBD5E1",padding:"12px 16px",display:"flex",gap:10,alignItems:"center",flexWrap:"wrap"}}>
+          <span style={{fontSize:12,color:"#64748B"}}>📤 엑셀 내보내기</span>
+          <button onClick={()=>{
+            const wb = XLSX.utils.book_new()
+            const allData = [["연도","분기","계약(억)","매출(억)","지출(억)","손익(억)","비고"]]
+            years.slice().reverse().forEach(y=>{
+              Q_KEYS.forEach((q,qi)=>{
+                const d = getQ(y,q)
+                const profit = (d.revenue||0)-(d.expense||0)
+                allData.push([y, QUARTERS[qi], d.contract||0, d.revenue||0, d.expense||0, profit, d.note||""])
+              })
+            })
+            const ws = XLSX.utils.aoa_to_sheet(allData)
+            ws["!cols"] = [8,15,12,12,12,12,20].map(w=>({wch:w}))
+            XLSX.utils.book_append_sheet(wb, ws, "과거실적")
+            XLSX.writeFile(wb, `상지서울_과거실적_${new Date().toISOString().slice(0,10)}.xlsx`)
+          }} style={{padding:"5px 12px",background:"#2563EB",color:"#fff",border:"none",borderRadius:6,fontSize:12,fontWeight:600,cursor:"pointer"}}>
+            📥 엑셀 다운로드
+          </button>
+          <button onClick={()=>{
+            if(!window.confirm("과거실적 데이터를 전부 초기화합니까?")) return
+            setData({}); localStorage.removeItem(STORAGE_KEY)
+            toast&&toast("🗑 과거실적 데이터 초기화 완료","info")
+          }} style={{padding:"5px 12px",background:"#FEE2E2",color:"#DC2626",border:"none",borderRadius:6,fontSize:12,cursor:"pointer"}}>
+            🗑 데이터 초기화
+          </button>
+        </div>
+      )}
+    </div>
+  )
+}
+
 function StaffStatusPanel({DEPT_COLORS, deptStaff={}, staffMonthly={}, staffTarget={}}) {
   const {STAFF_DEPTS} = useDepts()
   const NOW = new Date(); const YEAR = NOW.getFullYear(); const YR = String(YEAR)
