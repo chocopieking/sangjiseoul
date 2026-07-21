@@ -599,6 +599,110 @@ export default function App() {
     return {ok:true}
   },[departments,STAFF_DEPTS])
 
+  // ── 본부 합치기: from 본부의 모든 데이터를 to 본부로 이전 후 from 삭제 ──
+  const mergeDept = useCallback((from, to) => {
+    if(!from||!to||from===to) return {ok:false,msg:"합칠 본부를 선택하세요."}
+    if(STAFF_DEPTS.length<=1) return {ok:false,msg:"최소 1개 본부는 필요합니다."}
+
+    // 1. 프로젝트: from 본부 → to 본부로 교체 (depts 배열 + deptShares)
+    setProjects(prev=>prev.map(p=>{
+      const depts = (p.depts||[])
+      if(!depts.includes(from)) return p
+      // deptShares 병합 (from 지분 → to에 합산)
+      let newShares = (p.deptShares||[]).map(s=>
+        s.dept===from ? {...s, dept:to} : s
+      )
+      // to가 이미 있으면 지분 합산
+      const toIdx = newShares.findIndex(s=>s.dept===to)
+      if(newShares.filter(s=>s.dept===to).length > 1) {
+        const total = newShares.filter(s=>s.dept===to).reduce((sum,s)=>sum+(s.share||0),0)
+        newShares = [...newShares.filter(s=>s.dept!==to), {dept:to, share:total}]
+      }
+      return {
+        ...p,
+        depts: [...new Set(depts.map(d=>d===from?to:d))],
+        deptShares: newShares,
+      }
+    }))
+
+    // 2. cashItems: from dept → to
+    setCashItems(prev=>(prev||[]).map(i=>i.dept===from?{...i,dept:to}:i))
+
+    // 3. contractItems: from dept → to
+    setContractItems(prev=>(prev||[]).map(i=>{
+      if(!(i.depts||[]).includes(from)) return i
+      const newDepts = [...new Set((i.depts||[]).map(d=>d===from?to:d))]
+      const newShares = (i.deptShares||[]).map(s=>s.dept===from?{...s,dept:to}:s)
+      return {...i, depts:newDepts, deptShares:newShares}
+    }))
+
+    // 4. 인원·목표·월별: from 값을 to에 합산
+    setDeptStaff(prev=>{
+      const f=prev[from]||{}, t=prev[to]||{}
+      const merged = {
+        total:   (f.total||0)+(t.total||0),
+        current: (f.current||0)+(t.current||0),
+        avg:     (f.avg||0)+(t.avg||0),
+      }
+      const next = {...prev, [to]:merged}
+      delete next[from]
+      return next
+    })
+    setStaffTarget(prev=>{
+      const f=prev[from]||{}, t=prev[to]||{}
+      const merged = {}
+      const keys = [...new Set([...Object.keys(f),...Object.keys(t)])]
+      keys.forEach(k=>{ merged[k]=(f[k]||0)+(t[k]||0) })
+      const next = {...prev, [to]:merged}
+      delete next[from]
+      return next
+    })
+    setStaffMonthly(prev=>{
+      const f=prev[from]||{}, t=prev[to]||{}
+      const merged = {}
+      const keys = [...new Set([...Object.keys(f),...Object.keys(t)])]
+      keys.forEach(k=>{ merged[k]=(f[k]||0)+(t[k]||0) })
+      const next = {...prev, [to]:merged}
+      delete next[from]
+      return next
+    })
+
+    // 5. deptBiz: from 값을 to에 합산 (매출목표 등)
+    setDeptBiz(prev=>{
+      const f=prev[from]||{}, t=prev[to]||{}
+      const merged = {...t}
+      Object.keys(f).forEach(k=>{
+        if(typeof f[k]==="number") merged[k]=(t[k]||0)+(f[k]||0)
+        else if(!merged[k]) merged[k]=f[k]
+      })
+      const next = {...prev, [to]:merged}
+      delete next[from]
+      return next
+    })
+
+    // 6. cashflow/pnlData: from → to 합산
+    setCashflow(prev=>prev.map(m=>{
+      if(!m.byDept) return m
+      const f=m.byDept[from]||0, t=m.byDept[to]||0
+      const next = {...m.byDept, [to]:f+t}
+      delete next[from]
+      return {...m, byDept:next}
+    }))
+    setPnlData(prev=>prev.map(r=>{
+      if(!r.byDept) return r
+      const f=r.byDept[from]||{}, t=r.byDept[to]||{}
+      const merged = {...t}
+      Object.keys(f).forEach(k=>{ if(typeof f[k]==="number") merged[k]=(t[k]||0)+(f[k]||0) })
+      const next = {...r.byDept, [to]:merged}
+      delete next[from]
+      return {...r, byDept:next}
+    }))
+
+    // 7. 본부 목록에서 from 제거
+    persistDepartments(departments.filter(d=>d.name!==from))
+    return {ok:true}
+  },[departments,STAFF_DEPTS,setProjects,setCashItems,setContractItems])
+
   const setDeptColor = (name,color)=>persistDepartments(departments.map(d=>d.name===name?{...d,color}:d))
   const setDeptFinance = (name,finance)=>{
     persistDepartments(departments.map(d=>d.name===name?{...d,finance}:d))
@@ -618,7 +722,7 @@ export default function App() {
   },[deptBiz,DEPTS])
 
   const deptCtx = {departments,DEPTS,STAFF_DEPTS,DEPT_COLORS,DEPT_BIZ:safeDeptBiz,
-    isAdmin:currentUser?.role==="admin",addDept,renameDept,deleteDept,setDeptColor,setDeptFinance,deptUsage,
+    isAdmin:currentUser?.role==="admin",addDept,renameDept,deleteDept,mergeDept,setDeptColor,setDeptFinance,deptUsage,
     contractTypes, setContractTypes,
     projTypes, setProjTypes,
     bidTypes, setBidTypes,

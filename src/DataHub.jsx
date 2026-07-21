@@ -53,7 +53,7 @@ export function DataHubTab({
   saleItems, setSaleItems,
   contractItems, setContractItems,
 }) {
-  const {STAFF_DEPTS,DEPTS,DEPT_COLORS,departments,addDept,renameDept,deleteDept,setDeptColor,setDeptFinance,deptUsage} = useDepts()
+  const {STAFF_DEPTS,DEPTS,DEPT_COLORS,departments,addDept,renameDept,deleteDept,mergeDept,setDeptColor,setDeptFinance,deptUsage} = useDepts()
   const isAdmin = currentUser.role === "admin"
   const canEditDept = dept => isAdmin || (currentUser.write===true && currentUser.dept===dept)
   const canManage = isAdmin || currentUser.write===true
@@ -110,7 +110,7 @@ export function DataHubTab({
       {section==="cashflow"  && <CashflowDeptSection cashflow={cashflow} setCashflow={setCashflow} DEPTS={DEPTS} DEPT_COLORS={DEPT_COLORS} canEditDept={canEditDept} currentUser={currentUser} isAdmin={isAdmin} saveVersion={saveVersion}/>}
       {section==="years"     && <YearsSection years={years} setYears={setYears} isAdmin={isAdmin} currentUser={currentUser} saveVersion={saveVersion}/>}
       {section==="projects"  && <ProjectsShortcut projects={projects} setProjects={setProjects} vendorsDB={vendorsDB} setVendorsDB={setVendorsDB} setVendorPayments={setVendorPayments} currentUser={currentUser} isAdmin={isAdmin} setTab={setTab} setSelProjId={setSelProjId} setSelVerIdx={setSelVerIdx} setShowNewProj={setShowNewProj}/>}
-      {section==="depts"     && <DeptManageSection departments={departments} addDept={addDept} renameDept={renameDept} deleteDept={deleteDept} setDeptColor={setDeptColor} setDeptFinance={setDeptFinance} deptUsage={deptUsage} isAdmin={isAdmin}/>}
+      {section==="depts"     && <DeptManageSection departments={departments} addDept={addDept} renameDept={renameDept} deleteDept={deleteDept} mergeDept={mergeDept} setDeptColor={setDeptColor} setDeptFinance={setDeptFinance} deptUsage={deptUsage} isAdmin={isAdmin}/>}
       {section==="ctypes"    && <ContractTypeSection contractTypes={contractTypes||[]} setContractTypes={setContractTypes} canManage={canManage}/>}
       {section==="ptypes"    && <SimpleListSection title="🏢 건물유형 관리" description="프로젝트 개설 시 선택하는 건물 유형 목록입니다." list={projTypes||[]} setList={setProjTypes} canManage={canManage}/>}
       {section==="btypes"    && <SimpleListSection title="📋 수주형태 관리" description="프로젝트 수주형태(외주비 비교 기준) 목록입니다." list={bidTypes||[]} setList={setBidTypes} canManage={canManage}/>}
@@ -1071,11 +1071,14 @@ function StaffPlanSection({deptStaff,staffTarget,setStaffTarget,staffMonthly,set
 // ════════════════════════════════════════════════════════════
 // 7) 본부 관리 — 본부 추가 · 이름변경 · 삭제 · 색상/재무추적 설정
 // ════════════════════════════════════════════════════════════
-function DeptManageSection({departments,addDept,renameDept,deleteDept,setDeptColor,setDeptFinance,deptUsage,isAdmin}) {
-  const [editingName,setEditingName] = useState(null) // 원래 이름
+function DeptManageSection({departments,addDept,renameDept,deleteDept,mergeDept,setDeptColor,setDeptFinance,deptUsage,isAdmin}) {
+  const [editingName,setEditingName] = useState(null)
   const [editVal,setEditVal] = useState("")
   const [editMsg,setEditMsg] = useState("")
-  const [pendingDelete,setPendingDelete] = useState(null) // {name,usage}
+  const [pendingDelete,setPendingDelete] = useState(null)  // {name,usage}
+  const [mergeTarget,setMergeTarget]   = useState("")      // 합칠 대상 본부명
+  const [mergeMode,setMergeMode]       = useState(false)   // true=합치기, false=단순삭제
+  const [mergeMsg,setMergeMsg]         = useState("")
 
   const [newName,setNewName] = useState("")
   const [newColor,setNewColor] = useState("#185FA5")
@@ -1090,14 +1093,32 @@ function DeptManageSection({departments,addDept,renameDept,deleteDept,setDeptCol
     setEditingName(null); setEditVal(""); setEditMsg("")
   }
 
-  const askDelete = d=> setPendingDelete({name:d.name, usage:deptUsage(d.name)})
-  const confirmDelete = ()=>{ if(pendingDelete) deleteDept(pendingDelete.name); setPendingDelete(null) }
+  const askDelete = d=>{
+    setPendingDelete({name:d.name, usage:deptUsage(d.name)})
+    setMergeTarget("")
+    setMergeMode(false)
+    setMergeMsg("")
+  }
+  const confirmAction = ()=>{
+    if(!pendingDelete) return
+    if(mergeMode) {
+      if(!mergeTarget){ setMergeMsg("합칠 대상 본부를 선택하세요."); return }
+      const r = mergeDept(pendingDelete.name, mergeTarget)
+      if(!r.ok){ setMergeMsg(r.msg||"오류가 발생했습니다."); return }
+    } else {
+      deleteDept(pendingDelete.name)
+    }
+    setPendingDelete(null); setMergeTarget(""); setMergeMode(false); setMergeMsg("")
+  }
 
   const submitAdd = ()=>{
     const r = addDept(newName, newColor, newFinance)
     if(!r.ok){ setAddMsg(r.msg||"추가할 수 없습니다."); return }
     setNewName(""); setNewColor(DEPT_COLOR_POOL_DEFAULT[(departments.length+1)%DEPT_COLOR_POOL_DEFAULT.length]); setNewFinance(true); setAddMsg("")
   }
+
+  // 합칠 수 있는 대상 본부 목록 (삭제 대상 제외)
+  const mergeTargets = departments.filter(d=>d.name !== pendingDelete?.name)
 
   return (
     <div>
@@ -1181,24 +1202,94 @@ function DeptManageSection({departments,addDept,renameDept,deleteDept,setDeptCol
         </div>
       )}
 
-      {/* 삭제 확인 */}
+      {/* 삭제 / 합치기 모달 */}
       {pendingDelete && (
-        <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.4)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:300}}>
-          <div style={S.card({width:420,maxWidth:"95vw",marginBottom:0})}>
-            <div style={{fontSize:15,fontWeight:700,marginBottom:10}}>'{pendingDelete.name}' 본부를 삭제하시겠습니까?</div>
-            <div style={{fontSize:13,color:"#555",marginBottom:14,lineHeight:1.8}}>
-              인원현황·인원계획·월별손익·월수금에서 이 본부의 데이터가 모두 제거되고, 연결된 프로젝트에서도 담당본부 목록에서 빠집니다.
-              {(pendingDelete.usage.staff>0||pendingDelete.usage.projects>0||pendingDelete.usage.users.length>0) && (
-                <div style={{marginTop:8,...S.bdg(C.amberL,"#633806"),display:"block",padding:"8px 12px",lineHeight:1.8}}>
-                  현재 인원 {pendingDelete.usage.staff.toFixed(1)}명, 연결 프로젝트 {pendingDelete.usage.projects}건
-                  {pendingDelete.usage.users.length>0 && <>, 소속 계정: {pendingDelete.usage.users.join(", ")}</>}
-                  이 있습니다. 그래도 삭제하면 위 데이터의 본부 연결이 모두 해제됩니다.
-                </div>
-              )}
+        <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.45)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:300}}>
+          <div style={{...S.card({width:500,maxWidth:"95vw",marginBottom:0}),padding:24}}>
+            {/* 제목 */}
+            <div style={{fontSize:16,fontWeight:800,color:"#0F172A",marginBottom:4}}>
+              🏢 '{pendingDelete.name}' 본부 삭제
             </div>
-            <div style={{display:"flex",gap:8}}>
-              <button onClick={confirmDelete} style={S.btn(C.red)}>삭제</button>
-              <button onClick={()=>setPendingDelete(null)} style={S.btn(C.grayL,C.gray)}>취소</button>
+
+            {/* 현재 데이터 현황 */}
+            {(pendingDelete.usage.staff>0||pendingDelete.usage.projects>0||pendingDelete.usage.users.length>0) && (
+              <div style={{background:"#FEF3C7",border:"1px solid #F59E0B",borderRadius:8,padding:"10px 14px",marginBottom:16,fontSize:13,color:"#78350F",lineHeight:1.8}}>
+                ⚠ 이 본부에는 연결된 데이터가 있습니다:<br/>
+                <b>인원</b> {pendingDelete.usage.staff.toFixed(1)}명 &nbsp;|&nbsp;
+                <b>프로젝트</b> {pendingDelete.usage.projects}건
+                {pendingDelete.usage.users.length>0 && <>&nbsp;|&nbsp;<b>계정</b> {pendingDelete.usage.users.join(", ")}</>}
+              </div>
+            )}
+
+            {/* 처리 방식 선택 */}
+            <div style={{fontSize:13,fontWeight:700,color:"#334155",marginBottom:10}}>
+              삭제 후 데이터를 어떻게 처리할까요?
+            </div>
+            <div style={{display:"flex",flexDirection:"column",gap:8,marginBottom:16}}>
+
+              {/* 옵션 1: 다른 본부로 합치기 */}
+              <label style={{display:"flex",alignItems:"flex-start",gap:10,padding:"12px 14px",
+                border:`2px solid ${mergeMode?"#2563EB":"#E2E8F0"}`,borderRadius:8,cursor:"pointer",
+                background:mergeMode?"#EFF6FF":"#F8FAFC"}}>
+                <input type="radio" checked={mergeMode} onChange={()=>setMergeMode(true)}
+                  style={{marginTop:3,accentColor:"#2563EB",flexShrink:0}}/>
+                <div>
+                  <div style={{fontWeight:700,color:"#2563EB",marginBottom:4}}>📦 다른 본부로 합치기 (권장)</div>
+                  <div style={{fontSize:12,color:"#64748B",lineHeight:1.6}}>
+                    이 본부의 프로젝트·인원·매출·계약·지출 데이터를 선택한 본부로 모두 이전합니다.
+                    데이터가 사라지지 않습니다.
+                  </div>
+                  {mergeMode && (
+                    <div style={{marginTop:10}}>
+                      <div style={{fontSize:12,fontWeight:600,color:"#334155",marginBottom:6}}>
+                        합칠 대상 본부 선택:
+                      </div>
+                      <select value={mergeTarget} onChange={e=>{ setMergeTarget(e.target.value); setMergeMsg("") }}
+                        style={{width:"100%",padding:"8px 10px",border:"1.5px solid #2563EB",borderRadius:6,
+                          fontSize:13,fontWeight:600,background:"#fff",outline:"none"}}>
+                        <option value="">-- 본부 선택 --</option>
+                        {mergeTargets.map(d=>(
+                          <option key={d.name} value={d.name}>{d.name}</option>
+                        ))}
+                      </select>
+                      {mergeTarget && (
+                        <div style={{marginTop:8,fontSize:12,color:"#059669",fontWeight:600}}>
+                          ✓ '{pendingDelete.name}'의 모든 데이터가 '{mergeTarget}'으로 이전됩니다.
+                        </div>
+                      )}
+                      {mergeMsg && <div style={{marginTop:6,fontSize:12,color:"#DC2626",fontWeight:600}}>{mergeMsg}</div>}
+                    </div>
+                  )}
+                </div>
+              </label>
+
+              {/* 옵션 2: 데이터도 삭제 */}
+              <label style={{display:"flex",alignItems:"flex-start",gap:10,padding:"12px 14px",
+                border:`2px solid ${!mergeMode?"#DC2626":"#E2E8F0"}`,borderRadius:8,cursor:"pointer",
+                background:!mergeMode?"#FEF2F2":"#F8FAFC"}}>
+                <input type="radio" checked={!mergeMode} onChange={()=>setMergeMode(false)}
+                  style={{marginTop:3,accentColor:"#DC2626",flexShrink:0}}/>
+                <div>
+                  <div style={{fontWeight:700,color:"#DC2626",marginBottom:4}}>🗑 본부와 데이터 모두 삭제</div>
+                  <div style={{fontSize:12,color:"#64748B",lineHeight:1.6}}>
+                    인원현황·월별손익·월수금에서 이 본부 데이터가 제거되고,
+                    연결된 프로젝트에서도 이 본부 연결이 해제됩니다. <b>복구 불가</b>
+                  </div>
+                </div>
+              </label>
+            </div>
+
+            {/* 버튼 */}
+            <div style={{display:"flex",gap:8,justifyContent:"flex-end"}}>
+              <button onClick={()=>setPendingDelete(null)}
+                style={{padding:"9px 18px",background:"#F1F5F9",color:"#334155",border:"none",borderRadius:8,fontSize:13,fontWeight:600,cursor:"pointer"}}>
+                취소
+              </button>
+              <button onClick={confirmAction}
+                style={{padding:"9px 20px",background:mergeMode?"#2563EB":"#DC2626",
+                  color:"#fff",border:"none",borderRadius:8,fontSize:13,fontWeight:700,cursor:"pointer"}}>
+                {mergeMode ? `'${mergeTarget||"?"}' 으로 합치기` : "삭제 확인"}
+              </button>
             </div>
           </div>
         </div>
