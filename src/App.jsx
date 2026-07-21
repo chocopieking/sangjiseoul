@@ -659,9 +659,20 @@ export default function App() {
     })
     setStaffMonthly(prev=>{
       const f=prev[from]||{}, t=prev[to]||{}
-      const merged = {}
+      const merged = {...t}
       const keys = [...new Set([...Object.keys(f),...Object.keys(t)])]
-      keys.forEach(k=>{ merged[k]=(f[k]||0)+(t[k]||0) })
+      keys.forEach(k=>{
+        const fv = f[k], tv = t[k]
+        // staffMonthly[dept][year]는 12개 배열 또는 숫자
+        if(Array.isArray(fv)||Array.isArray(tv)) {
+          // 배열(월별) 합산
+          const fa = Array.isArray(fv)?fv:Array(12).fill(0)
+          const ta = Array.isArray(tv)?tv:Array(12).fill(0)
+          merged[k] = Array.from({length:12},(_,i)=>(fa[i]||0)+(ta[i]||0))
+        } else {
+          merged[k] = (fv||0)+(tv||0)
+        }
+      })
       const next = {...prev, [to]:merged}
       delete next[from]
       return next
@@ -1646,7 +1657,7 @@ function SimplePieChart({data=[], total=0}) {
   // 본부별 인원 3종: 목표인원, 연평균, 현재인원
   const getStaffInfo = (dept) => {
     const target  = num(staffTarget?.[dept]?.[YR]) || num(deptBiz[dept]?.orderTarget ? 0 : 0) || 0
-    const monthly = staffMonthly?.[dept]?.[YR] || Array(12).fill(0)
+    const monthly = (v=>(Array.isArray(v)?v:Array(12).fill(0)))(staffMonthly?.[dept]?.[YR])
     const filled  = monthly.filter(v=>num(v)>0)
     const avgStaff= filled.length>0 ? Math.round(filled.reduce((s,v)=>s+num(v),0)/filled.length*10)/10 : (deptStaff[dept]?.total||0)
     const li      = lastFilled(monthly)
@@ -7988,9 +7999,10 @@ function AnalysisDashboard({projects, cashItems, saleItems, DEPTS, DEPT_COLORS, 
   const totExp        = expByDept.reduce((s,d)=>s+d.paid,0)              // 억원 (별도)
 
   // 파이차트 데이터
-  const contractPie = DEPTS.map((d,i)=>({name:d.replace("본부",""),value:+(contractByDept[i].done).toFixed(2),color:DEPT_COLORS[d]||"#64748B"}))
-  const salePie     = DEPTS.map((d,i)=>({name:d.replace("본부",""),value:+saleByDept[i].revCum.toFixed(2),color:DEPT_COLORS[d]||"#64748B"}))
-  const expPie      = DEPTS.map((d,i)=>({name:d.replace("본부",""),value:+expByDept[i].paid.toFixed(2),color:DEPT_COLORS[d]||"#64748B"}))
+  // 파이차트 — .find()로 dept명 기준 안전하게 + 단위 통일(억원)
+  const contractPie = DEPTS.map(d=>{ const cd=contractByDept.find(x=>x.dept===d); return {name:d.replace("본부",""),value:+((cd?.done||0)/1e8).toFixed(2),color:DEPT_COLORS[d]||"#64748B"} })
+  const salePie     = DEPTS.map(d=>{ const sd=saleByDept.find(x=>x.dept===d);    return {name:d.replace("본부",""),value:+((sd?.revCum||0)/1e8).toFixed(2),color:DEPT_COLORS[d]||"#64748B"} })
+  const expPie      = DEPTS.map(d=>{ const ed=expByDept.find(x=>x.dept===d);     return {name:d.replace("본부",""),value:+(ed?.paid||0).toFixed(2),color:DEPT_COLORS[d]||"#64748B"} })
 
   const tblH = {padding:"10px 12px",textAlign:"left",fontSize:13,fontWeight:700,color:"#64748B",borderBottom:"2px solid #E5E7EB",whiteSpace:"nowrap",background:"#F8FAFC"}
   const tblD = (align="left",bold=false,color="#334155")=>({padding:"10px 12px",textAlign:align,fontSize:13,fontWeight:bold?700:400,color,borderBottom:"1px solid #F3F4F6",whiteSpace:"nowrap"})
@@ -9365,7 +9377,7 @@ function StaffStatusPanel({DEPT_COLORS, deptStaff={}, staffMonthly={}, staffTarg
   const num = v => Number.isFinite(+v)?+v:0
 
   const rows = STAFF_DEPTS.map(dept=>{
-    const monthly = staffMonthly?.[dept]?.[YR] || Array(12).fill(0)
+    const monthly = (v=>(Array.isArray(v)?v:Array(12).fill(0)))(staffMonthly?.[dept]?.[YR])
     const target  = num(staffTarget?.[dept]?.[YR])||0
     const filled  = monthly.filter(v=>num(v)>0)
     const avg     = filled.length>0 ? Math.round(filled.reduce((s,v)=>s+num(v),0)/filled.length*10)/10 : 0

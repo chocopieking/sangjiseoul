@@ -919,7 +919,7 @@ function YearsPreviewTable({data}) {
 // ════════════════════════════════════════════════════════════
 // 1b) 연간 인원계획 — 본부별 목표인원 / 월별 현인원 / 연간평균
 // ════════════════════════════════════════════════════════════
-const lastFilled = monthly => { let idx=-1; (monthly||[]).forEach((v,i)=>{if(num(v)>0)idx=i}); return idx }
+const lastFilled = monthly => { let idx=-1; (Array.isArray(monthly)?monthly:[]).forEach((v,i)=>{if(num(v)>0)idx=i}); return idx }
 const annualAvg  = monthly => { const f=(monthly||[]).filter(v=>num(v)>0); return f.length? f.reduce((s,v)=>s+num(v),0)/f.length : 0 }
 
 function StaffPlanSection({deptStaff,staffTarget,setStaffTarget,staffMonthly,setStaffMonthly,years,STAFF_DEPTS,DEPT_COLORS,canEditDept,currentUser,saveVersion}) {
@@ -933,7 +933,7 @@ function StaffPlanSection({deptStaff,staffTarget,setStaffTarget,staffMonthly,set
   const canEdit = canEditDept(selDept)
 
   const getTarget  = (d,y)=>num(staffTarget?.[d]?.[y])
-  const getMonthly = (d,y)=>staffMonthly?.[d]?.[y]||Array(12).fill(0)
+  const getMonthly = (d,y)=>{ const v=staffMonthly?.[d]?.[y]; return Array.isArray(v)?v:Array(12).fill(0) }
 
   const start = ()=>{ setDraft({target:getTarget(selDept,selYear), monthly:[...getMonthly(selDept,selYear)]}); setNote(""); setEditing(true) }
   const save  = ()=>{
