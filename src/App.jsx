@@ -1181,8 +1181,8 @@ export default function App() {
                 const labels = {"1":"월수금계획","2":"계약현황","3":"지출현황","4":"전체"}
                 if(!window.confirm(`⚠️ ${labels[which]} 데이터를 전부 삭제합니까?\n\n이 작업은 되돌릴 수 없습니다.`)) return
                 keys.forEach(k=>localStorage.removeItem(k))
-                alert(`✅ ${labels[which]} 삭제 완료. 페이지를 새로고침합니다.`)
-                window.location.reload()
+                setTimeout(()=>window.location.reload(),300)
+                // alert 대신 reload 전 메시지는 브라우저가 처리
               }}
                 style={{flex:1,padding:"7px 6px",background:"#FEE2E2",color:"#DC2626",
                   border:"none",borderRadius:8,fontSize:12,fontWeight:700,cursor:"pointer"}}>
@@ -2574,9 +2574,11 @@ function uploadContractExcel(e, contractItems, setContractItems, currentUser, to
 
         const deptRaw    = String(get(r,"dept")||"").trim()
         const typeRaw     = String(get(r,"itemType")||"").trim()
-        const totalFeeExpect   = toAmt(get(r,"totalFee"))
-        const shareRatioExpect = parseFloat(String(get(r,"shareRatio")||"100").replace(/[^0-9.]/g,""))||100
-        const serviceFeeExpect = toAmt(get(r,"svcFee"))
+        const totalFeeExpect   = toAmt(get(r,"totalFee"))   // 억원 → 원
+        // 지분율: 0.35 입력(소수) → 35%로 자동 보정, 35 입력(정수%) → 그대로
+        const shareRawVal = parseFloat(String(get(r,"shareRatio")||"100").replace(/[^0-9.]/g,""))||100
+        const shareRatioExpect = shareRawVal <= 1 ? Math.round(shareRawVal * 100) : shareRawVal
+        const serviceFeeExpect = toAmt(get(r,"svcFee"))      // 억원 → 원
         const bizCompPct       = parseFloat(String(get(r,"bizCompPct")||"100").replace(/[^0-9.]/g,""))||100
         const bizCompFee       = Math.round(serviceFeeExpect * bizCompPct / 100)
         const existingId  = String(get(r,"id")||"").trim()
@@ -2897,7 +2899,8 @@ function ProjectsTab({projects,setProjects,selProjId,setSelProjId,selVerIdx,setS
                   <button onClick={()=>{
                     if(!window.confirm(`선택한 ${cmpIds.length}개 프로젝트를 삭제합니까?\n\n이 작업은 되돌릴 수 없습니다.`)) return
                     setProjects(prev=>prev.filter(p=>!cmpIds.includes(p.id)))
-                    setCmpIds([])
+                    const cnt2=cmpIds.length; setCmpIds([])
+                    toast&&toast(`🗑 ${cnt2}개 프로젝트 삭제 완료`,"info")
                   }} style={{padding:"7px 14px",background:"#DC2626",color:"#fff",border:"none",
                     borderRadius:8,fontSize:13,fontWeight:700,cursor:"pointer"}}>
                     🗑 선택 삭제 ({cmpIds.length}건)
@@ -2992,9 +2995,10 @@ function ProjectsTab({projects,setProjects,selProjId,setSelProjId,selVerIdx,setS
                               ✏
                             </button>
                             <button onClick={()=>{
-                              if(!window.confirm(`"${p.name}" 프로젝트를 삭제합니까?`)) return
+                              if(!window.confirm(`"${p.name}" 프로젝트를 삭제합니까?\n\n삭제 후 복원할 수 없습니다.`)) return
                               setProjects(prev=>prev.filter(pp=>pp.id!==p.id))
                               if(selProjId===p.id) setSelProjId(null)
+                              toast&&toast(`🗑 "${p.name.slice(0,20)}" 프로젝트 삭제 완료`,"info")
                             }} title="삭제"
                               style={{padding:"4px 8px",background:"#FEE2E2",color:"#DC2626",
                                 border:"none",borderRadius:6,fontSize:11,cursor:"pointer",fontWeight:700}}>
@@ -7698,7 +7702,8 @@ function AnalysisDashboard({projects, cashItems, saleItems, DEPTS, DEPT_COLORS, 
     const normFeeD = v => {
       const n = Number(v) || 0; if(n===0) return 0
       const abs = Math.abs(n)
-      if(abs >= 1e8) return n/1e8  // 원→억 변환 (부호 유지)
+      // 100만원(1e6) 이상 = 원 단위 → 억원 변환 (부호 유지)
+      if(abs >= 1e6) return n/1e8
       return n
     }
     const getTypeD = item => {
@@ -9794,12 +9799,11 @@ function ContractStatusPage({contractItems=[], setContractItems, DEPTS, DEPT_COL
 
   const toast  = useToast()
   const normFee = v => {
-    let n = Number(v) || 0
-    if(n === 0) return 0
+    const n = Number(v) || 0; if(n===0) return 0
     const abs = Math.abs(n)
-    // 1억(1e8) 초과 → 원 단위 → 억원으로 변환 (부호 유지)
-    // 1억 이하 → 이미 억원 단위 → 그대로
-    if(abs >= 1e8) return n / 1e8
+    // 100만원(1e6) 이상 = 원 단위 저장 → 억원으로 변환 (부호 유지)
+    // 100만원 미만 = 이미 억원 단위 → 그대로
+    if(abs >= 1e6) return n / 1e8
     return n
   }
   const fAin   = v => v>0?(v/1e8).toFixed(2):""
@@ -9909,15 +9913,17 @@ function ContractStatusPage({contractItems=[], setContractItems, DEPTS, DEPT_COL
   const startEdit = (item) => { setEditId(item.id); setDraft({...item}) }
   const saveEdit = () => {
     if(!draft) return
-    // 사업자공모 최종설계비 자동계산
     const bizCompFee = Math.round((draft.serviceFeeExpect||0) * (draft.bizCompPct||100) / 100)
-    updateItem(editId, {...draft, bizCompFee})
+    updateItem(editId, {...draft, bizCompFee, updatedAt: new Date().toISOString()})
     setEditId(null); setDraft(null)
+    toast && toast(`✅ "${draft.name?.slice(0,20)||"항목"}" 저장 완료`, "success")
   }
   const cancelEdit = () => { setEditId(null); setDraft(null) }
   const deleteItem = (id) => {
-    if(!window.confirm("이 항목을 삭제하시겠습니까?")) return
+    const item = (yearFilteredContracts||[]).find(i=>i.id===id)
+    if(!window.confirm(`"${item?.name?.slice(0,25)||"이 항목"}"을 삭제하시겠습니까?\n\n삭제 후 복원할 수 없습니다.`)) return
     setContractItems(prev => (prev||[]).filter(i => i.id !== id))
+    toast && toast(`🗑 "${item?.name?.slice(0,20)||"항목"}" 삭제 완료`, "info")
   }
 
   const goProj = (item) => { if(setTab) setTab("projects") }
@@ -10099,6 +10105,7 @@ function ContractStatusPage({contractItems=[], setContractItems, DEPTS, DEPT_COL
             if(!window.confirm("⚠️ 계약현황 데이터를 전부 삭제합니까?\n삭제 후 새 파일을 업로드하세요.")) return
             localStorage.removeItem("sjs_contract_items")
             setContractItems([])
+            toast&&toast("🗑 계약현황 데이터 초기화 완료","info")
           }}
             style={{marginLeft:"auto",padding:"6px 12px",background:"#FEE2E2",color:"#DC2626",
               border:"1px solid #FECACA",borderRadius:8,fontSize:12,fontWeight:700,cursor:"pointer"}}>
@@ -11469,7 +11476,7 @@ function YearEndForecast({cashItems=[],saleItems=[],contractItems=[],deptBiz={},
 
   // ── 계약 현황 분석 ───────────────────────────────────────────
   const thisYearContracts = contractItems.filter(i=>String(i.contractYear||"").startsWith(YEAR))
-  const normFee = v => { const n=Math.abs(Number(v)||0); return n>1000?n/1e8:n }
+  const normFee = v => { const n=Number(v)||0; if(n===0)return 0; const a=Math.abs(n); return a>=1e6?n/1e8:n }
   const contractDone = thisYearContracts.filter(i=>(i.type||"").includes("계약")).reduce((s,i)=>s+normFee(i.serviceFeeExpect||i.amount||0),0)
   const contractConf = thisYearContracts.filter(i=>i.type==="확정").reduce((s,i)=>s+normFee(i.serviceFeeExpect||i.amount||0),0)
   const contractPush = thisYearContracts.filter(i=>i.type==="추진").reduce((s,i)=>s+normFee(i.serviceFeeExpect||i.amount||0),0)
