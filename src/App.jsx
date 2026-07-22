@@ -160,145 +160,186 @@ function GlobalSearchModal({onClose, projects=[], cashItems=[], contractItems=[]
     setResults(found.slice(0,20))
   }
 
-  // 스마트 검색 (유사 프로젝트명 포함, 로컬 NLP)
+  // ── 스마트 검색 (자연어 NLP + 유사도 매칭) ────────────────
   const aiSearch = (q) => {
     if(!q.trim()) return
     setLoading(true); setAiAnswer("")
 
     setTimeout(()=>{
-      const qL = q.toLowerCase().replace(/\s/g,"")
       const answer = []
+      const qL = q.toLowerCase().replace(/\s/g,"")
+      const fW2 = n => n>0 ? `${n.toLocaleString()}원` : "-"
+      const fA3 = n => n>=1e8?`${(n/1e8).toFixed(2)}억`:n>=1e4?`${Math.round(n/1e4)}만원`:n>0?`${n.toLocaleString()}원`:"-"
+      const fDate2 = s => s ? String(s).slice(0,10) : "-"
 
-      // ── 키워드 추출 ──────────────────────────────────────────
-      // 금액 관련 키워드
-      const askAmount  = /계약금|용역비|금액|얼마|비용/.test(q)
-      const askDate    = /계약일|착수일|기간|언제|날짜/.test(q)
-      const askPaid    = /입금|기성|수금|매출|현누계/.test(q)
-      const askPM      = /담당|pm|팀장|본부장/.test(q)
+      // ── 의도 파악 ────────────────────────────────────────────
+      const askPM      = /pm|담당|담당자|팀장|책임|누가/.test(q)
+      const askAmount  = /얼마|금액|용역비|계약금|비용|매출액|수금|입금/.test(q)
+      const askDate    = /언제|날짜|기간|계약일|착수|준공|입금일|예정일/.test(q)
+      const askProject = /프로젝트|현장|사업|공사|용역/.test(q)
+      const askMonth   = /(\d{1,2})월|월별|월매출|이번달|지난달/.test(q)
+      const askYear    = /(\d{4})년|연간|올해|작년/.test(q)
+      const askDept    = /설계1|설계2|디자인|주거|본부/.test(q)
+      const askSale    = /매출|수금|입금|기성/.test(q)
+      const askStatus  = /진행|완료|계약|확정|추진/.test(q)
+      const askList    = /목록|리스트|전체|모두|알려줘|보여줘|있어/.test(q)
 
-      // ── 유사 프로젝트 검색 ────────────────────────────────────
-      // 자음/모음 분리 없이 글자 포함 여부로 유사도 계산
-      const simScore = (name, kw) => {
-        const n = (name||"").toLowerCase().replace(/\s/g,"")
-        const k = kw.replace(/\s/g,"")
-        if(n.includes(k)||k.includes(n)) return 1.0
-        // 글자 단위 교집합
-        const nChars = new Set([...n])
-        const kChars = [...k].filter(c=>nChars.has(c))
-        return kChars.length / Math.max(n.length, k.length, 1)
+      // ── 날짜 추출 ────────────────────────────────────────────
+      const yearMatch  = q.match(/(\d{4})년/)
+      const monthMatch = q.match(/(\d{1,2})월/)
+      const targetYear  = yearMatch  ? yearMatch[1]  : null
+      const targetMonth = monthMatch ? monthMatch[1].padStart(2,"0") : null
+      const targetYM    = targetYear && targetMonth ? `${targetYear}-${targetMonth}` : null
+
+      // ── PM명 추출 ────────────────────────────────────────────
+      // 한글 2~4자 이름 패턴 추출 (조사 제외)
+      const namePatterns = q.match(/([가-힣]{2,4})\s*(담당|pm|팀장|씨|님|의|이|가|을|를|은|는)?/gi) || []
+      const possibleNames = namePatterns
+        .map(n=>n.replace(/담당|pm|팀장|씨|님|의|이|가|을|를|은|는/gi,"").trim())
+        .filter(n=>n.length>=2 && /^[가-힣]+$/.test(n) &&
+          !["담당","프로젝트","알려","주세요","있어","매출","계약","입금","월별","전체","모두","이번달","지난달","올해","작년","확인"].includes(n))
+
+      // ── 본부명 추출 ────────────────────────────────────────────
+      const deptNames = ["설계1본부","설계2본부","디자인본부","주거디자인본부"]
+      const targetDept = deptNames.find(d=>q.includes(d)||q.includes(d.replace("본부","")))
+
+      // ── 핵심 검색어 (사람이름/본부 제외 나머지) ──────────────
+      const stopWords = /얼마|이야|인데|인가요|알려줘|검색|보여|확인|계약|용역|프로젝트|금액|비용|언제|어디|담당|누가|어떻게|알려|주세요|있어|매출|수금|입금|기성|이번달|지난달|올해|작년|현황|정보|목록|리스트|전체|모두|월별|연간|올해|이번|지난|해|달/g
+      const coreKw = qL.replace(stopWords,"").replace(/[가-힣]{1}(?=[^가-힣]|$)/g,"").trim()
+
+      // ══ 1. PM명으로 프로젝트 검색 ════════════════════════════
+      if(possibleNames.length > 0) {
+        possibleNames.forEach(name=>{
+          const pmProjects = projects.filter(p=>
+            (p.pm||"").includes(name) || (p.director||"").includes(name) ||
+            (p.staffMembers||[]).some(m=>(m.name||"").includes(name))
+          )
+          if(pmProjects.length > 0) {
+            const role = projects.find(p=>(p.pm||"").includes(name)) ? "PM" :
+                         projects.find(p=>(p.director||"").includes(name)) ? "본부장" : "담당"
+            answer.push(`👤 **${name}** (${role}) 담당 프로젝트 ${pmProjects.length}건:`)
+            pmProjects.slice(0,10).forEach((p,i)=>{
+              const dept = (p.depts||[]).join(",")
+              const fee  = fA3(p.serviceFee||0)
+              const cd   = p.contractDate||"-"
+              answer.push(`${i+1}. ${p.name}`)
+              answer.push(`   └ ${dept} | 용역비 ${fee} | 계약일 ${cd} | ${p.type||"-"}`)
+            })
+            if(pmProjects.length > 10) answer.push(`   ... 외 ${pmProjects.length-10}건`)
+            answer.push("")
+          }
+        })
       }
 
-      // 쿼리에서 의미 있는 키워드 추출 (조사/어미 제외)
-      const stopWords = /얼마|이야|인데|인가요|알려줘|검색|보여|확인|계약|용역|프로젝트|금액|비용|언제|어디|담당|누가|어떻게/g
-      const coreKw = qL.replace(stopWords,"").trim()
+      // ══ 2. 월별 매출(기성입금) 조회 ══════════════════════════
+      if(askSale && (targetYM || targetMonth || askMonth)) {
+        const ym = targetYM || (targetMonth ? `${new Date().getFullYear()}-${targetMonth}` : null)
+        if(ym) {
+          const paidItems = cashItems.filter(i=>
+            i.paidDate && String(i.paidDate).slice(0,7)===ym
+          )
+          const expectedItems = cashItems.filter(i=>
+            !i.paidDate && i.expectedDate && String(i.expectedDate).slice(0,7)===ym
+          )
+          const paidTotal    = paidItems.reduce((s,i)=>s+(i.amount||0),0)
+          const expectedTotal= expectedItems.reduce((s,i)=>s+(i.amount||0),0)
 
-      // 프로젝트 매칭
-      const projMatches = projects
-        .map(p=>({p, score: simScore(p.name, coreKw||qL)}))
-        .filter(({score})=>score>0.25)
-        .sort((a,b)=>b.score-a.score)
-        .slice(0,5)
+          answer.push(`💧 **${ym} 매출현황(기성 입금)**`)
+          answer.push(`• 입금완료: ${fA3(paidTotal)} (${paidItems.length}건)`)
+          if(expectedTotal>0) answer.push(`• 입금예정: ${fA3(expectedTotal)} (${expectedItems.length}건)`)
 
-      // 계약현황 매칭
-      const contractMatches = contractItems
-        .map(ci=>({ci, score: simScore(ci.name, coreKw||qL)}))
-        .filter(({score})=>score>0.25)
-        .sort((a,b)=>b.score-a.score)
-        .slice(0,5)
-
-      // ── 답변 생성 ─────────────────────────────────────────────
-      if(projMatches.length===0 && contractMatches.length===0) {
-        const relKw = coreKw || qL
-        // 부분 매칭 시도 (2글자 이상 서브스트링)
-        const partials = projects.filter(p=>
-          (p.name||"").replace(/\s/g,"").includes(relKw.slice(0,4))
-        ).slice(0,3)
-
-        if(partials.length>0) {
-          answer.push(`"${q.trim()}"에 해당하는 정확한 프로젝트를 찾지 못했습니다.`)
-          answer.push(`\n유사한 프로젝트:`)
-          partials.forEach(p=>{
-            answer.push(`• ${p.name} (${(p.depts||[]).join(",")} / 용역비: ${fA2(p.serviceFee)})`)
-          })
-        } else {
-          answer.push(`"${q.trim()}"에 대한 정보를 시스템에서 확인할 수 없습니다.`)
-          answer.push(`\n프로젝트명, 계약현황, 기성 데이터를 검색했으나 일치하는 항목이 없습니다.`)
-          answer.push(`\n💡 다른 검색어로 시도해보세요. (예: 일부 단어만 입력)`)
+          if(paidItems.length > 0) {
+            answer.push(`\n📋 입금완료 프로젝트 (${ym}):`)
+            // 본부별 그룹
+            const byDept = {}
+            paidItems.forEach(i=>{ const d=i.dept||"기타"; if(!byDept[d])byDept[d]=[]; byDept[d].push(i) })
+            Object.entries(byDept).forEach(([dept,items])=>{
+              const tot = items.reduce((s,i)=>s+(i.amount||0),0)
+              answer.push(`  [${dept}] ${fA3(tot)}`)
+              items.slice(0,5).forEach(i=>{
+                answer.push(`  • ${i.projectName||"(프로젝트명 없음)"} - ${fA3(i.amount)} (${fDate2(i.paidDate)})`)
+              })
+              if(items.length>5) answer.push(`  ... 외 ${items.length-5}건`)
+            })
+          } else {
+            answer.push(`\n해당 월 입금완료 기성 내역이 없습니다.`)
+          }
+          answer.push("")
         }
-      } else {
-        // 매칭된 프로젝트 정보로 답변
-        if(projMatches.length>0) {
+      }
+
+      // ══ 3. 본부별 매출 조회 ══════════════════════════════════
+      if(askSale && targetDept && !targetYM && !targetMonth) {
+        const deptItems = cashItems.filter(i=>i.dept===targetDept && i.paidDate)
+        const deptTotal = deptItems.reduce((s,i)=>s+(i.amount||0),0)
+        answer.push(`📊 **${targetDept} 매출현황(현누계)**`)
+        answer.push(`• 합계: ${fA3(deptTotal)} (${deptItems.length}건)`)
+        const recent = [...deptItems].sort((a,b)=>(b.paidDate||"").localeCompare(a.paidDate||"")).slice(0,5)
+        if(recent.length>0) {
+          answer.push("\n최근 입금 내역:")
+          recent.forEach(i=>answer.push(`• ${i.projectName||"-"} - ${fA3(i.amount)} (${fDate2(i.paidDate)})`))
+        }
+        answer.push("")
+      }
+
+      // ══ 4. 프로젝트명 유사도 검색 ════════════════════════════
+      const simScore = (name, kw) => {
+        if(!kw||kw.length<2) return 0
+        const n = (name||"").toLowerCase().replace(/\s/g,"")
+        const k = kw.replace(/\s/g,"")
+        if(n===k) return 1.0
+        if(n.includes(k)||k.includes(n)) return 0.9
+        const nChars = new Set([...n])
+        const matches = [...k].filter(c=>nChars.has(c)).length
+        return matches / Math.max(n.length, k.length, 1)
+      }
+
+      if(coreKw.length >= 2 && answer.length===0) {
+        const projMatches = projects
+          .map(p=>({p, score: simScore(p.name, coreKw)}))
+          .filter(({score})=>score>0.3)
+          .sort((a,b)=>b.score-a.score)
+          .slice(0,5)
+
+        if(projMatches.length > 0) {
           const {p, score} = projMatches[0]
           const isExact = score > 0.8
-
           answer.push(isExact
             ? `📋 **${p.name}** 프로젝트 정보:`
-            : `"${q}" 와(과) 가장 유사한 프로젝트: **${p.name}**`)
+            : `"${q}" 관련 프로젝트: **${p.name}**`)
+          if(p.pm)           answer.push(`• 담당 PM: ${p.pm}`)
+          if(p.director)     answer.push(`• 본부장: ${p.director}`)
+          if(p.depts?.length) answer.push(`• 본부: ${p.depts.join(", ")}`)
+          if(p.serviceFee)   answer.push(`• 용역비: ${fA3(p.serviceFee)}`)
+          if(p.contractDate) answer.push(`• 계약일: ${fDate2(p.contractDate)}`)
+          if(p.type)         answer.push(`• 구분: ${p.type}`)
 
-          if(askAmount || !askDate && !askPaid && !askPM) {
-            if(p.totalFee>0)  answer.push(`• 총설계비: ${fA2(p.totalFee)} (VAT별도)`)
-            if(p.serviceFee>0) answer.push(`• 상지 용역비: ${fA2(p.serviceFee)} (상지지분 ${((p.shareRatio||1)*100).toFixed(0)}%)`)
-          }
-          if(askDate || !askAmount && !askPaid && !askPM) {
-            if(p.contractDate) answer.push(`• 계약일: ${fDate(p.contractDate)}`)
-            if(p.orderDate)    answer.push(`• 수주일: ${fDate(p.orderDate)}`)
-          }
-          if(askPM) {
-            if(p.pm)       answer.push(`• 담당 PM: ${p.pm}`)
-            if(p.director) answer.push(`• 본부장: ${p.director}`)
-          }
-          if(p.depts?.length) answer.push(`• 담당 본부: ${p.depts.join(", ")}`)
-
-          // 해당 프로젝트 기성 현황
-          if(askPaid) {
-            const pCash = cashItems.filter(ci=>{
-              const nm = s=>(s||"").replace(/[\s\-]/g,"").toLowerCase()
-              return nm(ci.projectName).includes(nm(p.name).slice(0,6))
-            }).slice(0,5)
-            if(pCash.length>0) {
-              answer.push(`\n💧 기성 현황:`)
-              pCash.forEach(c=>{
-                const d = c.paidDate||c.expectedDate
-                const status = c.paidDate ? "✅ 입금완료" : "📅 예정"
-                answer.push(`• ${c.stage||"-"} | ${status} ${fDate(d)} | ${fA2(c.amount)}`)
-              })
-            }
-          }
-
-          // 유사 프로젝트 추가 제시
-          if(projMatches.length>1 && !isExact) {
+          if(projMatches.length>1) {
             answer.push(`\n관련 프로젝트:`)
-            projMatches.slice(1,4).forEach(({p:pp})=>{
-              answer.push(`• ${pp.name} (${(pp.depts||[]).join(",")})`)
-            })
+            projMatches.slice(1).forEach(({p:pp})=>answer.push(`• ${pp.name} (${(pp.depts||[]).join(",")})`))
           }
         }
+      }
 
-        // 계약현황 매칭
-        if(contractMatches.length>0 && (askAmount || contractItems.length>0)) {
-          const {ci} = contractMatches[0]
-          if(projMatches.length===0 || contractMatches[0].score > projMatches[0].score) {
-            answer.push(`\n📝 계약현황:`)
-            answer.push(`• ${ci.name}`)
-            answer.push(`• 구분: ${ci.type} | 본부: ${(ci.depts||[]).join(",")}`)
-            if(ci.serviceFeeExpect||ci.amount)
-              answer.push(`• 용역비(예상): ${fA2(ci.serviceFeeExpect||ci.amount||0)}`)
-            if(ci.totalFeeExpect)
-              answer.push(`• 총설계비(예상): ${fA2(ci.totalFeeExpect)}`)
-            if(ci.contractTime)
-              answer.push(`• 계약(예상)일: ${fDate(ci.contractTime)}`)
-          }
-        }
+      // ══ 5. 결과 없음 ══════════════════════════════════════════
+      if(answer.length===0) {
+        answer.push(`"${q.trim()}"에 대한 정보를 확인할 수 없습니다.`)
+        answer.push(`\n💡 검색 예시:`)
+        answer.push(`• "홍길동 담당 프로젝트 알려줘"`)
+        answer.push(`• "2026년 6월 매출액과 매출 프로젝트 알려줘"`)
+        answer.push(`• "설계1본부 수금 현황"`)
+        answer.push(`• "서부산 계약금액 얼마야"`)
       }
 
       setAiAnswer(answer.join("\n"))
       setLoading(false)
-    }, 300)
+    }, 200)
   }
 
   React.useEffect(()=>{
     localSearch(query)
   },[query])
+
 
   const typeColor = {project:"#2563EB",contract:"#059669",cash:"#D97706"}
   const typeBg    = {project:"#EFF6FF",contract:"#F0FDF4",cash:"#FFFBEB"}
@@ -332,7 +373,25 @@ function GlobalSearchModal({onClose, projects=[], cashItems=[], contractItems=[]
               <div style={{fontSize:12,fontWeight:700,color:"#6366F1",marginBottom:8}}>🤖 AI 분석 결과</div>
               {loading
                 ? <div style={{fontSize:13,color:"#94A3B8"}}>분석 중...</div>
-                : <div style={{fontSize:14,lineHeight:1.8,color:"#334155",whiteSpace:"pre-wrap"}}>{aiAnswer}</div>
+                : <div style={{fontSize:14,lineHeight:1.9,color:"#334155"}}>
+                    {aiAnswer.split("\n").map((line,i)=>{
+                      if(!line.trim()) return <div key={i} style={{height:6}}/>
+                      // **볼드** 처리
+                      const parts = line.split(/\*\*([^*]+)\*\*/g)
+                      return (
+                        <div key={i} style={{
+                          paddingLeft: line.startsWith("   ")||line.startsWith("  •") ? 20 : 0,
+                          color: line.startsWith("•")||line.startsWith("└") ? "#334155" :
+                                 /^\d+\./.test(line.trim()) ? "#0F172A" : "#334155"
+                        }}>
+                          {parts.map((p,pi)=>pi%2===1
+                            ? <strong key={pi} style={{color:"#1E3A8A"}}>{p}</strong>
+                            : <span key={pi}>{p}</span>
+                          )}
+                        </div>
+                      )
+                    })}
+                  </div>
               }
             </div>
           )}
@@ -381,11 +440,11 @@ function GlobalSearchModal({onClose, projects=[], cashItems=[], contractItems=[]
             <div style={{padding:"24px 20px"}}>
               <div style={{fontSize:12,fontWeight:700,color:"#94A3B8",marginBottom:12}}>검색 예시</div>
               {[
-                "서부산 계약일",
-                "이번달 입금 예정",
-                "설계1본부 용역비 합계",
-                "에코델타 기성 현황",
-                "2026년 계약 완료 프로젝트",
+                "김동헌 담당 프로젝트 알려줘",
+                "2026년 6월 매출액과 매출 프로젝트 알려줘",
+                "설계1본부 이번달 수금 현황",
+                "서부산 계약금액 얼마야",
+                "박지수 PM 프로젝트 목록",
               ].map((ex,i)=>(
                 <button key={i} onClick={()=>setQuery(ex)}
                   style={{display:"block",width:"100%",padding:"9px 14px",background:"#F8FAFC",border:"1px solid #E2E8F0",borderRadius:8,fontSize:13,cursor:"pointer",textAlign:"left",marginBottom:6,fontFamily:"inherit",color:"#334155"}}>
@@ -6939,6 +6998,108 @@ export function trackUsage(tabId, action="view") {
     localStorage.setItem(STAT_KEY, JSON.stringify(stats))
   } catch{}
 }
+
+// ════════════════════════════════════════════════════════════
+// 📢 공지사항 탭
+// ════════════════════════════════════════════════════════════
+function NoticeBoardTab({currentUser, canWrite}) {
+  const [notices, setNotices] = React.useState(()=>{
+    try{ return JSON.parse(localStorage.getItem("sjs_notices")||"[]") }catch{ return [] }
+  })
+  const [showForm, setShowForm] = React.useState(false)
+  const [editId, setEditId] = React.useState(null)
+  const [draft, setDraft] = React.useState({title:"",body:"",important:false})
+  const toast = useToast()
+
+  const save = (items) => {
+    setNotices(items)
+    try{ localStorage.setItem("sjs_notices", JSON.stringify(items)) }catch{}
+  }
+  const submit = () => {
+    if(!draft.title.trim()) return
+    const now = new Date().toISOString()
+    if(editId) {
+      save(notices.map(n=>n.id===editId?{...n,...draft,updatedAt:now}:n))
+    } else {
+      save([{id:`N${Date.now()}`,createdAt:now,views:0,...draft}, ...notices])
+    }
+    setShowForm(false); setDraft({title:"",body:"",important:false}); setEditId(null)
+    toast&&toast("✅ 공지사항이 저장됐습니다.","success")
+  }
+  const del = (id) => {
+    if(!window.confirm("공지사항을 삭제합니까?")) return
+    save(notices.filter(n=>n.id!==id))
+  }
+  const view = (id) => save(notices.map(n=>n.id===id?{...n,views:(n.views||0)+1}:n))
+
+  return (
+    <div>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}>
+        <div style={{fontSize:18,fontWeight:800,color:"#0F172A"}}>📢 공지사항</div>
+        {canWrite&&<button onClick={()=>{setShowForm(true);setEditId(null);setDraft({title:"",body:"",important:false})}}
+          style={{padding:"8px 18px",background:"#2563EB",color:"#fff",border:"none",borderRadius:8,fontSize:13,fontWeight:700,cursor:"pointer"}}>
+          + 공지 작성
+        </button>}
+      </div>
+
+      {/* 작성/수정 폼 */}
+      {showForm&&(
+        <div style={{background:"#fff",borderRadius:10,border:"2px solid #6366F1",padding:"20px",marginBottom:16}}>
+          <div style={{fontSize:15,fontWeight:800,color:"#4F46E5",marginBottom:14}}>
+            {editId?"✏ 공지 수정":"📝 새 공지 작성"}
+          </div>
+          <div style={{marginBottom:10}}>
+            <label style={{fontSize:12,fontWeight:700,color:"#334155",display:"block",marginBottom:4}}>제목 *</label>
+            <input value={draft.title} onChange={e=>setDraft(p=>({...p,title:e.target.value}))}
+              placeholder="공지사항 제목을 입력하세요"
+              style={{width:"100%",padding:"9px 12px",border:"1.5px solid #E5E7EB",borderRadius:8,fontSize:14,boxSizing:"border-box",fontFamily:"inherit",outline:"none"}}/>
+          </div>
+          <div style={{marginBottom:10}}>
+            <label style={{fontSize:12,fontWeight:700,color:"#334155",display:"block",marginBottom:4}}>내용</label>
+            <textarea value={draft.body} onChange={e=>setDraft(p=>({...p,body:e.target.value}))}
+              placeholder="공지사항 내용을 입력하세요" rows={5}
+              style={{width:"100%",padding:"9px 12px",border:"1.5px solid #E5E7EB",borderRadius:8,fontSize:13,boxSizing:"border-box",fontFamily:"inherit",outline:"none",resize:"vertical"}}/>
+          </div>
+          <label style={{display:"flex",alignItems:"center",gap:8,fontSize:13,fontWeight:600,color:"#DC2626",marginBottom:14,cursor:"pointer"}}>
+            <input type="checkbox" checked={draft.important} onChange={e=>setDraft(p=>({...p,important:e.target.checked}))}
+              style={{width:16,height:16,accentColor:"#DC2626"}}/>
+            🔴 중요 공지로 표시
+          </label>
+          <div style={{display:"flex",gap:8}}>
+            <button onClick={submit} style={{padding:"9px 20px",background:"#4F46E5",color:"#fff",border:"none",borderRadius:8,fontSize:13,fontWeight:700,cursor:"pointer"}}>저장</button>
+            <button onClick={()=>{setShowForm(false);setEditId(null)}} style={{padding:"9px 16px",background:"#F1F5F9",color:"#64748B",border:"none",borderRadius:8,fontSize:13,cursor:"pointer"}}>취소</button>
+          </div>
+        </div>
+      )}
+
+      {/* 공지 목록 */}
+      {notices.length===0&&!showForm&&(
+        <div style={{background:"#F8FAFC",borderRadius:10,border:"1px dashed #CBD5E1",padding:"40px",textAlign:"center",color:"#94A3B8"}}>
+          <div style={{fontSize:32,marginBottom:8}}>📋</div>
+          <div style={{fontSize:14,fontWeight:600}}>등록된 공지사항이 없습니다</div>
+        </div>
+      )}
+      {notices.map(n=>(
+        <div key={n.id} style={{background:"#fff",borderRadius:10,border:`1px solid ${n.important?"#FCA5A5":"#E2E8F0"}`,marginBottom:10,overflow:"hidden"}}
+          onClick={()=>view(n.id)}>
+          <div style={{padding:"14px 18px",background:n.important?"#FFF5F5":"#FAFAFA",display:"flex",alignItems:"center",gap:10,borderBottom:"1px solid #F1F5F9"}}>
+            {n.important&&<span style={{fontSize:11,fontWeight:700,background:"#FEE2E2",color:"#DC2626",padding:"2px 8px",borderRadius:10,flexShrink:0}}>중요</span>}
+            <span style={{fontSize:15,fontWeight:700,color:"#0F172A",flex:1}}>{n.title}</span>
+            <span style={{fontSize:11,color:"#94A3B8",flexShrink:0}}>{n.createdAt?.slice(0,10)} · 👁{n.views||0}</span>
+            {canWrite&&<div style={{display:"flex",gap:4}} onClick={e=>e.stopPropagation()}>
+              <button onClick={()=>{setDraft({title:n.title,body:n.body,important:n.important});setEditId(n.id);setShowForm(true)}}
+                style={{padding:"3px 10px",background:"#EFF6FF",color:"#2563EB",border:"none",borderRadius:6,fontSize:11,fontWeight:600,cursor:"pointer"}}>수정</button>
+              <button onClick={()=>del(n.id)}
+                style={{padding:"3px 8px",background:"#FEE2E2",color:"#DC2626",border:"none",borderRadius:6,fontSize:11,cursor:"pointer"}}>삭제</button>
+            </div>}
+          </div>
+          {n.body&&<div style={{padding:"12px 18px",fontSize:13,color:"#334155",lineHeight:1.8,whiteSpace:"pre-wrap"}}>{n.body}</div>}
+        </div>
+      ))}
+    </div>
+  )
+}
+
 
 function StatsTab({projects}) {
   const [stats] = useState(()=>{ try{ return JSON.parse(localStorage.getItem(STAT_KEY)||"{}") }catch{return{}} })
