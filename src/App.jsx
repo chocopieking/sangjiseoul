@@ -12273,12 +12273,23 @@ function SmartSchedulePage({projects=[], cashItems=[], contractItems=[], current
   const [curDate, setCurDate] = useState(new Date())
   const [showAdd, setShowAdd] = useState(false)
   const [editEvt, setEditEvt] = useState(null)
-  const [filterType, setFilterType] = useState("all")
+  const [filterType, setFilterType] = useState("all")  // 호환성 유지
   const [notifPerm, setNotifPerm] = useState(Notification?.permission||"default")
   const [draftEvt, setDraftEvt] = useState({
     title:"", date:"", time:"09:00", endDate:"", type:"개인",
     repeat:"none", alarm:"30", note:"", color:"#2563EB"
   })
+
+  // ── 이벤트 타입 색상 매핑 ────────────────────────────────
+  const TYPES = {
+    "개인":"#2563EB","회의":"#0891B2","납기":"#DC2626","기성":"#059669",
+    "기성예정":"#059669","입금완료":"#047857","계약":"#D97706","수주예정":"#F59E0B",
+    "수행예정":"#DC2626","공문":"#7C3AED","기타":"#64748B",
+    "사용승인":"#7C3AED","준공예정":"#7C3AED","준공사진":"#9333EA",
+    "수상":"#D97706","언론보도":"#0891B2"
+  }
+  const REPEAT = {"none":"반복없음","daily":"매일","weekly":"매주","monthly":"매월","yearly":"매년"}
+  const ALARM  = {"0":"알람없음","10":"10분 전","30":"30분 전","60":"1시간 전","1440":"하루 전","2880":"2일 전"}
 
   // ── 카테고리 그룹 정의 ───────────────────────────────────
   const CAT_GROUPS = [
