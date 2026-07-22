@@ -3414,6 +3414,7 @@ const cardNote2 = {fontSize:13,color:C.gray,marginBottom:8}
 // ════════════════════════════════════════════════════════════
 function ProjectsTab({projects,setProjects,selProjId,setSelProjId,selVerIdx,setSelVerIdx,cmpIds,setCmpIds,showNewVer,setShowNewVer,canWrite,contractTypes,currentUser,setDetailTab:_extSetDetailTab,detailTab:_extDetailTab,cashItems=[],setCashItems,vendorsDB={},projBaseline={},setProjBaseline}) {
   const toast = useToast()
+  const {DEPTS, DEPT_COLORS} = React.useContext(DeptContext)
   const [view, setView] = useState("list")
   const [deptFilter,     setDeptFilter]     = useState("")
   const [typeFilter,     setTypeFilter]     = useState("")
@@ -3436,6 +3437,7 @@ function ProjectsTab({projects,setProjects,selProjId,setSelProjId,selVerIdx,setS
   const [detailTab, setDetailTab]   = useState("info")
   const NOW  = new Date()
   const YEAR = NOW.getFullYear()
+  const MONTH = NOW.getMonth()+1
   const YR   = String(YEAR)
 
   useEffect(()=>{ if(selProjId) setDetailTab("info") }, [selProjId])
