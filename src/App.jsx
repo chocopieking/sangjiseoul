@@ -3771,33 +3771,47 @@ function ProjectsTab({projects,setProjects,selProjId,setSelProjId,selVerIdx,setS
 
           {selProj ? (
             <>
-              {/* 서브탭 네비게이션 */}
-              <div style={{display:"flex",gap:4,marginBottom:14,borderBottom:`2px solid var(--color-border-tertiary,#eee)`,paddingBottom:0}}>
-                {[["info","📐 프로젝트 정보"],["weekly","📋 주간보고"],["cashflow","💧 월수금"],["contract","📝 계약"],["expense","💸 지출"],["completion","🏁 준공"],["award","🏆 수상내역"],["media","📰 언론보도"],["archive","📦 자료이관"],["memo","📋 히스토리"]].map(([id,label])=>(
-                  <button key={id} onClick={()=>setDetailTab(id)} style={{padding:"9px 18px",border:"none",background:"none",fontSize:13,fontWeight:700,cursor:"pointer",color:detailTab===id?C.navyM:"var(--color-text-secondary,#888)",borderBottom:detailTab===id?`3px solid ${C.navyM}`:"3px solid transparent",marginBottom:-2,transition:"all .15s"}}>
-                    {label}
-                  </button>
-                ))}
-              </div>
+              {/* ── 위키 스타일: 목차 + 섹션 나열 ── */}
+              <div style={{display:"flex",gap:20,alignItems:"flex-start"}}>
 
-              {detailTab==="weekly" && (selProj?.id ? <WeeklyReportTab proj={selProj} setProjects={setProjects} canWrite={canWrite} currentUser={currentUser}/> : <ProjTabError/>)}
-              {detailTab==="cashflow" && (selProj?.id ? <ProjectCashflowDetail proj={selProj} cashItems={cashItems} setCashItems={setCashItems} DEPTS={DEPTS} DEPT_COLORS={DEPT_COLORS} MONTH={MONTH} YEAR={YEAR} YR={YR} projBaseline={projBaseline} setProjBaseline={setProjBaseline}/> : <ProjTabError/>)}
-              {detailTab==="contract" && (selProj?.id ? (
-                <div>
-                  <ProjectContractHistory proj={selProj} setProjects={setProjects} canWrite={canWrite}/>
-                  <div style={{marginTop:16}}>
-                    <ProjectContractDetailFull proj={selProj} setProjects={setProjects} canWrite={canWrite} projects={projects}/>
+                {/* 좌측 목차 (sticky) */}
+                <div style={{width:160,flexShrink:0,position:"sticky",top:70,
+                  background:"#F8FAFC",borderRadius:10,border:"1px solid #E2E8F0",
+                  padding:"12px 0",fontSize:12,maxHeight:"calc(100vh - 120px)",overflowY:"auto"}}>
+                  <div style={{fontWeight:800,color:"#334155",padding:"0 14px 8px",fontSize:11,
+                    borderBottom:"1px solid #E2E8F0",marginBottom:6,letterSpacing:.5}}>
+                    목 차
                   </div>
+                  {[
+                    ["sec-info",     "📐 프로젝트 정보"],
+                    ["sec-weekly",   "📋 주간보고"],
+                    ["sec-cashflow", "💧 월수금"],
+                    ["sec-contract", "📝 계약현황"],
+                    ["sec-expense",  "💸 지출"],
+                    ["sec-completion","🏁 준공"],
+                    ["sec-award",    "🏆 수상내역"],
+                    ["sec-media",    "📰 언론보도"],
+                    ["sec-archive",  "📦 자료이관"],
+                    ["sec-memo",     "📋 히스토리"],
+                  ].map(([id,label])=>(
+                    <a key={id} href={`#${id}`}
+                      onClick={e=>{e.preventDefault();document.getElementById(id)?.scrollIntoView({behavior:"smooth",block:"start"})}}
+                      style={{display:"block",padding:"6px 14px",color:"#64748B",textDecoration:"none",
+                        fontSize:11.5,fontWeight:500,cursor:"pointer",lineHeight:1.4,
+                        borderLeft:"2px solid transparent",transition:"all .15s"}}
+                      onMouseEnter={e=>{e.currentTarget.style.color="#2563EB";e.currentTarget.style.borderLeftColor="#2563EB";e.currentTarget.style.background="#EFF6FF"}}
+                      onMouseLeave={e=>{e.currentTarget.style.color="#64748B";e.currentTarget.style.borderLeftColor="transparent";e.currentTarget.style.background="transparent"}}>
+                      {label}
+                    </a>
+                  ))}
                 </div>
-              ) : <ProjTabError/>)}
-              {detailTab==="expense"  && (selProj?.id ? <ProjectExpenseDetail  proj={selProj} cashItems={cashItems} setCashItems={setCashItems} YEAR={YEAR} YR={YR}/> : <ProjTabError/>)}
-              {detailTab==="completion" && (selProj?.id ? <ProjectCompletionTab proj={selProj} setProjects={setProjects} canWrite={canWrite}/> : <ProjTabError/>)}
-              {detailTab==="award"      && (selProj?.id ? <ProjectAwardTab      proj={selProj} setProjects={setProjects} canWrite={canWrite}/> : <ProjTabError/>)}
-              {detailTab==="media"      && (selProj?.id ? <ProjectMediaTab      proj={selProj} setProjects={setProjects} canWrite={canWrite}/> : <ProjTabError/>)}
-              {detailTab==="archive"    && (selProj?.id ? <ProjectArchiveTab    proj={selProj} setProjects={setProjects} canWrite={canWrite}/> : <ProjTabError/>)}
-              {detailTab==="memo" && selProj?.id && <ProjectMemoTab proj={selProj} setProjects={setProjects} currentUser={currentUser}/>}
 
-              {detailTab==="info" && <>
+                {/* 우측 섹션 나열 */}
+                <div style={{flex:1,minWidth:0,display:"flex",flexDirection:"column",gap:20}}>
+
+                  {/* 섹션: 프로젝트 정보 */}
+                  <div id="sec-info">
+
               <Card title={`📐 ${selProj.name}`} note={selProj.code} actions={<div style={{display:"flex",gap:6}}>
                 <button onClick={()=>downloadReport(selProj)} style={{...S.btn(C.navyL,C.navyM),padding:"5px 11px",fontSize:11}}><i className="ti ti-file-word" aria-hidden="true"/> 보고서 다운로드</button>
                 {canWrite&&<button onClick={()=>setEditProj(true)} style={{...S.btn(C.navyL,C.navyM),padding:"5px 11px",fontSize:11}}><i className="ti ti-edit" aria-hidden="true"/> 정보 수정</button>}
@@ -4081,6 +4095,96 @@ function ProjectsTab({projects,setProjects,selProjId,setSelProjId,selVerIdx,setS
                   />
                 </>
               )}
+
+                  </div>{/* /sec-info */}
+
+                  {/* 섹션: 주간보고 */}
+                  <div id="sec-weekly" style={{scrollMarginTop:70}}>
+                    <div style={{display:"flex",alignItems:"center",gap:8,padding:"10px 0",borderBottom:"2px solid #E2E8F0",marginBottom:12}}>
+                      <span style={{fontSize:18}}>📋</span>
+                      <span style={{fontSize:16,fontWeight:800,color:"#0F172A"}}>주간보고</span>
+                    </div>
+                    <WeeklyReportTab proj={selProj} setProjects={setProjects} canWrite={canWrite} currentUser={currentUser}/>
+                  </div>
+
+                  {/* 섹션: 월수금 */}
+                  <div id="sec-cashflow" style={{scrollMarginTop:70}}>
+                    <div style={{display:"flex",alignItems:"center",gap:8,padding:"10px 0",borderBottom:"2px solid #E2E8F0",marginBottom:12}}>
+                      <span style={{fontSize:18}}>💧</span>
+                      <span style={{fontSize:16,fontWeight:800,color:"#0F172A"}}>월수금</span>
+                    </div>
+                    <ProjectCashflowDetail proj={selProj} cashItems={cashItems} setCashItems={setCashItems} DEPTS={DEPTS} DEPT_COLORS={DEPT_COLORS} MONTH={MONTH} YEAR={YEAR} YR={YR} projBaseline={projBaseline} setProjBaseline={setProjBaseline}/>
+                  </div>
+
+                  {/* 섹션: 계약현황 */}
+                  <div id="sec-contract" style={{scrollMarginTop:70}}>
+                    <div style={{display:"flex",alignItems:"center",gap:8,padding:"10px 0",borderBottom:"2px solid #E2E8F0",marginBottom:12}}>
+                      <span style={{fontSize:18}}>📝</span>
+                      <span style={{fontSize:16,fontWeight:800,color:"#0F172A"}}>계약현황</span>
+                    </div>
+                    <ProjectContractHistory proj={selProj} setProjects={setProjects} canWrite={canWrite}/>
+                    <div style={{marginTop:16}}>
+                      <ProjectContractDetailFull proj={selProj} setProjects={setProjects} canWrite={canWrite} projects={projects}/>
+                    </div>
+                  </div>
+
+                  {/* 섹션: 지출 */}
+                  <div id="sec-expense" style={{scrollMarginTop:70}}>
+                    <div style={{display:"flex",alignItems:"center",gap:8,padding:"10px 0",borderBottom:"2px solid #E2E8F0",marginBottom:12}}>
+                      <span style={{fontSize:18}}>💸</span>
+                      <span style={{fontSize:16,fontWeight:800,color:"#0F172A"}}>지출현황</span>
+                    </div>
+                    <ProjectExpenseDetail proj={selProj} cashItems={cashItems} setCashItems={setCashItems} YEAR={YEAR} YR={YR}/>
+                  </div>
+
+                  {/* 섹션: 준공 */}
+                  <div id="sec-completion" style={{scrollMarginTop:70}}>
+                    <div style={{display:"flex",alignItems:"center",gap:8,padding:"10px 0",borderBottom:"2px solid #7C3AED",marginBottom:12}}>
+                      <span style={{fontSize:18}}>🏁</span>
+                      <span style={{fontSize:16,fontWeight:800,color:"#0F172A"}}>준공</span>
+                    </div>
+                    <ProjectCompletionTab proj={selProj} setProjects={setProjects} canWrite={canWrite}/>
+                  </div>
+
+                  {/* 섹션: 수상내역 */}
+                  <div id="sec-award" style={{scrollMarginTop:70}}>
+                    <div style={{display:"flex",alignItems:"center",gap:8,padding:"10px 0",borderBottom:"2px solid #D97706",marginBottom:12}}>
+                      <span style={{fontSize:18}}>🏆</span>
+                      <span style={{fontSize:16,fontWeight:800,color:"#0F172A"}}>수상내역</span>
+                    </div>
+                    <ProjectAwardTab proj={selProj} setProjects={setProjects} canWrite={canWrite}/>
+                  </div>
+
+                  {/* 섹션: 언론보도 */}
+                  <div id="sec-media" style={{scrollMarginTop:70}}>
+                    <div style={{display:"flex",alignItems:"center",gap:8,padding:"10px 0",borderBottom:"2px solid #0891B2",marginBottom:12}}>
+                      <span style={{fontSize:18}}>📰</span>
+                      <span style={{fontSize:16,fontWeight:800,color:"#0F172A"}}>언론보도</span>
+                    </div>
+                    <ProjectMediaTab proj={selProj} setProjects={setProjects} canWrite={canWrite}/>
+                  </div>
+
+                  {/* 섹션: 자료이관 */}
+                  <div id="sec-archive" style={{scrollMarginTop:70}}>
+                    <div style={{display:"flex",alignItems:"center",gap:8,padding:"10px 0",borderBottom:"2px solid #059669",marginBottom:12}}>
+                      <span style={{fontSize:18}}>📦</span>
+                      <span style={{fontSize:16,fontWeight:800,color:"#0F172A"}}>자료이관</span>
+                    </div>
+                    <ProjectArchiveTab proj={selProj} setProjects={setProjects} canWrite={canWrite}/>
+                  </div>
+
+                  {/* 섹션: 히스토리 */}
+                  <div id="sec-memo" style={{scrollMarginTop:70}}>
+                    <div style={{display:"flex",alignItems:"center",gap:8,padding:"10px 0",borderBottom:"2px solid #64748B",marginBottom:12}}>
+                      <span style={{fontSize:18}}>📋</span>
+                      <span style={{fontSize:16,fontWeight:800,color:"#0F172A"}}>히스토리</span>
+                    </div>
+                    <ProjectMemoTab proj={selProj} setProjects={setProjects} currentUser={currentUser}/>
+                  </div>
+
+                </div>{/* /우측 섹션 */}
+              </div>{/* /위키 레이아웃 */}
+
               {showNewVer&&<NewVerModal proj={selProj} onClose={()=>setShowNewVer(false)} onSave={v=>{setProjects(prev=>prev.map(p=>p.id===selProj.id?{...p,versions:[...p.versions,v]}:p));setSelVerIdx(selProj.versions.length);setShowNewVer(false)}}/>}
               {editVerIdx!=null&&selProj.versions[editVerIdx]&&(
                 <NewVerModal
@@ -4096,7 +4200,6 @@ function ProjectsTab({projects,setProjects,selProjId,setSelProjId,selVerIdx,setS
                 />
               )}
               {editProj&&<NewProjModal initial={selProj} onClose={()=>setEditProj(false)} onSave={f=>{setProjects(prev=>prev.map(p=>p.id===selProj.id?normalizeProject({...p,...f}):p));setEditProj(false)}}/>}
-              </>}
             </>
           ) : <div style={{padding:40,textAlign:"center",color:C.gray}}>위에서 프로젝트를 선택하거나 목록에서 행을 클릭하세요.</div>}
         </div>
