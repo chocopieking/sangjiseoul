@@ -1405,90 +1405,279 @@ function ContractTypeSection({contractTypes, setContractTypes, canManage}) {
 function BackupSection({allData, restoreAllData, isAdmin, cashItems=[], setCashItems, saleItems=[], setSaleItems, contractItems=[], setContractItems}) {
   const [msg, setMsg] = useState("")
   const [importing, setImporting] = useState(false)
-  const flash = (m,ok=true) => { setMsg({text:m,ok}); setTimeout(()=>setMsg(""),4000) }
+  const [previewInfo, setPreviewInfo] = useState(null)  // 복구 전 미리보기
+  const flash = (m,ok=true) => { setMsg({text:m,ok}); setTimeout(()=>setMsg(""),5000) }
 
   const resetData = (type) => {
     const labels = {cash:"월수금계획", contract:"계약현황", sale:"지출현황", all:"전체(월수금+계약현황+지출현황)"}
     if(!window.confirm(`⚠️ ${labels[type]} 데이터를 전체 삭제하시겠습니까?\n\n이 작업은 되돌릴 수 없습니다.`)) return
-    if(type==="cash"||type==="all") {
-      setCashItems&&setCashItems([])
-      try{ localStorage.removeItem("sjs_cash_items") }catch{}
-    }
-    if(type==="contract"||type==="all") {
-      setContractItems&&setContractItems([])
-      try{ localStorage.removeItem("sjs_contract_items") }catch{}
-    }
-    if(type==="sale"||type==="all") {
-      setSaleItems&&setSaleItems([])
-      try{ localStorage.removeItem("sjs_sale_items") }catch{}
-    }
+    if(type==="cash"||type==="all") { setCashItems&&setCashItems([]); try{ localStorage.removeItem("sjs_cash_items") }catch{} }
+    if(type==="contract"||type==="all") { setContractItems&&setContractItems([]); try{ localStorage.removeItem("sjs_contract_items") }catch{} }
+    if(type==="sale"||type==="all") { setSaleItems&&setSaleItems([]); try{ localStorage.removeItem("sjs_sale_items") }catch{} }
     flash(`✅ ${labels[type]} 데이터가 삭제됐습니다. 새 데이터를 업로드하세요.`)
   }
 
-  const SJS_KEYS = [
-    "sjs_projects","sjs_pnl","sjs_years","sjs_cashflow",
-    "sjs_dept_staff","sjs_staff_target","sjs_staff_monthly",
-    "sjs_departments","sjs_dept_biz","sjs_vendors","sjs_vendor_payments",
-    "sjs_contract_types","sjs_versions","sjs_pw",
+  // ── 전체 백업 대상 키 (24개) ──────────────────────────────
+  const ALL_KEYS = [
+    // 핵심 경영 데이터
+    {key:"sjs_projects",        label:"프로젝트",        emoji:"🏗"},
+    {key:"sjs_cash_items",      label:"월수금계획",       emoji:"💧"},
+    {key:"sjs_contract_items",  label:"계약현황",         emoji:"📝"},
+    {key:"sjs_sale_items",      label:"지출현황",         emoji:"💸"},
+    {key:"sjs_year_targets",    label:"연도별 목표",       emoji:"🎯"},
+    // 인원/조직
+    {key:"sjs_departments",     label:"본부 구성",        emoji:"🏢"},
+    {key:"sjs_dept_biz",        label:"본부별 매출목표",   emoji:"📊"},
+    // 협력업체
+    {key:"sjs_vendors",         label:"협력업체 DB",      emoji:"🤝"},
+    {key:"sjs_vendor_payments", label:"협력업체 지급",     emoji:"💰"},
+    // 분류 코드
+    {key:"sjs_contract_types",  label:"계약유형",         emoji:"📋"},
+    {key:"sjs_bid_types",       label:"수주형태",         emoji:"📋"},
+    // 기타 설정·기록
+    {key:"sjs_versions",        label:"이력(버전)",       emoji:"🗂"},
+    {key:"sjs_notices",         label:"공지사항",         emoji:"📢"},
+    {key:"sjs_schedules",       label:"캘린더",           emoji:"📅"},
+    {key:"sjs_docvault",        label:"문서보관함",       emoji:"📁"},
+    {key:"sjs_proj_baseline",   label:"프로젝트 기준선",  emoji:"📐"},
+    {key:"sjs_contract_checklist",label:"계약 체크리스트",emoji:"✅"},
+    {key:"sjs_hub_favorites",   label:"즐겨찾기",         emoji:"⭐"},
+    {key:"sjs_tab_groups",      label:"탭 그룹",          emoji:"📑"},
+    {key:"sjs_tab_order",       label:"탭 순서",          emoji:"↕"},
+    // 계정 (비밀번호는 제외 - 해시값이므로 포함해도 안전)
+    {key:"sjs_auth",            label:"계정 정보",        emoji:"👤"},
+    {key:"sjs_pw",              label:"비밀번호(해시)",   emoji:"🔒"},
   ]
 
-  // 전체 내보내기
+  // 저장 용량 계산
+  const getSize = (key) => { try{ return (localStorage.getItem(key)||"").length }catch{ return 0 } }
+  const getCount = (key) => { try{ const v=localStorage.getItem(key); if(!v) return 0; const p=JSON.parse(v); return Array.isArray(p)?p.length:typeof p==="object"?Object.keys(p).length:1 }catch{ return 0 } }
+  const totalSize = ALL_KEYS.reduce((s,{key})=>s+getSize(key),0)
+  const totalKB = (totalSize/1024).toFixed(1)
+  const totalMB = (totalSize/1024/1024).toFixed(2)
+
+  // ── 전체 내보내기 ────────────────────────────────────────
   const exportAll = () => {
-    const snap = {__sjs_backup:true, __version:2, __savedAt:new Date().toISOString(), data:{}}
-    SJS_KEYS.forEach(k=>{ try{ const v=localStorage.getItem(k); if(v) snap.data[k]=JSON.parse(v) }catch{} })
-    const blob = new Blob([JSON.stringify(snap,null,2)],{type:"application/json"})
+    const snap = {
+      __sjs_backup: true,
+      __version: 3,
+      __savedAt: new Date().toISOString(),
+      __savedBy: "상지서울건축사사무소 통합경영시스템",
+      __keyCount: 0,
+      __totalSize: 0,
+      data: {}
+    }
+    let count = 0, size = 0
+    ALL_KEYS.forEach(({key})=>{
+      try{
+        const v = localStorage.getItem(key)
+        if(v) { snap.data[key] = JSON.parse(v); count++; size += v.length }
+      }catch{}
+    })
+    snap.__keyCount = count
+    snap.__totalSize = size
+
+    const json = JSON.stringify(snap, null, 2)
+    const blob = new Blob([json], {type:"application/json;charset=utf-8"})
     const url = URL.createObjectURL(blob)
-    const a = document.createElement("a"); a.href=url
-    a.download = `sjs_backup_${new Date().toISOString().slice(0,10)}.json`
+    const a = document.createElement("a"); a.href = url
+    const dateStr = new Date().toISOString().slice(0,10)
+    const timeStr = new Date().toISOString().slice(11,16).replace(":","")
+    a.download = `상지서울_전체백업_${dateStr}_${timeStr}.json`
     a.click(); URL.revokeObjectURL(url)
-    flash("✓ 백업 파일을 다운로드했습니다. 안전한 곳에 보관하세요.")
+    flash(`✅ 전체 백업 완료! (${count}개 항목, ${(size/1024).toFixed(1)}KB)\n안전한 곳(NAS, 구글드라이브 등)에 보관하세요.`)
   }
 
-  // 불러오기
-  const importAll = (e) => {
+  // ── 복구 파일 미리보기 ───────────────────────────────────
+  const previewFile = (e) => {
     const file = e.target.files?.[0]; if(!file) return
     const reader = new FileReader()
     reader.onload = ev => {
       try {
         const snap = JSON.parse(ev.target.result)
-        if(!snap.__sjs_backup) { flash("⚠ 올바른 백업 파일이 아닙니다.",false); return }
-        if(!window.confirm(`${snap.__savedAt?.slice(0,10)||"알 수 없음"} 날짜의 백업 파일을 복구합니다.\n\n현재 입력된 모든 데이터가 백업 파일로 대체됩니다.\n계속하시겠습니까?`)) return
-        SJS_KEYS.forEach(k=>{ if(snap.data[k]!==undefined) try{ localStorage.setItem(k,JSON.stringify(snap.data[k])) }catch{} })
-        flash("✓ 복구 완료! 페이지를 새로고침하면 데이터가 반영됩니다.")
-        setTimeout(()=>window.location.reload(), 1500)
-      } catch(err) { flash("⚠ 파일을 읽는 중 오류가 발생했습니다: "+err.message, false) }
+        if(!snap.__sjs_backup) { flash("⚠ 올바른 백업 파일이 아닙니다. 상지서울 시스템에서 내보낸 .json 파일만 사용 가능합니다.",false); return }
+        // 미리보기 정보 생성
+        const preview = {
+          savedAt: snap.__savedAt?.slice(0,19).replace("T"," ") || "알 수 없음",
+          version: snap.__version || 1,
+          keyCount: snap.__keyCount || Object.keys(snap.data||{}).length,
+          totalSize: snap.__totalSize || 0,
+          items: ALL_KEYS.map(({key,label,emoji})=>({
+            key, label, emoji,
+            hasData: !!(snap.data?.[key]),
+            count: (() => { try{ const d=snap.data?.[key]; return Array.isArray(d)?d.length:d&&typeof d==="object"?Object.keys(d).length:d?1:0 }catch{ return 0 } })()
+          })).filter(x=>x.hasData),
+          snap
+        }
+        setPreviewInfo(preview)
+      } catch(err) { flash("⚠ 파일 파싱 오류: " + err.message, false) }
       e.target.value=""
     }
     reader.readAsText(file)
   }
 
-  const C2 = {navy:"#0C447C",navyM:"#185FA5",navyL:"#E6F1FB",green:"#1D9E75",greenL:"#EAF3DE",red:"#A32D2D",redL:"#FCEBEB",amber:"#BA7517",amberL:"#FAEEDA",gray:"#888780",grayL:"#F1EFE8"}
-  const card2 = {background:"var(--color-background-primary,#fff)",border:"0.5px solid var(--color-border-tertiary,#e4e4e0)",borderRadius:14,padding:"20px 24px",marginBottom:16}
-  const btn2  = (bg,fg="#fff")=>({padding:"10px 20px",background:bg,color:fg,border:"none",borderRadius:10,fontSize:13.5,fontWeight:700,cursor:"pointer",display:"inline-flex",alignItems:"center",gap:7})
+  // ── 실제 복구 실행 ───────────────────────────────────────
+  const doRestore = () => {
+    if(!previewInfo) return
+    const {snap} = previewInfo
+    if(!window.confirm(
+      `📦 ${previewInfo.savedAt} 백업으로 복구합니다.\n\n` +
+      `복구 항목: ${previewInfo.items.length}개\n\n` +
+      `⚠️ 현재 입력된 모든 데이터가 백업 데이터로 대체됩니다.\n계속하시겠습니까?`
+    )) return
 
-  // localStorage 사용 현황
-  const lsSize = SJS_KEYS.reduce((s,k)=>{ try{return s+(localStorage.getItem(k)||"").length}catch{return s} },0)
-  const lsKB = (lsSize/1024).toFixed(1)
+    let restored = 0
+    ALL_KEYS.forEach(({key})=>{
+      if(snap.data?.[key] !== undefined) {
+        try{ localStorage.setItem(key, JSON.stringify(snap.data[key])); restored++ }catch(e){ console.warn(`복구 실패 (${key}):`, e) }
+      }
+    })
+    flash(`✅ 복구 완료! ${restored}개 항목이 복구됐습니다. 페이지를 새로고침합니다...`)
+    setTimeout(()=>window.location.reload(), 1800)
+  }
+
+  const C2 = {navy:"#0C447C",navyM:"#185FA5",navyL:"#E6F1FB",green:"#1D9E75",greenL:"#EAF3DE",red:"#A32D2D",redL:"#FCEBEB",amber:"#BA7517",amberL:"#FAEEDA",gray:"#888780",grayL:"#F1EFE8"}
+  const card2 = {background:"#fff",border:"1px solid #E2E8F0",borderRadius:12,padding:"20px 24px",marginBottom:16}
+  const btn2  = (bg,fg="#fff",disabled=false)=>({padding:"10px 20px",background:disabled?"#E5E7EB":bg,color:disabled?"#94A3B8":fg,border:"none",borderRadius:8,fontSize:13,fontWeight:700,cursor:disabled?"not-allowed":"pointer",display:"inline-flex",alignItems:"center",gap:7,transition:"opacity .15s"})
 
   return (
     <div>
-      {/* 🔴 데이터 리셋 */}
-      <div style={{...card2, border:"2px solid #DC2626", background:"#FEF2F2", marginBottom:16}}>
-        <div style={{fontSize:15,fontWeight:800,color:"#DC2626",marginBottom:10}}>
+      {/* 메시지 */}
+      {msg && (
+        <div style={{marginBottom:16,padding:"12px 16px",borderRadius:10,
+          background:msg.ok?"#D1FAE5":"#FEE2E2",color:msg.ok?"#065F46":"#7F1D1D",
+          fontSize:13,fontWeight:600,lineHeight:1.7,whiteSpace:"pre-line",
+          border:`1px solid ${msg.ok?"#6EE7B7":"#FCA5A5"}`}}>
+          {msg.text}
+        </div>
+      )}
+
+      {/* ① 전체 백업 (내보내기) */}
+      <div style={{...card2,border:"2px solid #2563EB",background:"linear-gradient(135deg,#EFF6FF,#F0F9FF)"}}>
+        <div style={{display:"flex",alignItems:"flex-start",justifyContent:"space-between",flexWrap:"wrap",gap:12}}>
+          <div>
+            <div style={{fontSize:17,fontWeight:800,color:"#1E3A8A",marginBottom:6}}>
+              📦 전체 데이터 백업 (내보내기)
+            </div>
+            <div style={{fontSize:13,color:"#2563EB",lineHeight:1.8}}>
+              현재 시스템의 <b>모든 데이터</b>를 JSON 파일로 저장합니다.<br/>
+              데이터가 초기화되거나 브라우저를 바꿀 때 이 파일로 복구할 수 있습니다.
+            </div>
+            {/* 현재 데이터 현황 */}
+            <div style={{display:"flex",gap:8,flexWrap:"wrap",marginTop:12}}>
+              {[
+                {label:"프로젝트", count:getCount("sjs_projects"), color:"#2563EB"},
+                {label:"월수금", count:getCount("sjs_cash_items"), color:"#059669"},
+                {label:"계약현황", count:getCount("sjs_contract_items"), color:"#7C3AED"},
+                {label:"협력업체", count:getCount("sjs_vendors"), color:"#D97706"},
+              ].map(({label,count,color})=>(
+                <div key={label} style={{background:"#fff",borderRadius:8,padding:"6px 12px",border:"1px solid #E2E8F0",fontSize:12}}>
+                  <span style={{color:"#94A3B8"}}>{label} </span>
+                  <span style={{fontWeight:800,color}}>{count}건</span>
+                </div>
+              ))}
+              <div style={{background:"#EFF6FF",borderRadius:8,padding:"6px 12px",border:"1px solid #BFDBFE",fontSize:12}}>
+                <span style={{color:"#94A3B8"}}>총 용량 </span>
+                <span style={{fontWeight:800,color:"#2563EB"}}>{totalKB}KB</span>
+              </div>
+            </div>
+          </div>
+          <button onClick={exportAll} style={{...btn2("#2563EB"),padding:"12px 24px",fontSize:14,flexShrink:0}}>
+            ⬇ 전체 백업 다운로드
+          </button>
+        </div>
+      </div>
+
+      {/* ② 복구 (불러오기) */}
+      <div style={{...card2,border:"2px solid #059669",background:"linear-gradient(135deg,#F0FDF4,#ECFDF5)"}}>
+        <div style={{fontSize:17,fontWeight:800,color:"#065F46",marginBottom:6}}>
+          📥 백업 파일로 복구 (불러오기)
+        </div>
+        <div style={{fontSize:13,color:"#059669",lineHeight:1.8,marginBottom:14}}>
+          이전에 다운로드한 <b>상지서울_전체백업_날짜.json</b> 파일을 선택하면 복구 전 미리보기를 확인할 수 있습니다.
+        </div>
+
+        {!previewInfo ? (
+          <label style={{...btn2("#059669"),cursor:"pointer",fontSize:14,padding:"12px 24px"}}>
+            📂 백업 파일 선택 (.json)
+            <input type="file" accept=".json" style={{display:"none"}} onChange={previewFile}/>
+          </label>
+        ) : (
+          /* 복구 미리보기 */
+          <div>
+            <div style={{background:"#fff",borderRadius:10,border:"2px solid #059669",padding:"16px 20px",marginBottom:14}}>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12,flexWrap:"wrap",gap:8}}>
+                <div>
+                  <div style={{fontSize:15,fontWeight:800,color:"#065F46"}}>📋 복구 미리보기</div>
+                  <div style={{fontSize:12,color:"#64748B",marginTop:3}}>
+                    백업일시: <b>{previewInfo.savedAt}</b> &nbsp;|&nbsp;
+                    버전: v{previewInfo.version} &nbsp;|&nbsp;
+                    항목: {previewInfo.items.length}개 &nbsp;|&nbsp;
+                    용량: {(previewInfo.totalSize/1024).toFixed(1)}KB
+                  </div>
+                </div>
+                <button onClick={()=>setPreviewInfo(null)}
+                  style={{...btn2("#F1F5F9","#64748B"),padding:"6px 12px",fontSize:12}}>✕ 취소</button>
+              </div>
+
+              {/* 복구될 항목 목록 */}
+              <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(160px,1fr))",gap:8,marginBottom:14}}>
+                {previewInfo.items.map(({key,label,emoji,count})=>(
+                  <div key={key} style={{background:"#F0FDF4",borderRadius:8,padding:"8px 12px",border:"1px solid #6EE7B7"}}>
+                    <div style={{fontSize:11,color:"#64748B",marginBottom:2}}>{emoji} {label}</div>
+                    <div style={{fontSize:15,fontWeight:800,color:"#059669"}}>{count}<span style={{fontSize:11,fontWeight:400,color:"#94A3B8"}}>{count>1?" 건":""}</span></div>
+                  </div>
+                ))}
+              </div>
+
+              <div style={{background:"#FEF3C7",borderRadius:8,padding:"10px 14px",border:"1px solid #FCD34D",marginBottom:14,fontSize:13,color:"#92400E",lineHeight:1.7}}>
+                ⚠️ <b>주의</b>: 복구를 실행하면 현재 입력된 모든 데이터가 백업 파일의 데이터로 완전히 대체됩니다.<br/>
+                현재 데이터를 보존하려면 먼저 위 "전체 백업 다운로드"를 받으세요.
+              </div>
+
+              <button onClick={doRestore}
+                style={{...btn2("#059669"),padding:"12px 28px",fontSize:14}}>
+                🔄 이 백업으로 복구 실행
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* ③ 자동 백업 안내 */}
+      <div style={{...card2,background:"#FFFBEB",border:"1px solid #FDE68A"}}>
+        <div style={{fontSize:15,fontWeight:800,color:"#92400E",marginBottom:8}}>💡 백업 보관 권장사항</div>
+        <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(200px,1fr))",gap:10}}>
+          {[
+            {icon:"📅",title:"백업 주기",desc:"월 1~2회 정기 백업 권장\n(계약현황 입력 후 즉시 백업)"},
+            {icon:"☁️",title:"보관 위치",desc:"구글 드라이브 또는 회사 NAS에\n날짜별로 정리하여 보관"},
+            {icon:"🔄",title:"복구 시점",desc:"브라우저 초기화, PC 교체,\n데이터 이상 발생 시 사용"},
+            {icon:"⚠️",title:"주의사항",desc:"브라우저 데이터 삭제 시\n백업 없이는 복구 불가"},
+          ].map(({icon,title,desc})=>(
+            <div key={title} style={{background:"#fff",borderRadius:8,padding:"12px 14px",border:"1px solid #FDE68A"}}>
+              <div style={{fontSize:13,fontWeight:700,color:"#92400E",marginBottom:4}}>{icon} {title}</div>
+              <div style={{fontSize:12,color:"#78350F",lineHeight:1.7,whiteSpace:"pre-line"}}>{desc}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* ④ 경영 데이터 리셋 */}
+      <div style={{...card2,border:"2px solid #DC2626",background:"#FEF2F2"}}>
+        <div style={{fontSize:15,fontWeight:800,color:"#DC2626",marginBottom:8}}>
           🗑 경영 데이터 리셋 (월수금·계약현황·지출현황)
         </div>
-        <div style={{fontSize:13,color:"#7f1d1d",lineHeight:1.7,marginBottom:14}}>
+        <div style={{fontSize:13,color:"#7F1D1D",lineHeight:1.7,marginBottom:14}}>
           기존 데이터를 모두 지우고 새 엑셀을 업로드할 때 사용합니다.<br/>
           삭제 후 <b>경영분석 → 각 탭의 ⬆ 엑셀 업로드</b>로 새 데이터를 올리세요.
         </div>
-        {msg && <div style={{marginBottom:10,padding:"8px 12px",borderRadius:8,background:msg.ok?"#D1FAE5":"#FEE2E2",color:msg.ok?"#065F46":"#7f1d1d",fontSize:13,fontWeight:600}}>{msg.text}</div>}
         <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:10}}>
           {[
-            ["💧 월수금계획 리셋", "cash",     cashItems?.length||0,    "#0891B2","#E0F7FA"],
-            ["📝 계약현황 리셋",   "contract",  contractItems?.length||0, "#6366F1","#EEF2FF"],
-            ["💸 지출현황 리셋",   "sale",      saleItems?.length||0,     "#D97706","#FEF3C7"],
-            ["⚠️ 전체 리셋",      "all",       (cashItems?.length||0)+(contractItems?.length||0)+(saleItems?.length||0), "#DC2626","#FEE2E2"],
-          ].map(([label, type, count, color, bg])=>(
+            ["💧 월수금계획",  "cash",     cashItems?.length||0,    "#0891B2","#E0F7FA"],
+            ["📝 계약현황",    "contract",  contractItems?.length||0, "#6366F1","#EEF2FF"],
+            ["💸 지출현황",    "sale",      saleItems?.length||0,     "#D97706","#FEF3C7"],
+            ["⚠️ 전체 리셋",  "all",       (cashItems?.length||0)+(contractItems?.length||0)+(saleItems?.length||0), "#DC2626","#FEE2E2"],
+          ].map(([label,type,count,color,bg])=>(
             <div key={type} style={{background:bg,borderRadius:10,padding:"12px 14px",border:`1.5px solid ${color}30`}}>
               <div style={{fontSize:12.5,fontWeight:700,color,marginBottom:4}}>{label}</div>
               <div style={{fontSize:20,fontWeight:900,color,marginBottom:8}}>{count}<span style={{fontSize:12,fontWeight:400}}>건</span></div>
@@ -1499,71 +1688,7 @@ function BackupSection({allData, restoreAllData, isAdmin, cashItems=[], setCashI
             </div>
           ))}
         </div>
-        <div style={{marginTop:10,fontSize:11.5,color:"#9CA3AF"}}>
-          ⚠ 삭제된 데이터는 복구되지 않습니다. 중요한 데이터는 아래 <b>전체 백업 내보내기</b>를 먼저 실행하세요.
-        </div>
       </div>
-
-      {/* 안내 배너 */}
-      <div style={{...card2,background:C2.amberL,border:`1px solid ${C2.amber}44`}}>
-        <div style={{fontSize:15,fontWeight:700,color:C2.amber,marginBottom:6}}>💾 데이터 백업·복구 안내</div>
-        <div style={{fontSize:13,color:"#5a3c00",lineHeight:1.8}}>
-          시스템의 모든 데이터는 <b>이 브라우저의 localStorage</b>에 저장됩니다.<br/>
-          GitHub에 새 파일을 올려도 <b>같은 도메인이면 데이터가 유지</b>되지만,<br/>
-          다른 브라우저·기기로 접속하거나 브라우저 데이터를 지우면 사라집니다.<br/><br/>
-          <b>👉 중요 데이터는 정기적으로 아래의 "전체 백업 내보내기"를 사용해 JSON 파일로 보관하세요.</b>
-        </div>
-      </div>
-
-      {/* 저장 현황 */}
-      <div style={{...card2}}>
-        <div style={{fontSize:14,fontWeight:700,marginBottom:10}}>📊 현재 저장 현황</div>
-        <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(200px,1fr))",gap:8}}>
-          {SJS_KEYS.filter(k=>k!=="sjs_pw").map(k=>{
-            let size=0, count=""; 
-            try{ const v=localStorage.getItem(k); if(v){ size=v.length; try{const p=JSON.parse(v); count=Array.isArray(p)?`${p.length}건`:(typeof p==="object"?`${Object.keys(p).length}항목`:"")}catch{} } }catch{}
-            if(!size) return null
-            return (
-              <div key={k} style={{background:"var(--color-background-secondary,#f8f8f6)",borderRadius:8,padding:"8px 12px"}}>
-                <div style={{fontSize:10,color:C2.gray,fontWeight:600,marginBottom:2}}>{k.replace("sjs_","")}</div>
-                <div style={{fontSize:13,fontWeight:700}}>{count}</div>
-                <div style={{fontSize:10,color:C2.gray}}>{(size/1024).toFixed(1)}KB</div>
-              </div>
-            )
-          })}
-        </div>
-        <div style={{marginTop:10,fontSize:12,color:C2.gray}}>총 저장 용량: <b>{lsKB}KB</b> / 브라우저 최대 ~5MB</div>
-      </div>
-
-      {/* 내보내기 / 가져오기 */}
-      <div style={{...card2}}>
-        <div style={{fontSize:14,fontWeight:700,marginBottom:14}}>📤 전체 백업 내보내기</div>
-        <div style={{fontSize:13,color:C2.gray,marginBottom:12,lineHeight:1.7}}>
-          현재 저장된 모든 데이터(프로젝트, 인원정보, 손익, 수금계획, 협력업체 등)를<br/>
-          JSON 파일 하나로 내보냅니다. GitHub 업로드 전 또는 정기적으로 백업하세요.
-        </div>
-        <button onClick={exportAll} style={btn2(C2.navyM)}>
-          📥 전체 데이터 JSON 백업
-        </button>
-      </div>
-
-      <div style={{...card2}}>
-        <div style={{fontSize:14,fontWeight:700,marginBottom:14}}>📥 백업 파일에서 복구</div>
-        <div style={{fontSize:13,color:C2.gray,marginBottom:12,lineHeight:1.7}}>
-          이전에 내보낸 백업 JSON 파일을 불러와 데이터를 복구합니다.<br/>
-          <b style={{color:C2.red}}>⚠ 복구 시 현재 입력된 모든 데이터가 백업 파일로 덮어씌워집니다.</b>
-        </div>
-        <label style={btn2(C2.green)}>
-          📂 백업 파일 불러오기 (JSON)
-          <input type="file" accept=".json" style={{display:"none"}} onChange={importAll}/>
-        </label>
-      </div>
-
-      {msg && (
-        <div style={{...card2,background:msg.ok?C2.greenL:C2.redL,border:`1px solid ${msg.ok?C2.green:C2.red}44`,color:msg.ok?C2.green:C2.red,fontWeight:700,fontSize:14}}>
-          {msg.text}
-        </div>
-      )}
     </div>
   )
 }
