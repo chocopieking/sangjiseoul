@@ -107,9 +107,12 @@ const INP = (err) => ({padding:"8px 10px",border:`1.5px solid ${err?"#EF4444":"#
 function GlobalSearchModal({onClose, projects=[], cashItems=[], contractItems=[], setTab, setSelProjId}) {
   const [query, setQuery] = React.useState("")
   const [results, setResults] = React.useState([])
-  const [aiAnswer, setAiAnswer] = React.useState("")
+  const [aiAnswer, setAiAnswer] = React.useState("")  // 텍스트 요약
+  const [aiResult, setAiResult] = React.useState(null)  // {type, items, summary, page}
+  const [aiPage, setAiPage] = React.useState(0)  // 페이징
   const [loading, setLoading] = React.useState(false)
   const inputRef = React.useRef(null)
+  const PAGE_SIZE = 20
 
   React.useEffect(()=>{ setTimeout(()=>inputRef.current?.focus(), 100) },[])
 
@@ -331,13 +334,78 @@ function GlobalSearchModal({onClose, projects=[], cashItems=[], contractItems=[]
         answer.push(`• "서부산 계약금액 얼마야"`)
       }
 
-      setAiAnswer(answer.join("\n"))
+      // ── 구조화된 결과 객체 생성 ──────────────────────────────
+      let structuredResult = null
+
+      // PM 검색 결과 → 프로젝트 카드 목록
+      if(possibleNames.length > 0) {
+        possibleNames.forEach(name=>{
+          const pmProjects = projects.filter(p=>
+            (p.pm||"").includes(name)||(p.director||"").includes(name)||
+            (p.staffMembers||[]).some(m=>(m.name||"").includes(name))
+          )
+          if(pmProjects.length > 0 && !structuredResult) {
+            const role = projects.find(p=>(p.pm||"").includes(name)) ? "PM" :
+                         projects.find(p=>(p.director||"").includes(name)) ? "본부장" : "담당"
+            structuredResult = {
+              type: "projects",
+              title: `👤 ${name} (${role}) 담당 프로젝트 ${pmProjects.length}건`,
+              items: pmProjects.map(p=>({
+                id:p.id, name:p.name, dept:(p.depts||[]).join(", "),
+                pm:p.pm, fee:fA3(p.serviceFee||0),
+                contractDate:fDate2(p.contractDate), type:p.type||"-", code:p.code||""
+              }))
+            }
+          }
+        })
+      }
+
+      // 월별 매출 결과 → 기성 카드 목록
+      if(!structuredResult && askSale && targetYM) {
+        const paidItems = cashItems.filter(i=>i.paidDate&&String(i.paidDate).slice(0,7)===targetYM)
+        if(paidItems.length > 0) {
+          structuredResult = {
+            type: "cashItems",
+            title: `💧 ${targetYM} 매출현황 — 입금완료 ${paidItems.length}건`,
+            items: paidItems.map(i=>({
+              id:i.id, name:i.projectName||"(없음)", dept:i.dept||"-",
+              fee:fA3(i.amount||0), contractDate:fDate2(i.paidDate),
+              type:i.stage||i.itemType||"-", code:""
+            }))
+          }
+        }
+      }
+
+      // 프로젝트 유사도 검색 → 복수 결과
+      if(!structuredResult && coreKw.length >= 2) {
+        const projMatches = projects
+          .map(p=>({p, score:simScore(p.name, coreKw)}))
+          .filter(({score})=>score>0.3)
+          .sort((a,b)=>b.score-a.score)
+        if(projMatches.length > 1) {
+          structuredResult = {
+            type: "projects",
+            title: `🔍 "${coreKw}" 관련 프로젝트 ${projMatches.length}건`,
+            items: projMatches.map(({p})=>({
+              id:p.id, name:p.name, dept:(p.depts||[]).join(", "),
+              pm:p.pm, fee:fA3(p.serviceFee||0),
+              contractDate:fDate2(p.contractDate), type:p.type||"-", code:p.code||""
+            }))
+          }
+        }
+      }
+
+      // 구조화된 결과로 저장
+      setAiResult(structuredResult)
+      setAiAnswer(answer.join("\n"))  // 텍스트 요약도 유지
+      setAiPage(0)
       setLoading(false)
     }, 200)
   }
 
   React.useEffect(()=>{
     localSearch(query)
+    if(!query) { setAiResult(null); setAiAnswer(""); setAiPage(0) }
   },[query])
 
 
@@ -367,31 +435,128 @@ function GlobalSearchModal({onClose, projects=[], cashItems=[], contractItems=[]
 
         {/* 결과 영역 */}
         <div style={{overflowY:"auto",flex:1}}>
-          {/* AI 답변 */}
-          {(loading||aiAnswer)&&(
+          {/* AI 분석 결과 — 구조화 카드 */}
+          {(loading||aiAnswer||aiResult)&&(
             <div style={{padding:"16px 20px",borderBottom:"1px solid #E2E8F0",background:"#F5F3FF"}}>
               <div style={{fontSize:12,fontWeight:700,color:"#6366F1",marginBottom:8}}>🤖 AI 분석 결과</div>
               {loading
                 ? <div style={{fontSize:13,color:"#94A3B8"}}>분석 중...</div>
-                : <div style={{fontSize:14,lineHeight:1.9,color:"#334155"}}>
-                    {aiAnswer.split("\n").map((line,i)=>{
-                      if(!line.trim()) return <div key={i} style={{height:6}}/>
-                      // **볼드** 처리
-                      const parts = line.split(/\*\*([^*]+)\*\*/g)
+                : aiResult
+                  ? (()=>{
+                      const items = aiResult.items || []
+                      const totalPages = Math.ceil(items.length / PAGE_SIZE)
+                      const pageItems = items.slice(aiPage*PAGE_SIZE, (aiPage+1)*PAGE_SIZE)
+                      const TYPE_BADGE = {
+                        "계약":   {bg:"#D1FAE5",fg:"#065F46"},
+                        "확정":   {bg:"#DBEAFE",fg:"#1E3A8A"},
+                        "추진":   {bg:"#FEF3C7",fg:"#92400E"},
+                        default: {bg:"#F1F5F9",fg:"#334155"},
+                      }
                       return (
-                        <div key={i} style={{
-                          paddingLeft: line.startsWith("   ")||line.startsWith("  •") ? 20 : 0,
-                          color: line.startsWith("•")||line.startsWith("└") ? "#334155" :
-                                 /^\d+\./.test(line.trim()) ? "#0F172A" : "#334155"
-                        }}>
-                          {parts.map((p,pi)=>pi%2===1
-                            ? <strong key={pi} style={{color:"#1E3A8A"}}>{p}</strong>
-                            : <span key={pi}>{p}</span>
+                        <div>
+                          {/* 제목 + 총 건수 */}
+                          <div style={{fontSize:14,fontWeight:800,color:"#1E3A8A",marginBottom:10}}>
+                            {aiResult.title}
+                          </div>
+                          {/* 카드 목록 */}
+                          <div style={{display:"flex",flexDirection:"column",gap:6}}>
+                            {pageItems.map((item, idx)=>{
+                              const globalIdx = aiPage*PAGE_SIZE + idx + 1
+                              const badge = TYPE_BADGE[item.type]||TYPE_BADGE.default
+                              const canNav = aiResult.type==="projects" && item.id
+                              return (
+                                <div key={item.id||idx}
+                                  onClick={canNav ? ()=>{
+                                    if(setSelProjId) setSelProjId(item.id)
+                                    if(setTab) setTab("projects")
+                                    onClose()
+                                  } : undefined}
+                                  style={{
+                                    display:"flex",gap:10,alignItems:"flex-start",
+                                    padding:"10px 14px",borderRadius:8,
+                                    background:"#fff",border:"1px solid #E2E8F0",
+                                    cursor:canNav?"pointer":"default",
+                                    transition:"border-color .1s, box-shadow .1s"
+                                  }}
+                                  onMouseEnter={e=>{if(canNav){e.currentTarget.style.borderColor="#6366F1";e.currentTarget.style.boxShadow="0 2px 8px rgba(99,102,241,.15)"}}}
+                                  onMouseLeave={e=>{if(canNav){e.currentTarget.style.borderColor="#E2E8F0";e.currentTarget.style.boxShadow="none"}}}>
+                                  {/* 번호 */}
+                                  <div style={{width:24,height:24,borderRadius:6,background:"#EEF2FF",display:"flex",alignItems:"center",justifyContent:"center",fontSize:11,fontWeight:800,color:"#6366F1",flexShrink:0}}>
+                                    {globalIdx}
+                                  </div>
+                                  {/* 내용 */}
+                                  <div style={{flex:1,minWidth:0}}>
+                                    <div style={{display:"flex",gap:6,alignItems:"center",marginBottom:3,flexWrap:"wrap"}}>
+                                      <span style={{fontSize:13,fontWeight:700,color:"#0F172A",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",maxWidth:320}}>
+                                        {item.name}
+                                      </span>
+                                      <span style={{fontSize:10,fontWeight:700,padding:"1px 6px",borderRadius:10,background:badge.bg,color:badge.fg,flexShrink:0}}>
+                                        {item.type}
+                                      </span>
+                                    </div>
+                                    <div style={{fontSize:12,color:"#64748B",display:"flex",gap:10,flexWrap:"wrap"}}>
+                                      {item.dept&&<span>🏢 {item.dept}</span>}
+                                      {item.pm&&<span>👤 {item.pm}</span>}
+                                      {item.fee&&item.fee!=="-"&&<span style={{color:"#2563EB",fontWeight:600}}>💰 {item.fee}</span>}
+                                      {item.contractDate&&item.contractDate!=="-"&&<span>📅 {item.contractDate}</span>}
+                                    </div>
+                                  </div>
+                                  {canNav&&<span style={{fontSize:11,color:"#6366F1",flexShrink:0,marginTop:4}}>→ 이동</span>}
+                                </div>
+                              )
+                            })}
+                          </div>
+                          {/* 페이징 */}
+                          {totalPages > 1 && (
+                            <div style={{display:"flex",justifyContent:"center",alignItems:"center",gap:6,marginTop:12,paddingTop:10,borderTop:"1px solid #E2E8F0"}}>
+                              <button onClick={()=>setAiPage(0)} disabled={aiPage===0}
+                                style={{padding:"5px 10px",border:"1px solid #E2E8F0",borderRadius:6,background:"#fff",cursor:aiPage===0?"not-allowed":"pointer",color:aiPage===0?"#CBD5E1":"#6366F1",fontSize:12}}>«</button>
+                              <button onClick={()=>setAiPage(p=>Math.max(0,p-1))} disabled={aiPage===0}
+                                style={{padding:"5px 10px",border:"1px solid #E2E8F0",borderRadius:6,background:"#fff",cursor:aiPage===0?"not-allowed":"pointer",color:aiPage===0?"#CBD5E1":"#6366F1",fontSize:12}}>‹</button>
+                              {Array.from({length:totalPages},(_,i)=>i)
+                                .filter(i=>Math.abs(i-aiPage)<=2)
+                                .map(i=>(
+                                  <button key={i} onClick={()=>setAiPage(i)}
+                                    style={{padding:"5px 11px",border:`1.5px solid ${i===aiPage?"#6366F1":"#E2E8F0"}`,borderRadius:6,
+                                      background:i===aiPage?"#6366F1":"#fff",
+                                      color:i===aiPage?"#fff":"#334155",fontSize:12,fontWeight:i===aiPage?700:400,cursor:"pointer"}}>
+                                    {i+1}
+                                  </button>
+                              ))}
+                              <button onClick={()=>setAiPage(p=>Math.min(totalPages-1,p+1))} disabled={aiPage===totalPages-1}
+                                style={{padding:"5px 10px",border:"1px solid #E2E8F0",borderRadius:6,background:"#fff",cursor:aiPage===totalPages-1?"not-allowed":"pointer",color:aiPage===totalPages-1?"#CBD5E1":"#6366F1",fontSize:12}}>›</button>
+                              <button onClick={()=>setAiPage(totalPages-1)} disabled={aiPage===totalPages-1}
+                                style={{padding:"5px 10px",border:"1px solid #E2E8F0",borderRadius:6,background:"#fff",cursor:aiPage===totalPages-1?"not-allowed":"pointer",color:aiPage===totalPages-1?"#CBD5E1":"#6366F1",fontSize:12}}>»</button>
+                              <span style={{fontSize:11,color:"#94A3B8"}}>
+                                {aiPage*PAGE_SIZE+1}–{Math.min((aiPage+1)*PAGE_SIZE,items.length)} / {items.length}건
+                              </span>
+                            </div>
+                          )}
+                          {/* 텍스트 요약 (부가 정보) */}
+                          {aiAnswer&&aiAnswer.includes("•")&&(
+                            <div style={{marginTop:10,padding:"10px 14px",background:"#EEF2FF",borderRadius:8,fontSize:12,color:"#4338CA",lineHeight:1.8}}>
+                              {aiAnswer.split("\n").filter(l=>l.startsWith("•")||l.includes("합계")||l.includes("억")).slice(0,5).map((l,i)=>(
+                                <div key={i}>{l}</div>
+                              ))}
+                            </div>
                           )}
                         </div>
                       )
-                    })}
-                  </div>
+                    })()
+                  : <div style={{fontSize:14,lineHeight:1.9,color:"#334155"}}>
+                      {aiAnswer.split("\n").map((line,i)=>{
+                        if(!line.trim()) return <div key={i} style={{height:6}}/>
+                        const parts = line.split(/\*\*([^*]+)\*\*/g)
+                        return (
+                          <div key={i} style={{paddingLeft:line.startsWith("   ")||line.startsWith("  •")?20:0}}>
+                            {parts.map((p,pi)=>pi%2===1
+                              ? <strong key={pi} style={{color:"#1E3A8A"}}>{p}</strong>
+                              : <span key={pi}>{p}</span>
+                            )}
+                          </div>
+                        )
+                      })}
+                    </div>
               }
             </div>
           )}
@@ -3606,7 +3771,7 @@ function ProjectsTab({projects,setProjects,selProjId,setSelProjId,selVerIdx,setS
             <>
               {/* 서브탭 네비게이션 */}
               <div style={{display:"flex",gap:4,marginBottom:14,borderBottom:`2px solid var(--color-border-tertiary,#eee)`,paddingBottom:0}}>
-                {[["info","📐 프로젝트 정보"],["weekly","📋 주간보고"],["cashflow","💧 월수금"],["contract","📝 계약"],["expense","💸 지출"],["memo","📋 히스토리"]].map(([id,label])=>(
+                {[["info","📐 프로젝트 정보"],["weekly","📋 주간보고"],["cashflow","💧 월수금"],["contract","📝 계약"],["expense","💸 지출"],["completion","🏁 준공"],["award","🏆 수상내역"],["media","📰 언론보도"],["archive","📦 자료이관"],["memo","📋 히스토리"]].map(([id,label])=>(
                   <button key={id} onClick={()=>setDetailTab(id)} style={{padding:"9px 18px",border:"none",background:"none",fontSize:13,fontWeight:700,cursor:"pointer",color:detailTab===id?C.navyM:"var(--color-text-secondary,#888)",borderBottom:detailTab===id?`3px solid ${C.navyM}`:"3px solid transparent",marginBottom:-2,transition:"all .15s"}}>
                     {label}
                   </button>
@@ -3624,6 +3789,10 @@ function ProjectsTab({projects,setProjects,selProjId,setSelProjId,selVerIdx,setS
                 </div>
               ) : <ProjTabError/>)}
               {detailTab==="expense"  && (selProj?.id ? <ProjectExpenseDetail  proj={selProj} cashItems={cashItems} setCashItems={setCashItems} YEAR={YEAR} YR={YR}/> : <ProjTabError/>)}
+              {detailTab==="completion" && (selProj?.id ? <ProjectCompletionTab proj={selProj} setProjects={setProjects} canWrite={canWrite}/> : <ProjTabError/>)}
+              {detailTab==="award"      && (selProj?.id ? <ProjectAwardTab      proj={selProj} setProjects={setProjects} canWrite={canWrite}/> : <ProjTabError/>)}
+              {detailTab==="media"      && (selProj?.id ? <ProjectMediaTab      proj={selProj} setProjects={setProjects} canWrite={canWrite}/> : <ProjTabError/>)}
+              {detailTab==="archive"    && (selProj?.id ? <ProjectArchiveTab    proj={selProj} setProjects={setProjects} canWrite={canWrite}/> : <ProjTabError/>)}
               {detailTab==="memo" && selProj?.id && <ProjectMemoTab proj={selProj} setProjects={setProjects} currentUser={currentUser}/>}
 
               {detailTab==="info" && <>
@@ -12006,39 +12175,80 @@ function SmartSchedulePage({projects=[], cashItems=[], contractItems=[], current
     repeat:"none", alarm:"30", note:"", color:"#2563EB"
   })
 
-  const TYPES = {
-    "개인":"#2563EB","회의":"#0891B2","납기":"#DC2626","기성":"#059669",
-    "계약":"#D97706","공문":"#7C3AED","기타":"#64748B"
-  }
-  const REPEAT = {"none":"반복없음","daily":"매일","weekly":"매주","monthly":"매월","yearly":"매년"}
-  const ALARM  = {"0":"알람없음","10":"10분 전","30":"30분 전","60":"1시간 전","1440":"하루 전","2880":"2일 전"}
+  // ── 카테고리 그룹 정의 ───────────────────────────────────
+  const CAT_GROUPS = [
+    {id:"all",       label:"전체",         icon:"📅", color:"#334155"},
+    // 수주/계약
+    {id:"g_contract",label:"계약·수주",     icon:"📝", color:"#D97706",
+      types:["계약","수주예정","수행예정"]},
+    // 매출/기성
+    {id:"g_sale",    label:"매출·기성",     icon:"💧", color:"#059669",
+      types:["기성","기성예정","입금완료"]},
+    // 준공
+    {id:"g_completion",label:"준공",       icon:"🏁", color:"#7C3AED",
+      types:["사용승인","준공예정","준공사진"]},
+    // 수상
+    {id:"g_award",   label:"수상",          icon:"🏆", color:"#D97706",
+      types:["수상"]},
+    // 언론보도
+    {id:"g_media",   label:"언론보도",      icon:"📰", color:"#0891B2",
+      types:["언론보도"]},
+    // 개인/회의
+    {id:"g_personal",label:"개인·회의",     icon:"👤", color:"#2563EB",
+      types:["개인","회의","공문","기타"]},
+  ]
+  const [filterCat, setFilterCat] = useState("all")
 
-  // 시스템 일정 자동 수집
+  // 시스템 일정 자동 수집 (준공/수상/언론 포함)
   const systemEvts = useMemo(()=>{
     const evts = []
-    const YR = String(today.getFullYear())
     // 계약 예상시점
     ;(contractItems||[]).forEach(i=>{
       if(i.contractTime) evts.push({id:`sys_ct_${i.id}`,title:`📝 계약예정: ${i.name}`,date:i.contractTime,type:"계약",system:true,color:"#D97706",projectId:i.id})
-      if(i.execTime)     evts.push({id:`sys_et_${i.id}`,title:`🏗 수행예정: ${i.name}`,date:i.execTime,type:"납기",system:true,color:"#DC2626",projectId:i.id})
+      if(i.execTime)     evts.push({id:`sys_et_${i.id}`,title:`🏗 수행예정: ${i.name}`,date:i.execTime,type:"수행예정",system:true,color:"#DC2626",projectId:i.id})
     })
     // 기성 예정일
     ;(cashItems||[]).filter(i=>i.expectedDate&&!i.paidDate).forEach(i=>{
-      evts.push({id:`sys_cd_${i.id||Math.random()}`,title:`💧 기성예정: ${i.projectName||""} ${i.stage||""}`,date:i.expectedDate,type:"기성",system:true,color:"#059669"})
+      evts.push({id:`sys_cd_${i.id||Math.random()}`,title:`💧 기성예정: ${i.projectName||""} ${i.stage||""}`,date:i.expectedDate,type:"기성예정",system:true,color:"#059669"})
     })
-    // 프로젝트 납기
-    ;(projects||[]).filter(p=>p.contractExpect||p.execDate).forEach(p=>{
-      if(p.contractExpect) evts.push({id:`sys_pe_${p.id}`,title:`📋 계약예상: ${p.name}`,date:p.contractExpect,type:"계약",system:true,color:"#D97706",projectId:p.id})
+    // 기성 입금완료
+    ;(cashItems||[]).filter(i=>i.paidDate).forEach(i=>{
+      evts.push({id:`sys_pd_${i.id||Math.random()}`,title:`✅ 입금완료: ${i.projectName||""} ${i.stage||""}`,date:i.paidDate,type:"입금완료",system:true,color:"#059669"})
+    })
+    // 프로젝트 계약예상
+    ;(projects||[]).filter(p=>p.contractExpect).forEach(p=>{
+      evts.push({id:`sys_pe_${p.id}`,title:`📋 계약예상: ${p.name}`,date:p.contractExpect,type:"수주예정",system:true,color:"#D97706",projectId:p.id})
+    })
+    // ── 준공 정보 ────────────────────────────────────────────
+    ;(projects||[]).forEach(p=>{
+      const comp = p.completion||{}
+      if(comp.approvalDate)  evts.push({id:`sys_ap_${p.id}`,title:`🏁 사용승인: ${p.name}`,date:comp.approvalDate,type:"사용승인",system:true,color:"#7C3AED",projectId:p.id})
+      if(comp.completionDate)evts.push({id:`sys_cp_${p.id}`,title:`🏁 준공예정: ${p.name}`,date:comp.completionDate,type:"준공예정",system:true,color:"#7C3AED",projectId:p.id})
+      if(comp.photoDate)     evts.push({id:`sys_ph_${p.id}`,title:`📷 준공사진촬영: ${p.name}`,date:comp.photoDate,type:"준공사진",system:true,color:"#9333EA",projectId:p.id})
+    })
+    // ── 수상 정보 ────────────────────────────────────────────
+    ;(projects||[]).forEach(p=>{
+      ;(p.awards||[]).forEach(a=>{
+        if(a.awardDate) evts.push({id:`sys_aw_${a.id}`,title:`🏆 ${a.awardName||"수상"}: ${p.name}`,date:a.awardDate,type:"수상",system:true,color:"#D97706",projectId:p.id})
+      })
+    })
+    // ── 언론보도 ──────────────────────────────────────────────
+    ;(projects||[]).forEach(p=>{
+      ;(p.mediaItems||[]).forEach(m=>{
+        if(m.publishDate) evts.push({id:`sys_md_${m.id}`,title:`📰 ${m.media||"언론"}: ${m.title||p.name}`,date:m.publishDate,type:"언론보도",system:true,color:"#0891B2",projectId:p.id})
+      })
     })
     return evts
   },[contractItems,cashItems,projects])
 
-  // 전체 이벤트 = 개인 + 시스템
-  const allEvts = useMemo(()=>[
-    ...schedules.map(s=>({...s,system:false})),
-    ...(filterType==="all"||filterType==="system"?systemEvts:[])
-  ].filter(e=>filterType==="all"||filterType==="system"?true:e.type===filterType)
-  ,[schedules,systemEvts,filterType])
+  // 카테고리 필터 적용
+  const allEvts = useMemo(()=>{
+    const base = [...schedules.map(s=>({...s,system:false})), ...systemEvts]
+    if(filterCat==="all") return base
+    const group = CAT_GROUPS.find(g=>g.id===filterCat)
+    if(!group||!group.types) return base
+    return base.filter(e=>group.types.includes(e.type))
+  },[schedules,systemEvts,filterCat])
 
   // 날짜 파싱 (다양한 형식 지원)
   const parseDate = (d) => {
@@ -12123,19 +12333,26 @@ function SmartSchedulePage({projects=[], cashItems=[], contractItems=[], current
                 style={{padding:"5px 12px",border:"none",borderRadius:6,fontSize:13,fontWeight:view===v?700:400,cursor:"pointer",background:view===v?"#2563EB":"none",color:view===v?"#fff":"#64748B"}}>{l}</button>
             ))}
           </div>
-          {/* 필터 */}
-          <select value={filterType} onChange={e=>setFilterType(e.target.value)}
-            style={{padding:"6px 10px",border:"1px solid #E5E7EB",borderRadius:8,fontSize:13,fontFamily:"inherit",outline:"none"}}>
-            <option value="all">전체</option>
-            <option value="system">시스템 일정</option>
-            {Object.keys(TYPES).map(t=><option key={t} value={t}>{t}</option>)}
-          </select>
           <button onClick={()=>{setShowAdd(true);setEditEvt(null)}}
             style={{padding:"7px 14px",background:"#2563EB",color:"#fff",border:"none",borderRadius:6,fontSize:13,fontWeight:700,cursor:"pointer"}}>
             + 일정 추가
           </button>
         </div>
+        {/* 카테고리 필터 탭 */}
+        <div style={{display:"flex",gap:6,flexWrap:"wrap",paddingTop:10,borderTop:"1px solid #F1F5F9",marginTop:8}}>
+          {CAT_GROUPS.map(g=>(
+            <button key={g.id} onClick={()=>setFilterCat(g.id)}
+              style={{padding:"5px 12px",border:`1.5px solid ${filterCat===g.id?g.color:"#E2E8F0"}`,
+                borderRadius:20,fontSize:12,fontWeight:filterCat===g.id?700:500,cursor:"pointer",
+                background:filterCat===g.id?g.color:"#fff",
+                color:filterCat===g.id?"#fff":g.color,
+                transition:"all .15s"}}>
+              {g.icon} {g.label}
+            </button>
+          ))}
+        </div>
       </div>
+      <div style={{display:"none"}}>{/* filterType compat */}</div>
 
       {/* 임박 일정 배너 */}
       {upcomingEvts.length>0&&(
@@ -12528,6 +12745,495 @@ function DocVaultPage({currentUser, projects=[]}) {
 // ══════════════════════════════════════════════════════════════
 // 📋 프로젝트 히스토리 메모 탭
 // ══════════════════════════════════════════════════════════════
+// ══════════════════════════════════════════════════════════════
+// 🏁 준공 정보 탭
+// ══════════════════════════════════════════════════════════════
+function ProjectCompletionTab({proj, setProjects, canWrite}) {
+  const toast = useToast()
+  const comp = proj.completion || {}
+  const [draft, setDraft] = React.useState({...comp})
+  const [dirty, setDirty] = React.useState(false)
+  const u = (k,v) => { setDraft(p=>({...p,[k]:v})); setDirty(true) }
+
+  const save = () => {
+    setProjects(prev=>prev.map(p=>p.id===proj.id?{...p,completion:draft}:p))
+    setDirty(false); toast&&toast("✅ 준공 정보 저장 완료","success")
+  }
+
+  const Field = ({label,k,type="text",placeholder=""}) => (
+    <div>
+      <label style={{fontSize:12,fontWeight:700,color:"#334155",display:"block",marginBottom:4}}>{label}</label>
+      <input type={type} value={draft[k]||""} onChange={e=>u(k,e.target.value)}
+        placeholder={placeholder} disabled={!canWrite}
+        style={{width:"100%",padding:"8px 10px",border:"1.5px solid #E5E7EB",borderRadius:7,fontSize:13,
+          boxSizing:"border-box",fontFamily:"inherit",outline:"none",
+          background:canWrite?"#fff":"#F8FAFC",color:"#0F172A"}}/>
+    </div>
+  )
+
+  return (
+    <div>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}>
+        <div style={{fontSize:16,fontWeight:800,color:"#0F172A"}}>🏁 준공 정보</div>
+        {canWrite&&dirty&&<button onClick={save}
+          style={{padding:"8px 20px",background:"#059669",color:"#fff",border:"none",borderRadius:8,fontSize:13,fontWeight:700,cursor:"pointer"}}>
+          💾 저장
+        </button>}
+      </div>
+
+      {/* 준공 일정 */}
+      <div style={{background:"#fff",borderRadius:10,border:"1px solid #E2E8F0",padding:"16px 20px",marginBottom:12}}>
+        <div style={{fontSize:13,fontWeight:800,color:"#059669",marginBottom:12}}>📅 준공 일정</div>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:12}}>
+          <Field label="사용승인일" k="approvalDate" type="date"/>
+          <Field label="준공(예정)일" k="completionDate" type="date"/>
+          <Field label="준공사진 촬영일" k="photoDate" type="date"/>
+        </div>
+      </div>
+
+      {/* 준공사진 촬영 */}
+      <div style={{background:"#fff",borderRadius:10,border:"1px solid #E2E8F0",padding:"16px 20px",marginBottom:12}}>
+        <div style={{fontSize:13,fontWeight:800,color:"#2563EB",marginBottom:12}}>📷 준공사진 촬영 정보</div>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:10}}>
+          <Field label="촬영자" k="photoPhotographer" placeholder="촬영 담당자명"/>
+          <Field label="촬영업체명" k="photoCompany" placeholder="업체명"/>
+        </div>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
+          <Field label="촬영업체 연락처" k="photoCompanyTel" placeholder="000-0000-0000"/>
+          <Field label="촬영업체 이메일" k="photoCompanyEmail" placeholder="email@example.com"/>
+        </div>
+      </div>
+
+      {/* 자료 경로 */}
+      <div style={{background:"#fff",borderRadius:10,border:"1px solid #E2E8F0",padding:"16px 20px",marginBottom:12}}>
+        <div style={{fontSize:13,fontWeight:800,color:"#7C3AED",marginBottom:12}}>💾 자료 서버 경로</div>
+        <div style={{display:"grid",gridTemplateColumns:"1fr",gap:10}}>
+          <Field label="준공사진 서버 경로" k="photoServerPath" placeholder="\\server\projects\준공사진\..."/>
+          <Field label="준공도서 서버 경로" k="docServerPath" placeholder="\\server\projects\준공도서\..."/>
+        </div>
+        <div style={{marginTop:10}}>
+          <label style={{fontSize:12,fontWeight:700,color:"#334155",display:"block",marginBottom:4}}>비고</label>
+          <textarea value={draft.note||""} onChange={e=>u("note",e.target.value)} rows={3} disabled={!canWrite}
+            placeholder="준공 관련 특이사항, 메모"
+            style={{width:"100%",padding:"8px 10px",border:"1.5px solid #E5E7EB",borderRadius:7,fontSize:13,
+              boxSizing:"border-box",fontFamily:"inherit",outline:"none",resize:"vertical",
+              background:canWrite?"#fff":"#F8FAFC"}}/>
+        </div>
+      </div>
+
+      {canWrite&&<button onClick={save}
+        style={{padding:"10px 28px",background:"#059669",color:"#fff",border:"none",borderRadius:8,fontSize:14,fontWeight:700,cursor:"pointer"}}>
+        💾 저장
+      </button>}
+    </div>
+  )
+}
+
+// ══════════════════════════════════════════════════════════════
+// 🏆 수상내역 탭
+// ══════════════════════════════════════════════════════════════
+function ProjectAwardTab({proj, setProjects, canWrite}) {
+  const toast = useToast()
+  const awards = proj.awards || []
+  const [showForm, setShowForm] = React.useState(false)
+  const [editIdx, setEditIdx] = React.useState(null)
+  const empty = {awardName:"",awardType:"",awardRank:"",awardee:"",awardeeName:"",
+    awardeeTitle:"",institution:"",certNo:"",awardDate:"",expireDate:"",serverPath:"",note:""}
+  const [draft, setDraft] = React.useState(empty)
+  const u = (k,v) => setDraft(p=>({...p,[k]:v}))
+
+  const save = () => {
+    if(!draft.awardName.trim()) return
+    const next = editIdx===null ? [...awards,{id:`AW${Date.now()}`,...draft}]
+      : awards.map((a,i)=>i===editIdx?{...a,...draft}:a)
+    setProjects(prev=>prev.map(p=>p.id===proj.id?{...p,awards:next}:p))
+    toast&&toast("✅ 수상내역 저장 완료","success")
+    setShowForm(false); setDraft(empty); setEditIdx(null)
+  }
+  const del = i => {
+    if(!window.confirm("이 수상내역을 삭제합니까?")) return
+    setProjects(prev=>prev.map(p=>p.id===proj.id?{...p,awards:awards.filter((_,ri)=>ri!==i)}:p))
+  }
+  const open = (i=null) => {
+    setEditIdx(i); setDraft(i===null?empty:{...awards[i]}); setShowForm(true)
+  }
+
+  const FIELD = (label,k,opt={}) => (
+    <div>
+      <label style={{fontSize:11,fontWeight:700,color:"#64748B",display:"block",marginBottom:3}}>{label}</label>
+      {opt.select ? (
+        <select value={draft[k]||""} onChange={e=>u(k,e.target.value)}
+          style={{width:"100%",padding:"7px 9px",border:"1.5px solid #E5E7EB",borderRadius:6,fontSize:12,fontFamily:"inherit",outline:"none"}}>
+          <option value="">선택</option>
+          {opt.select.map(o=><option key={o}>{o}</option>)}
+        </select>
+      ) : (
+        <input type={opt.type||"text"} value={draft[k]||""} onChange={e=>u(k,e.target.value)}
+          placeholder={opt.ph||""} style={{width:"100%",padding:"7px 9px",border:"1.5px solid #E5E7EB",
+          borderRadius:6,fontSize:12,boxSizing:"border-box",fontFamily:"inherit",outline:"none"}}/>
+      )}
+    </div>
+  )
+
+  return (
+    <div>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}>
+        <div style={{fontSize:16,fontWeight:800,color:"#0F172A"}}>🏆 수상내역 ({awards.length}건)</div>
+        {canWrite&&<button onClick={()=>open()}
+          style={{padding:"8px 16px",background:"#D97706",color:"#fff",border:"none",borderRadius:8,fontSize:13,fontWeight:700,cursor:"pointer"}}>
+          + 수상내역 추가
+        </button>}
+      </div>
+
+      {/* 수상 목록 */}
+      {awards.length===0&&!showForm&&(
+        <div style={{background:"#FFFBEB",borderRadius:8,border:"1px dashed #FCD34D",padding:"30px",textAlign:"center",color:"#92400E"}}>
+          <div style={{fontSize:28,marginBottom:6}}>🏆</div>
+          <div style={{fontSize:13,fontWeight:600}}>등록된 수상내역이 없습니다</div>
+        </div>
+      )}
+      {awards.map((a,i)=>(
+        <div key={a.id||i} style={{background:"#fff",borderRadius:8,border:"2px solid #FCD34D",marginBottom:10,overflow:"hidden"}}>
+          <div style={{padding:"10px 16px",background:"#FFFBEB",display:"flex",alignItems:"center",gap:10}}>
+            <span style={{fontSize:18}}>🏆</span>
+            <div style={{flex:1}}>
+              <div style={{fontSize:14,fontWeight:800,color:"#92400E"}}>{a.awardName}</div>
+              <div style={{fontSize:12,color:"#D97706"}}>{a.awardType}{a.awardRank&&` · ${a.awardRank}`} {a.institution&&`| ${a.institution}`}</div>
+            </div>
+            <div style={{fontSize:12,color:"#64748B"}}>{a.awardDate}</div>
+            {canWrite&&<div style={{display:"flex",gap:4}}>
+              <button onClick={()=>open(i)} style={{padding:"4px 10px",background:"#EFF6FF",color:"#2563EB",border:"none",borderRadius:6,fontSize:11,cursor:"pointer"}}>수정</button>
+              <button onClick={()=>del(i)} style={{padding:"4px 8px",background:"#FEE2E2",color:"#DC2626",border:"none",borderRadius:6,fontSize:11,cursor:"pointer"}}>삭제</button>
+            </div>}
+          </div>
+          <div style={{padding:"10px 16px",display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(150px,1fr))",gap:8,fontSize:12}}>
+            {[["수상자",a.awardeeName],["직책",a.awardeeTitle],["수여기관",a.institution],
+              ["인증번호",a.certNo],["인증만료",a.expireDate],["서버경로",a.serverPath]
+            ].filter(([,v])=>v).map(([l,v])=>(
+              <div key={l}><span style={{color:"#94A3B8"}}>{l}: </span><span style={{color:"#334155",fontWeight:600}}>{v}</span></div>
+            ))}
+            {a.note&&<div style={{gridColumn:"1/-1",color:"#64748B"}}>📋 {a.note}</div>}
+          </div>
+        </div>
+      ))}
+
+      {/* 입력 폼 */}
+      {showForm&&(
+        <div style={{background:"#fff",borderRadius:10,border:"2px solid #D97706",padding:"20px",marginTop:8}}>
+          <div style={{fontSize:14,fontWeight:800,color:"#D97706",marginBottom:14}}>
+            {editIdx===null?"🏆 수상내역 등록":"✏ 수상내역 수정"}
+          </div>
+          <div style={{display:"grid",gridTemplateColumns:"2fr 1fr 1fr",gap:10,marginBottom:10}}>
+            {FIELD("수상명칭 *","awardName",{ph:"예: 대한건축학회 작품상"})}
+            {FIELD("수상구분","awardType",{select:["금상","은상","동상","특선","우수상","최우수상","장려상","대상","인증","기타"]})}
+            {FIELD("수상순위/등급","awardRank",{ph:"예: 1위, 금상"})}
+          </div>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10,marginBottom:10}}>
+            {FIELD("수상자(개인/조직)","awardeeName",{ph:"수상자명 또는 조직명"})}
+            {FIELD("수상자 직책","awardeeTitle",{ph:"예: 소장, 본부장"})}
+            {FIELD("수여기관","institution",{ph:"예: 대한건축학회"})}
+          </div>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr 1fr",gap:10,marginBottom:10}}>
+            {FIELD("인증번호","certNo",{ph:"상장/인증번호"})}
+            {FIELD("수여/인증일","awardDate",{type:"date"})}
+            {FIELD("인증만료일","expireDate",{type:"date"})}
+            {FIELD("서버 보관경로","serverPath",{ph:"\\server\awards\..."})}
+          </div>
+          <div style={{marginBottom:14}}>
+            <label style={{fontSize:11,fontWeight:700,color:"#64748B",display:"block",marginBottom:3}}>비고</label>
+            <textarea value={draft.note||""} onChange={e=>u("note",e.target.value)} rows={2}
+              style={{width:"100%",padding:"7px 9px",border:"1.5px solid #E5E7EB",borderRadius:6,fontSize:12,boxSizing:"border-box",fontFamily:"inherit",outline:"none",resize:"vertical"}}/>
+          </div>
+          <div style={{display:"flex",gap:8}}>
+            <button onClick={save} style={{padding:"9px 22px",background:"#D97706",color:"#fff",border:"none",borderRadius:8,fontSize:13,fontWeight:700,cursor:"pointer"}}>💾 저장</button>
+            <button onClick={()=>{setShowForm(false);setDraft(empty);setEditIdx(null)}}
+              style={{padding:"9px 14px",background:"#F1F5F9",color:"#64748B",border:"none",borderRadius:8,fontSize:13,cursor:"pointer"}}>취소</button>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ══════════════════════════════════════════════════════════════
+// 📰 언론보도 탭
+// ══════════════════════════════════════════════════════════════
+function ProjectMediaTab({proj, setProjects, canWrite}) {
+  const toast = useToast()
+  const items = proj.mediaItems || []
+  const [showForm, setShowForm] = React.useState(false)
+  const [editIdx, setEditIdx] = React.useState(null)
+  const empty = {media:"",publishDate:"",title:"",url:"",note:""}
+  const [draft, setDraft] = React.useState(empty)
+  const u = (k,v) => setDraft(p=>({...p,[k]:v}))
+
+  const save = () => {
+    if(!draft.title.trim()) return
+    const next = editIdx===null ? [{id:`MD${Date.now()}`,...draft},...items]
+      : items.map((a,i)=>i===editIdx?{...a,...draft}:a)
+    setProjects(prev=>prev.map(p=>p.id===proj.id?{...p,mediaItems:next}:p))
+    toast&&toast("✅ 언론보도 저장 완료","success")
+    setShowForm(false); setDraft(empty); setEditIdx(null)
+  }
+  const del = i => {
+    if(!window.confirm("삭제합니까?")) return
+    setProjects(prev=>prev.map(p=>p.id===proj.id?{...p,mediaItems:items.filter((_,ri)=>ri!==i)}:p))
+  }
+
+  return (
+    <div>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}>
+        <div style={{fontSize:16,fontWeight:800,color:"#0F172A"}}>📰 언론보도 ({items.length}건)</div>
+        {canWrite&&<button onClick={()=>{setShowForm(true);setEditIdx(null);setDraft(empty)}}
+          style={{padding:"8px 16px",background:"#0891B2",color:"#fff",border:"none",borderRadius:8,fontSize:13,fontWeight:700,cursor:"pointer"}}>
+          + 언론보도 추가
+        </button>}
+      </div>
+
+      {items.length===0&&!showForm&&(
+        <div style={{background:"#F0F9FF",borderRadius:8,border:"1px dashed #BAE6FD",padding:"30px",textAlign:"center",color:"#0369A1"}}>
+          <div style={{fontSize:28,marginBottom:6}}>📰</div>
+          <div style={{fontSize:13,fontWeight:600}}>등록된 언론보도가 없습니다</div>
+        </div>
+      )}
+
+      {[...items].sort((a,b)=>(b.publishDate||"").localeCompare(a.publishDate||"")).map((item,i)=>{
+        const origIdx = items.indexOf(item)
+        return (
+          <div key={item.id||i} style={{background:"#fff",borderRadius:8,border:"1px solid #E2E8F0",marginBottom:8,padding:"12px 16px",display:"flex",gap:12,alignItems:"flex-start"}}>
+            <div style={{flexShrink:0,fontSize:24}}>📰</div>
+            <div style={{flex:1,minWidth:0}}>
+              <div style={{display:"flex",gap:8,alignItems:"center",marginBottom:4,flexWrap:"wrap"}}>
+                {item.media&&<span style={{fontSize:11,fontWeight:700,background:"#E0F2FE",color:"#0369A1",padding:"2px 8px",borderRadius:10}}>{item.media}</span>}
+                {item.publishDate&&<span style={{fontSize:11,color:"#94A3B8"}}>{item.publishDate}</span>}
+              </div>
+              {item.url
+                ? <a href={item.url} target="_blank" rel="noopener noreferrer"
+                    style={{fontSize:14,fontWeight:700,color:"#0891B2",textDecoration:"none",lineBreak:"anywhere"}}>
+                    {item.title} ↗
+                  </a>
+                : <div style={{fontSize:14,fontWeight:700,color:"#0F172A"}}>{item.title}</div>
+              }
+              {item.note&&<div style={{fontSize:12,color:"#64748B",marginTop:4}}>{item.note}</div>}
+            </div>
+            {canWrite&&<div style={{display:"flex",gap:4,flexShrink:0}}>
+              <button onClick={()=>{setEditIdx(origIdx);setDraft({...item});setShowForm(true)}}
+                style={{padding:"4px 10px",background:"#EFF6FF",color:"#2563EB",border:"none",borderRadius:6,fontSize:11,cursor:"pointer"}}>수정</button>
+              <button onClick={()=>del(origIdx)}
+                style={{padding:"4px 8px",background:"#FEE2E2",color:"#DC2626",border:"none",borderRadius:6,fontSize:11,cursor:"pointer"}}>삭제</button>
+            </div>}
+          </div>
+        )
+      })}
+
+      {showForm&&(
+        <div style={{background:"#fff",borderRadius:10,border:"2px solid #0891B2",padding:"18px",marginTop:8}}>
+          <div style={{fontSize:14,fontWeight:800,color:"#0891B2",marginBottom:12}}>
+            {editIdx===null?"📰 언론보도 등록":"✏ 언론보도 수정"}
+          </div>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:10}}>
+            {[["언론사명","media","text","예: 조선일보"],["게시일","publishDate","date",""]].map(([l,k,t,ph])=>(
+              <div key={k}>
+                <label style={{fontSize:11,fontWeight:700,color:"#64748B",display:"block",marginBottom:3}}>{l}</label>
+                <input type={t} value={draft[k]||""} onChange={e=>u(k,e.target.value)} placeholder={ph}
+                  style={{width:"100%",padding:"7px 9px",border:"1.5px solid #E5E7EB",borderRadius:6,fontSize:12,boxSizing:"border-box",fontFamily:"inherit",outline:"none"}}/>
+              </div>
+            ))}
+          </div>
+          <div style={{marginBottom:10}}>
+            <label style={{fontSize:11,fontWeight:700,color:"#64748B",display:"block",marginBottom:3}}>제목 *</label>
+            <input value={draft.title||""} onChange={e=>u("title",e.target.value)} placeholder="기사 제목"
+              style={{width:"100%",padding:"7px 9px",border:"1.5px solid #E5E7EB",borderRadius:6,fontSize:12,boxSizing:"border-box",fontFamily:"inherit",outline:"none"}}/>
+          </div>
+          <div style={{marginBottom:10}}>
+            <label style={{fontSize:11,fontWeight:700,color:"#64748B",display:"block",marginBottom:3}}>URL (링크)</label>
+            <input value={draft.url||""} onChange={e=>u("url",e.target.value)} placeholder="https://..."
+              style={{width:"100%",padding:"7px 9px",border:"1.5px solid #E5E7EB",borderRadius:6,fontSize:12,boxSizing:"border-box",fontFamily:"inherit",outline:"none"}}/>
+          </div>
+          <div style={{marginBottom:14}}>
+            <label style={{fontSize:11,fontWeight:700,color:"#64748B",display:"block",marginBottom:3}}>비고</label>
+            <textarea value={draft.note||""} onChange={e=>u("note",e.target.value)} rows={2}
+              style={{width:"100%",padding:"7px 9px",border:"1.5px solid #E5E7EB",borderRadius:6,fontSize:12,boxSizing:"border-box",fontFamily:"inherit",outline:"none",resize:"vertical"}}/>
+          </div>
+          <div style={{display:"flex",gap:8}}>
+            <button onClick={save} style={{padding:"9px 22px",background:"#0891B2",color:"#fff",border:"none",borderRadius:8,fontSize:13,fontWeight:700,cursor:"pointer"}}>💾 저장</button>
+            <button onClick={()=>{setShowForm(false);setDraft(empty);setEditIdx(null)}}
+              style={{padding:"9px 14px",background:"#F1F5F9",color:"#64748B",border:"none",borderRadius:8,fontSize:13,cursor:"pointer"}}>취소</button>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ══════════════════════════════════════════════════════════════
+// 📦 자료이관 탭
+// ══════════════════════════════════════════════════════════════
+const DEFAULT_ARCHIVE_STAGES = ["경쟁설계","계획설계","중간설계","실시설계","변경설계","준공도서"]
+
+function ProjectArchiveTab({proj, setProjects, canWrite}) {
+  const toast = useToast()
+  const archive = proj.archiveData || {stages: DEFAULT_ARCHIVE_STAGES.map(s=>({stageName:s})), records:[]}
+  const stages = archive.stages || DEFAULT_ARCHIVE_STAGES.map(s=>({stageName:s}))
+  const records = archive.records || []
+
+  const [newStage, setNewStage] = React.useState("")
+  const [editStageIdx, setEditStageIdx] = React.useState(null)
+  const [editStageName, setEditStageName] = React.useState("")
+  const [showRecordForm, setShowRecordForm] = React.useState(null) // stageIdx
+  const emptyRec = {transferDate:"",transferBy:"",transferPath:"",backupDate:"",backupBy:"",note:""}
+  const [recDraft, setRecDraft] = React.useState(emptyRec)
+
+  const save = (newArchive) => {
+    setProjects(prev=>prev.map(p=>p.id===proj.id?{...p,archiveData:newArchive}:p))
+    toast&&toast("✅ 저장 완료","success")
+  }
+
+  const addStage = () => {
+    if(!newStage.trim()) return
+    save({...archive, stages:[...stages,{stageName:newStage.trim()}]})
+    setNewStage("")
+  }
+  const renameStage = (i) => {
+    const ns = stages.map((s,ri)=>ri===i?{...s,stageName:editStageName}:s)
+    save({...archive,stages:ns}); setEditStageIdx(null)
+  }
+  const delStage = (i) => {
+    if(!window.confirm(`"${stages[i].stageName}" 단계를 삭제합니까?
+해당 단계의 이관 기록도 삭제됩니다.`)) return
+    const sName = stages[i].stageName
+    save({...archive, stages:stages.filter((_,ri)=>ri!==i),
+      records:records.filter(r=>r.stageName!==sName)})
+  }
+  const saveRecord = (stageName) => {
+    const rec = {id:`AR${Date.now()}`,stageName,...recDraft}
+    save({...archive, records:[...records, rec]})
+    setShowRecordForm(null); setRecDraft(emptyRec)
+  }
+  const delRecord = (id) => {
+    save({...archive, records:records.filter(r=>r.id!==id)})
+  }
+
+  return (
+    <div>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}>
+        <div style={{fontSize:16,fontWeight:800,color:"#0F172A"}}>📦 프로젝트 자료이관</div>
+      </div>
+
+      {/* 단계 관리 */}
+      {canWrite&&(
+        <div style={{background:"#F8FAFC",borderRadius:8,border:"1px solid #E2E8F0",padding:"12px 16px",marginBottom:14}}>
+          <div style={{fontSize:12,fontWeight:700,color:"#64748B",marginBottom:8}}>설계 단계 관리</div>
+          <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:8}}>
+            {stages.map((s,i)=>(
+              editStageIdx===i
+                ? <div key={i} style={{display:"flex",gap:4}}>
+                    <input value={editStageName} onChange={e=>setEditStageName(e.target.value)}
+                      style={{padding:"4px 8px",border:"1.5px solid #6366F1",borderRadius:6,fontSize:12,fontFamily:"inherit",outline:"none",width:100}}/>
+                    <button onClick={()=>renameStage(i)}
+                      style={{padding:"4px 8px",background:"#6366F1",color:"#fff",border:"none",borderRadius:6,fontSize:11,cursor:"pointer"}}>✓</button>
+                    <button onClick={()=>setEditStageIdx(null)}
+                      style={{padding:"4px 6px",background:"#F1F5F9",color:"#64748B",border:"none",borderRadius:6,fontSize:11,cursor:"pointer"}}>✕</button>
+                  </div>
+                : <div key={i} style={{display:"flex",alignItems:"center",gap:3,background:"#fff",border:"1px solid #E2E8F0",borderRadius:6,padding:"4px 10px"}}>
+                    <span style={{fontSize:12,fontWeight:600,color:"#334155"}}>{s.stageName}</span>
+                    <button onClick={()=>{setEditStageIdx(i);setEditStageName(s.stageName)}}
+                      style={{border:"none",background:"none",cursor:"pointer",fontSize:11,color:"#6366F1",padding:"0 2px"}}>✏</button>
+                    <button onClick={()=>delStage(i)}
+                      style={{border:"none",background:"none",cursor:"pointer",fontSize:11,color:"#DC2626",padding:"0 2px"}}>✕</button>
+                  </div>
+            ))}
+          </div>
+          <div style={{display:"flex",gap:6}}>
+            <input value={newStage} onChange={e=>setNewStage(e.target.value)}
+              placeholder="새 단계명 입력 (예: 착공도서)"
+              onKeyDown={e=>e.key==="Enter"&&addStage()}
+              style={{flex:1,padding:"6px 10px",border:"1.5px solid #E5E7EB",borderRadius:6,fontSize:12,fontFamily:"inherit",outline:"none"}}/>
+            <button onClick={addStage}
+              style={{padding:"6px 14px",background:"#2563EB",color:"#fff",border:"none",borderRadius:6,fontSize:12,fontWeight:700,cursor:"pointer"}}>+ 추가</button>
+          </div>
+        </div>
+      )}
+
+      {/* 단계별 이관 기록 */}
+      {stages.map((stage,si)=>{
+        const stageRecs = records.filter(r=>r.stageName===stage.stageName)
+          .sort((a,b)=>(b.transferDate||"").localeCompare(a.transferDate||""))
+        return (
+          <div key={si} style={{background:"#fff",borderRadius:10,border:"2px solid #E2E8F0",marginBottom:12,overflow:"hidden"}}>
+            <div style={{padding:"10px 16px",background:"#F8FAFC",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+              <div style={{display:"flex",alignItems:"center",gap:8}}>
+                <span style={{fontSize:18}}>📁</span>
+                <span style={{fontSize:14,fontWeight:800,color:"#1E3A8A"}}>{stage.stageName}</span>
+                <span style={{fontSize:11,color:"#94A3B8"}}>{stageRecs.length}건</span>
+              </div>
+              {canWrite&&<button onClick={()=>setShowRecordForm(showRecordForm===si?null:si)}
+                style={{padding:"5px 12px",background:"#EFF6FF",color:"#2563EB",border:"none",borderRadius:6,fontSize:12,fontWeight:600,cursor:"pointer"}}>
+                + 이관 기록 추가
+              </button>}
+            </div>
+
+            {/* 이관 기록 목록 */}
+            {stageRecs.length>0&&(
+              <div style={{padding:"0 16px 12px"}}>
+                <table style={{width:"100%",borderCollapse:"collapse",fontSize:12,marginTop:8}}>
+                  <thead>
+                    <tr style={{background:"#F8FAFC"}}>
+                      {["이관일","이관자","이관경로","기록실백업일","백업등록자",""].map((h,i)=>(
+                        <th key={i} style={{padding:"6px 8px",textAlign:"left",fontSize:11,fontWeight:700,color:"#64748B",borderBottom:"1px solid #E2E8F0",whiteSpace:"nowrap"}}>{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {stageRecs.map(r=>(
+                      <tr key={r.id} style={{borderBottom:"1px solid #F1F5F9"}}>
+                        <td style={{padding:"7px 8px",whiteSpace:"nowrap"}}>{r.transferDate||"-"}</td>
+                        <td style={{padding:"7px 8px"}}>{r.transferBy||"-"}</td>
+                        <td style={{padding:"7px 8px",color:"#2563EB",fontSize:11,wordBreak:"break-all"}}>{r.transferPath||"-"}</td>
+                        <td style={{padding:"7px 8px",whiteSpace:"nowrap"}}>{r.backupDate||"-"}</td>
+                        <td style={{padding:"7px 8px"}}>{r.backupBy||"-"}</td>
+                        <td style={{padding:"7px 8px"}}>
+                          {canWrite&&<button onClick={()=>delRecord(r.id)}
+                            style={{padding:"2px 6px",background:"#FEE2E2",color:"#DC2626",border:"none",borderRadius:4,fontSize:10,cursor:"pointer"}}>삭제</button>}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+
+            {/* 이관 기록 입력 폼 */}
+            {showRecordForm===si&&(
+              <div style={{padding:"12px 16px",borderTop:"1px solid #E2E8F0",background:"#F0F9FF"}}>
+                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 2fr 1fr 1fr",gap:8,marginBottom:8}}>
+                  {[["자료이관일","transferDate","date"],["이관자","transferBy","text"],
+                    ["이관경로","transferPath","text"],["기록실백업일","backupDate","date"],
+                    ["백업등록자","backupBy","text"]
+                  ].map(([l,k,t])=>(
+                    <div key={k}>
+                      <div style={{fontSize:10,fontWeight:700,color:"#64748B",marginBottom:2}}>{l}</div>
+                      <input type={t} value={recDraft[k]||""} onChange={e=>setRecDraft(p=>({...p,[k]:e.target.value}))}
+                        style={{width:"100%",padding:"5px 7px",border:"1.5px solid #BAE6FD",borderRadius:5,fontSize:11,boxSizing:"border-box",fontFamily:"inherit",outline:"none"}}/>
+                    </div>
+                  ))}
+                </div>
+                <div style={{display:"flex",gap:6}}>
+                  <button onClick={()=>saveRecord(stage.stageName)}
+                    style={{padding:"6px 16px",background:"#0891B2",color:"#fff",border:"none",borderRadius:6,fontSize:12,fontWeight:700,cursor:"pointer"}}>저장</button>
+                  <button onClick={()=>{setShowRecordForm(null);setRecDraft(emptyRec)}}
+                    style={{padding:"6px 10px",background:"#F1F5F9",color:"#64748B",border:"none",borderRadius:6,fontSize:12,cursor:"pointer"}}>취소</button>
+                </div>
+              </div>
+            )}
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
+
 function ProjectMemoTab({proj, setProjects, currentUser}) {
   const [newText, setNewText] = useState("")
   const memos = proj.memo || []

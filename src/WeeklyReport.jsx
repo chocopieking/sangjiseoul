@@ -36,6 +36,16 @@ export const DEFAULT_DESIGN_STAGES = [
 ]
 const STAGE_COLORS = [C.navyM, C.amber, C.green, "#534AB7", C.red, "#D85A30", "#7C5295", "#2E86AB"]
 
+// ── 일정 카테고리 기본값 ──────────────────────────────────────────
+export const DEFAULT_SCHED_CATS = [
+  {id:"design",   label:"설계",     color:C.navyM},
+  {id:"meeting",  label:"회의",     color:C.amber},
+  {id:"review",   label:"심의·인허가", color:C.green},
+  {id:"site",     label:"현장",     color:C.red},
+  {id:"admin",    label:"행정",     color:"#7C5295"},
+  {id:"etc",      label:"기타",     color:C.gray},
+]
+
 // 빈 WeeklyReport 초기값
 export const WEEKLY_REPORT_EMPTY = {
   scheduleLog:  [],
