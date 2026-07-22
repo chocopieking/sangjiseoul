@@ -114,7 +114,7 @@ export function DataHubTab({
       {section==="ctypes"    && <ContractTypeSection contractTypes={contractTypes||[]} setContractTypes={setContractTypes} canManage={canManage}/>}
       {section==="ptypes"    && <SimpleListSection title="🏢 건물유형 관리" description="프로젝트 개설 시 선택하는 건물 유형 목록입니다." list={projTypes||[]} setList={setProjTypes} canManage={canManage}/>}
       {section==="btypes"    && <SimpleListSection title="📋 수주형태 관리" description="프로젝트 수주형태(외주비 비교 기준) 목록입니다." list={bidTypes||[]} setList={setBidTypes} canManage={canManage}/>}
-      {section==="backup"    && <BackupSection allData={allData} restoreAllData={restoreAllData} isAdmin={isAdmin} cashItems={cashItems} setCashItems={setCashItems} saleItems={saleItems} setSaleItems={setSaleItems} contractItems={contractItems} setContractItems={setContractItems}/>}
+      {section==="backup"    && <BackupSection allData={allData} restoreAllData={restoreAllData} isAdmin={isAdmin} cashItems={cashItems} setCashItems={setCashItems} saleItems={saleItems} setSaleItems={setSaleItems} contractItems={contractItems} setContractItems={setContractItems} projects={projects} setProjects={setProjects}/>}
       {section==="history"   && <VersionHistorySection versions={versions} restoreVersion={restoreVersion} deleteVersion={deleteVersion} saveVersion={saveVersion}
                                     currentUser={currentUser} canManage={canManage} STAFF_DEPTS={STAFF_DEPTS} DEPTS={DEPTS} DEPT_COLORS={DEPT_COLORS}
                                     deptStaff={deptStaff} staffTarget={staffTarget} staffMonthly={staffMonthly} pnlData={pnlData} cashflow={cashflow} years={years}/>}
@@ -1402,19 +1402,20 @@ function ContractTypeSection({contractTypes, setContractTypes, canManage}) {
 }
 
 // ── 데이터 백업·복구 ────────────────────────────────────────────
-function BackupSection({allData, restoreAllData, isAdmin, cashItems=[], setCashItems, saleItems=[], setSaleItems, contractItems=[], setContractItems}) {
+function BackupSection({allData, restoreAllData, isAdmin, cashItems=[], setCashItems, saleItems=[], setSaleItems, contractItems=[], setContractItems, projects=[], setProjects}) {
   const [msg, setMsg] = useState("")
   const [importing, setImporting] = useState(false)
   const [previewInfo, setPreviewInfo] = useState(null)  // 복구 전 미리보기
   const flash = (m,ok=true) => { setMsg({text:m,ok}); setTimeout(()=>setMsg(""),5000) }
 
   const resetData = (type) => {
-    const labels = {cash:"월수금계획", contract:"계약현황", sale:"지출현황", all:"전체(월수금+계약현황+지출현황)"}
+    const labels = {projects:"프로젝트 목록", cash:"월수금계획", contract:"계약현황", sale:"지출현황", all:"전체(프로젝트+월수금+계약현황+지출현황)"}
     if(!window.confirm(`⚠️ ${labels[type]} 데이터를 전체 삭제하시겠습니까?\n\n이 작업은 되돌릴 수 없습니다.`)) return
+    if(type==="projects"||type==="all") { setProjects&&setProjects([]); try{ localStorage.removeItem("sjs_projects") }catch{} }
     if(type==="cash"||type==="all") { setCashItems&&setCashItems([]); try{ localStorage.removeItem("sjs_cash_items") }catch{} }
     if(type==="contract"||type==="all") { setContractItems&&setContractItems([]); try{ localStorage.removeItem("sjs_contract_items") }catch{} }
     if(type==="sale"||type==="all") { setSaleItems&&setSaleItems([]); try{ localStorage.removeItem("sjs_sale_items") }catch{} }
-    flash(`✅ ${labels[type]} 데이터가 삭제됐습니다. 새 데이터를 업로드하세요.`)
+    flash(`✅ ${labels[type]} 데이터가 삭제됐습니다.`)
   }
 
   // ── 전체 백업 대상 키 (24개) ──────────────────────────────
@@ -1671,12 +1672,13 @@ function BackupSection({allData, restoreAllData, isAdmin, cashItems=[], setCashI
           기존 데이터를 모두 지우고 새 엑셀을 업로드할 때 사용합니다.<br/>
           삭제 후 <b>경영분석 → 각 탭의 ⬆ 엑셀 업로드</b>로 새 데이터를 올리세요.
         </div>
-        <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:10}}>
+        <div style={{display:"grid",gridTemplateColumns:"repeat(5,1fr)",gap:10}}>
           {[
+            ["🏗 프로젝트 목록", "projects",  projects?.length||0,     "#6366F1","#EEF2FF"],
             ["💧 월수금계획",  "cash",     cashItems?.length||0,    "#0891B2","#E0F7FA"],
             ["📝 계약현황",    "contract",  contractItems?.length||0, "#6366F1","#EEF2FF"],
             ["💸 지출현황",    "sale",      saleItems?.length||0,     "#D97706","#FEF3C7"],
-            ["⚠️ 전체 리셋",  "all",       (cashItems?.length||0)+(contractItems?.length||0)+(saleItems?.length||0), "#DC2626","#FEE2E2"],
+            ["⚠️ 전체 리셋",  "all",       (projects?.length||0)+(cashItems?.length||0)+(contractItems?.length||0)+(saleItems?.length||0), "#DC2626","#FEE2E2"],
           ].map(([label,type,count,color,bg])=>(
             <div key={type} style={{background:bg,borderRadius:10,padding:"12px 14px",border:`1.5px solid ${color}30`}}>
               <div style={{fontSize:12.5,fontWeight:700,color,marginBottom:4}}>{label}</div>

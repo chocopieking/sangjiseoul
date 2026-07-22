@@ -3520,12 +3520,28 @@ function ProjectsTab({projects,setProjects,selProjId,setSelProjId,selVerIdx,setS
                 let next=[...prev]
                 rows.slice(1).forEach(r=>{
                   const name=CI.name>=0?String(r[CI.name]).trim():""
+                  const code=CI.code>=0?String(r[CI.code]).trim():""
                   if(!name)return
-                  const existing=next.find(p=>p.name.trim()===name)
+                  // 중복 체크: 코드 우선, 없으면 프로젝트명 정규화 비교
+                  const normStr = s => String(s||"").replace(/[\s\[\]()（）_\-]/g,"").toLowerCase()
+                  const existing = next.find(p=>
+                    (code && p.code && normStr(p.code)===normStr(code)) ||
+                    normStr(p.name)===normStr(name)
+                  )
                   if(existing){
-                    next=next.map(p=>p.name.trim()===name?{...p,type:r[CI.type]||p.type,pm:r[CI.pm]||p.pm}:p);updated++
+                    next=next.map(p=>p.id!==existing.id?p:{...p,
+                      code: code||p.code||"",
+                      type: (CI.type>=0?String(r[CI.type]||"").trim():"")||p.type||"확정",
+                      pm:   (CI.pm>=0?String(r[CI.pm]||"").trim():"")||p.pm||"",
+                      depts: (CI.dept>=0&&r[CI.dept]?String(r[CI.dept]).split(/[,，·]/).map(d=>d.trim()).filter(Boolean):p.depts||[]),
+                      usage: (CI.usage>=0?String(r[CI.usage]||"").trim():"")||p.usage||"",
+                      scale: (CI.scale>=0?String(r[CI.scale]||"").trim():"")||p.scale||"",
+                    })
+                    updated++
                   }else{
-                    next.push(normalizeProject({id:`PI${Date.now()}_${added}`,code:r[CI.code]||"",name,depts:[r[CI.dept]].filter(Boolean),pm:r[CI.pm]||"",type:r[CI.type]||"확정",usage:r[CI.usage]||"",scale:r[CI.scale]||"",contractDate:r[CI.contractDate]||"",contractYear:new Date().getFullYear(),versions:[],weeklyReport:{},memo:[]}));added++
+                    const deptVal = CI.dept>=0?String(r[CI.dept]||"").trim():""
+                    const depts = deptVal ? deptVal.split(/[,，·]/).map(d=>d.trim()).filter(Boolean) : []
+                    next.push(normalizeProject({id:`PI${Date.now()}_${added}`,code,name,depts,pm:CI.pm>=0?String(r[CI.pm]||"").trim():"",type:CI.type>=0?String(r[CI.type]||"").trim()||"확정":"확정",usage:CI.usage>=0?String(r[CI.usage]||"").trim():"",scale:CI.scale>=0?String(r[CI.scale]||"").trim():"",contractDate:CI.contractDate>=0?String(r[CI.contractDate]||"").trim():"",contractYear:new Date().getFullYear(),versions:[],weeklyReport:{},memo:[]}));added++
                   }
                 })
                 return next
