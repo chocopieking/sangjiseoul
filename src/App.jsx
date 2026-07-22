@@ -1501,8 +1501,7 @@ export default function App() {
               <div style={{fontSize:13,fontWeight:700,color:"#0F172A",letterSpacing:"-0.02em",lineHeight:1.3}}>상지서울</div>
               <div style={{fontSize:11,color:"#94A3B8",fontWeight:400,lineHeight:1.3}}>통합경영시스템</div>
             </div>
-            <button onClick={e=>{e.stopPropagation();setShowGlobalSearch(true)}} title="통합검색 (Ctrl+K)"
-              style={{width:30,height:30,background:"#F1F5F9",border:"none",borderRadius:8,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",fontSize:14,flexShrink:0,color:"#64748B"}}>🔍</button>
+
           </div>
         </div>
 
@@ -8396,7 +8395,6 @@ function AnalysisDashboard({projects, cashItems, saleItems, DEPTS, DEPT_COLORS, 
       <div style={{background:"#fff",borderRadius:8,border:"1px solid #E2E8F0",marginBottom:16,overflow:"hidden"}}>
         <div style={{padding:"14px 18px",borderBottom:"1px solid #E2E8F0",display:"flex",alignItems:"center",gap:10,flexWrap:"wrap"}}>
           <span style={{fontSize:14,fontWeight:700,color:"#0F172A"}}>📝 계약현황 — 본부별 계약 현황 (지분 반영)</span>
-          <span style={{fontSize:14,fontWeight:700,color:"#0F172A"}}>📝 계약현황 — 본부별 계약 현황 (지분 반영)</span>
           <span style={{marginLeft:"auto",fontSize:11,color:"#94A3B8"}}>단위: 억원 ({thisYear}년)</span>
         </div>
         <div style={{display:"grid",gridTemplateColumns:"1fr 260px",minHeight:0}}>
@@ -8468,9 +8466,9 @@ function AnalysisDashboard({projects, cashItems, saleItems, DEPTS, DEPT_COLORS, 
               )
             })}
             <div style={{marginTop:8,padding:"10px",background:"#F8FAFC",borderRadius:6}}>
-              <div style={{fontSize:11,color:"#64748B",marginBottom:2}}>전체 달성률</div>
-              <div style={{fontSize:20,fontWeight:800,color:"#059669"}}>{contractRate||0}%</div>
-              <div style={{fontSize:11,color:"#94A3B8"}}>목표 {fA(effectiveContractTarget)} 대비</div>
+              <div style={{fontSize:11,color:"#64748B",marginBottom:2}}>계약현황 합계</div>
+              <div style={{fontSize:20,fontWeight:800,color:"#059669"}}>{fA(totDone)}</div>
+              <div style={{fontSize:11,color:"#94A3B8"}}>계약목표 {fA(effectiveContractTarget)} 대비 {contractRate||0}%</div>
             </div>
           </div>
         </div>
