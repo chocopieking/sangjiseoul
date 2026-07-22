@@ -160,45 +160,140 @@ function GlobalSearchModal({onClose, projects=[], cashItems=[], contractItems=[]
     setResults(found.slice(0,20))
   }
 
-  // AI 검색 (Anthropic API)
-  const aiSearch = async (q) => {
+  // 스마트 검색 (유사 프로젝트명 포함, 로컬 NLP)
+  const aiSearch = (q) => {
     if(!q.trim()) return
     setLoading(true); setAiAnswer("")
-    
-    // 데이터 요약 (API에 전달할 컨텍스트)
-    const projSummary = projects.slice(0,30).map(p=>
-      `[프로젝트] ${p.name} | ${(p.depts||[]).join(",")} | PM:${p.pm||"-"} | 계약일:${fDate(p.contractDate)} | 용역비:${fA2(p.serviceFee)}`
-    ).join("\\n")
-    const cashSummary = cashItems.filter(i=>i.paidDate||i.expectedDate).slice(0,30).map(i=>
-      `[기성] ${i.projectName} | ${i.dept} | ${i.stage||"-"} | ${i.paidDate?"입금완료:"+fDate(i.paidDate):"예정:"+fDate(i.expectedDate)} | ${fA2(i.amount)}`
-    ).join("\\n")
-    const contractSummary = contractItems.slice(0,20).map(ci=>
-      `[계약] ${ci.name} | ${(ci.depts||[]).join(",")} | ${ci.type} | 계약일:${fDate(ci.contractTime)} | ${fA2(ci.serviceFeeExpect||ci.amount||0)}`
-    ).join("\\n")
 
-    try {
-      const res = await fetch("https://api.anthropic.com/v1/messages", {
-        method:"POST",
-        headers:{"Content-Type":"application/json"},
-        body:JSON.stringify({
-          model:"claude-sonnet-4-6", max_tokens:800,
-          system:`당신은 상지서울건축사사무소의 경영관리시스템 AI 어시스턴트입니다.
-아래 데이터를 바탕으로 사용자의 질문에 간결하고 정확하게 답하세요.
-날짜·금액·담당자 등 구체적인 수치를 포함하여 답변하세요.
+    setTimeout(()=>{
+      const qL = q.toLowerCase().replace(/\s/g,"")
+      const answer = []
 
-## 보유 데이터
-${projSummary}
-${cashSummary}
-${contractSummary}`,
-          messages:[{role:"user",content:q}]
-        })
-      })
-      const data = await res.json()
-      setAiAnswer(data.content?.[0]?.text || "응답을 받지 못했습니다.")
-    } catch(e) {
-      setAiAnswer("AI 검색 오류: " + e.message)
-    }
-    setLoading(false)
+      // ── 키워드 추출 ──────────────────────────────────────────
+      // 금액 관련 키워드
+      const askAmount  = /계약금|용역비|금액|얼마|비용/.test(q)
+      const askDate    = /계약일|착수일|기간|언제|날짜/.test(q)
+      const askPaid    = /입금|기성|수금|매출|현누계/.test(q)
+      const askPM      = /담당|pm|팀장|본부장/.test(q)
+
+      // ── 유사 프로젝트 검색 ────────────────────────────────────
+      // 자음/모음 분리 없이 글자 포함 여부로 유사도 계산
+      const simScore = (name, kw) => {
+        const n = (name||"").toLowerCase().replace(/\s/g,"")
+        const k = kw.replace(/\s/g,"")
+        if(n.includes(k)||k.includes(n)) return 1.0
+        // 글자 단위 교집합
+        const nChars = new Set([...n])
+        const kChars = [...k].filter(c=>nChars.has(c))
+        return kChars.length / Math.max(n.length, k.length, 1)
+      }
+
+      // 쿼리에서 의미 있는 키워드 추출 (조사/어미 제외)
+      const stopWords = /얼마|이야|인데|인가요|알려줘|검색|보여|확인|계약|용역|프로젝트|금액|비용|언제|어디|담당|누가|어떻게/g
+      const coreKw = qL.replace(stopWords,"").trim()
+
+      // 프로젝트 매칭
+      const projMatches = projects
+        .map(p=>({p, score: simScore(p.name, coreKw||qL)}))
+        .filter(({score})=>score>0.25)
+        .sort((a,b)=>b.score-a.score)
+        .slice(0,5)
+
+      // 계약현황 매칭
+      const contractMatches = contractItems
+        .map(ci=>({ci, score: simScore(ci.name, coreKw||qL)}))
+        .filter(({score})=>score>0.25)
+        .sort((a,b)=>b.score-a.score)
+        .slice(0,5)
+
+      // ── 답변 생성 ─────────────────────────────────────────────
+      if(projMatches.length===0 && contractMatches.length===0) {
+        const relKw = coreKw || qL
+        // 부분 매칭 시도 (2글자 이상 서브스트링)
+        const partials = projects.filter(p=>
+          (p.name||"").replace(/\s/g,"").includes(relKw.slice(0,4))
+        ).slice(0,3)
+
+        if(partials.length>0) {
+          answer.push(`"${q.trim()}"에 해당하는 정확한 프로젝트를 찾지 못했습니다.`)
+          answer.push(`\n유사한 프로젝트:`)
+          partials.forEach(p=>{
+            answer.push(`• ${p.name} (${(p.depts||[]).join(",")} / 용역비: ${fA2(p.serviceFee)})`)
+          })
+        } else {
+          answer.push(`"${q.trim()}"에 대한 정보를 시스템에서 확인할 수 없습니다.`)
+          answer.push(`\n프로젝트명, 계약현황, 기성 데이터를 검색했으나 일치하는 항목이 없습니다.`)
+          answer.push(`\n💡 다른 검색어로 시도해보세요. (예: 일부 단어만 입력)`)
+        }
+      } else {
+        // 매칭된 프로젝트 정보로 답변
+        if(projMatches.length>0) {
+          const {p, score} = projMatches[0]
+          const isExact = score > 0.8
+
+          answer.push(isExact
+            ? `📋 **${p.name}** 프로젝트 정보:`
+            : `"${q}" 와(과) 가장 유사한 프로젝트: **${p.name}**`)
+
+          if(askAmount || !askDate && !askPaid && !askPM) {
+            if(p.totalFee>0)  answer.push(`• 총설계비: ${fA2(p.totalFee)} (VAT별도)`)
+            if(p.serviceFee>0) answer.push(`• 상지 용역비: ${fA2(p.serviceFee)} (상지지분 ${((p.shareRatio||1)*100).toFixed(0)}%)`)
+          }
+          if(askDate || !askAmount && !askPaid && !askPM) {
+            if(p.contractDate) answer.push(`• 계약일: ${fDate(p.contractDate)}`)
+            if(p.orderDate)    answer.push(`• 수주일: ${fDate(p.orderDate)}`)
+          }
+          if(askPM) {
+            if(p.pm)       answer.push(`• 담당 PM: ${p.pm}`)
+            if(p.director) answer.push(`• 본부장: ${p.director}`)
+          }
+          if(p.depts?.length) answer.push(`• 담당 본부: ${p.depts.join(", ")}`)
+
+          // 해당 프로젝트 기성 현황
+          if(askPaid) {
+            const pCash = cashItems.filter(ci=>{
+              const nm = s=>(s||"").replace(/[\s\-]/g,"").toLowerCase()
+              return nm(ci.projectName).includes(nm(p.name).slice(0,6))
+            }).slice(0,5)
+            if(pCash.length>0) {
+              answer.push(`\n💧 기성 현황:`)
+              pCash.forEach(c=>{
+                const d = c.paidDate||c.expectedDate
+                const status = c.paidDate ? "✅ 입금완료" : "📅 예정"
+                answer.push(`• ${c.stage||"-"} | ${status} ${fDate(d)} | ${fA2(c.amount)}`)
+              })
+            }
+          }
+
+          // 유사 프로젝트 추가 제시
+          if(projMatches.length>1 && !isExact) {
+            answer.push(`\n관련 프로젝트:`)
+            projMatches.slice(1,4).forEach(({p:pp})=>{
+              answer.push(`• ${pp.name} (${(pp.depts||[]).join(",")})`)
+            })
+          }
+        }
+
+        // 계약현황 매칭
+        if(contractMatches.length>0 && (askAmount || contractItems.length>0)) {
+          const {ci} = contractMatches[0]
+          if(projMatches.length===0 || contractMatches[0].score > projMatches[0].score) {
+            answer.push(`\n📝 계약현황:`)
+            answer.push(`• ${ci.name}`)
+            answer.push(`• 구분: ${ci.type} | 본부: ${(ci.depts||[]).join(",")}`)
+            if(ci.serviceFeeExpect||ci.amount)
+              answer.push(`• 용역비(예상): ${fA2(ci.serviceFeeExpect||ci.amount||0)}`)
+            if(ci.totalFeeExpect)
+              answer.push(`• 총설계비(예상): ${fA2(ci.totalFeeExpect)}`)
+            if(ci.contractTime)
+              answer.push(`• 계약(예상)일: ${fDate(ci.contractTime)}`)
+          }
+        }
+      }
+
+      setAiAnswer(answer.join("\n"))
+      setLoading(false)
+    }, 300)
   }
 
   React.useEffect(()=>{
@@ -8375,7 +8470,7 @@ function AnalysisDashboard({projects, cashItems, saleItems, DEPTS, DEPT_COLORS, 
             <div style={{marginTop:8,padding:"10px",background:"#F8FAFC",borderRadius:6}}>
               <div style={{fontSize:11,color:"#64748B",marginBottom:2}}>전체 달성률</div>
               <div style={{fontSize:20,fontWeight:800,color:"#059669"}}>{contractRate||0}%</div>
-              <div style={{fontSize:11,color:"#94A3B8"}}>목표 {effectiveContractTarget}억 대비</div>
+              <div style={{fontSize:11,color:"#94A3B8"}}>목표 {fA(effectiveContractTarget)} 대비</div>
             </div>
           </div>
         </div>
@@ -8388,7 +8483,8 @@ function AnalysisDashboard({projects, cashItems, saleItems, DEPTS, DEPT_COLORS, 
           <span style={{fontSize:11,background:"#DCFCE7",color:"#166534",padding:"2px 8px",borderRadius:4,fontWeight:600}}>매출현황 = 입금완료</span>
           <span style={{marginLeft:"auto",fontSize:11,color:"#94A3B8"}}>단위: 억원</span>
         </div>
-        <div style={{overflowX:"auto"}}>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 260px",minHeight:0}}>
+          <div style={{overflowX:"auto"}}>
           <table style={{width:"100%",borderCollapse:"collapse",minWidth:900}}>
             <thead>
               <tr style={{background:"#EFF6FF"}}>
@@ -8460,39 +8556,33 @@ function AnalysisDashboard({projects, cashItems, saleItems, DEPTS, DEPT_COLORS, 
             </tbody>
           </table>
         </div>
-        {/* 매출현황 파이차트 */}
-        <div style={{padding:"16px",borderTop:"1px solid #E2E8F0",background:"#FAFAFA"}}>
-          <div style={{fontSize:12,fontWeight:700,color:"#64748B",marginBottom:10}}>본부별 매출현황(현누계) 비율</div>
-          <div style={{display:"flex",gap:12,alignItems:"flex-end",height:100}}>
-            {(()=>{
-              const maxV = Math.max(...saleByDept.map(d=>d.revCum),1)
-              return saleByDept.filter(d=>d.revCum>0).map(d=>{
-                const h = Math.round(d.revCum/maxV*80)
-                const pct = saleByDept.reduce((s,x)=>s+x.revCum,0)>0
-                  ? Math.round(d.revCum/saleByDept.reduce((s,x)=>s+x.revCum,0)*100)
-                  : 0
-                return (
-                  <div key={d.dept} style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",gap:2}}>
-                    <div style={{fontSize:11,fontWeight:700,color:DEPT_COLORS[d.dept]||"#059669"}}>{pct}%</div>
-                    <div style={{width:"100%",height:h,background:DEPT_COLORS[d.dept]||"#059669",borderRadius:"3px 3px 0 0",opacity:.85}}/>
-                    <div style={{fontSize:10,color:"#64748B",textAlign:"center",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",maxWidth:"100%"}}>
-                      {d.dept.replace("본부","").slice(0,4)}
-                    </div>
+          {/* 우측 — 매출현황 비율 다이어그램 */}
+          <div style={{padding:"16px",borderLeft:"1px solid #E2E8F0",display:"flex",flexDirection:"column",justifyContent:"center",gap:6}}>
+            <div style={{fontSize:11,fontWeight:700,color:"#94A3B8",marginBottom:4}}>매출현황(현누계) 비율</div>
+            {saleByDept.filter(d=>d.revCum>0).map(d=>{
+              const maxV = Math.max(...saleByDept.map(x=>x.revCum),1)
+              const totV = saleByDept.reduce((s,x)=>s+x.revCum,0)||1
+              const pct  = Math.round(d.revCum/totV*100)
+              return (
+                <div key={d.dept}>
+                  <div style={{display:"flex",justifyContent:"space-between",fontSize:11,marginBottom:2}}>
+                    <span style={{color:"#334155",fontWeight:600}}>{d.dept.replace("본부","").slice(0,4)}</span>
+                    <span style={{color:"#059669",fontWeight:700}}>{fA(d.revCum)} <span style={{color:"#94A3B8",fontWeight:400}}>({pct}%)</span></span>
                   </div>
-                )
-              })
-            })()}
-          </div>
-          <div style={{marginTop:8,fontSize:11,color:"#64748B",display:"flex",gap:8,flexWrap:"wrap"}}>
-            {saleByDept.filter(d=>d.revCum>0).map(d=>(
-              <span key={d.dept} style={{display:"flex",alignItems:"center",gap:3}}>
-                <span style={{width:8,height:8,background:DEPT_COLORS[d.dept]||"#059669",borderRadius:2,display:"inline-block"}}/>
-                {d.dept.replace("본부","")} {fA(d.revCum)}
-              </span>
-            ))}
+                  <div style={{height:10,background:"#F1F5F9",borderRadius:3,overflow:"hidden"}}>
+                    <div style={{height:"100%",width:`${Math.round(d.revCum/maxV*100)}%`,background:DEPT_COLORS[d.dept]||"#059669",borderRadius:3}}/>
+                  </div>
+                </div>
+              )
+            })}
+            <div style={{marginTop:8,padding:"10px",background:"#F8FAFC",borderRadius:6}}>
+              <div style={{fontSize:11,color:"#64748B",marginBottom:2}}>매출현황 합계</div>
+              <div style={{fontSize:20,fontWeight:800,color:"#059669"}}>{fA(saleByDept.reduce((s,d)=>s+d.revCum,0))}</div>
+              <div style={{fontSize:11,color:"#94A3B8"}}>매출목표 {fA(effectiveSaleTarget)} 대비 {saleRate||0}%</div>
+            </div>
           </div>
         </div>
-      </div>
+        </div>
 
       {/* ══ 3. 지출현황 (본부별 손익분석) 테이블 + 시각화 ══ */}
       <div style={{background:"#fff",borderRadius:8,border:"1px solid #E2E8F0",marginBottom:16,overflow:"hidden"}}>
