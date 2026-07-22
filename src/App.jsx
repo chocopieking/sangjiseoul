@@ -1663,17 +1663,34 @@ export default function App() {
       {/* ── 메인 콘텐츠 ── */}
       <div style={{marginLeft:isMobile?0:220,flex:1,minWidth:0,transition:"margin .25s"}}>
         {/* 탑바 */}
-        <div style={{background:"#fff",borderBottom:"1px solid #E2E8F0",padding:isMobile?"10px 14px":"12px 24px",display:"flex",alignItems:"center",gap:12,position:"sticky",top:0,zIndex:90}}>
+        <div style={{background:"#fff",borderBottom:"1px solid #E2E8F0",padding:isMobile?"10px 14px":"10px 24px",display:"flex",alignItems:"center",gap:12,position:"sticky",top:0,zIndex:90}}>
           {/* 모바일 햄버거 */}
           {isMobile&&<button onClick={()=>setSideOpen(v=>!v)}
             style={{padding:"6px",background:"none",border:"none",cursor:"pointer",color:"#334155",flexShrink:0,fontSize:22,lineHeight:1,display:"flex",alignItems:"center"}}>
             ☰
           </button>}
-          <div style={{flex:1,minWidth:0}}>
-            <div style={{fontSize:isMobile?16:20,fontWeight:800,color:"#0F172A",letterSpacing:"-0.03em",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
+          {/* 탭 제목 */}
+          {!isMobile&&<div style={{minWidth:0,flexShrink:0}}>
+            <div style={{fontSize:18,fontWeight:800,color:"#0F172A",letterSpacing:"-0.03em",whiteSpace:"nowrap"}}>
               {TABS.find(t=>t.id===tab)?.label || "대시보드"}
             </div>
-            {!isMobile&&<div style={{fontSize:12,color:"#64748B",marginTop:1}}>기준 2026-06-09 · 5월 누계 · 억원(수주:VAT별도 / 매출·지출:VAT포함)</div>}
+          </div>}
+          {/* 🔍 검색창 — 항상 표시 */}
+          <div onClick={()=>setShowGlobalSearch(true)}
+            style={{flex:1,display:"flex",alignItems:"center",gap:10,
+              background:"#F8FAFC",border:"1.5px solid #E2E8F0",borderRadius:10,
+              padding:"8px 14px",cursor:"pointer",transition:"border-color .15s",
+              maxWidth:isMobile?undefined:520,
+              minWidth:0}}
+            onMouseEnter={e=>e.currentTarget.style.borderColor="#6366F1"}
+            onMouseLeave={e=>e.currentTarget.style.borderColor="#E2E8F0"}>
+            <span style={{fontSize:16,flexShrink:0}}>🔍</span>
+            <span style={{fontSize:13,color:"#94A3B8",flex:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
+              {isMobile?"검색...":"프로젝트·계약·기성입금일·담당자 검색..."}
+            </span>
+            {!isMobile&&<kbd style={{fontSize:11,color:"#CBD5E1",background:"#F1F5F9",border:"1px solid #E2E8F0",borderRadius:5,padding:"2px 7px",flexShrink:0,fontFamily:"inherit"}}>
+              Ctrl K
+            </kbd>}
           </div>
         </div>
 
