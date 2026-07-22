@@ -9496,7 +9496,7 @@ function ProjectContractDetail({proj, setProjects, canWrite}) {
 }
 
 // 프로젝트 상세 지출 탭
-function ProjectExpenseDetail({proj, cashItems, YEAR, YR}) {
+function ProjectExpenseDetail({proj, cashItems, setCashItems, YEAR, YR}) {
   const fixDate = s => {
     if(!s) return ""
     const n=parseInt(String(s))
