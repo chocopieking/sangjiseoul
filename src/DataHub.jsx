@@ -24,12 +24,12 @@ const cardTitle = {fontSize:17,fontWeight:700,marginBottom:4,letterSpacing:-.2}
 const cardNote  = {fontSize:12.5,color:C.gray,marginBottom:14}
 const num = v => { const n=parseFloat(v); return Number.isFinite(n)?n:0 }
 
-const STAFF_FIELDS = [["total","합계"],["pm","PM"],["designer","설계인력"],["admin","행정"]]
+const STAFF_FIELDS = [["total","합계"]]
 
 const TYPE_LABEL = {staff:"본부인원",pnl:"월별손익",cashflow:"월수금",years:"3개년실적",all:"전체 스냅샷"}
 const TYPE_COLOR = {staff:C.navyM,pnl:C.green,cashflow:C.amber,years:"#534AB7",all:C.red}
 
-const summarizeStaff = (data,staffDepts) => (staffDepts||[]).map(d=>({dept:d,...(data?.[d]||{total:0,pm:0,designer:0,admin:0})}))
+const summarizeStaff = (data,staffDepts) => (staffDepts||[]).map(d=>({dept:d,...(data?.[d]||{total:0})}))
 const summarizePnl = (data,depts) => (depts||[]).map(d=>{
   const s = (Array.isArray(data)?data:[]).reduce((a,r)=>{const bd=r.byDept?.[d]||{};return{rev:a.rev+num(bd.rev),sal:a.sal+num(bd.sal),sub:a.sub+num(bd.sub)}},{rev:0,sal:0,sub:0})
   return {dept:d,...s,pnl:s.rev-s.sal-s.sub}
@@ -148,7 +148,7 @@ function StaffSection({deptStaff,setDeptStaff,staffTarget,setStaffTarget,staffMo
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",flexWrap:"wrap",gap:10,marginBottom:4}}>
         <div>
           <div style={cardTitle}>👥 본부별 인원현황</div>
-          <div style={cardNote}>합계 = PM + 설계인력 + 행정 권장 (검산은 자동표시)</div>
+          
         </div>
         {editableAny && (!editing
           ? <button onClick={start} style={S.btn(C.navyL,C.navyM)}><i className="ti ti-edit" aria-hidden="true"/> 인원 입력</button>
@@ -163,15 +163,14 @@ function StaffSection({deptStaff,setDeptStaff,staffTarget,setStaffTarget,staffMo
           <thead><tr>
             <th style={S.th()}>본부</th>
             {STAFF_FIELDS.map(([k,l])=><th key={k} style={S.th("right")}>{l}(명)</th>)}
-            <th style={S.th("right")}>검산</th>
+            
             <th style={S.th("center")}>권한</th>
           </tr></thead>
           <tbody>
             {STAFF_DEPTS.map((dept,i)=>{
-              const st = work[dept]||{total:0,pm:0,designer:0,admin:0}
+              const st = work[dept]||{total:0}
               const editableHere = editing && canEditDept(dept)
-              const sum = num(st.pm)+num(st.designer)+num(st.admin)
-              const mismatch = Math.abs(sum-num(st.total))>0.01
+
               return (
                 <tr key={dept} style={{background:i%2===0?"var(--color-background-primary,#fff)":"var(--color-background-secondary,#f8f8f6)"}}>
                   <td style={{...S.td("left"),fontWeight:700}}>
@@ -184,9 +183,7 @@ function StaffSection({deptStaff,setDeptStaff,staffTarget,setStaffTarget,staffMo
                         : <span style={{fontWeight:k==="total"?700:400,fontSize:k==="total"?16:14}}>{num(st[k]).toFixed(1)}</span>}
                     </td>
                   ))}
-                  <td style={S.td()}>{!mismatch
-                    ? <span style={{...S.bdg(C.greenL,"#27500A"),fontSize:11}}>일치</span>
-                    : <span style={{...S.bdg(C.amberL,"#633806"),fontSize:11}}>{sum.toFixed(1)} 합계</span>}</td>
+
                   <td style={S.td("center")}>{canEditDept(dept)
                     ? <span style={{...S.bdg(C.greenL,"#27500A"),fontSize:11}}>입력가능</span>
                     : <span style={{...S.bdg(C.grayL,C.gray),fontSize:11}}>조회</span>}</td>
@@ -195,11 +192,8 @@ function StaffSection({deptStaff,setDeptStaff,staffTarget,setStaffTarget,staffMo
             })}
             <tr style={{background:"var(--color-background-secondary,#f0f0ee)",fontWeight:700}}>
               <td style={S.td("left")}>전사 합계</td>
-              <td style={{...S.td(),fontSize:16,color:C.navyM}}>{STAFF_DEPTS.reduce((s,d)=>s+num(work[d]?.total),0).toFixed(1)}</td>
-              <td style={S.td()}>{STAFF_DEPTS.reduce((s,d)=>s+num(work[d]?.pm),0).toFixed(1)}</td>
-              <td style={S.td()}>{STAFF_DEPTS.reduce((s,d)=>s+num(work[d]?.designer),0).toFixed(1)}</td>
-              <td style={S.td()}>{STAFF_DEPTS.reduce((s,d)=>s+num(work[d]?.admin),0).toFixed(1)}</td>
-              <td/><td/>
+              <td style={{...S.td(),fontSize:16,color:C.navyM,fontWeight:800}}>{STAFF_DEPTS.reduce((s,d)=>s+num(work[d]?.total),0).toFixed(1)}명</td>
+              <td/>
             </tr>
           </tbody>
         </table>
@@ -843,12 +837,11 @@ function StaffPreviewTable({data,STAFF_DEPTS,DEPT_COLORS}) {
   const ds = data?.deptStaff || data
   const rows = summarizeStaff(ds,STAFF_DEPTS)
   return <table style={{width:"100%",borderCollapse:"collapse",marginTop:6}}>
-    <thead><tr><th style={S.th()}>본부</th><th style={S.th("right")}>합계</th><th style={S.th("right")}>PM</th><th style={S.th("right")}>설계인력</th><th style={S.th("right")}>행정</th></tr></thead>
+    <thead><tr><th style={S.th()}>본부</th><th style={S.th("right")}>합계(명)</th></tr></thead>
     <tbody>{rows.map(r=>(
       <tr key={r.dept}>
         <td style={{...S.td("left"),fontWeight:600}}><span style={{display:"inline-block",width:10,height:10,borderRadius:3,background:DEPT_COLORS?.[r.dept]||C.gray,marginRight:7,verticalAlign:"middle"}}/>{r.dept}</td>
-        <td style={{...S.td(),fontWeight:700}}>{num(r.total).toFixed(1)}</td>
-        <td style={S.td()}>{num(r.pm).toFixed(1)}</td><td style={S.td()}>{num(r.designer).toFixed(1)}</td><td style={S.td()}>{num(r.admin).toFixed(1)}</td>
+        <td style={{...S.td(),fontWeight:700,textAlign:"right"}}>{num(r.total).toFixed(1)}명</td>
       </tr>
     ))}</tbody>
   </table>
@@ -1919,11 +1912,30 @@ function ArchiveImportSection({projects=[], setProjects, isAdmin}) {
   const doImport = () => {
     if(!preview) return
     setImporting(true)
-    let matched=0, skipped=0
+    let matched=0, skipped=0, added=0
     setProjects(prev => {
       let next = [...prev]
       preview.forEach(item => {
-        if(!item.matchedId) { skipped++; return }
+        if(!item.matchedId) {
+          // 미매칭 → 신규 프로젝트로 추가
+          const newProj = {
+            id: `PI_IMP_${Date.now()}_${added}`,
+            code: item.srcCode || "",
+            name: item.srcName,
+            depts: [],
+            versions: [],
+            weeklyReport: {},
+            memo: [],
+            completion: item.data.completion,
+            archiveData: item.data.archiveData,
+            awards: item.data.awards,
+            type: "완료",
+            _importedFrom: "자료이관임포트",
+          }
+          next.push(newProj)
+          added++
+          return
+        }
         next = next.map(p => {
           if(p.id !== item.matchedId) return p
           // 기존 데이터와 병합 (비어있는 필드만 채움)
@@ -1958,9 +1970,9 @@ function ArchiveImportSection({projects=[], setProjects, isAdmin}) {
       })
       return next
     })
-    setResult({matched, skipped})
+    setResult({matched, skipped, added})
     setImporting(false)
-    toast(`✅ 임포트 완료: ${matched}건 병합, ${skipped}건 미매칭`)
+    toast(`✅ 임포트 완료: ${matched}건 병합, ${added}건 신규추가, ${skipped}건 미처리`)
   }
 
   const MATCH_COLOR = s => s>=95?"#059669":s>=70?"#D97706":"#DC2626"
@@ -2039,7 +2051,7 @@ function ArchiveImportSection({projects=[], setProjects, isAdmin}) {
 
           {result&&(
             <div style={{marginTop:12,padding:"12px 16px",background:"#D1FAE5",borderRadius:8,fontSize:13,fontWeight:600,color:"#065F46"}}>
-              ✅ 임포트 완료: {result.matched}건 병합 / {result.skipped}건 미매칭 (건너뜀)
+              ✅ 임포트 완료: {result.matched}건 병합 / {result.added}건 신규추가 / {result.skipped}건 미처리
             </div>
           )}
         </div>

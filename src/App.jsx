@@ -1925,7 +1925,7 @@ export default function App() {
         {tab==="stats"     && (canReadTab("stats")  ? <StatsTab projects={projects}/> : <NoPermScreen tabId="stats"/>)}
         {tab==="gamify"    && (canReadTab("gamify") ? <GamifyTab projects={projects} currentUser={currentUser}/> : <NoPermScreen tabId="gamify"/>)}
         {tab==="deptdash"  && <DeptDashTab projects={projects} vendorPayments={vendorPayments} years={years}/>}
-        {tab==="home" && <EventDashboard setTab={setTab} tabOrder={tabOrder} currentUser={currentUser} projects={projects} cashItems={cashItems} contractItems={contractItems} deptStaff={deptStaff} setSelProjId={setSelProjId} setDetailTab={setDetailTab}/>}
+        {tab==="home" && <EventDashboard setTab={setTab} currentUser={currentUser} projects={projects} cashItems={cashItems} contractItems={contractItems} deptStaff={deptStaff} setSelProjId={setSelProjId} setDetailTab={setDetailTab} vendorPayments={vendorPayments} DEPTS={DEPTS} DEPT_COLORS={DEPT_COLORS}/>}
         {tab==="analysis"  && (canReadTab("analysis") ? <AnalysisHub deptStaff={deptStaff} setDeptStaff={setDeptStaff} years={years} setYears={setYears} canWrite={canWrite} isAdmin={currentUser?.role==="admin"} cashflow={effectiveCashflow} cashItems={cashItems} setCashItems={setCashItems} saleItems={saleItems} setSaleItems={setSaleItems} contractItems={contractItems} setContractItems={setContractItems} projects={projects} setProjects={setProjects} setTab={setTab} setSelProjId={setSelProjId} setDetailTab={setDetailTab} selProjId={selProjId} selVerIdx={selVerIdx} setSelVerIdx={setSelVerIdx} currentUser={currentUser} yearTargets={yearTargets} setYearTargets={setYearTargets} deptBiz={deptBiz} staffMonthly={staffMonthly} staffTarget={staffTarget}/> : <NoPermScreen tabId="analysis"/>)}
         {tab==="datahub" && canReadTab("datahub") && <DataHubTab currentUser={currentUser} deptStaff={deptStaff} setDeptStaff={setDeptStaff} staffTarget={staffTarget} setStaffTarget={setStaffTarget} staffMonthly={staffMonthly} setStaffMonthly={setStaffMonthly} pnlData={pnlData} setPnlData={setPnlData} cashflow={cashflow} setCashflow={setCashflow} years={years} setYears={setYears} projects={projects} setProjects={setProjects} setTab={setTab} setSelProjId={setSelProjId} setSelVerIdx={setSelVerIdx} setShowNewProj={setShowNewProj} versions={versions} saveVersion={saveVersion} restoreVersion={restoreVersion} deleteVersion={deleteVersion} contractTypes={contractTypes} setContractTypes={setContractTypes} projTypes={projTypes} setProjTypes={setProjTypes} bidTypes={bidTypes} setBidTypes={setBidTypes} allData={null} restoreAllData={(entries)=>dbSetAll(entries, userEmail.current)} dbStatus={dbStatus} vendorsDB={vendorsDB} setVendorsDB={setVendorsDB} vendorPayments={vendorPayments} setVendorPayments={setVendorPayments} cashItems={cashItems} setCashItems={setCashItems} saleItems={saleItems} setSaleItems={setSaleItems} contractItems={contractItems} setContractItems={setContractItems}/>}
         {tab==="cashflow" && canReadTab("cashflow") && <CashflowTab cashflow={effectiveCashflow} setCashflow={setCashflow} currentUser={currentUser} projects={projects} setProjects={setProjects} projectCashflowByDept={projectCashflowByDept} cashItems={cashItems} setCashItems={setCashItems} saleItems={saleItems} setSaleItems={setSaleItems} setTab={setTab} setSelProjId={setSelProjId} setDetailTab={setDetailTab} yearTargets={yearTargets} setYearTargets={setYearTargets} deptBiz={deptBiz} deptStaff={deptStaff} staffMonthly={staffMonthly} staffTarget={staffTarget} contractItems={contractItems} setContractItems={setContractItems}/>}
@@ -11320,7 +11320,7 @@ function InlineEditForm({form, setForm, DEPTS, projNames, isSale, onSave, onCanc
 // 🏠 EventDashboard — 첫 화면 통합 이벤트 타임라인
 // ══════════════════════════════════════════════════════════════
 
-function EventDashboard({setTab, currentUser, projects=[], cashItems=[], contractItems=[], deptStaff={}, setSelProjId, setDetailTab}) {
+function EventDashboard({setTab, currentUser, projects=[], cashItems=[], contractItems=[], deptStaff={}, setSelProjId, setDetailTab, vendorPayments=[], DEPTS=[], DEPT_COLORS={}}) {
   const today = new Date()
   const todayStr = today.toISOString().slice(0,10)
   const [viewMode,    setViewMode]   = React.useState("calendar")  // calendar | timeline | list
@@ -11685,6 +11685,159 @@ function EventDashboard({setTab, currentUser, projects=[], cashItems=[], contrac
             </div>
           )}
         </div>
+      </div>
+
+      {/* ── 하단 4개 정보 패널 ─────────────────────────────── */}
+      <div style={{padding:"0 20px 16px",display:"grid",gridTemplateColumns:"1fr 1fr",gap:14,marginTop:14}}>
+
+        {/* 📢 공지사항 */}
+        {(()=>{
+          const notices = (() => { try{ return JSON.parse(localStorage.getItem("sjs_notices")||"[]") }catch{ return [] } })()
+          const recent = [...notices].sort((a,b)=>(b.createdAt||"").localeCompare(a.createdAt||"")).slice(0,4)
+          return (
+            <div style={{background:"#fff",borderRadius:10,border:"1px solid #E2E8F0",overflow:"hidden"}}>
+              <div style={{padding:"11px 16px",borderBottom:"1px solid #F1F5F9",display:"flex",justifyContent:"space-between",alignItems:"center",background:"#F8FAFC"}}>
+                <span style={{fontSize:13,fontWeight:800,color:"#0F172A"}}>📢 공지사항</span>
+                <button onClick={()=>setTab("notice")} style={{fontSize:11,color:"#2563EB",background:"none",border:"none",cursor:"pointer",fontWeight:600}}>전체 →</button>
+              </div>
+              {recent.length===0
+                ? <div style={{padding:"24px",textAlign:"center",color:"#94A3B8",fontSize:12}}>등록된 공지가 없습니다</div>
+                : recent.map(n=>(
+                  <div key={n.id} style={{padding:"9px 16px",borderBottom:"1px solid #F8FAFC",display:"flex",gap:8,alignItems:"flex-start"}}>
+                    {n.important&&<span style={{fontSize:9,fontWeight:800,background:"#FEE2E2",color:"#DC2626",padding:"1px 5px",borderRadius:4,flexShrink:0,marginTop:2}}>중요</span>}
+                    <div style={{flex:1,minWidth:0}}>
+                      <div style={{fontSize:12,fontWeight:600,color:"#0F172A",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{n.title}</div>
+                      <div style={{fontSize:10,color:"#94A3B8",marginTop:1}}>{(n.createdAt||"").slice(0,10)}</div>
+                    </div>
+                  </div>
+                ))
+              }
+            </div>
+          )
+        })()}
+
+        {/* 👥 인사 현황 */}
+        {(()=>{
+          const totalStaff = DEPTS.reduce((s,d)=>s+(deptStaff[d]?.total||0),0)
+          return (
+            <div style={{background:"#fff",borderRadius:10,border:"1px solid #E2E8F0",overflow:"hidden"}}>
+              <div style={{padding:"11px 16px",borderBottom:"1px solid #F1F5F9",display:"flex",justifyContent:"space-between",alignItems:"center",background:"#F8FAFC"}}>
+                <span style={{fontSize:13,fontWeight:800,color:"#0F172A"}}>👥 인사 현황</span>
+                <button onClick={()=>setTab("staffmgmt")} style={{fontSize:11,color:"#2563EB",background:"none",border:"none",cursor:"pointer",fontWeight:600}}>상세 →</button>
+              </div>
+              <div style={{padding:"10px 16px",borderBottom:"1px solid #F1F5F9",display:"flex",gap:12,alignItems:"center"}}>
+                <div style={{textAlign:"center",padding:"4px 12px",background:"#EFF6FF",borderRadius:8}}>
+                  <div style={{fontSize:24,fontWeight:800,color:"#2563EB"}}>{totalStaff.toFixed(1)}</div>
+                  <div style={{fontSize:10,color:"#64748B"}}>전사 인원(명)</div>
+                </div>
+                <div style={{flex:1,display:"flex",gap:5,flexWrap:"wrap"}}>
+                  {DEPTS.map(d=>{
+                    const cnt = deptStaff[d]?.total||0
+                    return cnt>0 ? (
+                      <div key={d} style={{fontSize:11,padding:"3px 8px",borderRadius:6,background:`${DEPT_COLORS[d]||"#64748B"}18`,color:DEPT_COLORS[d]||"#64748B",fontWeight:700}}>
+                        {d.replace("본부","")}: {cnt}
+                      </div>
+                    ) : null
+                  })}
+                </div>
+              </div>
+              {DEPTS.map(d=>{
+                const s = deptStaff[d]||{}; const total = s.total||0; if(!total) return null
+                const pct = totalStaff>0?Math.round(total/totalStaff*100):0
+                return (
+                  <div key={d} style={{padding:"7px 16px",borderBottom:"1px solid #F8FAFC",display:"flex",alignItems:"center",gap:8}}>
+                    <div style={{width:8,height:8,borderRadius:"50%",background:DEPT_COLORS[d]||"#64748B",flexShrink:0}}/>
+                    <span style={{fontSize:12,fontWeight:600,color:"#334155",flex:1}}>{d}</span>
+                    <div style={{width:60,height:5,background:"#F1F5F9",borderRadius:3,overflow:"hidden"}}>
+                      <div style={{width:`${pct}%`,height:"100%",background:DEPT_COLORS[d]||"#64748B",borderRadius:3}}/>
+                    </div>
+                    <span style={{fontSize:13,fontWeight:800,color:"#0F172A",minWidth:32,textAlign:"right"}}>{total}명</span>
+                  </div>
+                )
+              })}
+            </div>
+          )
+        })()}
+
+        {/* 🏗 최근 프로젝트 */}
+        {(()=>{
+          const recentProjs = [...projects].sort((a,b)=>{
+            const ta=parseInt((a.id||"").replace(/[^0-9]/g,""))||0
+            const tb=parseInt((b.id||"").replace(/[^0-9]/g,""))||0
+            return tb-ta
+          }).slice(0,5)
+          return (
+            <div style={{background:"#fff",borderRadius:10,border:"1px solid #E2E8F0",overflow:"hidden"}}>
+              <div style={{padding:"11px 16px",borderBottom:"1px solid #F1F5F9",display:"flex",justifyContent:"space-between",alignItems:"center",background:"#F8FAFC"}}>
+                <span style={{fontSize:13,fontWeight:800,color:"#0F172A"}}>🏗 최근 프로젝트</span>
+                <button onClick={()=>setTab("projects")} style={{fontSize:11,color:"#2563EB",background:"none",border:"none",cursor:"pointer",fontWeight:600}}>목록 →</button>
+              </div>
+              {recentProjs.map(p=>(
+                <div key={p.id} onClick={()=>{setSelProjId(p.id);setTab("projects")}}
+                  style={{padding:"8px 16px",borderBottom:"1px solid #F8FAFC",cursor:"pointer",display:"flex",gap:8,alignItems:"center"}}
+                  onMouseEnter={ev=>ev.currentTarget.style.background="#F8FAFC"}
+                  onMouseLeave={ev=>ev.currentTarget.style.background="transparent"}>
+                  <div style={{flex:1,minWidth:0}}>
+                    <div style={{fontSize:12,fontWeight:600,color:"#0F172A",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{p.name}</div>
+                    <div style={{fontSize:10,color:"#94A3B8"}}>{(p.depts||[]).join(", ")||"-"}{p.pm?` · PM: ${p.pm}`:""}</div>
+                  </div>
+                  <span style={{fontSize:10,fontWeight:700,padding:"2px 6px",borderRadius:6,flexShrink:0,
+                    background:p.type==="계약"?"#D1FAE5":p.type==="확정"?"#DBEAFE":"#FEF3C7",
+                    color:p.type==="계약"?"#065F46":p.type==="확정"?"#1E3A8A":"#92400E"}}>
+                    {p.type||"-"}
+                  </span>
+                </div>
+              ))}
+              <div style={{padding:"8px 16px",borderTop:"1px solid #F1F5F9",display:"flex",gap:10,flexWrap:"wrap"}}>
+                {[["계약","#059669"],["확정","#2563EB"],["추진","#D97706"]].map(([t,c])=>{
+                  const cnt=projects.filter(p=>p.type===t).length
+                  return cnt>0?<div key={t} style={{fontSize:11,color:c,fontWeight:700}}>{t} {cnt}건</div>:null
+                })}
+                <div style={{fontSize:11,color:"#64748B",marginLeft:"auto"}}>전체 {projects.length}건</div>
+              </div>
+            </div>
+          )
+        })()}
+
+        {/* 🤝 협력업체 현황 */}
+        {(()=>{
+          const vendors = (() => { try{ return JSON.parse(localStorage.getItem("sjs_vendors")||"{}") }catch{ return {} } })()
+          const vList = Object.values(vendors)
+          const recentPayments = [...vendorPayments].sort((a,b)=>(b.date||"").localeCompare(a.date||"")).slice(0,4)
+          return (
+            <div style={{background:"#fff",borderRadius:10,border:"1px solid #E2E8F0",overflow:"hidden"}}>
+              <div style={{padding:"11px 16px",borderBottom:"1px solid #F1F5F9",display:"flex",justifyContent:"space-between",alignItems:"center",background:"#F8FAFC"}}>
+                <span style={{fontSize:13,fontWeight:800,color:"#0F172A"}}>🤝 협력업체</span>
+                <button onClick={()=>setTab("vendors")} style={{fontSize:11,color:"#2563EB",background:"none",border:"none",cursor:"pointer",fontWeight:600}}>상세 →</button>
+              </div>
+              <div style={{padding:"10px 16px",borderBottom:"1px solid #F1F5F9",display:"flex",gap:16}}>
+                <div style={{textAlign:"center",padding:"4px 12px",background:"#FEF3C7",borderRadius:8}}>
+                  <div style={{fontSize:20,fontWeight:800,color:"#D97706"}}>{vList.length}</div>
+                  <div style={{fontSize:10,color:"#64748B"}}>등록 업체</div>
+                </div>
+                <div style={{textAlign:"center",padding:"4px 12px",background:"#F0FDF4",borderRadius:8}}>
+                  <div style={{fontSize:20,fontWeight:800,color:"#059669"}}>{recentPayments.length}</div>
+                  <div style={{fontSize:10,color:"#64748B"}}>최근 지급</div>
+                </div>
+              </div>
+              {recentPayments.length===0
+                ? <div style={{padding:"20px",textAlign:"center",color:"#94A3B8",fontSize:12}}>최근 지급 내역 없음</div>
+                : recentPayments.map((pay,i)=>(
+                  <div key={i} style={{padding:"8px 16px",borderBottom:"1px solid #F8FAFC",display:"flex",gap:8,alignItems:"center"}}>
+                    <div style={{flex:1,minWidth:0}}>
+                      <div style={{fontSize:12,fontWeight:600,color:"#334155",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{pay.vendorName||pay.vendor||"-"}</div>
+                      <div style={{fontSize:10,color:"#94A3B8"}}>{pay.date} · {pay.projectName||"-"}</div>
+                    </div>
+                    <span style={{fontSize:12,fontWeight:700,color:"#D97706",flexShrink:0}}>
+                      {(pay.amount||0)>=1e8?`${((pay.amount||0)/1e8).toFixed(1)}억`:`${Math.round((pay.amount||0)/1e4)}만`}
+                    </span>
+                  </div>
+                ))
+              }
+            </div>
+          )
+        })()}
+
       </div>
     </div>
   )
