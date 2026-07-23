@@ -1835,21 +1835,21 @@ export default function App() {
                 🗄️ 데이터관리
               </button>
               <button onClick={()=>{
-                const which = window.prompt("리셋할 항목 입력:\n1 = 월수금계획\n2 = 계약현황\n3 = 지출현황\n4 = 전체","1")
+                const which = window.prompt("리셋할 항목 입력:\n1 = 프로젝트 목록\n2 = 월수금계획\n3 = 계약현황\n4 = 지출현황\n5 = 전체","1")
                 if(!which) return
                 const map = {
-                  "1":["sjs_cash_items"],
-                  "2":["sjs_contract_items"],
-                  "3":["sjs_sale_items"],
-                  "4":["sjs_cash_items","sjs_contract_items","sjs_sale_items"]
+                  "1":["sjs_projects"],
+                  "2":["sjs_cash_items"],
+                  "3":["sjs_contract_items"],
+                  "4":["sjs_sale_items"],
+                  "5":["sjs_projects","sjs_cash_items","sjs_contract_items","sjs_sale_items"]
                 }
                 const keys = map[which]
                 if(!keys){alert("잘못된 입력");return}
-                const labels = {"1":"월수금계획","2":"계약현황","3":"지출현황","4":"전체"}
+                const labels = {"1":"프로젝트 목록","2":"월수금계획","3":"계약현황","4":"지출현황","5":"전체"}
                 if(!window.confirm(`⚠️ ${labels[which]} 데이터를 전부 삭제합니까?\n\n이 작업은 되돌릴 수 없습니다.`)) return
                 keys.forEach(k=>localStorage.removeItem(k))
                 setTimeout(()=>window.location.reload(),300)
-                // alert 대신 reload 전 메시지는 브라우저가 처리
               }}
                 style={{flex:1,padding:"7px 6px",background:"#FEE2E2",color:"#DC2626",
                   border:"none",borderRadius:8,fontSize:12,fontWeight:700,cursor:"pointer"}}>
