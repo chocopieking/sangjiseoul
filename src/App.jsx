@@ -1925,7 +1925,7 @@ export default function App() {
         {tab==="stats"     && (canReadTab("stats")  ? <StatsTab projects={projects}/> : <NoPermScreen tabId="stats"/>)}
         {tab==="gamify"    && (canReadTab("gamify") ? <GamifyTab projects={projects} currentUser={currentUser}/> : <NoPermScreen tabId="gamify"/>)}
         {tab==="deptdash"  && <DeptDashTab projects={projects} vendorPayments={vendorPayments} years={years}/>}
-        {tab==="home" && <MobileHub setTab={setTab} tabOrder={tabOrder} currentUser={currentUser} projects={projects} cashItems={cashItems}/>}
+        {tab==="home" && <EventDashboard setTab={setTab} tabOrder={tabOrder} currentUser={currentUser} projects={projects} cashItems={cashItems} contractItems={contractItems} deptStaff={deptStaff} setSelProjId={setSelProjId} setDetailTab={setDetailTab}/>}
         {tab==="analysis"  && (canReadTab("analysis") ? <AnalysisHub deptStaff={deptStaff} setDeptStaff={setDeptStaff} years={years} setYears={setYears} canWrite={canWrite} isAdmin={currentUser?.role==="admin"} cashflow={effectiveCashflow} cashItems={cashItems} setCashItems={setCashItems} saleItems={saleItems} setSaleItems={setSaleItems} contractItems={contractItems} setContractItems={setContractItems} projects={projects} setProjects={setProjects} setTab={setTab} setSelProjId={setSelProjId} setDetailTab={setDetailTab} selProjId={selProjId} selVerIdx={selVerIdx} setSelVerIdx={setSelVerIdx} currentUser={currentUser} yearTargets={yearTargets} setYearTargets={setYearTargets} deptBiz={deptBiz} staffMonthly={staffMonthly} staffTarget={staffTarget}/> : <NoPermScreen tabId="analysis"/>)}
         {tab==="datahub" && canReadTab("datahub") && <DataHubTab currentUser={currentUser} deptStaff={deptStaff} setDeptStaff={setDeptStaff} staffTarget={staffTarget} setStaffTarget={setStaffTarget} staffMonthly={staffMonthly} setStaffMonthly={setStaffMonthly} pnlData={pnlData} setPnlData={setPnlData} cashflow={cashflow} setCashflow={setCashflow} years={years} setYears={setYears} projects={projects} setProjects={setProjects} setTab={setTab} setSelProjId={setSelProjId} setSelVerIdx={setSelVerIdx} setShowNewProj={setShowNewProj} versions={versions} saveVersion={saveVersion} restoreVersion={restoreVersion} deleteVersion={deleteVersion} contractTypes={contractTypes} setContractTypes={setContractTypes} projTypes={projTypes} setProjTypes={setProjTypes} bidTypes={bidTypes} setBidTypes={setBidTypes} allData={null} restoreAllData={(entries)=>dbSetAll(entries, userEmail.current)} dbStatus={dbStatus} vendorsDB={vendorsDB} setVendorsDB={setVendorsDB} vendorPayments={vendorPayments} setVendorPayments={setVendorPayments} cashItems={cashItems} setCashItems={setCashItems} saleItems={saleItems} setSaleItems={setSaleItems} contractItems={contractItems} setContractItems={setContractItems}/>}
         {tab==="cashflow" && canReadTab("cashflow") && <CashflowTab cashflow={effectiveCashflow} setCashflow={setCashflow} currentUser={currentUser} projects={projects} setProjects={setProjects} projectCashflowByDept={projectCashflowByDept} cashItems={cashItems} setCashItems={setCashItems} saleItems={saleItems} setSaleItems={setSaleItems} setTab={setTab} setSelProjId={setSelProjId} setDetailTab={setDetailTab} yearTargets={yearTargets} setYearTargets={setYearTargets} deptBiz={deptBiz} deptStaff={deptStaff} staffMonthly={staffMonthly} staffTarget={staffTarget} contractItems={contractItems} setContractItems={setContractItems}/>}
@@ -11249,6 +11249,359 @@ function InlineEditForm({form, setForm, DEPTS, projNames, isSale, onSave, onCanc
 // ══════════════════════════════════════════════════════════════
 // 🏠 모바일 허브 홈페이지
 // ══════════════════════════════════════════════════════════════
+// ══════════════════════════════════════════════════════════════
+// 🏠 EventDashboard — 첫 화면 통합 이벤트 타임라인
+// ══════════════════════════════════════════════════════════════
+function EventDashboard({setTab, currentUser, projects=[], cashItems=[], contractItems=[], deptStaff={}, setSelProjId, setDetailTab}) {
+  const today = new Date()
+  const todayStr = today.toISOString().slice(0,10)
+  const fDate = s => s ? String(s).slice(0,10) : ""
+  const fA = n => n>=1e8?`${(n/1e8).toFixed(1)}억`:n>=1e4?`${Math.round(n/1e4).toLocaleString()}만원`:`${n.toLocaleString()}원`
+  const diffDays = s => { if(!s) return 9999; const d=new Date(s); return Math.ceil((d-today)/86400000) }
+
+  // ── 필터 ──────────────────────────────────────────────────
+  const [filterRange, setFilterRange] = React.useState("30")   // 7/30/90/365/all
+  const [filterCat,   setFilterCat]   = React.useState("all")  // all/completion/sale/contract/staff
+  const [filterYear,  setFilterYear]  = React.useState(String(today.getFullYear()))
+  const [filterMonth, setFilterMonth] = React.useState("")
+  const [viewMode,    setViewMode]    = React.useState("timeline") // timeline/calendar/list
+  const [importMode,  setImportMode]  = React.useState(false)
+
+  // ── 이벤트 수집 ────────────────────────────────────────────
+  const events = React.useMemo(()=>{
+    const evts = []
+    const addEvt = (o) => {
+      if(!o.date) return
+      const d = fDate(o.date)
+      if(!d || d==="NaN-NaN-NaN") return
+      const diff = diffDays(d)
+      evts.push({...o, date:d, diff,
+        isPast:   diff < 0,
+        isToday:  diff === 0,
+        isSoon:   diff >= 0 && diff <= 7,
+        isNear:   diff > 7  && diff <= 30,
+        isMonth:  diff > 30 && diff <= 90,
+      })
+    }
+
+    // 1. 준공 이벤트 (completion 정보)
+    projects.forEach(p=>{
+      const comp = p.completion || {}
+      if(comp.completionDate) addEvt({
+        id:`comp_${p.id}`, cat:"completion", icon:"🏁", color:"#7C3AED",
+        title:`준공 예정: ${p.name}`, sub:`${comp.completionNote||""}`,
+        date:comp.completionDate, proj:p, link:()=>{setSelProjId(p.id);setDetailTab("completion");setTab("projects")}
+      })
+      if(comp.approvalDate) addEvt({
+        id:`appr_${p.id}`, cat:"completion", icon:"✅", color:"#059669",
+        title:`사용승인: ${p.name}`, sub:"",
+        date:comp.approvalDate, proj:p, link:()=>{setSelProjId(p.id);setDetailTab("completion");setTab("projects")}
+      })
+      if(comp.photoDate) addEvt({
+        id:`photo_${p.id}`, cat:"completion", icon:"📷", color:"#9333EA",
+        title:`준공사진촬영: ${p.name}`, sub:comp.photoPhotographer||"",
+        date:comp.photoDate, proj:p, link:()=>{setSelProjId(p.id);setDetailTab("completion");setTab("projects")}
+      })
+      // 수상 이벤트
+      ;(p.awards||[]).forEach(a=>{
+        if(a.awardDate) addEvt({
+          id:`aw_${a.id}`, cat:"award", icon:"🏆", color:"#D97706",
+          title:`수상: ${a.awardName||p.name}`, sub:a.institution||"",
+          date:a.awardDate, proj:p, link:()=>{setSelProjId(p.id);setDetailTab("award");setTab("projects")}
+        })
+      })
+      // 언론보도 이벤트
+      ;(p.mediaItems||[]).forEach(m=>{
+        if(m.publishDate) addEvt({
+          id:`md_${m.id}`, cat:"media", icon:"📰", color:"#0891B2",
+          title:`언론보도: ${m.title||p.name}`, sub:m.media||"",
+          date:m.publishDate, proj:p, link:()=>{setSelProjId(p.id);setDetailTab("media");setTab("projects")}
+        })
+      })
+    })
+
+    // 2. 수금 이벤트 (cashItems)
+    cashItems.forEach(i=>{
+      if(i.expectedDate && !i.paidDate) addEvt({
+        id:`cash_exp_${i.id||Math.random()}`, cat:"sale", icon:"💧", color:"#059669",
+        title:`기성 예정: ${i.projectName||""}`, sub:`${i.stage||""} ${i.amount>=1e8?fA(i.amount):""}`,
+        date:i.expectedDate, link:()=>setTab("analysis")
+      })
+      if(i.paidDate) addEvt({
+        id:`cash_pd_${i.id||Math.random()}`, cat:"sale", icon:"✅", color:"#047857",
+        title:`입금완료: ${i.projectName||""}`, sub:`${i.stage||""} ${fA(i.amount||0)}`,
+        date:i.paidDate, link:()=>setTab("analysis")
+      })
+    })
+
+    // 3. 계약 이벤트
+    contractItems.forEach(i=>{
+      if(i.contractTime) addEvt({
+        id:`ct_${i.id}`, cat:"contract", icon:"📝", color:"#D97706",
+        title:`계약 예정: ${i.name||""}`, sub:`${(i.depts||[]).join(",")} ${i.serviceFeeExpect>=1e8?fA(i.serviceFeeExpect):""}`,
+        date:i.contractTime, link:()=>setTab("analysis")
+      })
+      if(i.execTime) addEvt({
+        id:`et_${i.id}`, cat:"contract", icon:"🏗", color:"#DC2626",
+        title:`수행 예정: ${i.name||""}`, sub:(i.depts||[]).join(","),
+        date:i.execTime, link:()=>setTab("analysis")
+      })
+    })
+
+    // 4. 인사 이벤트 (deptStaff에서 파생 — 향후 staffEvents로 확장)
+    // 현재는 최근 60일 내 변경된 인원 변동 표시 (future: 입퇴사일 필드 추가시 사용)
+    // TODO: staffEvents 배열 지원 시 확장
+
+    return evts.sort((a,b)=>a.date.localeCompare(b.date))
+  },[projects,cashItems,contractItems])
+
+  // ── 필터 적용 ──────────────────────────────────────────────
+  const filtered = React.useMemo(()=>{
+    return events.filter(e=>{
+      if(filterCat!=="all" && e.cat!==filterCat) return false
+      if(filterYear && !e.date.startsWith(filterYear)) return false
+      if(filterMonth && e.date.slice(5,7)!==filterMonth.padStart(2,"0")) return false
+      if(filterRange!=="all") {
+        const days = parseInt(filterRange)
+        if(e.diff > days || e.diff < -days) return false
+      }
+      return true
+    })
+  },[events,filterCat,filterYear,filterMonth,filterRange])
+
+  // ── 임박 이벤트 (30일 이내) ──────────────────────────────
+  const urgentEvents = events.filter(e=>e.diff>=0 && e.diff<=30 && !e.isPast)
+
+  // ── 연도/월 목록 ──────────────────────────────────────────
+  const years = [...new Set(events.map(e=>e.date.slice(0,4)))].sort()
+  const months = ["01","02","03","04","05","06","07","08","09","10","11","12"]
+
+  const CAT_BTNS = [
+    {id:"all",        label:"전체",   icon:"📅", color:"#334155"},
+    {id:"completion", label:"준공",   icon:"🏁", color:"#7C3AED"},
+    {id:"sale",       label:"매출",   icon:"💧", color:"#059669"},
+    {id:"contract",   label:"계약",   icon:"📝", color:"#D97706"},
+    {id:"award",      label:"수상",   icon:"🏆", color:"#B45309"},
+    {id:"media",      label:"언론",   icon:"📰", color:"#0891B2"},
+  ]
+
+  const URGENCY_COLOR = d =>
+    d===0  ? "#DC2626" :
+    d<=3   ? "#EA580C" :
+    d<=7   ? "#D97706" :
+    d<=14  ? "#059669" :
+    d<=30  ? "#2563EB" : "#64748B"
+
+  const EventCard = ({e, compact=false}) => (
+    <div onClick={e.link}
+      style={{display:"flex",gap:10,alignItems:"flex-start",padding:compact?"8px 12px":"12px 16px",
+        borderRadius:8,background:"#fff",border:`1px solid ${e.isSoon?"#FCA5A5":e.isNear?"#FCD34D":"#E2E8F0"}`,
+        cursor:e.link?"pointer":"default",transition:"box-shadow .15s",marginBottom:6}}
+      onMouseEnter={ev=>{if(e.link)ev.currentTarget.style.boxShadow="0 2px 8px rgba(0,0,0,.1)"}}
+      onMouseLeave={ev=>ev.currentTarget.style.boxShadow="none"}>
+      <div style={{width:32,height:32,borderRadius:8,background:`${e.color}15`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:16,flexShrink:0}}>{e.icon}</div>
+      <div style={{flex:1,minWidth:0}}>
+        <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:2,flexWrap:"wrap"}}>
+          <span style={{fontSize:compact?12:13,fontWeight:700,color:"#0F172A",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",maxWidth:compact?200:360}}>{e.title}</span>
+          {!e.isPast && <span style={{fontSize:10,fontWeight:700,padding:"1px 6px",borderRadius:10,background:URGENCY_COLOR(e.diff)+"20",color:URGENCY_COLOR(e.diff),flexShrink:0}}>
+            {e.diff===0?"오늘":e.diff<0?`${-e.diff}일 전`:`D-${e.diff}`}
+          </span>}
+        </div>
+        <div style={{fontSize:11,color:"#64748B",display:"flex",gap:8}}>
+          <span>{e.date}</span>
+          {e.sub&&<span style={{overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",maxWidth:200}}>{e.sub}</span>}
+        </div>
+      </div>
+      {e.link&&<span style={{fontSize:11,color:"#94A3B8",flexShrink:0,alignSelf:"center"}}>→</span>}
+    </div>
+  )
+
+  // 날짜별 그룹
+  const grouped = React.useMemo(()=>{
+    const g = {}
+    filtered.forEach(e=>{
+      if(!g[e.date]) g[e.date]=[]
+      g[e.date].push(e)
+    })
+    return Object.entries(g).sort(([a],[b])=>a.localeCompare(b))
+  },[filtered])
+
+  return (
+    <div style={{padding:"0 0 40px"}}>
+
+      {/* ── 상단 임박 알림 배너 ── */}
+      {urgentEvents.length>0&&(
+        <div style={{background:"linear-gradient(135deg,#7C3AED,#2563EB)",borderRadius:0,padding:"14px 24px",color:"#fff",marginBottom:0}}>
+          <div style={{fontSize:13,fontWeight:800,marginBottom:8,display:"flex",alignItems:"center",gap:6}}>
+            🚨 30일 이내 임박 이벤트 {urgentEvents.length}건
+          </div>
+          <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+            {urgentEvents.slice(0,6).map(e=>(
+              <div key={e.id} onClick={e.link}
+                style={{background:"rgba(255,255,255,.18)",borderRadius:8,padding:"6px 12px",cursor:"pointer",
+                  border:"1px solid rgba(255,255,255,.3)",transition:"background .15s"}}
+                onMouseEnter={ev=>ev.currentTarget.style.background="rgba(255,255,255,.28)"}
+                onMouseLeave={ev=>ev.currentTarget.style.background="rgba(255,255,255,.18)"}>
+                <div style={{fontSize:12,fontWeight:800}}>{e.icon} {e.diff===0?"오늘":`D-${e.diff}`}</div>
+                <div style={{fontSize:11,opacity:.9,maxWidth:160,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{e.title.replace(/^[^\s]+\s*/,"")}</div>
+              </div>
+            ))}
+            {urgentEvents.length>6&&<div style={{background:"rgba(255,255,255,.1)",borderRadius:8,padding:"6px 12px",fontSize:12,display:"flex",alignItems:"center"}}>+{urgentEvents.length-6}건 더</div>}
+          </div>
+        </div>
+      )}
+
+      <div style={{padding:"20px 24px 0"}}>
+        {/* ── 필터 영역 ── */}
+        <div style={{background:"#fff",borderRadius:12,border:"1px solid #E2E8F0",padding:"16px 20px",marginBottom:16}}>
+          {/* 카테고리 */}
+          <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:12}}>
+            {CAT_BTNS.map(c=>(
+              <button key={c.id} onClick={()=>setFilterCat(c.id)}
+                style={{padding:"5px 12px",borderRadius:20,border:`1.5px solid ${filterCat===c.id?c.color:"#E2E8F0"}`,
+                  background:filterCat===c.id?c.color:"#fff",color:filterCat===c.id?"#fff":c.color,
+                  fontSize:12,fontWeight:600,cursor:"pointer",transition:"all .15s"}}>
+                {c.icon} {c.label}
+              </button>
+            ))}
+          </div>
+          {/* 날짜 필터 */}
+          <div style={{display:"flex",gap:8,flexWrap:"wrap",alignItems:"center"}}>
+            <select value={filterYear} onChange={e=>setFilterYear(e.target.value)}
+              style={{padding:"6px 10px",border:"1px solid #E2E8F0",borderRadius:7,fontSize:13,fontFamily:"inherit",outline:"none"}}>
+              <option value="">전체 연도</option>
+              {years.map(y=><option key={y} value={y}>{y}년</option>)}
+            </select>
+            <select value={filterMonth} onChange={e=>setFilterMonth(e.target.value)}
+              style={{padding:"6px 10px",border:"1px solid #E2E8F0",borderRadius:7,fontSize:13,fontFamily:"inherit",outline:"none"}}>
+              <option value="">전체 월</option>
+              {months.map(m=><option key={m} value={m}>{parseInt(m)}월</option>)}
+            </select>
+            <div style={{display:"flex",gap:4}}>
+              {[["7","7일"],["30","30일"],["90","3개월"],["365","1년"],["all","전체"]].map(([v,l])=>(
+                <button key={v} onClick={()=>setFilterRange(v)}
+                  style={{padding:"5px 10px",borderRadius:6,border:"1px solid #E2E8F0",
+                    background:filterRange===v?"#2563EB":"#fff",color:filterRange===v?"#fff":"#334155",
+                    fontSize:12,cursor:"pointer"}}>
+                  {l}
+                </button>
+              ))}
+            </div>
+            <span style={{fontSize:12,color:"#94A3B8",marginLeft:"auto"}}>{filtered.length}건</span>
+          </div>
+        </div>
+
+        {/* ── 이벤트 타임라인 ── */}
+        <div style={{display:"grid",gridTemplateColumns:"1fr 320px",gap:16,alignItems:"flex-start"}}>
+          {/* 메인 타임라인 */}
+          <div>
+            {grouped.length===0&&(
+              <div style={{background:"#F8FAFC",borderRadius:10,padding:"40px",textAlign:"center",color:"#94A3B8"}}>
+                <div style={{fontSize:32,marginBottom:8}}>📅</div>
+                <div style={{fontSize:14,fontWeight:600}}>해당 기간에 이벤트가 없습니다</div>
+              </div>
+            )}
+            {grouped.map(([date,evts])=>{
+              const isToday = date===todayStr
+              const isPast  = date < todayStr
+              const diff    = diffDays(date)
+              const ym = date.slice(0,7)
+              return (
+                <div key={date} style={{marginBottom:12}}>
+                  {/* 날짜 헤더 */}
+                  <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:6}}>
+                    <div style={{width:80,flexShrink:0,textAlign:"right",fontSize:12,fontWeight:700,
+                      color:isToday?"#DC2626":isPast?"#94A3B8":"#2563EB"}}>
+                      {date.slice(5).replace("-","/")}
+                    </div>
+                    <div style={{width:10,height:10,borderRadius:"50%",flexShrink:0,
+                      background:isToday?"#DC2626":isPast?"#CBD5E1":"#2563EB",border:"2px solid #fff",boxShadow:"0 0 0 2px "+( isToday?"#DC2626":isPast?"#CBD5E1":"#2563EB")}}/>
+                    <div style={{flex:1,height:1,background:"#E2E8F0"}}/>
+                    {isToday&&<span style={{fontSize:10,fontWeight:700,background:"#DC2626",color:"#fff",padding:"1px 7px",borderRadius:10,flexShrink:0}}>TODAY</span>}
+                    {!isPast&&!isToday&&diff<=7&&<span style={{fontSize:10,fontWeight:700,background:"#EA580C",color:"#fff",padding:"1px 7px",borderRadius:10,flexShrink:0}}>D-{diff}</span>}
+                  </div>
+                  {/* 이벤트 카드 */}
+                  <div style={{marginLeft:94}}>
+                    {evts.map(e=><EventCard key={e.id} e={e}/>)}
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+
+          {/* 우측 사이드: 연도별 집계 + 통계 */}
+          <div style={{display:"flex",flexDirection:"column",gap:12,position:"sticky",top:70}}>
+            {/* 카테고리별 건수 */}
+            <div style={{background:"#fff",borderRadius:10,border:"1px solid #E2E8F0",padding:"14px 16px"}}>
+              <div style={{fontSize:13,fontWeight:800,color:"#0F172A",marginBottom:10}}>📊 카테고리별 현황</div>
+              {CAT_BTNS.filter(c=>c.id!=="all").map(c=>{
+                const cnt = events.filter(e=>e.cat===c.id).length
+                const futureCnt = events.filter(e=>e.cat===c.id&&!e.isPast).length
+                if(!cnt) return null
+                return (
+                  <div key={c.id} onClick={()=>setFilterCat(c.id)} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"6px 8px",borderRadius:6,cursor:"pointer",marginBottom:2,
+                    background:filterCat===c.id?`${c.color}10`:"transparent"}}
+                    onMouseEnter={ev=>ev.currentTarget.style.background=`${c.color}10`}
+                    onMouseLeave={ev=>ev.currentTarget.style.background=filterCat===c.id?`${c.color}10`:"transparent"}>
+                    <span style={{fontSize:12,color:"#334155"}}>{c.icon} {c.label}</span>
+                    <div style={{display:"flex",gap:4,alignItems:"center"}}>
+                      {futureCnt>0&&<span style={{fontSize:10,fontWeight:700,background:c.color,color:"#fff",padding:"1px 6px",borderRadius:8}}>예정 {futureCnt}</span>}
+                      <span style={{fontSize:11,color:"#94A3B8"}}>총 {cnt}</span>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+
+            {/* 월별 준공 캘린더 */}
+            {(()=>{
+              const compEvts = events.filter(e=>e.cat==="completion"&&!e.isPast)
+              if(!compEvts.length) return null
+              const byMonth = {}
+              compEvts.forEach(e=>{ const ym=e.date.slice(0,7); if(!byMonth[ym])byMonth[ym]=[]; byMonth[ym].push(e) })
+              return (
+                <div style={{background:"#fff",borderRadius:10,border:"2px solid #7C3AED",padding:"14px 16px"}}>
+                  <div style={{fontSize:13,fontWeight:800,color:"#7C3AED",marginBottom:10}}>🏁 향후 준공 일정</div>
+                  {Object.entries(byMonth).sort(([a],[b])=>a.localeCompare(b)).slice(0,8).map(([ym,evts])=>(
+                    <div key={ym} style={{marginBottom:8}}>
+                      <div style={{fontSize:11,fontWeight:700,color:"#64748B",marginBottom:4}}>{ym.replace("-","년 ")}월</div>
+                      {evts.map(e=>(
+                        <div key={e.id} onClick={e.link} style={{display:"flex",gap:6,alignItems:"center",padding:"4px 6px",borderRadius:5,cursor:"pointer",marginBottom:2}}
+                          onMouseEnter={ev=>ev.currentTarget.style.background="#F3E8FF"}
+                          onMouseLeave={ev=>ev.currentTarget.style.background="transparent"}>
+                          <span style={{fontSize:11,color:"#7C3AED",fontWeight:700,flexShrink:0}}>D-{e.diff}</span>
+                          <span style={{fontSize:11,color:"#334155",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{e.title.replace("준공 예정: ","").replace("사용승인: ","")}</span>
+                        </div>
+                      ))}
+                    </div>
+                  ))}
+                </div>
+              )
+            })()}
+
+            {/* 빠른 이동 */}
+            <div style={{background:"#F8FAFC",borderRadius:10,border:"1px solid #E2E8F0",padding:"12px 14px"}}>
+              <div style={{fontSize:12,fontWeight:700,color:"#64748B",marginBottom:8}}>빠른 이동</div>
+              {[
+                {label:"📅 일정 캘린더", tab:"calendar"},
+                {label:"💧 매출현황", tab:"analysis"},
+                {label:"📝 계약현황", tab:"analysis"},
+                {label:"🏗 프로젝트", tab:"projects"},
+              ].map(({label,tab})=>(
+                <button key={tab+label} onClick={()=>setTab(tab)}
+                  style={{display:"block",width:"100%",padding:"7px 10px",background:"#fff",border:"1px solid #E2E8F0",borderRadius:7,fontSize:12,fontWeight:600,cursor:"pointer",textAlign:"left",marginBottom:5,fontFamily:"inherit",color:"#334155"}}>
+                  {label}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+
 function MobileHub({setTab, tabOrder=[], currentUser, projects=[], cashItems=[]}) {
   const [search, setSearch] = useState("")
   const [favorites, setFavorites] = useState(()=>{

@@ -70,6 +70,7 @@ export function DataHubTab({
     {id:"ptypes",    label:"🏢 건물유형 관리"},
     {id:"btypes",    label:"📋 수주형태 관리"},
     {id:"backup",    label:"💾 데이터 백업·복구", accent:true},
+    {id:"archive_import", label:"📦 자료이관 임포트"},
     {id:"history",   label:"📜 버전 기록", accent:true},
   ]
   const [section,setSection] = useState("staff")
@@ -115,6 +116,7 @@ export function DataHubTab({
       {section==="ptypes"    && <SimpleListSection title="🏢 건물유형 관리" description="프로젝트 개설 시 선택하는 건물 유형 목록입니다." list={projTypes||[]} setList={setProjTypes} canManage={canManage}/>}
       {section==="btypes"    && <SimpleListSection title="📋 수주형태 관리" description="프로젝트 수주형태(외주비 비교 기준) 목록입니다." list={bidTypes||[]} setList={setBidTypes} canManage={canManage}/>}
       {section==="backup"    && <BackupSection allData={allData} restoreAllData={restoreAllData} isAdmin={isAdmin} cashItems={cashItems} setCashItems={setCashItems} saleItems={saleItems} setSaleItems={setSaleItems} contractItems={contractItems} setContractItems={setContractItems} projects={projects} setProjects={setProjects}/>}
+      {section==="archive_import" && <ArchiveImportSection projects={projects} setProjects={setProjects} isAdmin={isAdmin}/>}
       {section==="history"   && <VersionHistorySection versions={versions} restoreVersion={restoreVersion} deleteVersion={deleteVersion} saveVersion={saveVersion}
                                     currentUser={currentUser} canManage={canManage} STAFF_DEPTS={STAFF_DEPTS} DEPTS={DEPTS} DEPT_COLORS={DEPT_COLORS}
                                     deptStaff={deptStaff} staffTarget={staffTarget} staffMonthly={staffMonthly} pnlData={pnlData} cashflow={cashflow} years={years}/>}
@@ -1769,6 +1771,278 @@ function SimpleListSection({title, description, list, setList, canManage}) {
         ))}
       </div>
       <div style={{marginTop:12,fontSize:11,color:C2.gray}}>※ 삭제해도 기존 프로젝트에 저장된 값에는 영향을 주지 않습니다.</div>
+    </div>
+  )
+}
+
+// ══════════════════════════════════════════════════════════════
+// 📦 자료이관 임포트 섹션
+// ══════════════════════════════════════════════════════════════
+function ArchiveImportSection({projects=[], setProjects, isAdmin}) {
+  const [preview, setPreview] = useState(null)   // [{name, matchedId, matchScore, data}]
+  const [importing, setImporting] = useState(false)
+  const [result, setResult] = useState(null)
+  const toast = useToast()
+
+  const normName = s => String(s||"").replace(/[\s\[\]()（）_\-·]/g,"").toLowerCase()
+
+  const handleFile = async (e) => {
+    const file = e.target.files?.[0]
+    if(!file) return
+    const XLSX = await import('https://cdn.sheetjs.com/xlsx-0.20.3/package/xlsx.mjs').catch(()=>null)
+    if(!XLSX) { alert("XLSX 라이브러리를 불러올 수 없습니다."); return }
+
+    const reader = new FileReader()
+    reader.onload = (ev) => {
+      const wb = XLSX.read(ev.target.result, {type:"binary", cellDates:true})
+      const ws = wb.Sheets[wb.SheetNames[0]]
+      const rows = XLSX.utils.sheet_to_json(ws, {header:1, defval:""})
+      const headers = rows[0].map(h=>String(h).trim())
+
+      const fi = (names) => { for(const n of names){ const i=headers.indexOf(n); if(i>=0)return i } return -1 }
+      const COL = {
+        name:       fi(["프로젝트명"]),
+        code:       fi(["코드"]),
+        pm:         fi(["PM"]),
+        compDate:   fi(["준공예정일"]),
+        approvalDate: fi(["사용승인일"]),
+        compNote:   fi(["준공관련메모"]),
+        compStatus: fi(["준공(예정)"]),
+        photoDate:  fi(["촬영"]),
+        photoBy:    fi(["촬영자"]),
+        homeTransfer: fi(["본사이관"]),
+        transferDate: fi(["데이터이관일"]),
+        transferBy:   fi(["데이터이관자"]),
+        transferPath: fi(["자료이관(현상/실시 구분)"]),
+        jijimDate:  fi(["실시이관일"]),
+        jijimBy:    fi(["실시이관자"]),
+        compTransDate: fi(["준공데이터이관일"]),
+        compTransBy:   fi(["준공데이터이관자"]),
+        award1:     fi(["수상1"]),
+        award2:     fi(["수상2"]),
+        extra:      fi(["기타"]),
+      }
+
+      const fDate = v => {
+        if(!v||v==="") return ""
+        if(v instanceof Date) return v.toISOString().slice(0,10)
+        const s = String(v).trim()
+        if(/^\d{4}-\d{2}-\d{2}/.test(s)) return s.slice(0,10)
+        if(/^\d{4}$/.test(s)) return `${s}-01-01`
+        return s
+      }
+      const fStr = v => v===null||v===undefined||v===""?"":String(v).trim()
+
+      const previews = []
+      rows.slice(1).forEach((row, ri) => {
+        const name = fStr(row[COL.name])
+        if(!name) return
+        const code = fStr(row[COL.code])
+
+        // 프로젝트 매칭
+        let matched = null, score = 0
+        for(const p of projects) {
+          // 코드 매칭 (우선)
+          if(code && p.code && normName(p.code)===normName(code)) { matched=p; score=100; break }
+          // 이름 정규화 매칭
+          const ns = normName(p.name), ns2 = normName(name)
+          if(ns===ns2) { matched=p; score=95; break }
+          // 부분 매칭 (8글자 이상)
+          const minLen = Math.min(ns.length, ns2.length, 8)
+          if(minLen>=6 && (ns.includes(ns2.slice(0,minLen)) || ns2.includes(ns.slice(0,minLen)))) {
+            if(score < 70) { matched=p; score=70 }
+          }
+        }
+
+        // 임포트 데이터 구성
+        const archiveRecords = []
+        if(fDate(row[COL.transferDate])) archiveRecords.push({
+          id:`ar_imp_${ri}_1`, stageName:"현상/성과품",
+          transferDate: fDate(row[COL.transferDate]),
+          transferBy:   fStr(row[COL.transferBy]),
+          transferPath: fStr(row[COL.transferPath]),
+          backupDate:"", backupBy:""
+        })
+        if(fDate(row[COL.jijimDate])) archiveRecords.push({
+          id:`ar_imp_${ri}_2`, stageName:"실시설계",
+          transferDate: fDate(row[COL.jijimDate]),
+          transferBy:   fStr(row[COL.jijimBy]),
+          transferPath: fStr(row[COL.homeTransfer]),
+          backupDate:"", backupBy:""
+        })
+        if(fDate(row[COL.compTransDate])) archiveRecords.push({
+          id:`ar_imp_${ri}_3`, stageName:"준공도서",
+          transferDate: fDate(row[COL.compTransDate]),
+          transferBy:   fStr(row[COL.compTransBy]),
+          transferPath: fStr(row[COL.transferPath]),
+          backupDate:"", backupBy:""
+        })
+
+        const awards = []
+        if(fStr(row[COL.award1])) awards.push({id:`aw_imp_${ri}_1`, awardName:fStr(row[COL.award1]), awardDate:"", awardType:"", institution:"", note:""})
+        if(fStr(row[COL.award2])) awards.push({id:`aw_imp_${ri}_2`, awardName:fStr(row[COL.award2]), awardDate:"", awardType:"", institution:"", note:""})
+
+        previews.push({
+          srcName: name,
+          srcCode: code,
+          matchedId:  matched?.id || null,
+          matchedName: matched?.name || null,
+          matchScore: score,
+          isNew: !matched,
+          data: {
+            completion: {
+              approvalDate:  fDate(row[COL.approvalDate]),
+              completionDate: fDate(row[COL.compDate]),
+              completionNote: fStr(row[COL.compNote]),
+              completionStatus: fStr(row[COL.compStatus]),
+              photoDate:     fDate(row[COL.photoDate]),
+              photoPhotographer: fStr(row[COL.photoBy]),
+              docServerPath: fStr(row[COL.homeTransfer]),
+              note: fStr(row[COL.extra]),
+            },
+            archiveData: {
+              stages:[{stageName:"현상설계"},{stageName:"계획설계"},{stageName:"실시설계"},{stageName:"준공도서"}],
+              records: archiveRecords,
+            },
+            awards,
+          }
+        })
+      })
+
+      setPreview(previews)
+      e.target.value = ""
+    }
+    reader.readAsBinaryString(file)
+  }
+
+  const doImport = () => {
+    if(!preview) return
+    setImporting(true)
+    let matched=0, skipped=0
+    setProjects(prev => {
+      let next = [...prev]
+      preview.forEach(item => {
+        if(!item.matchedId) { skipped++; return }
+        next = next.map(p => {
+          if(p.id !== item.matchedId) return p
+          // 기존 데이터와 병합 (비어있는 필드만 채움)
+          const existComp = p.completion || {}
+          const newComp = {...existComp}
+          const imp = item.data.completion
+          Object.keys(imp).forEach(k => {
+            if(imp[k] && !existComp[k]) newComp[k] = imp[k]
+          })
+          // archiveData 병합
+          const existArc = p.archiveData || {stages:[],records:[]}
+          const newRecs = [...(existArc.records||[])]
+          ;(item.data.archiveData.records||[]).forEach(nr => {
+            const dup = newRecs.find(r=>r.stageName===nr.stageName&&r.transferDate===nr.transferDate)
+            if(!dup) newRecs.push(nr)
+          })
+          // awards 병합
+          const existAwards = p.awards || []
+          const newAwards = [...existAwards]
+          ;(item.data.awards||[]).forEach(na => {
+            const dup = newAwards.find(a=>a.awardName===na.awardName)
+            if(!dup) newAwards.push(na)
+          })
+          matched++
+          return {
+            ...p,
+            completion: newComp,
+            archiveData: {...existArc, records:newRecs, stages:existArc.stages?.length?existArc.stages:item.data.archiveData.stages},
+            awards: newAwards,
+          }
+        })
+      })
+      return next
+    })
+    setResult({matched, skipped})
+    setImporting(false)
+    toast&&toast(`✅ 임포트 완료: ${matched}건 병합, ${skipped}건 미매칭`, "success")
+  }
+
+  const MATCH_COLOR = s => s>=95?"#059669":s>=70?"#D97706":"#DC2626"
+
+  return (
+    <div>
+      <div style={{fontSize:17,fontWeight:800,color:"#0F172A",marginBottom:6}}>📦 자료이관 정보 임포트</div>
+      <div style={{fontSize:13,color:"#64748B",marginBottom:16,lineHeight:1.8}}>
+        엑셀(프로젝트_자료이관정보.xlsx) 파일을 업로드하면 프로젝트명/코드를 기준으로 자동 매칭하여<br/>
+        <b>자료이관 이력, 준공 정보, 수상 내역</b>을 기존 프로젝트에 병합합니다. 기존 데이터는 덮어쓰지 않습니다.
+      </div>
+
+      {!preview && (
+        <label style={{display:"inline-flex",alignItems:"center",gap:8,padding:"12px 24px",
+          background:"#2563EB",color:"#fff",borderRadius:8,fontSize:14,fontWeight:700,cursor:"pointer"}}>
+          📂 엑셀 파일 선택
+          <input type="file" accept=".xlsx,.xls" style={{display:"none"}} onChange={handleFile}/>
+        </label>
+      )}
+
+      {preview && (
+        <div>
+          {/* 미리보기 통계 */}
+          <div style={{display:"flex",gap:10,marginBottom:14,flexWrap:"wrap"}}>
+            {[
+              ["전체", preview.length, "#2563EB"],
+              ["매칭됨 (완전)", preview.filter(p=>p.matchScore>=95).length, "#059669"],
+              ["매칭됨 (부분)", preview.filter(p=>p.matchScore>0&&p.matchScore<95).length, "#D97706"],
+              ["미매칭", preview.filter(p=>!p.matchedId).length, "#DC2626"],
+            ].map(([l,n,c])=>(
+              <div key={l} style={{background:"#fff",borderRadius:8,padding:"10px 16px",border:`1.5px solid ${c}30`,textAlign:"center"}}>
+                <div style={{fontSize:20,fontWeight:800,color:c}}>{n}</div>
+                <div style={{fontSize:11,color:"#64748B"}}>{l}</div>
+              </div>
+            ))}
+          </div>
+
+          {/* 미리보기 테이블 */}
+          <div style={{background:"#fff",borderRadius:10,border:"1px solid #E2E8F0",marginBottom:14,overflow:"auto",maxHeight:400}}>
+            <table style={{width:"100%",borderCollapse:"collapse",fontSize:12}}>
+              <thead style={{position:"sticky",top:0,background:"#F8FAFC",zIndex:1}}>
+                <tr>{["엑셀 프로젝트명","코드","매칭 프로젝트","정확도","이관기록","준공정보","수상"].map(h=>(
+                  <th key={h} style={{padding:"8px 10px",textAlign:"left",fontWeight:700,color:"#64748B",borderBottom:"2px solid #E2E8F0",whiteSpace:"nowrap"}}>{h}</th>
+                ))}</tr>
+              </thead>
+              <tbody>
+                {preview.map((p,i)=>(
+                  <tr key={i} style={{borderBottom:"1px solid #F1F5F9",background:!p.matchedId?"#FEF2F2":"#fff"}}>
+                    <td style={{padding:"7px 10px",maxWidth:200,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",fontWeight:600}}>{p.srcName}</td>
+                    <td style={{padding:"7px 10px",fontSize:11,color:"#64748B"}}>{p.srcCode}</td>
+                    <td style={{padding:"7px 10px",maxWidth:200,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",color:p.matchedId?"#059669":"#DC2626"}}>
+                      {p.matchedId?p.matchedName:"❌ 미매칭"}
+                    </td>
+                    <td style={{padding:"7px 10px"}}>
+                      {p.matchedId&&<span style={{fontSize:10,fontWeight:700,background:MATCH_COLOR(p.matchScore)+"20",color:MATCH_COLOR(p.matchScore),padding:"1px 6px",borderRadius:8}}>{p.matchScore}%</span>}
+                    </td>
+                    <td style={{padding:"7px 10px",color:"#64748B"}}>{p.data.archiveData.records.length}건</td>
+                    <td style={{padding:"7px 10px",color:"#64748B"}}>{p.data.completion.completionDate||p.data.completion.approvalDate?"✓":""}</td>
+                    <td style={{padding:"7px 10px",color:"#64748B"}}>{p.data.awards.length>0?"✓":""}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          <div style={{display:"flex",gap:8}}>
+            <button onClick={doImport} disabled={importing}
+              style={{padding:"10px 24px",background:"#059669",color:"#fff",border:"none",borderRadius:8,fontSize:14,fontWeight:700,cursor:"pointer"}}>
+              ✅ {importing?"임포트 중...":"매칭된 항목 병합 실행"}
+            </button>
+            <button onClick={()=>{setPreview(null);setResult(null)}}
+              style={{padding:"10px 16px",background:"#F1F5F9",color:"#64748B",border:"none",borderRadius:8,fontSize:13,cursor:"pointer"}}>
+              다시 선택
+            </button>
+          </div>
+
+          {result&&(
+            <div style={{marginTop:12,padding:"12px 16px",background:"#D1FAE5",borderRadius:8,fontSize:13,fontWeight:600,color:"#065F46"}}>
+              ✅ 임포트 완료: {result.matched}건 병합 / {result.skipped}건 미매칭 (건너뜀)
+            </div>
+          )}
+        </div>
+      )}
     </div>
   )
 }
