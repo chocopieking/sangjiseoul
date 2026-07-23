@@ -8630,9 +8630,9 @@ function uploadCashExcel(e, type, cashItems, setCashItems, saleItems, setSaleIte
         projectName: colIdx(["프로젝트명"]),
         stage:       colIdx(["기성단계","단계/내역","기성단계/내역"]),
         paidDate:    colIdx(["입금완료일","완료일"]),
-        expectedDate:colIdx(["입금예상일","예상일"]),
-        amount:      colIdx(["금액"]),
-        memo:        colIdx(["메모","비고"]),
+        expectedDate:colIdx(["입금예정일","입금예상일","예상일","예정일"]),
+        amount:      colIdx(["금액","금액(원)"]),
+        memo:        colIdx(["메모","비고","원본현장명"]),
         id:          colIdx(["시스템ID","[시스템ID"]),
       }
       // itemType 정확 보정: "발주구분"(index1)이 아닌 "구분"(index2) 이어야 함
@@ -9541,6 +9541,126 @@ function ProjectCashflowDetail({proj, cashItems, setCashItems, DEPTS, DEPT_COLOR
           </div>
         </div>
       }
+
+      {/* ── 매출 타임라인 (연/월/일별) ─────────────────── */}
+      <div style={{marginTop:20}}>
+        <div style={{fontSize:14,fontWeight:800,color:"#0F172A",marginBottom:12,display:"flex",alignItems:"center",gap:8}}>
+          📅 매출 연월일별 현황
+          <span style={{fontSize:11,color:"#94A3B8",fontWeight:400}}>({myItems.length}건)</span>
+        </div>
+
+        {/* 요약 카드 */}
+        <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:10,marginBottom:16}}>
+          {[
+            ["설계비 합계",     feeBl>0?fAmt(feeBl):fAmt(proj.serviceFee||0), "#2563EB"],
+            ["기수령 합계",     fAmt(totalRcv),   "#059669"],
+            ["미수령 잔금",     fAmt(Math.max(balRemain,0)), balRemain<=0?"#94A3B8":"#DC2626"],
+            ["진행률",         feeBl>0?`${Math.min(Math.round(totalRcv/feeBl*100),100)}%`:"-%", "#7C3AED"],
+          ].map(([label,val,color])=>(
+            <div key={label} style={{background:"#fff",borderRadius:8,border:"1px solid #E2E8F0",padding:"12px 14px"}}>
+              <div style={{fontSize:11,color:"#64748B",marginBottom:4}}>{label}</div>
+              <div style={{fontSize:16,fontWeight:800,color}}>{val}</div>
+            </div>
+          ))}
+        </div>
+
+        {/* 연도별 그룹 */}
+        {(()=>{
+          const byYear = {}
+          myItems.forEach(i=>{
+            const d = fixDate(i.paidDate||i.expectedDate||"")
+            const yr = d?d.slice(0,4):"미정"
+            if(!byYear[yr]) byYear[yr]=[]
+            byYear[yr].push(i)
+          })
+          const sortedYears = Object.keys(byYear).sort()
+
+          return sortedYears.map(yr=>{
+            const yItems = byYear[yr]
+            const yPaid    = yItems.filter(i=>i.paidDate).reduce((s,i)=>s+(i.amount||0),0)
+            const yExpect  = yItems.filter(i=>!i.paidDate).reduce((s,i)=>s+(i.amount||0),0)
+
+            // 월별 그룹
+            const byMonth = {}
+            yItems.forEach(i=>{
+              const d = fixDate(i.paidDate||i.expectedDate||"")
+              const ym = d?d.slice(0,7):"미정"
+              if(!byMonth[ym]) byMonth[ym]=[]
+              byMonth[ym].push(i)
+            })
+
+            return (
+              <div key={yr} style={{marginBottom:16,background:"#fff",borderRadius:10,border:"1px solid #E2E8F0",overflow:"hidden"}}>
+                {/* 연도 헤더 */}
+                <div style={{padding:"10px 16px",background:"#EFF6FF",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                  <span style={{fontSize:14,fontWeight:800,color:"#1E3A8A"}}>📅 {yr}년</span>
+                  <div style={{display:"flex",gap:12,fontSize:12}}>
+                    <span style={{color:"#059669",fontWeight:700}}>입금완료 {fAmt(yPaid)}</span>
+                    <span style={{color:"#D97706",fontWeight:700}}>예정 {fAmt(yExpect)}</span>
+                    <span style={{color:"#64748B"}}>합계 {fAmt(yPaid+yExpect)}</span>
+                  </div>
+                </div>
+
+                {/* 월별 */}
+                {Object.entries(byMonth).sort(([a],[b])=>a.localeCompare(b)).map(([ym,mItems])=>{
+                  const mPaid   = mItems.filter(i=>i.paidDate).reduce((s,i)=>s+(i.amount||0),0)
+                  const mExpect = mItems.filter(i=>!i.paidDate).reduce((s,i)=>s+(i.amount||0),0)
+                  const monthLabel = ym==="미정"?"미정":ym.slice(5)+"월"
+
+                  return (
+                    <div key={ym} style={{borderTop:"1px solid #F1F5F9"}}>
+                      {/* 월 헤더 */}
+                      <div style={{padding:"7px 16px 7px 24px",background:"#F8FAFC",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                        <span style={{fontSize:12,fontWeight:700,color:"#334155"}}>　{monthLabel}</span>
+                        <div style={{display:"flex",gap:10,fontSize:11}}>
+                          {mPaid>0&&<span style={{color:"#059669",fontWeight:600}}>✅ {fAmt(mPaid)}</span>}
+                          {mExpect>0&&<span style={{color:"#D97706",fontWeight:600}}>📅 {fAmt(mExpect)}</span>}
+                        </div>
+                      </div>
+                      {/* 일별 항목 */}
+                      {mItems.sort((a,b)=>(fixDate(a.paidDate||a.expectedDate||"")).localeCompare(fixDate(b.paidDate||b.expectedDate||""))).map((item,ii)=>{
+                        const d = fixDate(item.paidDate||item.expectedDate||"")
+                        const isPaid = !!item.paidDate
+                        return (
+                          <div key={ii} style={{padding:"8px 16px 8px 32px",borderTop:"1px solid #F8FAFC",display:"flex",gap:10,alignItems:"center"}}>
+                            {/* 날짜 */}
+                            <div style={{width:80,flexShrink:0,fontSize:11,color:isPaid?"#64748B":"#D97706",fontWeight:600}}>
+                              {d?d.slice(5):"미정"}
+                            </div>
+                            {/* 상태 배지 */}
+                            <span style={{fontSize:10,fontWeight:700,padding:"1px 6px",borderRadius:6,flexShrink:0,
+                              background:isPaid?"#D1FAE5":"#FEF3C7",
+                              color:isPaid?"#065F46":"#92400E"}}>
+                              {isPaid?"입금완료":"예정"}
+                            </span>
+                            {/* 단계명 */}
+                            <span style={{fontSize:12,color:"#334155",flex:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
+                              {item.stage||item.itemType||"-"}
+                            </span>
+                            {/* 금액 */}
+                            <span style={{fontSize:13,fontWeight:700,color:isPaid?"#059669":"#D97706",flexShrink:0}}>
+                              {fAmt(item.amount||0)}
+                            </span>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  )
+                })}
+              </div>
+            )
+          })
+        })()}
+
+        {myItems.length===0&&(
+          <div style={{background:"#F8FAFC",borderRadius:8,border:"1px dashed #E2E8F0",padding:"32px",textAlign:"center",color:"#94A3B8"}}>
+            <div style={{fontSize:28,marginBottom:6}}>💧</div>
+            <div style={{fontSize:13,fontWeight:600,marginBottom:4}}>이 프로젝트의 월수금 내역이 없습니다</div>
+            <div style={{fontSize:12}}>매출현황 탭에서 프로젝트명을 정확히 매칭하여 기성 내역을 입력하세요.</div>
+          </div>
+        )}
+      </div>
+
     </div>
   )
 }
