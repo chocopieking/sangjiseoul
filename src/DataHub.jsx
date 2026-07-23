@@ -1779,10 +1779,11 @@ function SimpleListSection({title, description, list, setList, canManage}) {
 // 📦 자료이관 임포트 섹션
 // ══════════════════════════════════════════════════════════════
 function ArchiveImportSection({projects=[], setProjects, isAdmin}) {
-  const [preview, setPreview] = useState(null)   // [{name, matchedId, matchScore, data}]
+  const [preview, setPreview] = useState(null)
   const [importing, setImporting] = useState(false)
   const [result, setResult] = useState(null)
-  const toast = useToast()
+  const [msg, setMsg] = useState("")
+  const toast = (text) => { setMsg(text); setTimeout(()=>setMsg(""), 4000) }
 
   const normName = s => String(s||"").replace(/[\s\[\]()（）_\-·]/g,"").toLowerCase()
 
@@ -1959,7 +1960,7 @@ function ArchiveImportSection({projects=[], setProjects, isAdmin}) {
     })
     setResult({matched, skipped})
     setImporting(false)
-    toast&&toast(`✅ 임포트 완료: ${matched}건 병합, ${skipped}건 미매칭`, "success")
+    toast(`✅ 임포트 완료: ${matched}건 병합, ${skipped}건 미매칭`)
   }
 
   const MATCH_COLOR = s => s>=95?"#059669":s>=70?"#D97706":"#DC2626"

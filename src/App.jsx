@@ -1365,7 +1365,7 @@ export default function App() {
     const diff = (d-now)/(1000*60*60*24)
     return diff>=0&&diff<=7
   }).length
-  const totalBadge = unread + upcomingCount
+  const totalBadge = unread  // 알림(읽지 않은 것)만 배지 표시
 
   // 알람
   const readAlert = id => setAlerts(p=>p.map(a=>a.id===id?{...a,read:true}:a))
@@ -1880,7 +1880,7 @@ export default function App() {
             </button>
             <button onClick={doLogout} style={{...S.btn(C.grayL,"#334155"),flex:1,justifyContent:"center",padding:"7px",borderRadius:8,fontSize:12}}>로그아웃</button>
           </div>
-          {showAlerts&&<AlertPanel {...{alerts,readAlert,readAll,setTab,setShowAlerts}}/>}
+          {showAlerts&&<AlertPanel {...{alerts,readAlert,readAll,setTab,setShowAlerts,schedules,upcomingCount}}/>}
         </div>
       </div>
 
@@ -1989,28 +1989,95 @@ function LoginScreen({loginId,setLoginId,loginPw,setLoginPw,loginError,doLogin,p
 // ════════════════════════════════════════════════════════════
 // 알람 패널
 // ════════════════════════════════════════════════════════════
-function AlertPanel({alerts,readAlert,readAll,setTab,setShowAlerts}) {
+function AlertPanel({alerts,readAlert,readAll,setTab,setShowAlerts,schedules=[],upcomingCount=0}) {
+  const unread = alerts.filter(a=>!a.read)
+  // 7일 이내 임박 일정
+  const upcoming = (schedules||[]).filter(e=>{
+    if(!e.date) return false
+    const diff = (new Date(e.date)-new Date())/(1000*60*60*24)
+    return diff>=0&&diff<=7
+  }).sort((a,b)=>a.date.localeCompare(b.date))
+
+  const isEmpty = unread.length===0 && upcoming.length===0
+
   return (
-    <div style={{position:"absolute",top:"100%",right:0,marginTop:5,width:330,background:"var(--color-background-primary,#fff)",border:"1px solid var(--color-border-secondary,#ddd)",borderRadius:11,boxShadow:"0 5px 24px rgba(0,0,0,.15)",zIndex:700,overflow:"hidden"}}>
-      <div style={{padding:"10px 14px",borderBottom:"0.5px solid var(--color-border-tertiary,#eee)",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-        <span style={{fontSize:13,fontWeight:500}}>알람</span>
-        <button onClick={readAll} style={{fontSize:11,color:C.navyM,background:"none",border:"none",cursor:"pointer"}}>전체 읽음</button>
+    <div style={{position:"absolute",top:"100%",right:0,marginTop:5,width:340,background:"#fff",border:"1px solid #E2E8F0",borderRadius:12,boxShadow:"0 8px 32px rgba(0,0,0,.15)",zIndex:700,overflow:"hidden"}}>
+      <div style={{padding:"12px 16px",borderBottom:"1px solid #F1F5F9",display:"flex",justifyContent:"space-between",alignItems:"center",background:"#F8FAFC"}}>
+        <span style={{fontSize:13,fontWeight:700,color:"#0F172A"}}>🔔 알림 & 임박 일정</span>
+        <div style={{display:"flex",gap:6}}>
+          {unread.length>0&&<button onClick={readAll} style={{fontSize:11,color:"#2563EB",background:"none",border:"none",cursor:"pointer",fontWeight:600}}>전체 읽음</button>}
+          <button onClick={()=>setShowAlerts(false)} style={{fontSize:14,color:"#94A3B8",background:"none",border:"none",cursor:"pointer",lineHeight:1}}>✕</button>
+        </div>
       </div>
-      {alerts.map(a=>{
-        const st=LEVEL_STYLE[a.level]
-        return <div key={a.id} onClick={()=>{readAlert(a.id);setTab(a.tab);setShowAlerts(false)}}
-          style={{padding:"10px 14px",borderBottom:"0.5px solid var(--color-border-tertiary,#eee)",cursor:"pointer",background:a.read?"":"var(--color-background-secondary,#f8f8f6)",borderLeft:`3px solid ${a.read?"transparent":st.border}`}}
-          onMouseEnter={e=>e.currentTarget.style.background="var(--color-background-secondary)"}
-          onMouseLeave={e=>e.currentTarget.style.background=a.read?"":"var(--color-background-secondary,#f8f8f6)"}>
-          <div style={{display:"flex",gap:7,alignItems:"flex-start"}}>
-            <i className={`ti ${a.icon}`} style={{fontSize:14,color:st.fg,flexShrink:0,marginTop:1}} aria-hidden="true"/>
-            <div>
-              <div style={{fontSize:12,fontWeight:a.read?400:500,display:"flex",justifyContent:"space-between"}}>{a.title}<span style={{fontSize:10,color:C.gray,fontWeight:400,marginLeft:8}}>{a.time}</span></div>
-              <div style={{fontSize:11,color:"var(--color-text-secondary,#888)",marginTop:2,lineHeight:1.5}}>{a.msg}</div>
-            </div>
+
+      {isEmpty&&(
+        <div style={{padding:"32px 16px",textAlign:"center",color:"#94A3B8"}}>
+          <div style={{fontSize:28,marginBottom:8}}>🔔</div>
+          <div style={{fontSize:13,fontWeight:600,marginBottom:4}}>새 알림이 없습니다</div>
+          <div style={{fontSize:11,lineHeight:1.6}}>
+            7일 이내 임박한 일정이나<br/>새 알림이 생기면 여기에 표시됩니다
           </div>
         </div>
-      })}
+      )}
+
+      {/* 임박 일정 */}
+      {upcoming.length>0&&(
+        <div>
+          <div style={{padding:"8px 16px 4px",fontSize:11,fontWeight:700,color:"#D97706",background:"#FFFBEB"}}>
+            📅 7일 이내 임박 일정 ({upcoming.length}건)
+          </div>
+          {upcoming.slice(0,4).map(e=>{
+            const diff = Math.ceil((new Date(e.date)-new Date())/(1000*60*60*24))
+            return (
+              <div key={e.id} onClick={()=>{setTab("calendar");setShowAlerts(false)}}
+                style={{padding:"9px 16px",borderBottom:"1px solid #FEF3C7",cursor:"pointer",background:"#FFFBEB30",display:"flex",gap:10,alignItems:"center"}}
+                onMouseEnter={ev=>ev.currentTarget.style.background="#FFFBEB"}
+                onMouseLeave={ev=>ev.currentTarget.style.background="transparent"}>
+                <span style={{fontSize:18,flexShrink:0}}>{e.type==="개인"?"👤":e.type==="회의"?"💼":"📅"}</span>
+                <div style={{flex:1,minWidth:0}}>
+                  <div style={{fontSize:12,fontWeight:600,color:"#0F172A",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{e.title}</div>
+                  <div style={{fontSize:11,color:"#64748B"}}>{e.date}</div>
+                </div>
+                <span style={{fontSize:11,fontWeight:800,color:diff===0?"#DC2626":diff<=3?"#EA580C":"#D97706",flexShrink:0}}>
+                  {diff===0?"오늘":`D-${diff}`}
+                </span>
+              </div>
+            )
+          })}
+          {upcoming.length>4&&<div style={{padding:"6px 16px",fontSize:11,color:"#94A3B8",background:"#FFFBEB30",textAlign:"center"}}>+{upcoming.length-4}건 더 →</div>}
+        </div>
+      )}
+
+      {/* 읽지 않은 알림 */}
+      {unread.length>0&&(
+        <div>
+          <div style={{padding:"8px 16px 4px",fontSize:11,fontWeight:700,color:"#2563EB",background:"#EFF6FF"}}>
+            🔔 읽지 않은 알림 ({unread.length}건)
+          </div>
+          {alerts.filter(a=>!a.read).slice(0,5).map(a=>{
+            const st = LEVEL_STYLE[a.level]||{fg:"#2563EB",border:"#2563EB"}
+            return (
+              <div key={a.id} onClick={()=>{readAlert(a.id);if(a.tab)setTab(a.tab);setShowAlerts(false)}}
+                style={{padding:"10px 16px",borderBottom:"1px solid #F1F5F9",cursor:"pointer",background:"#EFF6FF30",borderLeft:`3px solid ${st.border}`}}
+                onMouseEnter={ev=>ev.currentTarget.style.background="#EFF6FF"}
+                onMouseLeave={ev=>ev.currentTarget.style.background="transparent"}>
+                <div style={{fontSize:12,fontWeight:500,display:"flex",justifyContent:"space-between",gap:8}}>
+                  <span style={{overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{a.title}</span>
+                  <span style={{fontSize:10,color:"#94A3B8",flexShrink:0}}>{a.time}</span>
+                </div>
+                {a.msg&&<div style={{fontSize:11,color:"#64748B",marginTop:2,lineHeight:1.5,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{a.msg}</div>}
+              </div>
+            )
+          })}
+        </div>
+      )}
+
+      <div style={{padding:"8px 16px",borderTop:"1px solid #F1F5F9",display:"flex",gap:6}}>
+        <button onClick={()=>{setTab("calendar");setShowAlerts(false)}}
+          style={{flex:1,padding:"7px",background:"#F8FAFC",color:"#334155",border:"1px solid #E2E8F0",borderRadius:7,fontSize:12,fontWeight:600,cursor:"pointer"}}>
+          📅 캘린더 보기
+        </button>
+      </div>
     </div>
   )
 }
