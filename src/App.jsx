@@ -798,6 +798,8 @@ export default function App() {
   useEffect(()=>{
     const saved = lsGet("sjs_projects", null)
     if(saved && saved.length > 0) return  // 이미 데이터 있음
+    // 리셋 플래그가 있으면 초기 데이터 재로드 안 함
+    if(localStorage.getItem("sjs_projects_reset") === "1") return
     let cancelled = false
     import("./projectsInitData.json").then(mod=>{
       if(cancelled) return
@@ -1849,6 +1851,11 @@ export default function App() {
                 const labels = {"1":"프로젝트 목록","2":"월수금계획","3":"계약현황","4":"지출현황","5":"전체"}
                 if(!window.confirm(`⚠️ ${labels[which]} 데이터를 전부 삭제합니까?\n\n이 작업은 되돌릴 수 없습니다.`)) return
                 keys.forEach(k=>localStorage.removeItem(k))
+                // 프로젝트 리셋 시 초기 데이터 재로드 방지 플래그
+                if(keys.includes("sjs_projects")) {
+                  localStorage.setItem("sjs_projects_reset","1")
+                  localStorage.setItem("sjs_projects","[]")
+                }
                 setTimeout(()=>window.location.reload(),300)
               }}
                 style={{flex:1,padding:"7px 6px",background:"#FEE2E2",color:"#DC2626",
@@ -3417,6 +3424,8 @@ function uploadContractExcel(e, contractItems, setContractItems, currentUser, to
 
       let msg = `✅ 완료: 신규 ${added}건 추가, 업데이트 ${updated}건`
       if(dupNames.length>0) msg += `\n⚠ 동일 프로젝트명(다른 구분) ${dupNames.length}건 별도 추가됨`
+      // 엑셀 업로드 성공 시 리셋 플래그 해제
+      try{ localStorage.removeItem("sjs_projects_reset") }catch{}
       toast&&toast(msg,"success")
       if(dupNames.length>0) alert(`⚠ 같은 이름 다른 구분 항목:\n${dupNames.slice(0,5).join("\n")}\n\n각각 별도 프로젝트로 등록됐습니다.`)
     } catch(err){ toast&&toast("업로드 오류: "+err.message,"error") }

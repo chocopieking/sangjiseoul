@@ -1406,7 +1406,13 @@ function BackupSection({allData, restoreAllData, isAdmin, cashItems=[], setCashI
   const resetData = (type) => {
     const labels = {projects:"프로젝트 목록", cash:"월수금계획", contract:"계약현황", sale:"지출현황", all:"전체(프로젝트+월수금+계약현황+지출현황)"}
     if(!window.confirm(`⚠️ ${labels[type]} 데이터를 전체 삭제하시겠습니까?\n\n이 작업은 되돌릴 수 없습니다.`)) return
-    if(type==="projects"||type==="all") { setProjects&&setProjects([]); try{ localStorage.removeItem("sjs_projects") }catch{} }
+    if(type==="projects"||type==="all") {
+      setProjects&&setProjects([])
+      try{
+        localStorage.setItem("sjs_projects","[]")
+        localStorage.setItem("sjs_projects_reset","1")  // 초기 데이터 재로드 방지
+      }catch{}
+    }
     if(type==="cash"||type==="all") { setCashItems&&setCashItems([]); try{ localStorage.removeItem("sjs_cash_items") }catch{} }
     if(type==="contract"||type==="all") { setContractItems&&setContractItems([]); try{ localStorage.removeItem("sjs_contract_items") }catch{} }
     if(type==="sale"||type==="all") { setSaleItems&&setSaleItems([]); try{ localStorage.removeItem("sjs_sale_items") }catch{} }
