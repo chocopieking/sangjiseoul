@@ -11252,349 +11252,371 @@ function InlineEditForm({form, setForm, DEPTS, projNames, isSale, onSave, onCanc
 // ══════════════════════════════════════════════════════════════
 // 🏠 EventDashboard — 첫 화면 통합 이벤트 타임라인
 // ══════════════════════════════════════════════════════════════
+
 function EventDashboard({setTab, currentUser, projects=[], cashItems=[], contractItems=[], deptStaff={}, setSelProjId, setDetailTab}) {
   const today = new Date()
   const todayStr = today.toISOString().slice(0,10)
-  const fDate = s => s ? String(s).slice(0,10) : ""
-  const fA = n => n>=1e8?`${(n/1e8).toFixed(1)}억`:n>=1e4?`${Math.round(n/1e4).toLocaleString()}만원`:`${n.toLocaleString()}원`
-  const diffDays = s => { if(!s) return 9999; const d=new Date(s); return Math.ceil((d-today)/86400000) }
+  const [viewMode,    setViewMode]   = React.useState("calendar")  // calendar | timeline | list
+  const [filterCat,   setFilterCat]  = React.useState("all")
+  const [calYear,     setCalYear]    = React.useState(today.getFullYear())
+  const [calMonth,    setCalMonth]   = React.useState(today.getMonth()+1)
+  const [selDate,     setSelDate]    = React.useState(null)
 
-  // ── 필터 ──────────────────────────────────────────────────
-  const [filterRange, setFilterRange] = React.useState("30")   // 7/30/90/365/all
-  const [filterCat,   setFilterCat]   = React.useState("all")  // all/completion/sale/contract/staff
-  const [filterYear,  setFilterYear]  = React.useState(String(today.getFullYear()))
-  const [filterMonth, setFilterMonth] = React.useState("")
-  const [viewMode,    setViewMode]    = React.useState("timeline") // timeline/calendar/list
-  const [importMode,  setImportMode]  = React.useState(false)
+  const fA = n => n>=1e8?`${(n/1e8).toFixed(1)}억`:n>=1e4?`${Math.round(n/1e4)}만원`:`${n}원`
+  const diffDays = s => { if(!s) return 9999; return Math.ceil((new Date(s)-today)/86400000) }
+  const fDate = s => s?String(s).slice(0,10):""
 
-  // ── 이벤트 수집 ────────────────────────────────────────────
+  // ── 이벤트 수집 ──────────────────────────────────────────
   const events = React.useMemo(()=>{
     const evts = []
-    const addEvt = (o) => {
-      if(!o.date) return
-      const d = fDate(o.date)
-      if(!d || d==="NaN-NaN-NaN") return
-      const diff = diffDays(d)
-      evts.push({...o, date:d, diff,
-        isPast:   diff < 0,
-        isToday:  diff === 0,
-        isSoon:   diff >= 0 && diff <= 7,
-        isNear:   diff > 7  && diff <= 30,
-        isMonth:  diff > 30 && diff <= 90,
-      })
-    }
+    const add = o => { if(!o.date||!fDate(o.date)) return; const d=fDate(o.date); evts.push({...o,date:d,diff:diffDays(d)}) }
 
-    // 1. 준공 이벤트 (completion 정보)
+    // 준공/사용승인/촬영
     projects.forEach(p=>{
-      const comp = p.completion || {}
-      if(comp.completionDate) addEvt({
-        id:`comp_${p.id}`, cat:"completion", icon:"🏁", color:"#7C3AED",
-        title:`준공 예정: ${p.name}`, sub:`${comp.completionNote||""}`,
-        date:comp.completionDate, proj:p, link:()=>{setSelProjId(p.id);setDetailTab("completion");setTab("projects")}
-      })
-      if(comp.approvalDate) addEvt({
-        id:`appr_${p.id}`, cat:"completion", icon:"✅", color:"#059669",
-        title:`사용승인: ${p.name}`, sub:"",
-        date:comp.approvalDate, proj:p, link:()=>{setSelProjId(p.id);setDetailTab("completion");setTab("projects")}
-      })
-      if(comp.photoDate) addEvt({
-        id:`photo_${p.id}`, cat:"completion", icon:"📷", color:"#9333EA",
-        title:`준공사진촬영: ${p.name}`, sub:comp.photoPhotographer||"",
-        date:comp.photoDate, proj:p, link:()=>{setSelProjId(p.id);setDetailTab("completion");setTab("projects")}
-      })
-      // 수상 이벤트
-      ;(p.awards||[]).forEach(a=>{
-        if(a.awardDate) addEvt({
-          id:`aw_${a.id}`, cat:"award", icon:"🏆", color:"#D97706",
-          title:`수상: ${a.awardName||p.name}`, sub:a.institution||"",
-          date:a.awardDate, proj:p, link:()=>{setSelProjId(p.id);setDetailTab("award");setTab("projects")}
-        })
-      })
-      // 언론보도 이벤트
-      ;(p.mediaItems||[]).forEach(m=>{
-        if(m.publishDate) addEvt({
-          id:`md_${m.id}`, cat:"media", icon:"📰", color:"#0891B2",
-          title:`언론보도: ${m.title||p.name}`, sub:m.media||"",
-          date:m.publishDate, proj:p, link:()=>{setSelProjId(p.id);setDetailTab("media");setTab("projects")}
-        })
-      })
+      const c=p.completion||{}
+      if(c.completionDate) add({id:`comp_${p.id}`,cat:"completion",icon:"🏁",color:"#7C3AED",date:c.completionDate,title:`준공예정`,sub:p.name,proj:p,link:()=>{setSelProjId(p.id);setDetailTab("completion");setTab("projects")}})
+      if(c.approvalDate)   add({id:`appr_${p.id}`,cat:"completion",icon:"✅",color:"#059669",date:c.approvalDate,  title:`사용승인`,sub:p.name,proj:p,link:()=>{setSelProjId(p.id);setDetailTab("completion");setTab("projects")}})
+      if(c.photoDate)      add({id:`phot_${p.id}`,cat:"completion",icon:"📷",color:"#9333EA",date:c.photoDate,     title:`준공촬영`,sub:p.name,proj:p,link:()=>{setSelProjId(p.id);setDetailTab("completion");setTab("projects")}})
+      ;(p.awards||[]).forEach(a=>{ if(a.awardDate) add({id:`aw_${a.id}`,cat:"award",icon:"🏆",color:"#D97706",date:a.awardDate,title:`수상`,sub:a.awardName||p.name,proj:p,link:()=>{setSelProjId(p.id);setDetailTab("award");setTab("projects")}}) })
+      ;(p.mediaItems||[]).forEach(m=>{ if(m.publishDate) add({id:`md_${m.id}`,cat:"media",icon:"📰",color:"#0891B2",date:m.publishDate,title:`언론보도`,sub:m.title||p.name,proj:p,link:()=>{setSelProjId(p.id);setDetailTab("media");setTab("projects")}}) })
     })
-
-    // 2. 수금 이벤트 (cashItems)
+    // 기성
     cashItems.forEach(i=>{
-      if(i.expectedDate && !i.paidDate) addEvt({
-        id:`cash_exp_${i.id||Math.random()}`, cat:"sale", icon:"💧", color:"#059669",
-        title:`기성 예정: ${i.projectName||""}`, sub:`${i.stage||""} ${i.amount>=1e8?fA(i.amount):""}`,
-        date:i.expectedDate, link:()=>setTab("analysis")
-      })
-      if(i.paidDate) addEvt({
-        id:`cash_pd_${i.id||Math.random()}`, cat:"sale", icon:"✅", color:"#047857",
-        title:`입금완료: ${i.projectName||""}`, sub:`${i.stage||""} ${fA(i.amount||0)}`,
-        date:i.paidDate, link:()=>setTab("analysis")
-      })
+      if(i.expectedDate&&!i.paidDate) add({id:`exp_${i.id||Math.random()}`,cat:"sale",icon:"💧",color:"#059669",date:i.expectedDate,title:`기성예정`,sub:`${i.projectName||""} ${i.amount>=1e8?fA(i.amount):""}`,link:()=>setTab("analysis")})
+      if(i.paidDate)                  add({id:`pd_${i.id||Math.random()}`, cat:"sale",icon:"✅",color:"#047857",date:i.paidDate,     title:`입금완료`,sub:`${i.projectName||""} ${fA(i.amount||0)}`,link:()=>setTab("analysis")})
     })
-
-    // 3. 계약 이벤트
+    // 계약
     contractItems.forEach(i=>{
-      if(i.contractTime) addEvt({
-        id:`ct_${i.id}`, cat:"contract", icon:"📝", color:"#D97706",
-        title:`계약 예정: ${i.name||""}`, sub:`${(i.depts||[]).join(",")} ${i.serviceFeeExpect>=1e8?fA(i.serviceFeeExpect):""}`,
-        date:i.contractTime, link:()=>setTab("analysis")
-      })
-      if(i.execTime) addEvt({
-        id:`et_${i.id}`, cat:"contract", icon:"🏗", color:"#DC2626",
-        title:`수행 예정: ${i.name||""}`, sub:(i.depts||[]).join(","),
-        date:i.execTime, link:()=>setTab("analysis")
-      })
+      if(i.contractTime) add({id:`ct_${i.id}`,cat:"contract",icon:"📝",color:"#D97706",date:i.contractTime,title:`계약예정`,sub:i.name||"",link:()=>setTab("analysis")})
+      if(i.execTime)     add({id:`et_${i.id}`,cat:"contract",icon:"🏗",color:"#DC2626",date:i.execTime,    title:`수행예정`,sub:i.name||"",link:()=>setTab("analysis")})
     })
-
-    // 4. 인사 이벤트 (deptStaff에서 파생 — 향후 staffEvents로 확장)
-    // 현재는 최근 60일 내 변경된 인원 변동 표시 (future: 입퇴사일 필드 추가시 사용)
-    // TODO: staffEvents 배열 지원 시 확장
-
     return evts.sort((a,b)=>a.date.localeCompare(b.date))
   },[projects,cashItems,contractItems])
 
-  // ── 필터 적용 ──────────────────────────────────────────────
-  const filtered = React.useMemo(()=>{
-    return events.filter(e=>{
-      if(filterCat!=="all" && e.cat!==filterCat) return false
-      if(filterYear && !e.date.startsWith(filterYear)) return false
-      if(filterMonth && e.date.slice(5,7)!==filterMonth.padStart(2,"0")) return false
-      if(filterRange!=="all") {
-        const days = parseInt(filterRange)
-        if(e.diff > days || e.diff < -days) return false
-      }
-      return true
-    })
-  },[events,filterCat,filterYear,filterMonth,filterRange])
+  // 카테고리 필터
+  const filtered = React.useMemo(()=>
+    filterCat==="all"?events:events.filter(e=>e.cat===filterCat)
+  ,[events,filterCat])
 
-  // ── 임박 이벤트 (30일 이내) ──────────────────────────────
-  const urgentEvents = events.filter(e=>e.diff>=0 && e.diff<=30 && !e.isPast)
-
-  // ── 연도/월 목록 ──────────────────────────────────────────
-  const years = [...new Set(events.map(e=>e.date.slice(0,4)))].sort()
-  const months = ["01","02","03","04","05","06","07","08","09","10","11","12"]
+  // 임박(30일 이내 미래)
+  const urgent = events.filter(e=>e.diff>=0&&e.diff<=30)
 
   const CAT_BTNS = [
-    {id:"all",        label:"전체",   icon:"📅", color:"#334155"},
-    {id:"completion", label:"준공",   icon:"🏁", color:"#7C3AED"},
-    {id:"sale",       label:"매출",   icon:"💧", color:"#059669"},
-    {id:"contract",   label:"계약",   icon:"📝", color:"#D97706"},
-    {id:"award",      label:"수상",   icon:"🏆", color:"#B45309"},
-    {id:"media",      label:"언론",   icon:"📰", color:"#0891B2"},
+    {id:"all",       label:"전체",  icon:"📅",color:"#334155"},
+    {id:"completion",label:"준공",  icon:"🏁",color:"#7C3AED"},
+    {id:"sale",      label:"매출",  icon:"💧",color:"#059669"},
+    {id:"contract",  label:"계약",  icon:"📝",color:"#D97706"},
+    {id:"award",     label:"수상",  icon:"🏆",color:"#B45309"},
+    {id:"media",     label:"언론",  icon:"📰",color:"#0891B2"},
   ]
 
-  const URGENCY_COLOR = d =>
-    d===0  ? "#DC2626" :
-    d<=3   ? "#EA580C" :
-    d<=7   ? "#D97706" :
-    d<=14  ? "#059669" :
-    d<=30  ? "#2563EB" : "#64748B"
+  const URGENCY = d => d===0?"#DC2626":d<=3?"#EA580C":d<=7?"#D97706":d<=14?"#059669":"#2563EB"
 
-  const EventCard = ({e, compact=false}) => (
-    <div onClick={e.link}
-      style={{display:"flex",gap:10,alignItems:"flex-start",padding:compact?"8px 12px":"12px 16px",
-        borderRadius:8,background:"#fff",border:`1px solid ${e.isSoon?"#FCA5A5":e.isNear?"#FCD34D":"#E2E8F0"}`,
-        cursor:e.link?"pointer":"default",transition:"box-shadow .15s",marginBottom:6}}
-      onMouseEnter={ev=>{if(e.link)ev.currentTarget.style.boxShadow="0 2px 8px rgba(0,0,0,.1)"}}
+  // ── 캘린더 헬퍼 ──────────────────────────────────────────
+  const daysInMonth = (y,m) => new Date(y,m,0).getDate()
+  const firstDayOfMonth = (y,m) => new Date(y,m-1,1).getDay()
+  const evtsByDate = React.useMemo(()=>{
+    const m={}; filtered.forEach(e=>{if(!m[e.date])m[e.date]=[]; m[e.date].push(e)}); return m
+  },[filtered])
+
+  const prevMonth = () => { if(calMonth===1){setCalYear(y=>y-1);setCalMonth(12)}else setCalMonth(m=>m-1) }
+  const nextMonth = () => { if(calMonth===12){setCalYear(y=>y+1);setCalMonth(1)} else setCalMonth(m=>m+1) }
+
+  // 선택한 날짜의 이벤트
+  const selEvts = selDate ? (evtsByDate[selDate]||[]) : []
+
+  // ── 이벤트 카드 (소형) ────────────────────────────────────
+  const EventRow = ({e}) => (
+    <div onClick={e.link} style={{display:"flex",gap:8,alignItems:"flex-start",padding:"8px 10px",borderRadius:7,
+      background:"#fff",border:`1px solid ${e.diff>=0&&e.diff<=7?"#FCA5A5":e.diff>=0&&e.diff<=30?"#FCD34D":"#E2E8F0"}`,
+      cursor:e.link?"pointer":"default",marginBottom:5,transition:"box-shadow .1s"}}
+      onMouseEnter={ev=>{if(e.link)ev.currentTarget.style.boxShadow="0 2px 6px rgba(0,0,0,.08)"}}
       onMouseLeave={ev=>ev.currentTarget.style.boxShadow="none"}>
-      <div style={{width:32,height:32,borderRadius:8,background:`${e.color}15`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:16,flexShrink:0}}>{e.icon}</div>
+      <span style={{fontSize:15,flexShrink:0}}>{e.icon}</span>
       <div style={{flex:1,minWidth:0}}>
-        <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:2,flexWrap:"wrap"}}>
-          <span style={{fontSize:compact?12:13,fontWeight:700,color:"#0F172A",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",maxWidth:compact?200:360}}>{e.title}</span>
-          {!e.isPast && <span style={{fontSize:10,fontWeight:700,padding:"1px 6px",borderRadius:10,background:URGENCY_COLOR(e.diff)+"20",color:URGENCY_COLOR(e.diff),flexShrink:0}}>
+        <div style={{display:"flex",gap:5,alignItems:"center",flexWrap:"wrap"}}>
+          <span style={{fontSize:12,fontWeight:700,color:"#0F172A"}}>{e.title}</span>
+          <span style={{fontSize:11,fontWeight:600,padding:"0 5px",borderRadius:8,background:URGENCY(e.diff)+"18",color:URGENCY(e.diff)}}>
             {e.diff===0?"오늘":e.diff<0?`${-e.diff}일 전`:`D-${e.diff}`}
-          </span>}
+          </span>
         </div>
-        <div style={{fontSize:11,color:"#64748B",display:"flex",gap:8}}>
-          <span>{e.date}</span>
-          {e.sub&&<span style={{overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",maxWidth:200}}>{e.sub}</span>}
-        </div>
+        <div style={{fontSize:11,color:"#64748B",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{e.sub}</div>
       </div>
-      {e.link&&<span style={{fontSize:11,color:"#94A3B8",flexShrink:0,alignSelf:"center"}}>→</span>}
+      {e.link&&<span style={{fontSize:11,color:"#CBD5E1",flexShrink:0,alignSelf:"center"}}>→</span>}
     </div>
   )
-
-  // 날짜별 그룹
-  const grouped = React.useMemo(()=>{
-    const g = {}
-    filtered.forEach(e=>{
-      if(!g[e.date]) g[e.date]=[]
-      g[e.date].push(e)
-    })
-    return Object.entries(g).sort(([a],[b])=>a.localeCompare(b))
-  },[filtered])
 
   return (
     <div style={{padding:"0 0 40px"}}>
 
-      {/* ── 상단 임박 알림 배너 ── */}
-      {urgentEvents.length>0&&(
-        <div style={{background:"linear-gradient(135deg,#7C3AED,#2563EB)",borderRadius:0,padding:"14px 24px",color:"#fff",marginBottom:0}}>
-          <div style={{fontSize:13,fontWeight:800,marginBottom:8,display:"flex",alignItems:"center",gap:6}}>
-            🚨 30일 이내 임박 이벤트 {urgentEvents.length}건
-          </div>
-          <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
-            {urgentEvents.slice(0,6).map(e=>(
-              <div key={e.id} onClick={e.link}
-                style={{background:"rgba(255,255,255,.18)",borderRadius:8,padding:"6px 12px",cursor:"pointer",
-                  border:"1px solid rgba(255,255,255,.3)",transition:"background .15s"}}
+      {/* 임박 배너 */}
+      {urgent.length>0&&(
+        <div style={{background:"linear-gradient(135deg,#4F46E5,#0891B2)",padding:"12px 20px",color:"#fff",marginBottom:0}}>
+          <div style={{fontSize:12,fontWeight:800,marginBottom:7,opacity:.8}}>🚨 30일 이내 임박 이벤트</div>
+          <div style={{display:"flex",gap:7,flexWrap:"wrap"}}>
+            {urgent.slice(0,8).map(e=>(
+              <div key={e.id} onClick={e.link} style={{background:"rgba(255,255,255,.18)",borderRadius:7,padding:"5px 11px",cursor:"pointer",border:"1px solid rgba(255,255,255,.25)"}}
                 onMouseEnter={ev=>ev.currentTarget.style.background="rgba(255,255,255,.28)"}
                 onMouseLeave={ev=>ev.currentTarget.style.background="rgba(255,255,255,.18)"}>
-                <div style={{fontSize:12,fontWeight:800}}>{e.icon} {e.diff===0?"오늘":`D-${e.diff}`}</div>
-                <div style={{fontSize:11,opacity:.9,maxWidth:160,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{e.title.replace(/^[^\s]+\s*/,"")}</div>
+                <div style={{fontSize:11,fontWeight:800}}>{e.icon} {e.diff===0?"오늘":`D-${e.diff}`}</div>
+                <div style={{fontSize:10,opacity:.85,maxWidth:130,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{e.sub||e.title}</div>
               </div>
             ))}
-            {urgentEvents.length>6&&<div style={{background:"rgba(255,255,255,.1)",borderRadius:8,padding:"6px 12px",fontSize:12,display:"flex",alignItems:"center"}}>+{urgentEvents.length-6}건 더</div>}
+            {urgent.length>8&&<div style={{background:"rgba(255,255,255,.1)",borderRadius:7,padding:"5px 11px",fontSize:11,display:"flex",alignItems:"center"}}>+{urgent.length-8}건</div>}
           </div>
         </div>
       )}
 
-      <div style={{padding:"20px 24px 0"}}>
-        {/* ── 필터 영역 ── */}
-        <div style={{background:"#fff",borderRadius:12,border:"1px solid #E2E8F0",padding:"16px 20px",marginBottom:16}}>
-          {/* 카테고리 */}
-          <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:12}}>
+      <div style={{padding:"16px 20px 0"}}>
+        {/* 툴바 */}
+        <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:12,flexWrap:"wrap"}}>
+          {/* 뷰 전환 */}
+          <div style={{display:"flex",background:"#F1F5F9",borderRadius:8,padding:3,gap:2}}>
+            {[["calendar","📅 달력"],["timeline","📊 타임라인"],["list","📋 목록"]].map(([v,l])=>(
+              <button key={v} onClick={()=>setViewMode(v)}
+                style={{padding:"6px 13px",border:"none",borderRadius:6,fontSize:12,fontWeight:viewMode===v?700:500,
+                  cursor:"pointer",background:viewMode===v?"#2563EB":"none",color:viewMode===v?"#fff":"#64748B",transition:"all .15s"}}>
+                {l}
+              </button>
+            ))}
+          </div>
+          {/* 카테고리 필터 */}
+          <div style={{display:"flex",gap:5,flexWrap:"wrap"}}>
             {CAT_BTNS.map(c=>(
               <button key={c.id} onClick={()=>setFilterCat(c.id)}
-                style={{padding:"5px 12px",borderRadius:20,border:`1.5px solid ${filterCat===c.id?c.color:"#E2E8F0"}`,
+                style={{padding:"5px 11px",borderRadius:16,border:`1.5px solid ${filterCat===c.id?c.color:"#E2E8F0"}`,
                   background:filterCat===c.id?c.color:"#fff",color:filterCat===c.id?"#fff":c.color,
-                  fontSize:12,fontWeight:600,cursor:"pointer",transition:"all .15s"}}>
+                  fontSize:11,fontWeight:600,cursor:"pointer",transition:"all .15s"}}>
                 {c.icon} {c.label}
               </button>
             ))}
           </div>
-          {/* 날짜 필터 */}
-          <div style={{display:"flex",gap:8,flexWrap:"wrap",alignItems:"center"}}>
-            <select value={filterYear} onChange={e=>setFilterYear(e.target.value)}
-              style={{padding:"6px 10px",border:"1px solid #E2E8F0",borderRadius:7,fontSize:13,fontFamily:"inherit",outline:"none"}}>
-              <option value="">전체 연도</option>
-              {years.map(y=><option key={y} value={y}>{y}년</option>)}
-            </select>
-            <select value={filterMonth} onChange={e=>setFilterMonth(e.target.value)}
-              style={{padding:"6px 10px",border:"1px solid #E2E8F0",borderRadius:7,fontSize:13,fontFamily:"inherit",outline:"none"}}>
-              <option value="">전체 월</option>
-              {months.map(m=><option key={m} value={m}>{parseInt(m)}월</option>)}
-            </select>
-            <div style={{display:"flex",gap:4}}>
-              {[["7","7일"],["30","30일"],["90","3개월"],["365","1년"],["all","전체"]].map(([v,l])=>(
-                <button key={v} onClick={()=>setFilterRange(v)}
-                  style={{padding:"5px 10px",borderRadius:6,border:"1px solid #E2E8F0",
-                    background:filterRange===v?"#2563EB":"#fff",color:filterRange===v?"#fff":"#334155",
-                    fontSize:12,cursor:"pointer"}}>
-                  {l}
-                </button>
-              ))}
-            </div>
-            <span style={{fontSize:12,color:"#94A3B8",marginLeft:"auto"}}>{filtered.length}건</span>
-          </div>
+          <span style={{marginLeft:"auto",fontSize:12,color:"#94A3B8"}}>{filtered.length}건</span>
         </div>
 
-        {/* ── 이벤트 타임라인 ── */}
-        <div style={{display:"grid",gridTemplateColumns:"1fr 320px",gap:16,alignItems:"flex-start"}}>
-          {/* 메인 타임라인 */}
-          <div>
-            {grouped.length===0&&(
-              <div style={{background:"#F8FAFC",borderRadius:10,padding:"40px",textAlign:"center",color:"#94A3B8"}}>
-                <div style={{fontSize:32,marginBottom:8}}>📅</div>
-                <div style={{fontSize:14,fontWeight:600}}>해당 기간에 이벤트가 없습니다</div>
-              </div>
-            )}
-            {grouped.map(([date,evts])=>{
-              const isToday = date===todayStr
-              const isPast  = date < todayStr
-              const diff    = diffDays(date)
-              const ym = date.slice(0,7)
-              return (
-                <div key={date} style={{marginBottom:12}}>
-                  {/* 날짜 헤더 */}
-                  <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:6}}>
-                    <div style={{width:80,flexShrink:0,textAlign:"right",fontSize:12,fontWeight:700,
-                      color:isToday?"#DC2626":isPast?"#94A3B8":"#2563EB"}}>
-                      {date.slice(5).replace("-","/")}
-                    </div>
-                    <div style={{width:10,height:10,borderRadius:"50%",flexShrink:0,
-                      background:isToday?"#DC2626":isPast?"#CBD5E1":"#2563EB",border:"2px solid #fff",boxShadow:"0 0 0 2px "+( isToday?"#DC2626":isPast?"#CBD5E1":"#2563EB")}}/>
-                    <div style={{flex:1,height:1,background:"#E2E8F0"}}/>
-                    {isToday&&<span style={{fontSize:10,fontWeight:700,background:"#DC2626",color:"#fff",padding:"1px 7px",borderRadius:10,flexShrink:0}}>TODAY</span>}
-                    {!isPast&&!isToday&&diff<=7&&<span style={{fontSize:10,fontWeight:700,background:"#EA580C",color:"#fff",padding:"1px 7px",borderRadius:10,flexShrink:0}}>D-{diff}</span>}
-                  </div>
-                  {/* 이벤트 카드 */}
-                  <div style={{marginLeft:94}}>
-                    {evts.map(e=><EventCard key={e.id} e={e}/>)}
-                  </div>
+        <div style={{display:"grid",gridTemplateColumns:viewMode==="calendar"?"2fr 1fr":"1fr",gap:16,alignItems:"flex-start"}}>
+
+          {/* ── 캘린더 뷰 ── */}
+          {viewMode==="calendar"&&(
+            <div>
+              <div style={{background:"#fff",borderRadius:12,border:"1px solid #E2E8F0",overflow:"hidden"}}>
+                {/* 캘린더 헤더 */}
+                <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"14px 18px",borderBottom:"1px solid #F1F5F9"}}>
+                  <button onClick={prevMonth} style={{border:"none",background:"#F1F5F9",borderRadius:6,padding:"5px 10px",cursor:"pointer",fontSize:14}}>‹</button>
+                  <div style={{fontSize:16,fontWeight:800,color:"#0F172A"}}>{calYear}년 {calMonth}월</div>
+                  <button onClick={nextMonth} style={{border:"none",background:"#F1F5F9",borderRadius:6,padding:"5px 10px",cursor:"pointer",fontSize:14}}>›</button>
                 </div>
-              )
-            })}
-          </div>
-
-          {/* 우측 사이드: 연도별 집계 + 통계 */}
-          <div style={{display:"flex",flexDirection:"column",gap:12,position:"sticky",top:70}}>
-            {/* 카테고리별 건수 */}
-            <div style={{background:"#fff",borderRadius:10,border:"1px solid #E2E8F0",padding:"14px 16px"}}>
-              <div style={{fontSize:13,fontWeight:800,color:"#0F172A",marginBottom:10}}>📊 카테고리별 현황</div>
-              {CAT_BTNS.filter(c=>c.id!=="all").map(c=>{
-                const cnt = events.filter(e=>e.cat===c.id).length
-                const futureCnt = events.filter(e=>e.cat===c.id&&!e.isPast).length
-                if(!cnt) return null
-                return (
-                  <div key={c.id} onClick={()=>setFilterCat(c.id)} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"6px 8px",borderRadius:6,cursor:"pointer",marginBottom:2,
-                    background:filterCat===c.id?`${c.color}10`:"transparent"}}
-                    onMouseEnter={ev=>ev.currentTarget.style.background=`${c.color}10`}
-                    onMouseLeave={ev=>ev.currentTarget.style.background=filterCat===c.id?`${c.color}10`:"transparent"}>
-                    <span style={{fontSize:12,color:"#334155"}}>{c.icon} {c.label}</span>
-                    <div style={{display:"flex",gap:4,alignItems:"center"}}>
-                      {futureCnt>0&&<span style={{fontSize:10,fontWeight:700,background:c.color,color:"#fff",padding:"1px 6px",borderRadius:8}}>예정 {futureCnt}</span>}
-                      <span style={{fontSize:11,color:"#94A3B8"}}>총 {cnt}</span>
-                    </div>
-                  </div>
-                )
-              })}
-            </div>
-
-            {/* 월별 준공 캘린더 */}
-            {(()=>{
-              const compEvts = events.filter(e=>e.cat==="completion"&&!e.isPast)
-              if(!compEvts.length) return null
-              const byMonth = {}
-              compEvts.forEach(e=>{ const ym=e.date.slice(0,7); if(!byMonth[ym])byMonth[ym]=[]; byMonth[ym].push(e) })
-              return (
-                <div style={{background:"#fff",borderRadius:10,border:"2px solid #7C3AED",padding:"14px 16px"}}>
-                  <div style={{fontSize:13,fontWeight:800,color:"#7C3AED",marginBottom:10}}>🏁 향후 준공 일정</div>
-                  {Object.entries(byMonth).sort(([a],[b])=>a.localeCompare(b)).slice(0,8).map(([ym,evts])=>(
-                    <div key={ym} style={{marginBottom:8}}>
-                      <div style={{fontSize:11,fontWeight:700,color:"#64748B",marginBottom:4}}>{ym.replace("-","년 ")}월</div>
-                      {evts.map(e=>(
-                        <div key={e.id} onClick={e.link} style={{display:"flex",gap:6,alignItems:"center",padding:"4px 6px",borderRadius:5,cursor:"pointer",marginBottom:2}}
-                          onMouseEnter={ev=>ev.currentTarget.style.background="#F3E8FF"}
-                          onMouseLeave={ev=>ev.currentTarget.style.background="transparent"}>
-                          <span style={{fontSize:11,color:"#7C3AED",fontWeight:700,flexShrink:0}}>D-{e.diff}</span>
-                          <span style={{fontSize:11,color:"#334155",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{e.title.replace("준공 예정: ","").replace("사용승인: ","")}</span>
-                        </div>
-                      ))}
+                {/* 요일 헤더 */}
+                <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",borderBottom:"1px solid #F1F5F9"}}>
+                  {["일","월","화","수","목","금","토"].map((d,i)=>(
+                    <div key={d} style={{padding:"8px 4px",textAlign:"center",fontSize:11,fontWeight:700,
+                      color:i===0?"#DC2626":i===6?"#2563EB":"#64748B"}}>
+                      {d}
                     </div>
                   ))}
                 </div>
-              )
-            })()}
-
-            {/* 빠른 이동 */}
-            <div style={{background:"#F8FAFC",borderRadius:10,border:"1px solid #E2E8F0",padding:"12px 14px"}}>
-              <div style={{fontSize:12,fontWeight:700,color:"#64748B",marginBottom:8}}>빠른 이동</div>
-              {[
-                {label:"📅 일정 캘린더", tab:"calendar"},
-                {label:"💧 매출현황", tab:"analysis"},
-                {label:"📝 계약현황", tab:"analysis"},
-                {label:"🏗 프로젝트", tab:"projects"},
-              ].map(({label,tab})=>(
-                <button key={tab+label} onClick={()=>setTab(tab)}
-                  style={{display:"block",width:"100%",padding:"7px 10px",background:"#fff",border:"1px solid #E2E8F0",borderRadius:7,fontSize:12,fontWeight:600,cursor:"pointer",textAlign:"left",marginBottom:5,fontFamily:"inherit",color:"#334155"}}>
-                  {label}
-                </button>
-              ))}
+                {/* 날짜 그리드 */}
+                <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)"}}>
+                  {/* 첫 주 빈칸 */}
+                  {Array.from({length:firstDayOfMonth(calYear,calMonth)},(_,i)=>(
+                    <div key={`empty_${i}`} style={{padding:"8px 4px",minHeight:72,borderRight:"1px solid #F8FAFC",borderBottom:"1px solid #F8FAFC"}}/>
+                  ))}
+                  {/* 날짜 */}
+                  {Array.from({length:daysInMonth(calYear,calMonth)},(_,i)=>{
+                    const day = i+1
+                    const dateStr = `${calYear}-${String(calMonth).padStart(2,"0")}-${String(day).padStart(2,"0")}`
+                    const dayEvts = evtsByDate[dateStr]||[]
+                    const isToday = dateStr===todayStr
+                    const isSel   = dateStr===selDate
+                    const dayOfWeek = new Date(calYear,calMonth-1,day).getDay()
+                    return (
+                      <div key={day} onClick={()=>setSelDate(isSel?null:dateStr)}
+                        style={{padding:"6px 4px",minHeight:72,borderRight:"1px solid #F8FAFC",borderBottom:"1px solid #F8FAFC",
+                          cursor:dayEvts.length?"pointer":"default",
+                          background:isSel?"#EFF6FF":isToday?"#FEF2F2":"#fff",
+                          transition:"background .1s"}}
+                        onMouseEnter={ev=>{if(dayEvts.length)ev.currentTarget.style.background=isSel?"#DBEAFE":"#F8FAFC"}}
+                        onMouseLeave={ev=>ev.currentTarget.style.background=isSel?"#EFF6FF":isToday?"#FEF2F2":"#fff"}>
+                        {/* 날짜 번호 */}
+                        <div style={{textAlign:"right",fontSize:11,fontWeight:isToday?800:500,
+                          color:isToday?"#DC2626":dayOfWeek===0?"#EF4444":dayOfWeek===6?"#3B82F6":"#334155",
+                          marginBottom:3}}>
+                          {isToday?<span style={{background:"#DC2626",color:"#fff",borderRadius:"50%",width:18,height:18,display:"inline-flex",alignItems:"center",justifyContent:"center",fontSize:11}}>{day}</span>:day}
+                        </div>
+                        {/* 이벤트 점/배지 */}
+                        {dayEvts.slice(0,3).map((e,ei)=>(
+                          <div key={ei} style={{fontSize:10,fontWeight:600,padding:"1px 4px",borderRadius:3,
+                            background:e.color+"20",color:e.color,
+                            overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",marginBottom:1,lineHeight:1.4}}>
+                            {e.icon} {e.title}
+                          </div>
+                        ))}
+                        {dayEvts.length>3&&<div style={{fontSize:9,color:"#94A3B8",textAlign:"right"}}>+{dayEvts.length-3}</div>}
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+              {/* 날짜 없을 때 안내 */}
+              {events.length===0&&(
+                <div style={{marginTop:12,background:"#F0F9FF",borderRadius:8,border:"1px dashed #BAE6FD",padding:"16px",fontSize:13,color:"#0369A1",textAlign:"center"}}>
+                  💡 프로젝트에 준공예정일, 기성 예정일을 입력하면 캘린더에 자동으로 표시됩니다.
+                </div>
+              )}
             </div>
-          </div>
+          )}
+
+          {/* ── 타임라인 뷰 ── */}
+          {viewMode==="timeline"&&(
+            <div>
+              {filtered.length===0&&(
+                <div style={{background:"#F8FAFC",borderRadius:10,border:"1px dashed #E2E8F0",padding:"48px",textAlign:"center",color:"#94A3B8"}}>
+                  <div style={{fontSize:40,marginBottom:10}}>📅</div>
+                  <div style={{fontSize:15,fontWeight:700,marginBottom:6}}>등록된 이벤트가 없습니다</div>
+                  <div style={{fontSize:13,lineHeight:1.7}}>
+                    프로젝트의 <b>준공</b>·<b>계약</b> 정보를 입력하거나<br/>
+                    월수금 <b>기성 예정일</b>을 등록하면 여기에 표시됩니다.
+                  </div>
+                  <div style={{display:"flex",gap:8,justifyContent:"center",marginTop:14}}>
+                    <button onClick={()=>setTab("projects")} style={{padding:"8px 16px",background:"#2563EB",color:"#fff",border:"none",borderRadius:7,fontSize:13,fontWeight:600,cursor:"pointer"}}>🏗 프로젝트 이동</button>
+                    <button onClick={()=>setTab("analysis")} style={{padding:"8px 16px",background:"#059669",color:"#fff",border:"none",borderRadius:7,fontSize:13,fontWeight:600,cursor:"pointer"}}>💧 월수금 이동</button>
+                  </div>
+                </div>
+              )}
+              {(()=>{
+                const grouped = {}
+                filtered.forEach(e=>{if(!grouped[e.date])grouped[e.date]=[]; grouped[e.date].push(e)})
+                return Object.entries(grouped).sort(([a],[b])=>a.localeCompare(b)).map(([date,evts])=>{
+                  const isToday=date===todayStr, isPast=date<todayStr, diff=diffDays(date)
+                  return (
+                    <div key={date} style={{marginBottom:10}}>
+                      <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:5}}>
+                        <div style={{width:72,textAlign:"right",fontSize:11,fontWeight:700,flexShrink:0,color:isToday?"#DC2626":isPast?"#CBD5E1":"#2563EB"}}>
+                          {date.slice(5).replace("-","/")}
+                        </div>
+                        <div style={{width:9,height:9,borderRadius:"50%",flexShrink:0,background:isToday?"#DC2626":isPast?"#CBD5E1":"#2563EB",boxShadow:`0 0 0 2px #fff,0 0 0 3px ${isToday?"#DC2626":isPast?"#CBD5E1":"#2563EB"}`}}/>
+                        <div style={{flex:1,height:1,background:"#E2E8F0"}}/>
+                        {isToday&&<span style={{fontSize:10,fontWeight:800,background:"#DC2626",color:"#fff",padding:"1px 7px",borderRadius:10,flexShrink:0}}>TODAY</span>}
+                        {!isToday&&!isPast&&diff<=30&&<span style={{fontSize:10,fontWeight:700,color:URGENCY(diff),flexShrink:0}}>D-{diff}</span>}
+                      </div>
+                      <div style={{marginLeft:84}}>
+                        {evts.map(e=><EventRow key={e.id} e={e}/>)}
+                      </div>
+                    </div>
+                  )
+                })
+              })()}
+            </div>
+          )}
+
+          {/* ── 목록 뷰 ── */}
+          {viewMode==="list"&&(
+            <div>
+              {filtered.length===0&&(
+                <div style={{background:"#F8FAFC",borderRadius:10,border:"1px dashed #E2E8F0",padding:"48px",textAlign:"center",color:"#94A3B8"}}>
+                  <div style={{fontSize:40,marginBottom:10}}>📋</div>
+                  <div style={{fontSize:15,fontWeight:700,marginBottom:6}}>등록된 이벤트가 없습니다</div>
+                  <div style={{fontSize:13,lineHeight:1.7}}>준공·계약·기성 정보를 프로젝트에 입력하면 자동으로 목록이 채워집니다.</div>
+                  <div style={{display:"flex",gap:8,justifyContent:"center",marginTop:14}}>
+                    <button onClick={()=>setTab("projects")} style={{padding:"8px 16px",background:"#2563EB",color:"#fff",border:"none",borderRadius:7,fontSize:13,fontWeight:600,cursor:"pointer"}}>🏗 프로젝트 이동</button>
+                    <button onClick={()=>setTab("analysis")} style={{padding:"8px 16px",background:"#059669",color:"#fff",border:"none",borderRadius:7,fontSize:13,fontWeight:600,cursor:"pointer"}}>💧 월수금 이동</button>
+                  </div>
+                </div>
+              )}
+              {filtered.length>0&&(
+                <div style={{background:"#fff",borderRadius:10,border:"1px solid #E2E8F0",overflow:"auto"}}>
+                  <table style={{width:"100%",borderCollapse:"collapse",fontSize:12}}>
+                    <thead>
+                      <tr style={{background:"#F8FAFC"}}>
+                        {["날짜","D-Day","구분","내용","상세"].map(h=>(
+                          <th key={h} style={{padding:"10px 12px",textAlign:"left",fontSize:11,fontWeight:700,color:"#64748B",borderBottom:"2px solid #E2E8F0",whiteSpace:"nowrap"}}>{h}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {filtered.map(e=>(
+                        <tr key={e.id} onClick={e.link} style={{borderBottom:"1px solid #F1F5F9",cursor:e.link?"pointer":"default"}}
+                          onMouseEnter={ev=>ev.currentTarget.style.background="#F8FAFC"}
+                          onMouseLeave={ev=>ev.currentTarget.style.background="transparent"}>
+                          <td style={{padding:"9px 12px",fontWeight:600,whiteSpace:"nowrap",color:e.date<todayStr?"#94A3B8":"#334155"}}>{e.date}</td>
+                          <td style={{padding:"9px 12px",whiteSpace:"nowrap"}}>
+                            <span style={{fontSize:11,fontWeight:700,padding:"2px 7px",borderRadius:8,
+                              background:URGENCY(e.diff)+"18",color:URGENCY(e.diff)}}>
+                              {e.diff===0?"오늘":e.diff<0?`${-e.diff}일전`:`D-${e.diff}`}
+                            </span>
+                          </td>
+                          <td style={{padding:"9px 12px"}}>
+                            <span style={{fontSize:11,fontWeight:700,padding:"2px 7px",borderRadius:6,background:e.color+"15",color:e.color}}>
+                              {e.icon} {e.title}
+                            </span>
+                          </td>
+                          <td style={{padding:"9px 12px",maxWidth:280,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",color:"#334155"}}>{e.sub}</td>
+                          <td style={{padding:"9px 12px",color:"#CBD5E1",fontSize:12}}>{e.link?"→":""}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* 우측 패널 (달력 뷰에서만) */}
+          {viewMode==="calendar"&&(
+            <div style={{display:"flex",flexDirection:"column",gap:12}}>
+              {/* 선택된 날짜 이벤트 */}
+              {selDate&&selEvts.length>0&&(
+                <div style={{background:"#fff",borderRadius:10,border:"2px solid #2563EB",padding:"14px 16px"}}>
+                  <div style={{fontSize:13,fontWeight:800,color:"#2563EB",marginBottom:10}}>
+                    📅 {selDate.slice(5).replace("-","월 ")}일
+                  </div>
+                  {selEvts.map(e=><EventRow key={e.id} e={e}/>)}
+                </div>
+              )}
+              {/* 이달의 이벤트 */}
+              {(()=>{
+                const ymStr = `${calYear}-${String(calMonth).padStart(2,"0")}`
+                const monthEvts = filtered.filter(e=>e.date.startsWith(ymStr))
+                return (
+                  <div style={{background:"#fff",borderRadius:10,border:"1px solid #E2E8F0",padding:"14px 16px"}}>
+                    <div style={{fontSize:13,fontWeight:800,color:"#0F172A",marginBottom:10}}>
+                      {calYear}년 {calMonth}월 이벤트 ({monthEvts.length}건)
+                    </div>
+                    {monthEvts.length===0?(
+                      <div style={{fontSize:12,color:"#94A3B8",textAlign:"center",padding:"20px 0"}}>
+                        이달 이벤트 없음
+                      </div>
+                    ):monthEvts.map(e=><EventRow key={e.id} e={e}/>)}
+                  </div>
+                )
+              })()}
+              {/* 향후 준공 */}
+              {(()=>{
+                const compFuture = events.filter(e=>e.cat==="completion"&&e.diff>=0).slice(0,6)
+                if(!compFuture.length) return null
+                return (
+                  <div style={{background:"#fff",borderRadius:10,border:"2px solid #7C3AED",padding:"14px 16px"}}>
+                    <div style={{fontSize:13,fontWeight:800,color:"#7C3AED",marginBottom:10}}>🏁 향후 준공 일정</div>
+                    {compFuture.map(e=>(
+                      <div key={e.id} onClick={e.link} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"6px 0",borderBottom:"1px solid #F3E8FF",cursor:"pointer"}}
+                        onMouseEnter={ev=>ev.currentTarget.style.background="#FAF5FF"}
+                        onMouseLeave={ev=>ev.currentTarget.style.background="transparent"}>
+                        <span style={{fontSize:11,color:"#334155",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",flex:1}}>{e.sub}</span>
+                        <span style={{fontSize:11,fontWeight:700,color:"#7C3AED",flexShrink:0,marginLeft:8}}>D-{e.diff}</span>
+                      </div>
+                    ))}
+                  </div>
+                )
+              })()}
+              {/* 빠른이동 */}
+              <div style={{background:"#F8FAFC",borderRadius:10,border:"1px solid #E2E8F0",padding:"12px 14px"}}>
+                <div style={{fontSize:11,fontWeight:700,color:"#64748B",marginBottom:8}}>빠른 이동</div>
+                {[["🏗 프로젝트","projects"],["💧 매출현황","analysis"],["📅 상세 캘린더","calendar"],["📝 계약현황","analysis"]].map(([l,t])=>(
+                  <button key={l} onClick={()=>setTab(t)} style={{display:"block",width:"100%",padding:"7px 10px",background:"#fff",border:"1px solid #E2E8F0",borderRadius:6,fontSize:12,fontWeight:600,cursor:"pointer",textAlign:"left",marginBottom:4,fontFamily:"inherit",color:"#334155"}}>{l}</button>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>
