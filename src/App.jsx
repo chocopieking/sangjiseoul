@@ -9285,8 +9285,18 @@ function ProjectCashflowDetail({proj, cashItems, setCashItems, DEPTS, DEPT_COLOR
   const normName = s => (s||"").replace(/[\s\-_·.\(\)【】\[\]]/g,"").toLowerCase()
   const projNorm = normName(proj.name)
   const myItems = cashItems.filter(i=>{
-    const a=normName(i.projectName)
-    return a===projNorm||a.includes(projNorm.slice(0,Math.min(projNorm.length,8)))||projNorm.includes(a.slice(0,Math.min(a.length,8)))
+    const a = normName(i.projectName)
+    if(!a) return false
+    // 1. 완전 일치
+    if(a === projNorm) return true
+    // 2. 프로젝트 코드 일치 (코드가 있으면)
+    if(proj.code && i.projectCode && normName(proj.code)===normName(i.projectCode)) return true
+    // 3. 6자 이상일 때 앞 6자 접두 매칭
+    const minLen = Math.min(a.length, projNorm.length, 6)
+    if(minLen >= 4 && a.slice(0,minLen)===projNorm.slice(0,minLen)) return true
+    // 4. 포함 관계 (8자 이상)
+    if(a.length>=8 && projNorm.length>=8 && (a.includes(projNorm.slice(0,8))||projNorm.includes(a.slice(0,8)))) return true
+    return false
   })
 
   const projGroups = {}
