@@ -2673,6 +2673,10 @@ function SimplePieChart({data=[], total=0}) {
             ⬆ 엑셀 업로드
             <input type="file" accept=".xlsx,.xls,.csv" style={{display:"none"}} onChange={e=>uploadCashExcel(e,"expense",cashItems,setCashItems,saleItems,setSaleItems,DEPTS,currentUser)}/>
           </label>}
+          {currentUser?.role==="admin"&&<label style={{padding:"7px 14px",background:"#FEF3C7",color:"#D97706",border:"none",borderRadius:6,fontSize:13,fontWeight:700,cursor:"pointer",display:"inline-flex",alignItems:"center",gap:5}}>
+            ⬆ 본부별지출 업로드
+            <input type="file" accept=".xlsx,.xls" style={{display:"none"}} onChange={e=>uploadDeptExpenseExcel(e,saleItems,setSaleItems,currentUser)}/>
+          </label>}
         </>}
         {/* 계약현황 탭: CashflowTab 버튼 없음 - ContractStatusPage에서 자체 처리 */}
       </div>
@@ -8575,6 +8579,115 @@ function downloadCashTemplate(type="cash") {
   XLSX.utils.book_append_sheet(wb, ws, title)
   XLSX.writeFile(wb, `상지서울_${title}_입력양식.xlsx`)
 }
+
+// ── 본부별 지출 전용 업로드 (기준년월·본부·지출구분·세부항목·금액 컬럼) ──
+function uploadDeptExpenseExcel(e, saleItems, setSaleItems, currentUser) {
+  const file = e.target.files?.[0]; if(!file) return
+  const reader = new FileReader()
+  reader.onload = ev => {
+    try {
+      const wb   = XLSX.read(ev.target.result, {type:"binary"})
+      const ws   = wb.Sheets[wb.SheetNames[0]]
+      const rows = XLSX.utils.sheet_to_json(ws, {header:1, defval:""})
+
+      // 헤더 행 찾기 (기준년월 또는 본부 컬럼)
+      let headerRow = 4, dataStart = 5
+      for(let i=0;i<Math.min(rows.length,8);i++){
+        if(rows[i].some(c=>String(c).includes("기준년월")||String(c).includes("지출구분"))){
+          headerRow=i; dataStart=i+1; break
+        }
+      }
+      const headers = rows[headerRow].map(h=>String(h).trim())
+      const ci = names => { for(const n of names){ const i=headers.findIndex(h=>h===n||h.includes(n)); if(i>=0)return i }; return -1 }
+
+      const COL = {
+        yearMonth:  ci(["기준년월"]),
+        baseDate:   ci(["기준일"]),
+        dept:       ci(["본부"]),
+        expType:    ci(["지출구분"]),
+        subItem:    ci(["세부항목"]),
+        amountOk:   ci(["금액(억원)"]),
+        amountWon:  ci(["금액(원)"]),
+        memo:       ci(["메모","비고"]),
+      }
+
+      const get = (r,k) => COL[k]>=0 ? r[COL[k]] : ""
+
+      const newItems = []
+      rows.slice(dataStart).forEach(row => {
+        const dept    = String(get(row,"dept")||"").trim()
+        const expType = String(get(row,"expType")||"").trim()
+        const subItem = String(get(row,"subItem")||"").trim()
+        const ym      = String(get(row,"yearMonth")||"").trim()
+        const baseDate= String(get(row,"baseDate")||"").trim()
+
+        // 구분 헤더 행 건너뜀
+        if(!dept||dept.startsWith("──")||dept==="본부") return
+        if(!expType||!ym) return
+
+        // 금액: 억원 → 원 변환
+        let amount = 0
+        const wonRaw = get(row,"amountWon")
+        const okRaw  = get(row,"amountOk")
+        if(wonRaw && String(wonRaw).trim() && parseInt(String(wonRaw).replace(/[^0-9]/g,"")) > 0) {
+          amount = parseInt(String(wonRaw).replace(/[^0-9]/g,""))
+        } else if(okRaw && parseFloat(String(okRaw)) > 0) {
+          amount = Math.round(parseFloat(String(okRaw)) * 1e8)
+        }
+        if(amount <= 0) return
+
+        newItems.push({
+          id:          `DE${Date.now()}_${Math.random().toString(36).slice(2,6)}`,
+          dept,
+          yearMonth:   ym,            // "2026-06"
+          baseDate:    baseDate,      // "2026-06-30"
+          expType,                    // "인건비"
+          subItem:     subItem||expType,
+          projectName: `[지출]${dept}`,
+          stage:       subItem||expType,
+          itemType:    "지출",
+          orderType:   "공통",
+          paidDate:    baseDate||`${ym}-30`,
+          expectedDate: "",
+          amount,
+          memo:        String(get(row,"memo")||"").trim()||`${ym} 본부지출`,
+          createdAt:   new Date().toISOString(),
+          createdBy:   currentUser?.name||"",
+          fromExcel:   true,
+          isDeptExpense: true,
+        })
+      })
+
+      if(newItems.length === 0) {
+        alert("읽을 수 있는 데이터가 없습니다.\\n파일 형식을 확인하세요 (기준년월, 본부, 지출구분, 금액 컬럼 필요)")
+        return
+      }
+
+      // 기준년월별 중복 제거 (같은 기준년월+본부+지출구분+세부항목은 덮어쓰기)
+      setSaleItems(prev => {
+        const filtered = prev.filter(p => !newItems.some(n =>
+          n.isDeptExpense &&
+          n.yearMonth === p.yearMonth &&
+          n.dept === p.dept &&
+          n.expType === p.expType &&
+          n.subItem === p.subItem
+        ))
+        return [...filtered, ...newItems]
+      })
+
+      const ym = newItems[0]?.yearMonth||""
+      alert(`✅ 본부별 지출 업로드 완료
+기준년월: ${ym}
+${newItems.length}건 등록
+※ 지출현황 탭에서 확인하세요.`)
+    } catch(err) {
+      alert("업로드 오류: " + err.message)
+    }
+    e.target.value=""
+  }
+  reader.readAsBinaryString(file)
+}
+
 
 function uploadCashExcel(e, type, cashItems, setCashItems, saleItems, setSaleItems, DEPTS, currentUser) {
   const file = e.target.files?.[0]; if(!file) return
