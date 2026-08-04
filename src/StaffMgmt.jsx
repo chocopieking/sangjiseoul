@@ -12,10 +12,13 @@ const RANK_ORDER = ["회장","부회장","사장","부사장","전무","전무�
 const DEPT_MAP = {
   "설계1본부":"설계1본부","설계1":"설계1본부",
   "설계2본부":"설계2본부","설계2":"설계2본부",
-  "주거디자인본부":"주거디자인본부","주거":"주거디자인본부",
+  "주거디자인본부":"주거디자인본부","주거":"주거디자인본부","주거디자인":"주거디자인본부",
   "디자인본부":"디자인본부","디자인":"디자인본부","디본":"디자인본부",
-  "운영지원본부":"운영지원본부","경영진":"경영진",
-  "전략기획본부":"전략기획본부","감리단":"감리단","파트장":"파트장",
+  "디자인인랩실":"디자인인랩실","인랩실":"디자인인랩실","인랩":"디자인인랩실",
+  "운영지원본부":"운영지원본부","운영지원":"운영지원본부","경영진":"경영진",
+  "전략기획본부":"전략기획본부","전략기획":"전략기획본부",
+  "감리단":"감리단","파트장":"파트장","파트":"파트장",
+  "고문":"경영진","부회장":"경영진",
 }
 const normDept = d => DEPT_MAP[d?.trim()]||d?.trim()||""
 
@@ -50,18 +53,124 @@ function initStaff(){
 
 // ── 기본 조직도 구조 ────────────────────────────────────────
 const DEFAULT_ORG = {
-  id:"root", title:"오철호", role:"회장", color:"#312E81",
+  id:"root", title:"오철호", role:"회장/사장/KRA", color:"#312E81",
   children:[
-    { id:"strat", title:"전략기획본부", role:"본부장", color:"#6B7280", children:[] },
-    { id:"ceo1", title:"강순일", role:"사장", color:"#6366F1",
+    { id:"advisor", title:"고문(1명)", role:"", color:"#6B7280",
       children:[
-        {id:"d1",title:"설계1본부",  role:"본부장",color:"#059669",children:[]},
-        {id:"d2",title:"설계2본부",  role:"본부장",color:"#D97706",children:[]},
-        {id:"d3",title:"주거디자인본부",role:"본부장",color:"#7C3AED",children:[]},
-        {id:"d4",title:"디자인본부", role:"본부장",color:"#0891B2",children:[]},
-        {id:"d5",title:"운영지원본부",role:"본부장",color:"#DC2626",children:[]},
+        { id:"adv1", title:"천준호", role:"고문·대원대학교", color:"#9CA3AF", children:[] }
       ]
-    }
+    },
+    { id:"vp", title:"부회장(1명)", role:"", color:"#7C3AED",
+      children:[
+        { id:"vp1", title:"이종협", role:"부회장", color:"#8B5CF6", children:[] }
+      ]
+    },
+    { id:"strat", title:"전략기획본부(4명)", role:"", color:"#0891B2",
+      children:[
+        { id:"strat1", title:"이무희", role:"전무(73)", color:"#0EA5E9", children:[] },
+        { id:"strat2", title:"이재훈", role:"이사대우(85)", color:"#38BDF8", children:[] },
+        { id:"strat5", title:"김연규", role:"과장(93)", color:"#7DD3FC", children:[] },
+      ]
+    },
+    { id:"ops", title:"운영지원본부(4명)", role:"", color:"#DC2626",
+      children:[
+        { id:"ops1", title:"김태관", role:"상무/본부장(74)", color:"#EF4444", children:[] },
+        { id:"ops2", title:"유성균", role:"부장(87)", color:"#FCA5A5", children:[] },
+        { id:"ops3", title:"임슬기", role:"부장(91)", color:"#FCA5A5", children:[] },
+        { id:"ops4", title:"김재은", role:"사원(99)", color:"#FECACA", children:[] },
+      ]
+    },
+    { id:"ceo", title:"강순일", role:"사장/부장장", color:"#6366F1",
+      children:[
+        { id:"design_part", title:"설계파트(28명)", role:"홍성필 전무보 / 설계·디자인파트장", color:"#059669",
+          children:[
+            { id:"d1", title:"설계1본부(9명)", role:"", color:"#10B981",
+              children:[
+                { id:"d1_head", title:"박희태", role:"상무보/본부장(75)", color:"#34D399", children:[] },
+                { id:"d1_jg",   title:"장건효",  role:"부장/KRA(81)",    color:"#6EE7B7", children:[] },
+                { id:"d1_sk",   title:"신승범",  role:"부장(85)",         color:"#A7F3D0", children:[] },
+                { id:"d1_jh",   title:"조형민",  role:"차장(86)",         color:"#A7F3D0", children:[] },
+                { id:"d1_mk",   title:"송민경",  role:"차장(91)",         color:"#A7F3D0", children:[] },
+                { id:"d1_hh",   title:"한현석",  role:"차장(90)",         color:"#A7F3D0", children:[] },
+                { id:"d1_ps",   title:"박소현",  role:"대리(98/4)",       color:"#D1FAE5", children:[] },
+                { id:"d1_sj",   title:"정석준",  role:"대리(94/3)",       color:"#D1FAE5", children:[] },
+                { id:"d1_sc",   title:"정상천",  role:"사원(94/3)",       color:"#D1FAE5", children:[] },
+                { id:"d1_se",   title:"오소은",  role:"사원(99/3)",       color:"#D1FAE5", children:[] },
+              ]
+            },
+            { id:"d2", title:"설계2본부(18명)", role:"", color:"#D97706",
+              children:[
+                { id:"d2_head", title:"김동헌", role:"상무/본부장(76)",  color:"#F59E0B", children:[] },
+                { id:"d2_bj",   title:"배지",   role:"이사대우(79)",     color:"#FCD34D", children:[] },
+                { id:"d2_jb",   title:"정한빈", role:"부장",             color:"#FCD34D", children:[] },
+                { id:"d2_jm",   title:"강정문", role:"이사",             color:"#FCD34D", children:[] },
+                { id:"d2_mj",   title:"민지연", role:"차장(84)",         color:"#FDE68A", children:[] },
+                { id:"d2_sh",   title:"이승현", role:"차장(88)",         color:"#FDE68A", children:[] },
+                { id:"d2_ip",   title:"이민성", role:"차장(91)",         color:"#FDE68A", children:[] },
+                { id:"d2_sg",   title:"신광섭", role:"차장(90)",         color:"#FDE68A", children:[] },
+                { id:"d2_ls",   title:"이석진", role:"차장(90)/KRA",     color:"#FDE68A", children:[] },
+                { id:"d2_jr",   title:"이재욱", role:"차장(90)",         color:"#FDE68A", children:[] },
+                { id:"d2_ph",   title:"박은휘", role:"과장(93)",         color:"#FEF3C7", children:[] },
+                { id:"d2_ps",   title:"박상희", role:"과장(91)",         color:"#FEF3C7", children:[] },
+                { id:"d2_kh",   title:"권희지", role:"대리(97/5)",       color:"#FEF3C7", children:[] },
+                { id:"d2_cw",   title:"최원주", role:"대리(99/5)",       color:"#FEF3C7", children:[] },
+                { id:"d2_ya",   title:"양가이", role:"대리(97/4)",       color:"#FEF3C7", children:[] },
+                { id:"d2_hj",   title:"홍은지", role:"대리(98/6)",       color:"#FEF3C7", children:[] },
+                { id:"d2_jh2",  title:"정현준", role:"사원(99/3)",       color:"#FFF7ED", children:[] },
+                { id:"d2_hm",   title:"허성무", role:"사원(00/3)",       color:"#FFF7ED", children:[] },
+              ]
+            },
+            { id:"sup", title:"감리단(3명)", role:"", color:"#64748B",
+              children:[
+                { id:"sup_kg",  title:"김헌구", role:"이사(78)/KRA·현장", color:"#94A3B8", children:[] },
+                { id:"sup_kh",  title:"이경호", role:"이사대우(56)/PM:김헌준·홍성필", color:"#CBD5E1", children:[] },
+                { id:"sup_jk",  title:"정경호", role:"이사대우(71)",      color:"#CBD5E1", children:[] },
+                { id:"sup_jy",  title:"이지영", role:"과장(84)",          color:"#E2E8F0", children:[] },
+              ]
+            },
+          ]
+        },
+        { id:"viz_part", title:"디자인파트(16명)", role:"김한준 전무 / 디자인파트장", color:"#7C3AED",
+          children:[
+            { id:"d4", title:"디자인본부(8명)", role:"", color:"#8B5CF6",
+              children:[
+                { id:"d4_head", title:"천용화", role:"상무보(77)/수퍼바이저", color:"#A78BFA", children:[] },
+                { id:"d4_ky",   title:"김용수", role:"이사",                  color:"#C4B5FD", children:[] },
+                { id:"d4_kg",   title:"김헌구", role:"이사(78)/KRA",          color:"#C4B5FD", children:[] },
+                { id:"d4_kp",   title:"김판원", role:"부장(78)",              color:"#C4B5FD", children:[] },
+                { id:"d4_sy",   title:"서용규", role:"부장(82)",              color:"#C4B5FD", children:[] },
+                { id:"d4_ks",   title:"김서현", role:"대리(99/4)",            color:"#DDD6FE", children:[] },
+                { id:"d4_ly",   title:"이가영", role:"대리(99/4)",            color:"#DDD6FE", children:[] },
+                { id:"d4_jh",   title:"이정훈", role:"대리(95/4)",            color:"#DDD6FE", children:[] },
+                { id:"d4_sn",   title:"신나랑", role:"사원(01/2)",            color:"#EDE9FE", children:[] },
+                { id:"d4_jg",   title:"조정곤", role:"사원(96/2)",            color:"#EDE9FE", children:[] },
+                { id:"d4_an",   title:"안서현", role:"사원(99/1)",            color:"#EDE9FE", children:[] },
+                { id:"d4_os",   title:"오샘",   role:"사원(98/1)",            color:"#EDE9FE", children:[] },
+              ]
+            },
+            { id:"d3", title:"주거디자인본부(7명)", role:"", color:"#7C3AED",
+              children:[
+                { id:"d3_head", title:"정진성", role:"이사대우(83)/수퍼바이저", color:"#8B5CF6", children:[] },
+                { id:"d3_jh",   title:"장진혁", role:"차장(89)",              color:"#A78BFA", children:[] },
+                { id:"d3_pj",   title:"박종필", role:"과장(90)",              color:"#C4B5FD", children:[] },
+                { id:"d3_kw",   title:"김원주", role:"과장(91/2)",            color:"#C4B5FD", children:[] },
+                { id:"d3_sh",   title:"신수현", role:"대리(99)",              color:"#DDD6FE", children:[] },
+                { id:"d3_sy",   title:"이시율", role:"대리(97)",              color:"#DDD6FE", children:[] },
+                { id:"d3_pc",   title:"박찬희", role:"사원(97/2)",            color:"#EDE9FE", children:[] },
+              ]
+            },
+            { id:"d_lab", title:"디자인인랩실(4명)", role:"", color:"#DB2777",
+              children:[
+                { id:"lab_head", title:"김흥수", role:"이사/본부장",          color:"#EC4899", children:[] },
+                { id:"lab1",     title:"이가영", role:"대리(99/4)",           color:"#F9A8D4", children:[] },
+                { id:"lab2",     title:"안서현", role:"사원(99/2)",           color:"#FBCFE8", children:[] },
+                { id:"lab3",     title:"오샘",   role:"사원(98/1)",           color:"#FBCFE8", children:[] },
+              ]
+            },
+          ]
+        },
+      ]
+    },
   ]
 }
 
