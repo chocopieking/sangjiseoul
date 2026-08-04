@@ -4220,7 +4220,7 @@ function ProjectsTab({projects,setProjects,selProjId,setSelProjId,selVerIdx,setS
                     </div>
                     <ProjectContractHistory proj={selProj} setProjects={setProjects} canWrite={canWrite}/>
                     <div style={{marginTop:16}}>
-                      <ProjectContractDetailFull proj={selProj} setProjects={setProjects} canWrite={canWrite} projects={projects}/>
+                      <ProjectContractDetailFull proj={selProj} setProjects={setProjects} canWrite={canWrite} projects={projects} contractItems={contractItems}/>
                     </div>
                   </div>
 
@@ -10937,9 +10937,29 @@ function ProjectContractHistory({proj, setProjects, canWrite}) {
     </div>
   )
 }
-function ProjectContractDetailFull({proj, setProjects, canWrite, projects=[]}) {
+function ProjectContractDetailFull({proj, setProjects, canWrite, projects=[], contractItems=[]}) {
   const {DEPTS} = useDepts()
   const fAmt = n => n>=1e8?`${(n/1e8).toFixed(2)}억`:n>=1e4?`${(n/1e4).toFixed(0)}만`:n>0?n.toLocaleString()+"원":"-"
+
+  // contractItems에서 이 프로젝트에 해당하는 계약 찾기
+  const normName = s => (s||"").replace(/[\s\-_·.,()\[\]（）【】/]/g,"").toLowerCase()
+  const projNorm = normName(proj.name)
+  const projCode = (proj.code||"").trim()
+
+  const myContracts = contractItems.filter(c => {
+    const cn = normName(c.name||"")
+    if(!cn) return false
+    // 코드 매칭
+    if(projCode && c.code && normName(c.code)===normName(projCode)) return true
+    // 이름 완전 일치
+    if(cn === projNorm) return true
+    // 6자 접두 매칭
+    const minLen = Math.min(cn.length, projNorm.length, 6)
+    if(minLen >= 4 && cn.slice(0,minLen)===projNorm.slice(0,minLen)) return true
+    // 포함 관계
+    if(cn.length>=8 && projNorm.length>=8 && (cn.includes(projNorm.slice(0,8))||projNorm.includes(cn.slice(0,8)))) return true
+    return false
+  })
 
   const [editing, setEditing]   = useState(false)
   const [draft,   setDraft]     = useState({})
@@ -11047,8 +11067,63 @@ function ProjectContractDetailFull({proj, setProjects, canWrite, projects=[]}) {
     </div>
   )
 
+  // ── 엑셀 업로드된 계약현황 표시 ─────────────────────────
+  const ContractItemsFromExcel = () => {
+    if(myContracts.length === 0) return null
+    return (
+      <div style={{marginBottom:20,background:"#F0F9FF",borderRadius:10,border:"2px solid #0EA5E9",padding:"14px 16px"}}>
+        <div style={{fontSize:13,fontWeight:800,color:"#0369A1",marginBottom:10,display:"flex",alignItems:"center",gap:6}}>
+          📊 계약현황 (엑셀 업로드 데이터 · {myContracts.length}건)
+          <span style={{fontSize:10,fontWeight:500,color:"#7DD3FC",background:"#0369A1",padding:"1px 7px",borderRadius:8}}>
+            경영분석 {'>'} 계약현황에서 업로드
+          </span>
+        </div>
+        <div style={{overflowX:"auto"}}>
+          <table style={{width:"100%",borderCollapse:"collapse",fontSize:12}}>
+            <thead>
+              <tr style={{background:"#0369A1"}}>
+                {["프로젝트명","본부","유형","용역비(예상)","계약예정일","수행예정일","상태"].map(h=>(
+                  <th key={h} style={{padding:"7px 10px",color:"#fff",fontWeight:700,textAlign:"left",whiteSpace:"nowrap"}}>{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {myContracts.map((c,i)=>(
+                <tr key={c.id||i} style={{borderBottom:"1px solid #BAE6FD",background:i%2===0?"#fff":"#F0F9FF"}}>
+                  <td style={{padding:"8px 10px",fontWeight:600,color:"#0F172A",maxWidth:240,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{c.name}</td>
+                  <td style={{padding:"8px 10px",color:"#334155"}}>{(c.depts||[]).join(",")}</td>
+                  <td style={{padding:"8px 10px"}}>
+                    <span style={{fontSize:10,fontWeight:700,padding:"2px 7px",borderRadius:6,
+                      background:c.type==="계약"?"#D1FAE5":c.type==="확정"?"#DBEAFE":"#FEF3C7",
+                      color:c.type==="계약"?"#065F46":c.type==="확정"?"#1E3A8A":"#92400E"}}>
+                      {c.type||"-"}
+                    </span>
+                  </td>
+                  <td style={{padding:"8px 10px",textAlign:"right",fontWeight:700,color:"#2563EB"}}>
+                    {fAmt(c.serviceFeeExpect||c.amount||0)}
+                  </td>
+                  <td style={{padding:"8px 10px",color:"#64748B",whiteSpace:"nowrap"}}>{c.contractTime||"-"}</td>
+                  <td style={{padding:"8px 10px",color:"#64748B",whiteSpace:"nowrap"}}>{c.execTime||"-"}</td>
+                  <td style={{padding:"8px 10px"}}>
+                    <span style={{fontSize:10,padding:"2px 6px",borderRadius:5,
+                      background:c.status==="진행"?"#D1FAE5":c.status==="완료"?"#E0E7FF":"#F1F5F9",
+                      color:c.status==="진행"?"#059669":c.status==="완료"?"#4F46E5":"#64748B"}}>
+                      {c.status||"진행"}
+                    </span>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    )
+  }
+
+
   return (
     <div>
+      <ContractItemsFromExcel/>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}>
         <div style={{fontSize:15,fontWeight:800,color:"#1E3A8A"}}>📝 계약 정보 수정</div>
         <div style={{display:"flex",gap:8}}>
