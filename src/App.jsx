@@ -4077,6 +4077,30 @@ function ProjectsTab({projects,setProjects,selProjId,setSelProjId,selVerIdx,setS
                       const toN=v=>{if(v==null)return 0;const n=parseFloat(String(v).replace(/[,원\s]/g,""));return Number.isFinite(n)?n:0}
                       const rLbl=r=>String(r?.[0]||"").trim()
                       const hasLbl=(r,lbl)=>rLbl(r).replace(/\s/g,"").includes(lbl.replace(/\s/g,""))
+                      // "소계" 헤더 셀을 시트 전체에서 찾아 실제 금액 컬럼을 자동 감지 (컬럼 수가 적은 파일에서
+                      // 고정 인덱스로 추정하면 "비율" 등 엉뚱한 컬럼을 집어오는 문제가 있어, 헤더 텍스트 기준으로 직접 찾는다)
+                      let subtotalCol=null
+                      for(const r of rows){
+                        if(!r) continue
+                        for(let j=0;j<r.length;j++){
+                          const v=r[j]; if(v==null) continue
+                          if(String(v).replace(/\s/g,"").includes("소계")){ subtotalCol=j; break }
+                        }
+                        if(subtotalCol!=null) break
+                      }
+                      // 행 전체에서 라벨 셀을 찾아 그 옆(최대 2칸 이내) 값을 반환 — 라벨/값 간격이 표마다 다른 것에 대응
+                      const findLabelVal=(r,lbl)=>{
+                        if(!r) return ""
+                        for(let j=0;j<r.length;j++){
+                          const v=r[j]; if(v==null) continue
+                          if(String(v).replace(/\s/g,"").includes(lbl.replace(/\s/g,""))){
+                            for(let k=j+1;k<Math.min(j+3,r.length);k++){
+                              if(r[k]!=null && String(r[k]).trim()!=="") return String(r[k]).trim()
+                            }
+                          }
+                        }
+                        return ""
+                      }
                       let projName="",dept="",pm="",client="",dateStr="",laborCost=0,directExp=0,subContract=0,indirect=null,profit=null
                       const vendors=[]
                       const totalRows=rows.length
@@ -4084,14 +4108,16 @@ function ProjectsTab({projects,setProjects,selProjId,setSelProjId,selVerIdx,setS
                         const lbl=rLbl(r),lbl2=lbl.replace(/\s|\(.*\)/g,"")
                         if(hasLbl(r,"프로젝트명")) projName=String(r[1]||"").replace(/^\[.*?\]\s*/,"").trim()
                         if(hasLbl(r,"주관부서"))  dept=String(r[1]||"").trim()
-                        if(hasLbl(r,"담당PM")||hasLbl(r,"담당P M")) pm=String(r[6]||r[2]||"").trim()
+                        // "담당PM"/"작성일" 라벨은 표마다 A열이 아닌 다른 칸(예: F열, K열)에 있을 수 있어
+                        // 행 전체를 스캔하는 findLabelVal로 찾는다 (기존 r[0] 전용 hasLbl은 A열에 없으면 못 찾음)
+                        if(!pm){ const v=findLabelVal(r,"담당PM"); if(v) pm=v }
                         if(hasLbl(r,"발주처")&&!hasLbl(r,"담당")) client=String(r[1]||"").trim()
-                        if(hasLbl(r,"작성일")){ const dt=String(r[6]||r[1]||"").replace(/작성일\s*:/,"").trim(); if(dt) dateStr=dt }
+                        if(!dateStr){ const v=findLabelVal(r,"작성일"); if(v) dateStr=v.replace(/작성일\s*:/,"").trim() }
                         if(lbl2.includes("예상용역금액")||lbl2.includes("예상용역비")){ const v=parseFloat(String(r[1]||"").replace(/[,원\s(VAT별도)]/g,"")); if(Number.isFinite(v)&&v>0) {} }
-                        if(lbl2==="직접인건비합계"){ let s=0;for(let c=2;c<r.length;c+=2)s+=toN(r[c]);if(s>0)laborCost=s }
-                        if(lbl2==="직접경비합계"){  let s=0;for(let c=2;c<r.length;c+=2)s+=toN(r[c]);if(s>0)directExp=s }
-                        // 외주용역비 합계 패턴 (1+2, 소계, 합계 등 다양한 형식)
-                        if(lbl2.includes("외주용역비")&&(lbl2.includes("합계")||lbl2.includes("소계")||lbl2.includes("1+2")||lbl2.includes("계"))){ let s=0;for(let c=2;c<r.length;c+=2)s+=toN(r[c]);if(s>0)subContract=s }
+                        if(lbl2==="직접인건비합계"){ let s=subtotalCol!=null?toN(r[subtotalCol]):0; if(!s){for(let c=2;c<r.length;c+=2)s+=toN(r[c])} if(s>0)laborCost=s }
+                        if(lbl2==="직접경비합계"){  let s=subtotalCol!=null?toN(r[subtotalCol]):0; if(!s){for(let c=2;c<r.length;c+=2)s+=toN(r[c])} if(s>0)directExp=s }
+                        // 외주용역비 합계 패턴 (1+2, 소계, 합계 등 다양한 형식) — "소계" 컬럼을 우선 사용, 못 찾으면 기존 방식으로 폴백
+                        if(lbl2.includes("외주용역비")&&(lbl2.includes("합계")||lbl2.includes("소계")||lbl2.includes("1+2")||lbl2.includes("계"))){ let s=subtotalCol!=null?toN(r[subtotalCol]):0; if(!s){for(let c=2;c<r.length;c+=2)s+=toN(r[c])} if(s>0)subContract=s }
                         // 외주비 단독 행 (합계 키워드 없어도)
                         if(!subContract&&(lbl2==="외주용역비"||lbl2==="외주비"||lbl2==="외주용역"||lbl2==="하도급비")){const v=Math.max(...r.map(c=>toN(c)));if(v>0)subContract=v}
                         if(ri>totalRows*0.5){
@@ -4106,14 +4132,6 @@ function ProjectsTab({projects,setProjects,selProjId,setSelProjId,selVerIdx,setS
                           if(lbl2.startsWith("간접비")||lbl2==="간접비율"){ const v=Math.max(toN(r[2]),toN(r[1]));if(v>0)indirect=v }
                           if(lbl2==="이윤"||lbl2==="이 윤"){ const v=Math.max(toN(r[2]),toN(r[1]));if(v>0)profit=v }
                         }
-                        // ── 총괄표 패턴: A열='직접비', B열=항목명, C열=금액 ──
-                        // 예: ['직접비','직접인건비(⑥)',224616640] / ['','외주용역비',543346500]
-                        const _b2=String(r[1]||"").replace(/[\s()⑥⑦]/g,"")
-                        if(_b2.includes("직접인건비")){ const _v=toN(r[2]); if(_v>1e6)laborCost=_v }
-                        if(_b2==="직접경비"){            const _v=toN(r[2]); if(_v>1e6)directExp=_v }
-                        if(_b2==="외주용역비"){          const _v=toN(r[2]); if(_v>1e6)subContract=_v }
-                        if(_b2.includes("간접비")){      const _v=toN(r[2]); if(_v>1e6)indirect=_v }
-                        if(lbl2==="이 윤"){             const _v=toN(r[2]); if(_v>1e6)profit=_v }
                         // 협력업체 소계를 외주비로 활용 (외주비 행이 없을 때)
                         if(!subContract&&(lbl2.includes("협력업체")&&lbl2.includes("합계"))){ let s=0;for(let c=2;c<r.length;c+=2)s+=toN(r[c]);if(s>0)subContract=s }
                       })
@@ -4125,7 +4143,9 @@ function ProjectsTab({projects,setProjects,selProjId,setSelProjId,selVerIdx,setS
                           if(lbl.includes("소계")||lbl.includes("합계")||lbl.includes("총괄")||lbl.includes("실행계획")){inV=false;return}
                           const cat=String(r[0]||"").trim(),name=String(r[1]||"").trim()
                           if(!cat||!name)return
-                          let total=0;for(let c=2;c<r.length;c+=2)total+=toN(r[c])
+                          // "소계" 컬럼을 우선 사용 — 못 찾았을 때만 기존의 짝수열 합산 방식으로 폴백
+                          let total=subtotalCol!=null?toN(r[subtotalCol]):0
+                          if(!total){for(let c=2;c<r.length;c+=2)total+=toN(r[c])}
                           if(total>0)vendors.push({cat,name,contract:total,nego1:0,nego2:0})
                         }
                       })
@@ -4167,57 +4187,6 @@ function ProjectsTab({projects,setProjects,selProjId,setSelProjId,selVerIdx,setS
                   reader.readAsArrayBuffer(file)
                 }}/>
               </label>}
-                {canWrite&&<button onClick={()=>{
-                  // 실행계획서 입력 양식 다운로드
-                  const wb2=XLSX.utils.book_new()
-                  const ws_main=XLSX.utils.aoa_to_sheet([
-                    ["■ 상지서울 실행계획서 업로드 양식 — 이 파일을 작성 후 업로드하세요"],
-                    ["※ 총괄표 섹션(하단)의 금액을 반드시 입력하세요"],
-                    [],
-                    ["프로젝트명", selProj?.name||"", "", "", "", "", "", "", "", "", "작성일 :", new Date().toISOString().slice(0,10)],
-                    ["주관부서",   (selProj?.depts||[]).join(", ")||"", "", "", "", "담당PM", "", selProj?.pm||""],
-                    ["발주처",     selProj?.client||"", "", "", "", "담당자", "", ""],
-                    ["예상용역금액(①)", `${(selProj?.serviceFee||0).toLocaleString()}원(VAT별도)`],
-                    [],
-                    // 직접인건비 섹션 헤더
-                    ["직접인건비"],
-                    ["직급","기준일급여","","제안공모","","계약시(선금42%)","","기본설계완료(12%)","","중간설계완료(17%)","","실시설계완료(29%)","","현장관리","","소계(②)","비율","메모"],
-                    ["","년도","금액(원)","인원수","투여일","인원수","투여일","인원수","투여일","인원수","투여일","인원수","투여일","인원수","투여일","","(②/①)",""],
-                    ["사장","","470000"],["전무","","270000"],["이사대우","",""],["부장","",""],["차장","",""],
-                    ["과장","",""],["대리","",""],["사원","",""],
-                    ["직접인건비 합계"],
-                    [],
-                    // 직접경비 섹션
-                    ["직접경비"],
-                    ["항목","","","제안공모","","계약시(선금42%)","","기본설계완료(12%)","","중간설계완료(17%)","","실시설계완료(29%)","","현장관리","","소계(③)","비율","메모"],
-                    ["여비교통비 - 국내"],["기타경비(소모품/운반비등)"],["제본/복사/출력비"],["업무추진비"],
-                    ["인증수수료"],["특근비"],["국내출장비"],
-                    ["직접경비 합계"],
-                    [],
-                    // 외주용역비 섹션
-                    ["외주용역비"],
-                    ["부문","업체","","제안공모","","계약시(선금42%)","","기본설계완료(12%)","","중간설계완료(17%)","","실시설계완료(29%)","","현장관리","","소계(④)","비율","메모"],
-                    ["조경",""],["구조",""],["토목",""],["조경2",""],["기계",""],["통신",""],
-                    ["견적",""],["친환경",""],["BIM",""],["기타",""],
-                    ["외주용역비 합계"],
-                    [],
-                    // ★ 총괄표 (파서가 이 섹션에서 금액 읽음)
-                    ["실행계획총괄표","","","","","","비고"],
-                    ["지출항목","","지출금액(⑤)","","비율(⑤/①)"],
-                    ["직접비","직접인건비(⑥)","← 여기에 직접인건비 합계 입력 (원)","",""],
-                    ["","직접경비","← 여기에 직접경비 합계 입력 (원)","",""],
-                    ["","외주용역비","← 여기에 외주용역비 합계 입력 (원)","",""],
-                    ["","직접비소계","← 자동계산 (위 3항목 합계)","",""],
-                    ["간접비(⑥×110%)","","← 자동: 직접인건비×1.1","",""],
-                    ["이 윤","","← 직접 입력","",""],
-                    ["합계(예상용역금액)","","← 자동계산","","1"],
-                  ])
-                  ws_main["!cols"]=[{wch:20},{wch:12},{wch:14},{wch:8},{wch:8},{wch:8},{wch:8},{wch:8},{wch:8},{wch:8},{wch:8},{wch:8},{wch:14},{wch:8},{wch:8},{wch:12},{wch:7},{wch:20}]
-                  XLSX.utils.book_append_sheet(wb2,ws_main,"실행계획서")
-                  XLSX.writeFile(wb2,`실행계획서_입력양식_${selProj?.code||"신규"}.xlsx`)
-                }} style={{padding:"7px 14px",background:"#EDE9FE",color:"#7C3AED",border:"none",borderRadius:6,fontSize:13,fontWeight:700,cursor:"pointer"}}>
-                  ⬇ 양식 다운로드
-                </button>}
                 </div>
                 </div>
 
@@ -4320,50 +4289,18 @@ function ProjectsTab({projects,setProjects,selProjId,setSelProjId,selVerIdx,setS
                         </table>
                       })()}
                     </Card>
-                    <Card title="외주비 구성">
-                      {(()=>{
-                        const vList = selVer.vendors.filter(v=>v.contract>0)
-                        if(vList.length===0) return <div style={{color:"#94A3B8",fontSize:13,padding:"20px 0",textAlign:"center"}}>협력업체 정보 없음</div>
-                        const total = vList.reduce((s,v)=>s+(v.contract||0),0)
-                        const fAm = v => v>=1e8?`${(v/1e8).toFixed(2)}억`:v>=1e4?`${Math.round(v/1e4)}만`:`${v.toLocaleString()}`
-                        const COLORS=["#3B82F6","#EF4444","#F59E0B","#10B981","#8B5CF6","#EC4899","#06B6D4","#84CC16","#F97316","#6366F1","#14B8A6","#E11D48"]
-                        return (
-                          <div>
-                            {/* 합계 */}
-                            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10,paddingBottom:8,borderBottom:"2px solid #E2E8F0"}}>
-                              <span style={{fontSize:12,color:"#64748B",fontWeight:600}}>총 {vList.length}개 업체</span>
-                              <span style={{fontSize:14,fontWeight:800,color:"#1E3A8A"}}>{fAm(total)}</span>
-                            </div>
-                            {/* 전체 비율 스택 바 */}
-                            <div style={{display:"flex",height:8,borderRadius:4,overflow:"hidden",marginBottom:12}}>
-                              {vList.map((v,i)=>(
-                                <div key={i} style={{width:`${v.contract/total*100}%`,background:COLORS[i%COLORS.length],minWidth:2}}/>
-                              ))}
-                            </div>
-                            {/* 업체 리스트 */}
-                            <div style={{display:"flex",flexDirection:"column",gap:4}}>
-                              {vList.map((v,i)=>{
-                                const pct = Math.round(v.contract/total*100)
-                                return (
-                                  <div key={i} style={{display:"flex",alignItems:"center",gap:8,padding:"5px 8px",borderRadius:6,background:"#F8FAFC"}}>
-                                    <div style={{width:8,height:8,borderRadius:2,background:COLORS[i%COLORS.length],flexShrink:0}}/>
-                                    <span style={{fontSize:11,fontWeight:600,color:"#334155",flex:"0 0 auto",minWidth:60}}>{v.cat||"-"}</span>
-                                    <span style={{fontSize:10,color:"#64748B",flex:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{v.name}</span>
-                                    <div style={{display:"flex",alignItems:"center",gap:6,flexShrink:0}}>
-                                      {/* 미니 바 */}
-                                      <div style={{width:50,height:4,background:"#E2E8F0",borderRadius:2,overflow:"hidden"}}>
-                                        <div style={{width:`${pct}%`,height:"100%",background:COLORS[i%COLORS.length],borderRadius:2}}/>
-                                      </div>
-                                      <span style={{fontSize:10,color:"#94A3B8",minWidth:26}}>{pct}%</span>
-                                      <span style={{fontSize:11,fontWeight:700,color:"#1E3A8A",minWidth:52,textAlign:"right"}}>{fAm(v.contract)}</span>
-                                    </div>
-                                  </div>
-                                )
-                              })}
-                            </div>
-                          </div>
-                        )
-                      })()}
+                    <Card title="외주비 구성 (억원)">
+                      <ResponsiveContainer width="100%" height={Math.max(200,selVer.vendors.filter(v=>v.contract>0).length*32)}>
+                        <BarChart data={selVer.vendors.filter(v=>v.contract>0).map(v=>({name:v.cat.length>5?v.cat.slice(0,5)+"…":v.cat,금액:+(v.contract/1e6).toFixed(1)}))} layout="vertical" margin={{left:55,right:36}}>
+                          <CartesianGrid strokeDasharray="3 3" stroke="rgba(0,0,0,.05)"/>
+                          <XAxis type="number" tick={{fontSize:9}} tickFormatter={v=>v+"M"}/>
+                          <YAxis type="category" dataKey="name" tick={{fontSize:11}} width={55}/>
+                          <Tooltip formatter={v=>[v+"백만원","계약금"]}/>
+                          <Bar dataKey="금액" fill={C.navyM} radius={[0,4,4,0]} barSize={20}>
+                            <LabelList dataKey="금액" position="right" formatter={v=>v>0?`${v}M`:""} style={{fontSize:11,fontWeight:700,fill:C.navyM}}/>
+                          </Bar>
+                        </BarChart>
+                      </ResponsiveContainer>
                     </Card>
                   </div>
 
