@@ -1352,7 +1352,6 @@ export default function App() {
   const [showAlerts, setShowAlerts] = useState(false)
   const [selProjId, setSelProjId] = useState(null)
   const [selVerIdx, setSelVerIdx] = useState(0)
-  const [manualFillVer, setManualFillVer] = useState(null)  // 미인식 시 수동 입력 팝업
   const [cmpIds, setCmpIds]       = useState([])
   const [detailTab, setDetailTab] = useState("info")  // 프로젝트 상세 서브탭
   const [showNewProj, setShowNewProj] = useState(false)
@@ -3520,6 +3519,7 @@ const cardNote2 = {fontSize:13,color:C.gray,marginBottom:8}
 function ProjectsTab({projects,setProjects,selProjId,setSelProjId,selVerIdx,setSelVerIdx,cmpIds,setCmpIds,showNewVer,setShowNewVer,canWrite,contractTypes,currentUser,setDetailTab:_extSetDetailTab,detailTab:_extDetailTab,cashItems=[],setCashItems,vendorsDB={},projBaseline={},setProjBaseline,contractItems=[]}) {
   const toast = useToast()
   const {DEPTS, DEPT_COLORS} = React.useContext(DeptContext)
+  const [manualFillVer, setManualFillVer] = useState(null)  // 미인식 수동 입력 팝업
   const [view, setView] = useState("list")
   const [deptFilter,     setDeptFilter]     = useState("")
   const [typeFilter,     setTypeFilter]     = useState("")
