@@ -3028,6 +3028,7 @@ function SimplePieChart({data=[], total=0}) {
           setTab={setTab}
           setDetailTab={setDetailTab}
           isAdmin={currentUser?.role==="admin"}
+          projects={projects}
         />
       )}
 
@@ -8105,7 +8106,11 @@ function CashItemsView({cashItems, setCashItems, projects, setProjects, DEPTS, c
 
   const goToProj = (item) => {
     const proj = findMatchedProj(item.projectName)
-    if(proj && setTab && setSelProjId){ setSelProjId(proj.id); setTab("projects") }
+    if(proj && setTab && setSelProjId){
+      setSelProjId(proj.id)
+      setDetailTab && setDetailTab("cashflow")  // 월수금 섹션으로 바로 이동
+      setTab("projects")
+    }
     else if(!proj) alert(`"${item.projectName}" — 매칭된 프로젝트가 없습니다.\n프로젝트 목록에서 먼저 등록해주세요.`)
   }
 
@@ -12486,7 +12491,7 @@ function useSortTable(defaultKey="contractTime", defaultDir="asc") {
 // ══════════════════════════════════════════════════════════════
 function ContractStatusPage({contractItems=[], setContractItems, DEPTS, DEPT_COLORS,
   currentUser, yearTargets, setYearTargets, deptBiz, YEAR, YR,
-  setSelProjId, setTab, isAdmin, setDetailTab}) {
+  setSelProjId, setTab, isAdmin, setDetailTab, projects=[]}) {
 
   const toast  = useToast()
 
@@ -13058,7 +13063,19 @@ function ContractStatusPage({contractItems=[], setContractItems, DEPTS, DEPT_COL
                             <span style={{fontSize:11,padding:"1px 7px",borderRadius:6,background:tColor+"18",color:tColor,fontWeight:700}}>{t}</span>
                           </td>
                           <td style={{...TD("left","#64748B"),fontSize:12}}>{deptLabel}</td>
-                          <td style={{...TD("left","#0F172A",true)}}>{item.name}</td>
+                          <td style={{...TD("left","#0F172A",true),cursor:"pointer",textDecoration:"underline",textDecorationColor:"#CBD5E1"}}
+                            onClick={()=>{
+                              // 프로젝트명 매칭 → 상세 이동
+                              const norm = s => (s||"").replace(/[\s\-_·.,()\[\]（）【】/]/g,"").toLowerCase()
+                              const matchedProj = (projects||[]).find(p=>
+                                norm(p.name)===norm(item.name) ||
+                                (item.code && p.code && norm(p.code)===norm(item.code)) ||
+                                (norm(p.name).slice(0,6) && norm(item.name).startsWith(norm(p.name).slice(0,6)))
+                              )
+                              if(matchedProj){ setSelProjId(matchedProj.id); setDetailTab&&setDetailTab("info"); setTab("projects") }
+                            }}>
+                            {item.name}
+                          </td>
                           <td style={{...TD("right",detailView.color,true)}}>{fA(myFee)}</td>
                           <td style={{...TD("right","#94A3B8"),fontSize:12}}>{fA(fullFee)}</td>
                         </tr>
