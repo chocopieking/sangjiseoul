@@ -2320,9 +2320,19 @@ function SimplePieChart({data=[], total=0}) {
   const getYM = item => { const d=fixDate(item.paidDate||item.expectedDate); return d?d.slice(0,7):"미정" }
   const pct = (a,b) => b>0?Math.round(a/b*100):0
 
-  // ── 월수금 집계 ───────────────────────────────────────────
+  // ── 월수금 집계 (당해연도 필터) ──────────────────────────
+  const [viewYear, setViewYear] = useState(YR)
+  const availYears = useMemo(()=>{
+    const ys = new Set()
+    cashItems.forEach(i=>{ const d=fixDate(i.paidDate||i.expectedDate||""); if(d) ys.add(d.slice(0,4)) })
+    return [...ys].sort()
+  },[cashItems])
+  const yearCashItems = useMemo(()=>
+    cashItems.filter(i=>{ const d=fixDate(i.paidDate||i.expectedDate||""); return d.startsWith(viewYear) })
+  ,[cashItems,viewYear])
+
   const cashByDept = useMemo(()=> DEPTS.map(dept=>{
-    const all   = cashItems.filter(i=>i.dept===dept)
+    const all   = yearCashItems.filter(i=>i.dept===dept)
     const paid  = all.filter(i=>i.paidDate).reduce((s,i)=>s+(i.amount||0),0)
     // 기성+확정: 입금완료일 없고 입금예상일 있는 것 중 미정/추진 제외
     const conf  = all.filter(i=>!i.paidDate&&i.expectedDate&&i.itemType!=="미정"&&i.itemType!=="추진").reduce((s,i)=>s+(i.amount||0),0)
@@ -2346,15 +2356,15 @@ function SimplePieChart({data=[], total=0}) {
 
   // 월별 집계
   const monthlyData = useMemo(()=>Array.from({length:12},(_,mi)=>{
-    const ym=`${YR}-${String(mi+1).padStart(2,"0")}`
-    const mItems=cashItems.filter(i=>getYM(i)===ym)
+    const ym=`${viewYear}-${String(mi+1).padStart(2,"0")}`
+    const mItems=yearCashItems.filter(i=>getYM(i)===ym)
     const paid   =mItems.filter(i=>i.paidDate).reduce((s,i)=>s+(i.amount||0),0)
     const exp    =mItems.filter(i=>!i.paidDate&&i.expectedDate&&i.itemType!=="미정"&&i.itemType!=="추진").reduce((s,i)=>s+(i.amount||0),0)
     const mijeong=mItems.filter(i=>i.itemType==="미정"||i.itemType==="추진").reduce((s,i)=>s+(i.amount||0),0)
     const byDept={}
     DEPTS.forEach(d=>{ byDept[d]=mItems.filter(i=>i.dept===d&&(i.paidDate||i.expectedDate)).reduce((s,i)=>s+(i.amount||0),0) })
-    return {month:mi+1,label:`${mi+1}월`,paid,exp,mijeong,total:paid+exp,byDept,isPast:(mi+1)<MONTH,isCurrent:(mi+1)===MONTH,items:mItems}
-  }),[cashItems,YR,MONTH,DEPTS])
+    return {month:mi+1,label:`${mi+1}월`,paid,exp,mijeong,total:paid+exp,byDept,isPast:viewYear<YR||(viewYear===YR&&(mi+1)<MONTH),isCurrent:viewYear===YR&&(mi+1)===MONTH,items:mItems}
+  }),[yearCashItems,viewYear,MONTH,DEPTS])
 
   // ── 계약현황 집계 ─────────────────────────────────────────
   // 수주 판단: 민간은 해당 프로젝트의 월수금에서 10% 이상 입금완료 항목이 있을 때
@@ -2685,10 +2695,23 @@ function SimplePieChart({data=[], total=0}) {
       {mainTab==="cash"&&(
         <div>
           {/* 타이틀 KPI — 현누계 메인 표시 */}
+          {/* 연도 선택 버튼 */}
+          {availYears.length > 1 && (
+            <div style={{display:"flex",gap:4,marginBottom:12}}>
+              {availYears.map(yr=>(
+                <button key={yr} onClick={()=>setViewYear(yr)}
+                  style={{padding:"6px 16px",border:"none",borderRadius:8,fontSize:13,fontWeight:700,cursor:"pointer",
+                    background:viewYear===yr?"#059669":"#E2E8F0",
+                    color:viewYear===yr?"#fff":"#64748B",transition:"all .15s"}}>
+                  {yr}년
+                </button>
+              ))}
+            </div>
+          )}
           <div style={{background:"linear-gradient(135deg,#065F46,#059669)",borderRadius:16,padding:"16px 20px",marginBottom:20,color:"#fff"}}>
             <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",flexWrap:"wrap",gap:16}}>
               <div>
-                <div style={{fontSize:13,opacity:.75,marginBottom:4}}>💧 {YEAR}년 매출현황 (입금 완료)</div>
+                <div style={{fontSize:13,opacity:.75,marginBottom:4}}>💧 {viewYear}년 매출현황 (입금 완료)</div>
                 <div style={{fontSize:38,fontWeight:900,marginBottom:4,letterSpacing:"-0.03em"}}>{fAmt(totalPaid)}</div>
                 <div style={{fontSize:14,opacity:.8,marginBottom:8}}>기성+확정 {fAmt(totalCash)}</div>
                 <div style={{display:"flex",gap:8,fontSize:13,flexWrap:"wrap"}}>
@@ -2717,7 +2740,7 @@ function SimplePieChart({data=[], total=0}) {
 
           {/* 본부별 수금현황 표 */}
           <div style={{background:"#fff",borderRadius:8,border:"1px solid #E5E7EB",overflow:"hidden",marginBottom:20}}>
-            <div style={{padding:"16px 20px",borderBottom:"1px solid #E5E7EB",fontSize:16,fontWeight:800,color:"#0F172A"}}>{YEAR}년 본부별 매출현황 (단위: 억원)</div>
+            <div style={{padding:"16px 20px",borderBottom:"1px solid #E5E7EB",fontSize:16,fontWeight:800,color:"#0F172A"}}>{viewYear}년 본부별 매출현황 (단위: 억원)</div>
             <div style={{overflowX:"auto"}}>
               <table style={{width:"100%",borderCollapse:"collapse"}}>
                 <thead>
