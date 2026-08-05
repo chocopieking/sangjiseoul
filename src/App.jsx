@@ -2289,9 +2289,9 @@ function SimplePieChart({data=[], total=0}) {
   const isAdmin = currentUser?.role==="admin"
   const toast   = useToast()
 
-  const targets   = yearTargets[YEAR] || {salesTarget:145, contractTarget:170}
-  const tSales    = targets.salesTarget    || 145
-  const tContract = targets.contractTarget || 170
+  const targets   = yearTargets[viewYear] || (viewYear===YR ? {salesTarget:145, contractTarget:170} : {salesTarget:0, contractTarget:0})
+  const tSales    = targets.salesTarget    || 0
+  const tContract = targets.contractTarget || 0
 
   // ── 인원 헬퍼 ─────────────────────────────────────────────
   const num = v => Number.isFinite(+v) ? +v : 0
@@ -2347,7 +2347,7 @@ function SimplePieChart({data=[], total=0}) {
       perCapitaPaid: paid/cur,         // 현재인원 기준 인당(현누계)
       perCapitaConf: (paid+conf)/cur,  // 현재인원 기준 인당(기성+확정)
     }
-  }),[cashItems,DEPTS,DEPT_COLORS,staffMonthly,staffTarget,deptStaff])
+  }),[yearCashItems,DEPTS,DEPT_COLORS,staffMonthly,staffTarget,deptStaff])
 
   const totalPaid = cashByDept.reduce((s,d)=>s+d.paid,0)
   const totalConf = cashByDept.reduce((s,d)=>s+d.conf,0)
@@ -2718,8 +2718,8 @@ function SimplePieChart({data=[], total=0}) {
                   <span style={{background:"rgba(255,255,255,.2)",padding:"4px 12px",borderRadius:20}}>미정 {fAmt(totalPush)}</span>
                 </div>
               </div>
-              <div style={{textAlign:"right"}}>
-                <div style={{fontSize:13,opacity:.75,marginBottom:4}}>{YEAR}년 매출 목표</div>
+              {tSales > 0 && <div style={{textAlign:"right"}}>
+                <div style={{fontSize:13,opacity:.75,marginBottom:4}}>{viewYear}년 매출 목표</div>
                 <div style={{fontSize:28,fontWeight:800,marginBottom:8}}>{tSales}억</div>
                 <div style={{background:"rgba(255,255,255,.15)",borderRadius:8,padding:"12px 16px",minWidth:210}}>
                   <div style={{display:"flex",justifyContent:"space-between",fontSize:12,marginBottom:6}}>
@@ -2734,7 +2734,7 @@ function SimplePieChart({data=[], total=0}) {
                     <span>잔여 {fAmt(Math.max(tSales*1e8-totalPaid,0))}</span>
                   </div>
                 </div>
-              </div>
+              </div>}
             </div>
           </div>
 
@@ -2764,7 +2764,7 @@ function SimplePieChart({data=[], total=0}) {
                         </div>
                       </td>
                       <td style={{padding:"10px 12px",textAlign:"right",fontSize:13,fontWeight:700,color:"#DC2626"}}>
-                        {(()=>{ const db=(deptBiz||{})[d.dept]||{}; const t=db.revTarget||0; return t>0?fAmt(t*1e8):"-" })()}
+                        {(()=>{ if(viewYear!==YR) return "-"; const db=(deptBiz||{})[d.dept]||{}; const t=db.revTarget||0; return t>0?fAmt(t*1e8):"-" })()}
                       </td>
                       <td style={{padding:"10px 12px",textAlign:"right",fontSize:13,fontWeight:700,color:"#059669",cursor:"pointer",textDecoration:"underline"}}
                         onClick={()=>setSelDetail({type:"현누계",dept:d.dept,items:d.all.filter(i=>i.paidDate)})}>
@@ -2795,7 +2795,7 @@ function SimplePieChart({data=[], total=0}) {
                     const totalCurrent = cashByDept.reduce((s,d)=>s+d.staffCurrent,0)||1
                     const grandPaid    = totalPaid
                     const grandConf    = totalPaid+totalConf
-                    const totRevTarget = DEPTS.reduce((s,d)=>{ const db=(deptBiz||{})[d]||{}; return s+(db.revTarget||0)*1e8 }, 0)
+                    const totRevTarget = viewYear===YR ? DEPTS.reduce((s,d)=>{ const db=(deptBiz||{})[d]||{}; return s+(db.revTarget||0)*1e8 }, 0) : 0
                     return (
                       <tr style={{background:"#D1FAE5",fontWeight:700,borderTop:"2px solid #E5E7EB"}}>
                         <td style={{padding:"11px 12px",fontSize:14,fontWeight:800,color:"#1E3A8A"}}>합계</td>
