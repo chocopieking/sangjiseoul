@@ -1352,6 +1352,7 @@ export default function App() {
   const [showAlerts, setShowAlerts] = useState(false)
   const [selProjId, setSelProjId] = useState(null)
   const [selVerIdx, setSelVerIdx] = useState(0)
+  const [manualFillVer, setManualFillVer] = useState(null)  // 미인식 시 수동 입력 팝업
   const [cmpIds, setCmpIds]       = useState([])
   const [detailTab, setDetailTab] = useState("info")  // 프로젝트 상세 서브탭
   const [showNewProj, setShowNewProj] = useState(false)
@@ -3587,6 +3588,71 @@ function ProjectsTab({projects,setProjects,selProjId,setSelProjId,selVerIdx,setS
 
   return (
     <div>
+      {/* ── 실행계획서 미인식 항목 수동 입력 팝업 ── */}
+      {manualFillVer&&(()=>{
+        const ver = manualFillVer
+        const [lb,  setLb]  = React.useState(ver.laborCost||0)
+        const [de,  setDe]  = React.useState(ver.directExp||0)
+        const [sc,  setSc]  = React.useState(ver.subContract||0)
+        const [ind, setInd] = React.useState(ver.indirect||0)
+        const [pft, setPft] = React.useState(ver.profit||0)
+        const fAm = v => v>=1e8?`${(v/1e8).toFixed(2)}억`:v>=1e4?`${Math.round(v/1e4)}만`:`${(v||0).toLocaleString()}`
+        const save = () => {
+          setProjects(prev=>prev.map(p=>{
+            if(p.id!==selProj?.id) return p
+            const vIdx = ver._newIdx
+            const nvs = [...p.versions]
+            nvs[vIdx]={...nvs[vIdx],laborCost:lb,directExp:de,subContract:sc,
+                        indirect:ind||null,profit:pft||null}
+            return {...p,versions:nvs}
+          }))
+          setManualFillVer(null)
+        }
+        return (
+          <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.6)",zIndex:9999,display:"flex",alignItems:"center",justifyContent:"center"}}>
+            <div style={{background:"#fff",borderRadius:14,width:460,maxHeight:"90vh",overflow:"auto",boxShadow:"0 20px 60px rgba(0,0,0,.3)"}}>
+              <div style={{padding:"16px 20px",borderBottom:"1px solid #E2E8F0",background:"#FEF9C3",borderRadius:"14px 14px 0 0"}}>
+                <div style={{fontSize:15,fontWeight:800,color:"#92400E"}}>⚠️ 실행계획서 금액 미인식</div>
+                <div style={{fontSize:12,color:"#B45309",marginTop:4}}>아래 항목이 자동으로 읽히지 않았습니다. 직접 입력해 주세요.</div>
+                <div style={{display:"flex",gap:6,marginTop:8,flexWrap:"wrap"}}>
+                  {(ver._missing||[]).map(m=><span key={m} style={{fontSize:11,padding:"2px 8px",background:"#FEE2E2",color:"#DC2626",borderRadius:6,fontWeight:700}}>{m}</span>)}
+                </div>
+              </div>
+              <div style={{padding:"16px 20px"}}>
+                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
+                  {[["직접인건비 (원)",lb,setLb],["직접경비 (원)",de,setDe],
+                    ["외주용역비 (원)",sc,setSc],["간접비 (0=자동)",ind,setInd],["이윤 (0=자동)",pft,setPft]
+                  ].map(([lbl,val,setter])=>(
+                    <div key={lbl}>
+                      <label style={{fontSize:11,fontWeight:700,color:"#64748B",display:"block",marginBottom:3}}>{lbl}</label>
+                      <input type="number" value={val||""} onChange={e=>setter(parseInt(e.target.value)||0)}
+                        style={{width:"100%",padding:"7px 10px",borderRadius:7,border:"1px solid #CBD5E1",fontSize:12,boxSizing:"border-box"}}/>
+                      {val>0&&<div style={{fontSize:10,color:"#059669",marginTop:2}}>{fAm(val)}</div>}
+                    </div>
+                  ))}
+                </div>
+                {(lb+de+sc)>0&&(()=>{
+                  const direct=lb+de+sc; const calcInd=ind||Math.round(lb*1.1); const calcPft=pft||Math.round(direct*0.083)
+                  return <div style={{marginTop:12,padding:"10px 14px",background:"#F0FDF4",borderRadius:8,border:"1px solid #86EFAC"}}>
+                    <div style={{fontSize:11,fontWeight:700,color:"#065F46",marginBottom:6}}>합계 미리보기</div>
+                    <div style={{display:"flex",gap:16,fontSize:11}}>
+                      <span>직접비 <strong>{fAm(direct)}</strong></span>
+                      <span>간접비 <strong>{fAm(calcInd)}</strong></span>
+                      <span>이윤 <strong>{fAm(calcPft)}</strong></span>
+                    </div>
+                    <div style={{marginTop:8,fontWeight:800,color:"#065F46",fontSize:13}}>총계 {fAm(direct+calcInd+calcPft)}</div>
+                  </div>
+                })()}
+                <div style={{display:"flex",gap:8,marginTop:16}}>
+                  <button onClick={()=>setManualFillVer(null)} style={{flex:1,padding:"9px",background:"#F1F5F9",border:"none",borderRadius:8,fontSize:13,cursor:"pointer",color:"#64748B"}}>닫기</button>
+                  <button onClick={save} style={{flex:2,padding:"9px",background:"#2563EB",border:"none",borderRadius:8,fontSize:13,cursor:"pointer",color:"#fff",fontWeight:700}}>💾 저장</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )
+      })()}
+
       {/* 서브 탭 + 엑셀 업다운로드 */}
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14,flexWrap:"wrap",gap:8}}>
       <div style={{display:"flex",gap:2,background:"var(--color-background-secondary,#f0f0ee)",borderRadius:8,padding:3,width:"fit-content",flexWrap:"wrap"}}>
@@ -4076,7 +4142,17 @@ function ProjectsTab({projects,setProjects,selProjId,setSelProjId,selVerIdx,setS
                       if(directExp)   parts.push(`직접경비 ${(directExp/1e8).toFixed(2)}억`)
                       if(subContract) parts.push(`외주비 ${(subContract/1e8).toFixed(2)}억`)
                       if(vendors.length) parts.push(`협력업체 ${vendors.length}개`)
-                      alert(`✓ 업로드 완료\n${parts.join(" · ")||"금액 없음 — 수동 입력 필요"}\n\n프로젝트명: ${projName||"(없음)"}\n담당PM: ${pm||"(없음)"}\n발주처: ${client||"(없음)"}\n협력업체: ${vendors.length}개`)
+                      // 미인식 항목이 있으면 수동 입력 안내
+                      const missing=[]
+                      if(!laborCost)   missing.push("직접인건비")
+                      if(!directExp)   missing.push("직접경비")
+                      if(!subContract) missing.push("외주용역비")
+                      if(missing.length>0){
+                        // 미인식 항목을 setManualFillVer로 팝업 열기
+                        setManualFillVer({...newVer, _newIdx: selProj.versions.length, _missing: missing})
+                      } else {
+                        alert(`✓ 업로드 완료\n${parts.join(" · ")}\n\n프로젝트명: ${projName||"(없음)"}\n담당PM: ${pm||"(없음)"}\n발주처: ${client||"(없음)"}\n협력업체: ${vendors.length}개`)
+                      }
                     }catch(err){alert("파싱 오류: "+err.message)}
                     e.target.value=""
                   }
@@ -4949,8 +5025,136 @@ function BenchProjects({projects,cmpIds,setCmpIds,allCats}) {
   const barData=benchData.map(row=>({name:row.cat.length>5?row.cat.slice(0,5)+"…":row.cat,...Object.fromEntries(row.items.filter(i=>i&&i.up>0).map(i=>[i.projId,+i.up.toFixed(0)])),benchAvg:row.benchAvgUp&&row.benchAvgUp>0?+row.benchAvgUp.toFixed(0):undefined}))
   const fAmt = v => v>=1e8?`${(v/1e8).toFixed(2)}억`:v>=1e4?`${Math.round(v/1e4)}만`:`${v.toLocaleString()}`
   const fPy  = v => `${Math.round(v).toLocaleString()}평`
+  // 현재 선택 프로젝트 외주율
+  const myProjRate = useMemo(()=>{
+    if(cmpIds.length!==1) return null
+    const p = projects.find(pr=>pr.id===cmpIds[0])
+    if(!p) return null
+    const ver=(p.versions||[]).slice(-1)[0]
+    const fee=p.serviceFee||p.totalFee||0
+    return ver?.subContract&&fee>0 ? {rate:ver.subContract/fee, subContract:ver.subContract, fee, proj:p, ver} : null
+  },[cmpIds,projects])
+
   return (
     <div>
+      {/* ── 외주비 구성 비교 다이어그램 (해당 프로젝트 vs 적정 벤치마크) ── */}
+      {myProjRate&&(()=>{
+        const {rate, subContract, fee, proj, ver} = myProjRate
+        const benchRates = benchmarkProjs.map(p=>{
+          const v=(p.versions||[]).slice(-1)[0]
+          const f=p.serviceFee||p.totalFee||0
+          return v?.subContract&&f>0 ? v.subContract/f : null
+        }).filter(r=>r!==null)
+        const benchAvgRate = benchRates.length>0 ? benchRates.reduce((s,r)=>s+r,0)/benchRates.length : 0.34
+        const benchMinRate = benchRates.length>0 ? Math.min(...benchRates) : BENCH_MIN
+        const benchMaxRate = benchRates.length>0 ? Math.max(...benchRates) : BENCH_MAX
+        const isGood = rate>=BENCH_MIN&&rate<=BENCH_MAX
+        const myPct = Math.round(rate*100)
+        const avgPct = Math.round(benchAvgRate*100)
+
+        // 비용구성 데이터
+        const labor = ver.laborCost||0
+        const direct = ver.directExp||0
+        const indirect = ver.indirect||(labor*1.1)
+        const profit = ver.profit||0
+        const totalCalc = labor+direct+subContract+indirect+profit
+
+        return (
+          <div style={{background:"#F0F9FF",border:"2px solid #0EA5E9",borderRadius:12,padding:"16px",marginBottom:16}}>
+            <div style={{fontSize:14,fontWeight:800,color:"#0369A1",marginBottom:12,display:"flex",alignItems:"center",gap:8}}>
+              📊 외주비 구성 분석
+              <span style={{fontSize:11,color:"#7DD3FC",fontWeight:500}}>해당 프로젝트 vs 벤치마크 비교</span>
+            </div>
+
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:14}}>
+              {/* 해당 프로젝트 외주율 게이지 */}
+              <div style={{background:"#fff",borderRadius:10,padding:"12px 14px",border:`2px solid ${isGood?"#059669":"#DC2626"}`}}>
+                <div style={{fontSize:11,color:"#64748B",marginBottom:4,fontWeight:600}}>
+                  📁 {proj.name.length>20?proj.name.slice(0,20)+"…":proj.name}
+                </div>
+                <div style={{fontSize:28,fontWeight:800,color:isGood?"#059669":"#DC2626"}}>{myPct}%</div>
+                <div style={{fontSize:11,color:"#94A3B8",marginBottom:8}}>외주비율 (외주비/용역비)</div>
+                {/* 게이지 바 */}
+                <div style={{position:"relative",height:10,background:"#E2E8F0",borderRadius:5,overflow:"visible"}}>
+                  {/* 적정 범위 표시 */}
+                  <div style={{position:"absolute",left:`${BENCH_MIN*100}%`,width:`${(BENCH_MAX-BENCH_MIN)*100}%`,height:"100%",background:"#D1FAE5",borderRadius:3,opacity:.8}}/>
+                  {/* 현재 위치 */}
+                  <div style={{position:"absolute",left:`${Math.min(Math.max(rate*100,2),98)}%`,top:-3,width:16,height:16,background:isGood?"#059669":"#DC2626",borderRadius:"50%",transform:"translateX(-50%)",border:"2px solid #fff",boxShadow:"0 1px 4px rgba(0,0,0,.2)"}}/>
+                </div>
+                <div style={{display:"flex",justifyContent:"space-between",fontSize:9,color:"#94A3B8",marginTop:4}}>
+                  <span>0%</span><span style={{color:"#059669",fontWeight:700}}>{Math.round(BENCH_MIN*100)}~{Math.round(BENCH_MAX*100)}% 적정</span><span>100%</span>
+                </div>
+                <div style={{marginTop:8,fontSize:11,fontWeight:700,color:isGood?"#059669":"#DC2626"}}>
+                  {isGood?"✅ 적정 외주율 범위":"⚠️ 적정 범위 "+( rate<BENCH_MIN?"미만 (낮음)":"초과 (높음)")}
+                </div>
+              </div>
+
+              {/* 벤치마크 비교 */}
+              <div style={{background:"#fff",borderRadius:10,padding:"12px 14px",border:"1px solid #E2E8F0"}}>
+                <div style={{fontSize:11,color:"#64748B",marginBottom:4,fontWeight:600}}>
+                  🏆 벤치마크 ({benchmarkProjs.length}개 프로젝트 기준)
+                </div>
+                <div style={{fontSize:28,fontWeight:800,color:"#2563EB"}}>{avgPct}%</div>
+                <div style={{fontSize:11,color:"#94A3B8",marginBottom:8}}>평균 외주율</div>
+                {/* 막대 비교 */}
+                <div style={{display:"flex",gap:8,alignItems:"flex-end",height:60}}>
+                  {[{label:"해당",pct:myPct,color:isGood?"#059669":"#DC2626"},
+                    {label:"평균",pct:avgPct,color:"#2563EB"},
+                    {label:"최소",pct:Math.round(benchMinRate*100),color:"#93C5FD"},
+                    {label:"최대",pct:Math.round(benchMaxRate*100),color:"#93C5FD"},
+                  ].map(({label,pct,color})=>(
+                    <div key={label} style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",gap:2}}>
+                      <div style={{fontSize:9,fontWeight:700,color}}>{pct}%</div>
+                      <div style={{width:"100%",height:`${pct*0.5}px`,background:color,borderRadius:"3px 3px 0 0",minHeight:4}}/>
+                      <div style={{fontSize:9,color:"#94A3B8"}}>{label}</div>
+                    </div>
+                  ))}
+                </div>
+                <div style={{marginTop:6,fontSize:10,color:"#64748B"}}>
+                  차이: {myPct>avgPct?"+":""}{myPct-avgPct}%p ({myPct>avgPct?"벤치마크보다 높음":"벤치마크보다 낮음"})
+                </div>
+              </div>
+            </div>
+
+            {/* 비용구성 도넛 대신 수평 스택 바 */}
+            {totalCalc>0&&(()=>{
+              const items=[
+                {label:"직접인건비",val:labor,color:"#3B82F6"},
+                {label:"직접경비",  val:direct,color:"#F59E0B"},
+                {label:"외주용역비",val:subContract,color:"#EF4444"},
+                {label:"간접비",   val:indirect,color:"#8B5CF6"},
+                {label:"이윤",     val:profit,color:"#10B981"},
+              ].filter(i=>i.val>0)
+              const fA = v => v>=1e8?`${(v/1e8).toFixed(1)}억`:v>=1e4?`${Math.round(v/1e4)}만`:v.toLocaleString()
+              return (
+                <div>
+                  <div style={{fontSize:12,fontWeight:700,color:"#334155",marginBottom:6}}>비용 구성</div>
+                  {/* 스택 바 */}
+                  <div style={{display:"flex",height:20,borderRadius:6,overflow:"hidden",marginBottom:8}}>
+                    {items.map(({label,val,color})=>(
+                      <div key={label} style={{width:`${val/totalCalc*100}%`,background:color,
+                        minWidth:val/totalCalc>0.03?4:0,display:"flex",alignItems:"center",justifyContent:"center"}}>
+                        {val/totalCalc>0.1&&<span style={{fontSize:9,color:"#fff",fontWeight:700}}>{Math.round(val/totalCalc*100)}%</span>}
+                      </div>
+                    ))}
+                  </div>
+                  {/* 범례 */}
+                  <div style={{display:"flex",flexWrap:"wrap",gap:8}}>
+                    {items.map(({label,val,color})=>(
+                      <div key={label} style={{display:"flex",alignItems:"center",gap:4,fontSize:11}}>
+                        <div style={{width:8,height:8,borderRadius:2,background:color,flexShrink:0}}/>
+                        <span style={{color:"#334155"}}>{label}</span>
+                        <span style={{color:"#64748B",fontWeight:600}}>{fA(val)} ({Math.round(val/totalCalc*100)}%)</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )
+            })()}
+          </div>
+        )
+      })()}
+
       {/* 우수사례 요약 배너 */}
       {benchmarkProjs.length>0&&(
         <div style={{background:"#D1FAE5",border:"2px solid #059669",borderRadius:8,padding:"12px 16px",marginBottom:14}}>
