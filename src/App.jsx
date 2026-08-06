@@ -4521,7 +4521,7 @@ function VersionCompareCard({proj,selVerIdx,setProjects}) {
     {key:"directExp", label:"직접경비",   color:C.navyM},
     {key:"subContract",label:"외주용역비", color:C.amber},
     {key:"_direct",   label:"직접비 소계", color:C.navy, bold:true},
-    {key:"_indirect", label:"간접비",     color:C.gray},
+    {key:"_indirect", label:"간접비(직접인건비×110%)", color:C.gray},
     {key:"_profit",   label:"이윤",       color:C.green, bold:true},
     {key:"_total",    label:"예상합계",   color:C.navy,  bold:true},
   ]
@@ -4529,7 +4529,7 @@ function VersionCompareCard({proj,selVerIdx,setProjects}) {
   // 회차 부족 시: Hook 규칙 준수를 위해 ternary 사용
   const tooFewMsg = tooFew ? (
     <Card title="📊 회차별 비교 분석" note="실행계획서 2회차 이상부터 회차간 이윤 추이를 비교합니다.">
-      <div style={{padding:"12px 14px",borderRadius:8,background:C.grayL,color:C.gray,fontSize:19.5}}>
+      <div style={{padding:"12px 14px",borderRadius:8,background:C.grayL,color:C.gray,fontSize:17}}>
         회차가 2개 이상이면 회차간 금액 증감·이윤율 변화를 자동으로 비교합니다.<br/>
         위에서 "+ 회차 추가" 또는 실행계획서 업로드로 회차를 추가해주세요.
       </div>
@@ -4541,13 +4541,15 @@ function VersionCompareCard({proj,selVerIdx,setProjects}) {
     return {laborCost:v.laborCost||0,directExp:v.directExp||0,subContract:v.subContract||0,_direct:p.direct,_indirect:p.indirect,_profit:p.profit,_total:p.total}
   })
 
-  const svc = proj.serviceFee||0
+  // "최신 비율"은 프로젝트에 별도로 저장된 예상용역금액(proj.serviceFee, 실행계획서와 무관하게 오래됐거나 다를 수 있음)이 아니라
+  // 실제 업로드/작성된 각 회차 실행계획서 자체의 합계(예상합계)를 100% 기준으로 삼아야 함
+  const latestTotal = pnls[pnls.length-1]?._total || 0
 
-  // 이윤율 추이 차트 데이터
+  // 이윤율 추이 차트 데이터 — 각 회차 자신의 합계를 100%로 사용 (다른 회차나 별도 필드 기준이 아님)
   const chartData = versions.map((v,i)=>{
     const pnl=calcPnlTotals(v)
-    const profitRate = svc>0 ? +(pnl.profit/svc*100).toFixed(1) : 0
-    const subRate    = svc>0 ? +(pnl.direct/svc*100).toFixed(1) : 0
+    const profitRate = pnl.total>0 ? +(pnl.profit/pnl.total*100).toFixed(1) : 0
+    const subRate    = pnl.total>0 ? +(pnl.direct/pnl.total*100).toFixed(1) : 0
     return {
       name: v.round ? `${v.round}차` : `v${v._origIdx+1}`,
       이윤율: profitRate,
@@ -4570,20 +4572,20 @@ function VersionCompareCard({proj,selVerIdx,setProjects}) {
       {/* 요약 헤드라인 */}
       <div style={{display:"flex",gap:12,flexWrap:"wrap",marginBottom:16}}>
         <div style={{background:isGood?C.greenL:C.redL,borderRadius:8,padding:"10px 16px",flex:1,minWidth:180}}>
-          <div style={{fontSize:16.5,color:isGood?C.green:C.red,fontWeight:600,marginBottom:3}}>1차 → {versions.length}차 이윤 변화</div>
-          <div style={{fontSize:30,fontWeight:800,color:isGood?C.green:C.red}}>
+          <div style={{fontSize:17,color:isGood?C.green:C.red,fontWeight:600,marginBottom:3}}>1차 → {versions.length}차 이윤 변화</div>
+          <div style={{fontSize:17,fontWeight:800,color:isGood?C.green:C.red}}>
             {isGood?"+":""}{fMoney(profitChange)}
           </div>
-          <div style={{fontSize:18,color:isGood?C.green:C.red}}>({isGood?"+":""}{profitPctChange.toFixed(1)}%)</div>
+          <div style={{fontSize:17,color:isGood?C.green:C.red}}>({isGood?"+":""}{profitPctChange.toFixed(1)}%)</div>
         </div>
         {versions.map((v,i)=>{
           const p=pnls[i]
-          const rate=svc>0?+(p._profit/svc*100).toFixed(1):null
+          const rate=p._total>0?+(p._profit/p._total*100).toFixed(1):null
           return (
             <div key={i} style={{background:selVerIdx===v._origIdx?"var(--color-background-primary,#fff)":C.grayL,borderRadius:8,padding:"10px 16px",flex:1,minWidth:140,border:`1px solid ${selVerIdx===v._origIdx?C.navyM:"transparent"}`}}>
-              <div style={{fontSize:16.5,fontWeight:700,color:C.gray,marginBottom:3}}>{v.round?`${v.round}차`:v.ver}</div>
-              <div style={{fontSize:19.5,fontWeight:700,color:C.navy}}>{fMoney(p._profit)}</div>
-              <div style={{fontSize:16.5,color:rate!=null&&rate<5?C.red:C.green}}>{rate!=null?`이윤율 ${rate}%`:"-"}</div>
+              <div style={{fontSize:17,fontWeight:700,color:C.gray,marginBottom:3}}>{v.round?`${v.round}차`:v.ver}</div>
+              <div style={{fontSize:17,fontWeight:700,color:C.navy}}>{fMoney(p._profit)}</div>
+              <div style={{fontSize:17,color:rate!=null&&rate<5?C.red:C.green}}>{rate!=null?`이윤율 ${rate}%`:"-"}</div>
             </div>
           )
         })}
@@ -4591,15 +4593,15 @@ function VersionCompareCard({proj,selVerIdx,setProjects}) {
 
       {/* 이윤율 추이 차트 */}
       <div style={{marginBottom:14}}>
-        <div style={{fontSize:18,color:C.gray,fontWeight:600,marginBottom:6}}>이윤율 추이 (용역비 대비 %)</div>
+        <div style={{fontSize:17,color:C.gray,fontWeight:600,marginBottom:6}}>이윤율 추이 (용역비 대비 %)</div>
         <ResponsiveContainer width="100%" height={180}>
           <BarChart data={chartData} margin={{top:20,right:20,left:0,bottom:0}}>
             <CartesianGrid strokeDasharray="3 3" stroke="rgba(0,0,0,.05)"/>
-            <XAxis dataKey="name" tick={{fontSize:18,fontWeight:600}}/>
-            <YAxis tick={{fontSize:15}} tickFormatter={v=>v+"%"} domain={[0,"auto"]}/>
+            <XAxis dataKey="name" tick={{fontSize:17,fontWeight:600}}/>
+            <YAxis tick={{fontSize:17}} tickFormatter={v=>v+"%"} domain={[0,"auto"]}/>
             <Tooltip formatter={(v,n)=>[v+(n==="이윤율"||n==="직접비율"?"%":"억"),n]}/>
             <Bar dataKey="이윤율" fill={C.green} radius={[4,4,0,0]} barSize={40}>
-              <LabelList dataKey="이윤율" position="top" formatter={v=>v+"%"} style={{fontSize:18,fontWeight:700,fill:C.green}}/>
+              <LabelList dataKey="이윤율" position="top" formatter={v=>v+"%"} style={{fontSize:17,fontWeight:700,fill:C.green}}/>
             </Bar>
           </BarChart>
         </ResponsiveContainer>
@@ -4614,14 +4616,14 @@ function VersionCompareCard({proj,selVerIdx,setProjects}) {
               {versions.map((v,i)=>(
                 <th key={i} style={S.th("right")}>
                   {v.round?`${v.round}차`:v.ver}
-                  <div style={{fontSize:13.5,color:C.gray,fontWeight:400}}>{v.date}</div>
+                  <div style={{fontSize:17,color:C.gray,fontWeight:400}}>{v.date}</div>
                 </th>
               ))}
               {versions.length>=2 && <>
-                <th style={{...S.th("right"),color:C.amber}}>증감액<div style={{fontSize:13.5,fontWeight:400}}>(1차→최신)</div></th>
+                <th style={{...S.th("right"),color:C.amber}}>증감액<div style={{fontSize:17,fontWeight:400}}>(1차→최신)</div></th>
                 <th style={{...S.th("right"),color:C.amber}}>증감율</th>
               </>}
-              <th style={S.th("right")}>최신 비율<div style={{fontSize:13.5,fontWeight:400}}>(용역비 대비)</div></th>
+              <th style={S.th("right")}>최신 비율<div style={{fontSize:17,fontWeight:400}}>(용역비 대비)</div></th>
             </tr>
           </thead>
           <tbody>
@@ -4629,7 +4631,7 @@ function VersionCompareCard({proj,selVerIdx,setProjects}) {
               const vals = pnls.map(p=>p[item.key]||0)
               const diff = vals.length>=2 ? vals[vals.length-1]-vals[0] : null
               const diffPct = (diff!=null&&vals[0]!==0) ? (diff/vals[0]*100) : null
-              const latestRate = svc>0 ? (vals[vals.length-1]/svc*100) : null
+              const latestRate = latestTotal>0 ? (vals[vals.length-1]/latestTotal*100) : null
               // 각 회차간 증감 표시를 위한 delta 계산
               const deltas = vals.map((v,i)=>i===0?null:v-vals[i-1])
               return (
@@ -4642,7 +4644,7 @@ function VersionCompareCard({proj,selVerIdx,setProjects}) {
                     <td key={i} style={{...S.td("right"),fontWeight:item.bold?700:400}}>
                       <div style={{color:item.color||"inherit"}}>{fMoney(v)}</div>
                       {deltas[i]!=null&&deltas[i]!==0&&(
-                        <div style={{fontSize:15,color:deltas[i]>0?C.red:C.green,fontWeight:600}}>
+                        <div style={{fontSize:17,color:deltas[i]>0?C.red:C.green,fontWeight:600}}>
                           {deltas[i]>0?"+":""}{(deltas[i]/1e8).toFixed(2)}억
                         </div>
                       )}
@@ -4706,12 +4708,46 @@ function VendorVersionCompare({versions,proj,setProjects}) {
     setEditKey(null)
   }
 
+  // 새 외주업체 추가 — 가장 최근 회차에 추가 (지난 회차는 이미 확정된 실행계획서이므로 건드리지 않음)
+  const latestOrigIdx = versions[versions.length-1]?._origIdx
+  const [showAdd,setShowAdd] = useState(false)
+  const [newV,setNewV] = useState({cat:"",name:"",contract:""})
+  const addVendorRow = () => {
+    if(!newV.cat.trim()) return
+    setProjects(prev=>prev.map(p=>{
+      if(p.id!==proj.id) return p
+      return {...p, versions:(p.versions||[]).map((ver,vi)=>{
+        if(vi!==latestOrigIdx) return ver
+        return {...ver, vendors:[...(ver.vendors||[]), {
+          cat:newV.cat.trim(), name:newV.name.trim(),
+          contract:parseInt(String(newV.contract).replace(/[,원\s]/g,""))||0, nego1:0, nego2:0
+        }]}
+      })}
+    }))
+    setNewV({cat:"",name:"",contract:""}); setShowAdd(false)
+  }
+
   return (
     <div style={{marginTop:16}}>
-      <div style={{fontSize:18,color:C.gray,fontWeight:600,marginBottom:8,borderTop:`1px solid ${C.navyL}`,paddingTop:10,display:"flex",alignItems:"center",gap:8}}>
+      <div style={{fontSize:18,color:C.gray,fontWeight:600,marginBottom:8,borderTop:`1px solid ${C.navyL}`,paddingTop:10,display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}>
         외주비 분야별 회차 비교
         {canEdit&&<span style={{fontSize:12,color:"#94A3B8",fontWeight:400}}>· 금액 칸을 클릭하면 바로 수정할 수 있습니다</span>}
+        {canEdit&&<button onClick={()=>setShowAdd(v=>!v)} style={{marginLeft:"auto",padding:"5px 11px",background:showAdd?"#F8FAFC":"#0E9C8C",color:showAdd?"#64748B":"#fff",border:showAdd?"1px solid #E5E7EB":"none",borderRadius:6,fontSize:12,fontWeight:700,cursor:"pointer"}}>
+          {showAdd?"✕ 취소":"+ 외주업체 추가"}
+        </button>}
       </div>
+      {showAdd && (
+        <div style={{display:"flex",gap:8,flexWrap:"wrap",alignItems:"flex-end",background:"#F0FBF9",border:"1px solid #CCFBF1",borderRadius:8,padding:"10px 12px",marginBottom:10}}>
+          <div><label style={{display:"block",fontSize:11,color:"#64748B",marginBottom:3}}>분야</label>
+            <input value={newV.cat} onChange={e=>setNewV(v=>({...v,cat:e.target.value}))} placeholder="예: 조경" style={{padding:"6px 9px",fontSize:13,border:"1px solid #E5E7EB",borderRadius:5,width:100}}/></div>
+          <div><label style={{display:"block",fontSize:11,color:"#64748B",marginBottom:3}}>업체명</label>
+            <input value={newV.name} onChange={e=>setNewV(v=>({...v,name:e.target.value}))} placeholder="업체명" style={{padding:"6px 9px",fontSize:13,border:"1px solid #E5E7EB",borderRadius:5,width:160}}/></div>
+          <div><label style={{display:"block",fontSize:11,color:"#64748B",marginBottom:3}}>금액(원)</label>
+            <input type="number" value={newV.contract} onChange={e=>setNewV(v=>({...v,contract:e.target.value}))} placeholder="0" style={{padding:"6px 9px",fontSize:13,border:"1px solid #E5E7EB",borderRadius:5,width:130,textAlign:"right"}}/></div>
+          <button onClick={addVendorRow} style={{padding:"7px 14px",background:"#0E9C8C",color:"#fff",border:"none",borderRadius:6,fontSize:13,fontWeight:700,cursor:"pointer"}}>추가</button>
+          <span style={{fontSize:11,color:"#94A3B8"}}>최신 회차({versions[versions.length-1]?.round?`${versions[versions.length-1].round}차`:versions[versions.length-1]?.ver})에 추가됩니다</span>
+        </div>
+      )}
       <div style={{overflowX:"auto"}}>
         <table style={{width:"100%",borderCollapse:"collapse",minWidth:560}}>
           <thead>
