@@ -4754,6 +4754,21 @@ function VendorVersionCompare({versions,proj,setProjects}) {
     }))
   }
 
+  // 업체명 수정 — 분야명과 마찬가지로 같은 분야를 쓰는 모든 회차의 업체명을 한번에 갱신
+  const [editNameKey,setEditNameKey] = useState(null) // 수정 중인 분야(cat)
+  const [editNameVal,setEditNameVal] = useState("")
+  const commitNameRename = (cat) => {
+    const newName = editNameVal.trim()
+    setEditNameKey(null)
+    setProjects(prev=>prev.map(p=>{
+      if(p.id!==proj.id) return p
+      return {...p, versions:(p.versions||[]).map(ver=>({
+        ...ver,
+        vendors:(ver.vendors||[]).map(x=>x.cat===cat?{...x,name:newName}:x)
+      }))}
+    }))
+  }
+
   // 최신 회차에서 해당 분야 삭제
   const deleteVendorCat = (cat) => {
     if(!window.confirm(`"${cat}" 분야를 최신 회차에서 삭제할까요?`)) return
@@ -4837,6 +4852,8 @@ function VendorVersionCompare({versions,proj,setProjects}) {
               const up=py>0&&latestAmt>0?Math.round(latestAmt/py):null
               // 최신 회차부터 역순으로 찾아 해당 분야의 업체명을 표시 (분야만으로는 어느 업체인지 구분이 안 되던 문제)
               const vendorName=[...versions].reverse().map(v=>(v.vendors||[]).find(x=>x.cat===cat)).find(Boolean)?.name||""
+              // 관리 버튼(이동/삭제)은 최신 회차 배열을 기준으로 동작하므로, 최신 회차에 없는(과거 회차에만 남아있는) 분야는 대상이 아님 — 비활성화 처리
+              const inLatest = (latestVer?.vendors||[]).some(x=>x.cat===cat)
               return (
                 <tr key={cat} style={{background:ci%2===0?"var(--color-background-primary,#fff)":"var(--color-background-secondary,#f8f8f6)"}}>
                   <td style={{...S.td("left")}}>
@@ -4855,7 +4872,21 @@ function VendorVersionCompare({versions,proj,setProjects}) {
                           style={{...S.bdg(C.navyL,C.navyM),fontSize:9.5,alignSelf:"flex-start",cursor:canEdit?"pointer":"default"}}
                           title={canEdit?"클릭해서 분야명 수정":undefined}>{cat}</span>
                       )}
-                      {vendorName&&<span style={{fontSize:12,color:"#334155",fontWeight:600}}>{vendorName}</span>}
+                      {editNameKey===cat ? (
+                        <input autoFocus value={editNameVal}
+                          onChange={e=>setEditNameVal(e.target.value)}
+                          onBlur={()=>commitNameRename(cat)}
+                          onKeyDown={e=>{
+                            if(e.key==="Enter") commitNameRename(cat)
+                            if(e.key==="Escape") setEditNameKey(null)
+                          }}
+                          style={{fontSize:15,padding:"3px 7px",border:"1.5px solid #0E9C8C",borderRadius:5,width:150}}/>
+                      ) : (
+                        (vendorName || canEdit) &&
+                        <span onClick={()=>{ if(!canEdit) return; setEditNameKey(cat); setEditNameVal(vendorName) }}
+                          style={{fontSize:15,color:"#334155",fontWeight:700,cursor:canEdit?"pointer":"default"}}
+                          title={canEdit?"클릭해서 업체명 수정":undefined}>{vendorName||"(업체명 없음)"}</span>
+                      )}
                     </div>
                   </td>
                   {versions.map((v,i)=>{
@@ -4890,15 +4921,15 @@ function VendorVersionCompare({versions,proj,setProjects}) {
                   {canEdit && (
                     <td style={{...S.td("center")}}>
                       <div style={{display:"flex",gap:3,justifyContent:"center"}}>
-                        <button onClick={()=>moveVendorCat(cat,-1)} disabled={ci===0}
-                          title="위로 이동"
-                          style={{padding:"3px 6px",background:"#F8FAFC",border:"1px solid #E5E7EB",borderRadius:5,fontSize:10,cursor:ci===0?"default":"pointer",opacity:ci===0?.35:1,color:"#334155"}}>▲</button>
-                        <button onClick={()=>moveVendorCat(cat,1)} disabled={ci===allCats.length-1}
-                          title="아래로 이동"
-                          style={{padding:"3px 6px",background:"#F8FAFC",border:"1px solid #E5E7EB",borderRadius:5,fontSize:10,cursor:ci===allCats.length-1?"default":"pointer",opacity:ci===allCats.length-1?.35:1,color:"#334155"}}>▼</button>
-                        <button onClick={()=>deleteVendorCat(cat)}
-                          title="최신 회차에서 삭제"
-                          style={{padding:"3px 7px",background:"#FEE2E2",border:"none",borderRadius:5,fontSize:10,cursor:"pointer",color:"#DC2626",fontWeight:700}}>✕</button>
+                        <button onClick={()=>moveVendorCat(cat,-1)} disabled={!inLatest||ci===0}
+                          title={!inLatest?"최신 회차에 없는 항목은 이동할 수 없습니다":"위로 이동"}
+                          style={{padding:"3px 6px",background:"#F8FAFC",border:"1px solid #E5E7EB",borderRadius:5,fontSize:10,cursor:(!inLatest||ci===0)?"not-allowed":"pointer",opacity:(!inLatest||ci===0)?.35:1,color:"#334155"}}>▲</button>
+                        <button onClick={()=>moveVendorCat(cat,1)} disabled={!inLatest||ci===allCats.length-1}
+                          title={!inLatest?"최신 회차에 없는 항목은 이동할 수 없습니다":"아래로 이동"}
+                          style={{padding:"3px 6px",background:"#F8FAFC",border:"1px solid #E5E7EB",borderRadius:5,fontSize:10,cursor:(!inLatest||ci===allCats.length-1)?"not-allowed":"pointer",opacity:(!inLatest||ci===allCats.length-1)?.35:1,color:"#334155"}}>▼</button>
+                        <button onClick={()=>deleteVendorCat(cat)} disabled={!inLatest}
+                          title={!inLatest?"최신 회차에 없는 항목입니다 (과거 회차 기록)":"최신 회차에서 삭제"}
+                          style={{padding:"3px 7px",background:"#FEE2E2",border:"none",borderRadius:5,fontSize:10,cursor:!inLatest?"not-allowed":"pointer",opacity:!inLatest?.35:1,color:"#DC2626",fontWeight:700}}>✕</button>
                       </div>
                     </td>
                   )}

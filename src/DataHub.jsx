@@ -1490,6 +1490,49 @@ function BackupSection({allData, restoreAllData, isAdmin, cashItems=[], setCashI
     flash(`✅ 전체 백업 완료! (${count}개 항목, ${(size/1024).toFixed(1)}KB)\n안전한 곳(NAS, 구글드라이브 등)에 보관하세요.`)
   }
 
+  // ── 전체 데이터를 엑셀(.xlsx)로 다운로드 — 키마다 시트 하나, 배열은 표로, 중첩 데이터는 셀 안에 JSON 텍스트로 ──
+  const exportAllExcel = () => {
+    const wb = XLSX.utils.book_new()
+    let sheetCount = 0
+    ALL_KEYS.forEach(({key,label})=>{
+      let val
+      try{ const v=localStorage.getItem(key); if(!v) return; val=JSON.parse(v) }catch{ return }
+      let rows = []
+      if(Array.isArray(val)){
+        if(val.length===0) return
+        // 항목들에 등장하는 모든 필드를 모아 컬럼으로 사용, 중첩 객체/배열은 JSON 문자열로 직렬화
+        const cols = [...new Set(val.flatMap(item=>typeof item==="object"&&item?Object.keys(item):["값"]))]
+        rows = val.map(item=>{
+          if(typeof item!=="object"||item===null) return {값:item}
+          const row = {}
+          cols.forEach(c=>{
+            const v = item[c]
+            row[c] = (v!=null && typeof v==="object") ? JSON.stringify(v) : v
+          })
+          return row
+        })
+      } else if(val && typeof val==="object"){
+        rows = Object.entries(val).map(([k,v])=>({
+          항목:k, 값:(v!=null && typeof v==="object") ? JSON.stringify(v) : v
+        }))
+      } else {
+        rows = [{값:val}]
+      }
+      if(rows.length===0) return
+      const ws = XLSX.utils.json_to_sheet(rows)
+      // 시트명은 31자 제한 + 중복/특수문자 방지
+      let sheetName = label.replace(/[\\/*?:[\]]/g,"").slice(0,31) || key.slice(0,31)
+      let n=1; const used=wb.SheetNames
+      while(used.includes(sheetName)){ sheetName=`${label.slice(0,28)}_${n++}` }
+      XLSX.utils.book_append_sheet(wb, ws, sheetName)
+      sheetCount++
+    })
+    if(sheetCount===0){ flash("내보낼 데이터가 없습니다.", false); return }
+    const dateStr = new Date().toISOString().slice(0,10)
+    XLSX.writeFile(wb, `상지서울_전체데이터_${dateStr}.xlsx`)
+    flash(`✅ 엑셀 다운로드 완료! (${sheetCount}개 시트)`)
+  }
+
   // ── 복구 파일 미리보기 ───────────────────────────────────
   const previewFile = (e) => {
     const file = e.target.files?.[0]; if(!file) return
@@ -1584,9 +1627,14 @@ function BackupSection({allData, restoreAllData, isAdmin, cashItems=[], setCashI
               </div>
             </div>
           </div>
-          <button onClick={exportAll} style={{...btn2("#0E9C8C"),padding:"12px 24px",fontSize:15.4,flexShrink:0}}>
-            ⬇ 전체 백업 다운로드
-          </button>
+          <div style={{display:"flex",flexDirection:"column",gap:8,flexShrink:0}}>
+            <button onClick={exportAll} style={{...btn2("#0E9C8C"),padding:"12px 24px",fontSize:15.4}}>
+              ⬇ 전체 백업 다운로드 (.json)
+            </button>
+            <button onClick={exportAllExcel} style={{...btn2("#0B8577"),padding:"12px 24px",fontSize:15.4}}>
+              📊 엑셀로 전체 다운로드 (.xlsx)
+            </button>
+          </div>
         </div>
       </div>
 
