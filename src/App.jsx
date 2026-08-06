@@ -3634,6 +3634,10 @@ function ProjectsTab({projects,setProjects,selProjId,setSelProjId,selVerIdx,setS
   }
   const upd=(i,k,v)=>setVDraft(prev=>prev.map((r,ri)=>ri===i?{...r,[k]:["contract","nego1","nego2"].includes(k)?parseInt(v)||0:v}:r))
 
+  // 프로젝트 목록 표 전용 — 엑셀처럼 촘촘한 간격 + 전 컬럼 동일 폰트 크기(전역 S.th/S.td보다 작게)
+  const PTH=(a="left")=>({padding:"8px 10px",textAlign:a,fontSize:14,fontWeight:700,color:"#64748B",background:"#F8FAFC",borderBottom:"1px solid #E5E7EB",whiteSpace:"nowrap",letterSpacing:"0.01em"})
+  const PTD=(a="left")=>({padding:"8px 10px",borderBottom:"1px solid #F3F4F6",textAlign:a,fontSize:14,verticalAlign:"middle",color:"#0F172A"})
+
   return (
     <div>
       {/* ── 실행계획서 미인식 항목 수동 입력 팝업 ── */}
@@ -3859,10 +3863,10 @@ function ProjectsTab({projects,setProjects,selProjId,setSelProjId,selVerIdx,setS
             <div style={{overflowX:"auto"}}>
               <table style={{width:"100%",borderCollapse:"collapse"}}>
                 <thead><tr>
-                  <th style={S.th("center")}>비교</th>
-                  <th style={S.th("center")}>연번</th>
-                  {["구분","코드","프로젝트명","본부","PM","용역비(억)","평당단가","지분%","연면적㎡","진행%","계약일","다운"].map((h,i)=><th key={h+i} style={S.th(i>=5&&i<=10?"right":"left")}>{h}</th>)}
-                  {canWrite&&<th style={S.th("center")}>편집</th>}
+                  <th style={PTH("center")}>비교</th>
+                  <th style={PTH("center")}>연번</th>
+                  {["구분","프로젝트명","본부","PM","용역비(억)","평당단가","지분%","연면적㎡","진행%","다운"].map((h,i)=><th key={h+i} style={PTH(i>=4&&i<=8?"right":"left")}>{h}</th>)}
+                  {canWrite&&<th style={PTH("center")}>편집</th>}
                 </tr></thead>
                 <tbody>
                   {pagedProjects.map((p,i)=>{
@@ -3873,11 +3877,10 @@ function ProjectsTab({projects,setProjects,selProjId,setSelProjId,selVerIdx,setS
                       onMouseEnter={e=>e.currentTarget.style.background="rgba(24,95,165,.04)"}
                       onMouseLeave={e=>e.currentTarget.style.background=i%2===0?"var(--color-background-primary,#fff)":"var(--color-background-secondary,#f8f8f6)"}
                       onClick={()=>{setSelProjId(p.id);setSelVerIdx(p.versions.length-1);setView("detail")}}>
-                      <td style={S.td("center")} onClick={e=>e.stopPropagation()}><input type="checkbox" checked={cmpIds.includes(p.id)} onChange={e=>setCmpIds(prev=>e.target.checked?[...prev,p.id]:prev.filter(id=>id!==p.id))}/></td>
-                      <td style={{...S.td("center"),fontSize:12,color:"#94A3B8",fontWeight:600}}>{globalIdx+1}</td>
-                      <td style={S.td("left")}><span style={S.bdg(tb.bg,tb.fg)}>{p.type}</span></td>
-                      <td style={{...S.td("left"),fontFamily:"monospace",fontSize:11,color:C.navyM}}>{p.code}</td>
-                      <td style={{...S.td("left"),maxWidth:190,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}} title={p.name}>
+                      <td style={PTD("center")} onClick={e=>e.stopPropagation()}><input type="checkbox" checked={cmpIds.includes(p.id)} onChange={e=>setCmpIds(prev=>e.target.checked?[...prev,p.id]:prev.filter(id=>id!==p.id))}/></td>
+                      <td style={{...PTD("center"),color:"#94A3B8",fontWeight:600}}>{globalIdx+1}</td>
+                      <td style={PTD("left")}><span style={S.bdg(tb.bg,tb.fg)}>{p.type}</span></td>
+                      <td style={{...PTD("left"),maxWidth:320,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}} title={p.name}>
                         {inlineEditId===p.id ? (
                           <div style={{display:"flex",gap:4}} onClick={e=>e.stopPropagation()}>
                             <input value={inlineEditName}
@@ -3890,26 +3893,25 @@ function ProjectsTab({projects,setProjects,selProjId,setSelProjId,selVerIdx,setS
                                 if(e.key==="Escape") setInlineEditId(null)
                               }}
                               autoFocus
-                              style={{fontSize:12,padding:"3px 7px",border:"1.5px solid #6366F1",
+                              style={{fontSize:14,padding:"3px 7px",border:"1.5px solid #6366F1",
                                 borderRadius:6,width:160,outline:"none"}}/>
                             <button onClick={()=>{
                               setProjects(prev=>prev.map(pp=>pp.id===p.id?{...pp,name:inlineEditName.trim()||pp.name}:pp))
                               setInlineEditId(null)
-                            }} style={{padding:"2px 7px",background:"#0E9C8C",color:"#fff",border:"none",borderRadius:5,fontSize:11,cursor:"pointer"}}>✓</button>
+                            }} style={{padding:"2px 7px",background:"#0E9C8C",color:"#fff",border:"none",borderRadius:5,fontSize:12,cursor:"pointer"}}>✓</button>
                             <button onClick={()=>setInlineEditId(null)}
-                              style={{padding:"2px 6px",background:"#F8FAFC",color:"#64748B",border:"none",borderRadius:5,fontSize:11,cursor:"pointer"}}>✕</button>
+                              style={{padding:"2px 6px",background:"#F8FAFC",color:"#64748B",border:"none",borderRadius:5,fontSize:12,cursor:"pointer"}}>✕</button>
                           </div>
                         ) : p.name}
                       </td>
-                      <td style={{...S.td("left"),fontSize:11}}>{p.depts.join(", ")}</td>
-                      <td style={{...S.td("left"),fontSize:11}}>{p.pm}</td>
-                      <td style={{...S.td("right"),fontWeight:500}}>{fE((p.serviceFee||0)/1e8)}</td>
-                      <td style={{...S.td("right"),fontSize:12,color:"#0E9C8C",fontWeight:600}}>{p.floorArea>0&&p.serviceFee>0?`${Math.round(p.serviceFee/toPy(p.floorArea)).toLocaleString()}원`:"-"}</td>
-                      <td style={{...S.td("right"),fontSize:11}}>{(p.shareRatio*100).toFixed(0)}%</td>
-                      <td style={{...S.td("right"),fontSize:11}}>{p.floorArea?.toLocaleString()}</td>
-                      <td style={S.td("right")}><div style={{display:"flex",alignItems:"center",gap:5,justifyContent:"flex-end"}}><div style={{width:44,height:6,background:"var(--color-background-secondary,#f0f0ee)",borderRadius:3,overflow:"hidden"}}><div style={{width:`${p.prog}%`,height:6,background:bc,borderRadius:3}}/></div><span style={{fontSize:11,fontWeight:500,color:bc}}>{p.prog}%</span></div></td>
-                      <td style={{...S.td("right"),fontSize:11}}>{p.contractDate||"-"}</td>
-                      <td style={S.td("center")} onClick={e=>e.stopPropagation()}>
+                      <td style={PTD("left")}>{p.depts.join(", ")}</td>
+                      <td style={PTD("left")}>{p.pm}</td>
+                      <td style={{...PTD("right"),fontWeight:500}}>{fE((p.serviceFee||0)/1e8)}</td>
+                      <td style={{...PTD("right"),color:"#0E9C8C",fontWeight:600}}>{p.floorArea>0&&p.serviceFee>0?`${Math.round(p.serviceFee/toPy(p.floorArea)).toLocaleString()}원`:"-"}</td>
+                      <td style={PTD("right")}>{(p.shareRatio*100).toFixed(0)}%</td>
+                      <td style={PTD("right")}>{p.floorArea?.toLocaleString()}</td>
+                      <td style={PTD("right")}><div style={{display:"flex",alignItems:"center",gap:5,justifyContent:"flex-end"}}><div style={{width:44,height:6,background:"var(--color-background-secondary,#f0f0ee)",borderRadius:3,overflow:"hidden"}}><div style={{width:`${p.prog}%`,height:6,background:bc,borderRadius:3}}/></div><span style={{fontWeight:500,color:bc}}>{p.prog}%</span></div></td>
+                      <td style={PTD("center")} onClick={e=>e.stopPropagation()}>
                         <button onClick={()=>{
                           const ver=(p.versions||[])[(p.versions||[]).length-1]; if(!ver) return
                           const wb=XLSX.utils.book_new()
@@ -3925,16 +3927,16 @@ function ProjectsTab({projects,setProjects,selProjId,setSelProjId,selVerIdx,setS
                             ["","합계",(ver.vendors||[]).reduce((s,v)=>s+v.contract,0)]
                           ]),"협력업체비용")
                           XLSX.writeFile(wb,`실행계획서_${p.code}_${ver.ver}.xlsx`)
-                        }} style={{...S.btn(C.navyL,C.navyM),padding:"5px 11px",fontSize:12}}>↓ Excel</button>
-                        <button onClick={()=>downloadReport({...p,versions:[ver]})} style={{...S.btn(C.amberL,C.amber),padding:"5px 11px",fontSize:12}}>↓ Word</button>
+                        }} style={{...S.btn(C.navyL,C.navyM),padding:"5px 11px",fontSize:13}}>↓ Excel</button>
+                        <button onClick={()=>downloadReport({...p,versions:[ver]})} style={{...S.btn(C.amberL,C.amber),padding:"5px 11px",fontSize:13}}>↓ Word</button>
                       </td>
                       {currentUser?.role==="admin"&&(
-                        <td style={S.td("center")} onClick={e=>e.stopPropagation()}>
+                        <td style={PTD("center")} onClick={e=>e.stopPropagation()}>
                           <div style={{display:"flex",gap:4,justifyContent:"center"}}>
                             <button onClick={()=>{setInlineEditId(p.id);setInlineEditName(p.name)}}
                               title="이름 수정"
                               style={{padding:"4px 8px",background:"#E3F6F3",color:"#0E9C8C",
-                                border:"none",borderRadius:6,fontSize:11,cursor:"pointer",fontWeight:700}}>
+                                border:"none",borderRadius:6,fontSize:12,cursor:"pointer",fontWeight:700}}>
                               ✏
                             </button>
                             <button onClick={()=>{
@@ -3944,7 +3946,7 @@ function ProjectsTab({projects,setProjects,selProjId,setSelProjId,selVerIdx,setS
                               toast&&toast(`🗑 "${p.name.slice(0,20)}" 프로젝트 삭제 완료`,"info")
                             }} title="삭제"
                               style={{padding:"4px 8px",background:"#FEE2E2",color:"#DC2626",
-                                border:"none",borderRadius:6,fontSize:11,cursor:"pointer",fontWeight:700}}>
+                                border:"none",borderRadius:6,fontSize:12,cursor:"pointer",fontWeight:700}}>
                               🗑
                             </button>
                           </div>
