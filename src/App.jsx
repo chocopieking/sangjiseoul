@@ -4077,6 +4077,20 @@ function ProjectsTab({projects,setProjects,selProjId,setSelProjId,selVerIdx,setS
                       const toN=v=>{if(v==null)return 0;const n=parseFloat(String(v).replace(/[,원\s]/g,""));return Number.isFinite(n)?n:0}
                       const rLbl=r=>String(r?.[0]||"").trim()
                       const hasLbl=(r,lbl)=>rLbl(r).replace(/\s/g,"").includes(lbl.replace(/\s/g,""))
+                      // "작성일"/"담당PM" 같은 라벨은 표마다 A열이 아니라 F열·K열 등에 있을 수 있어
+                      // 행 전체를 스캔해서 라벨 옆(최대 2칸 이내) 값을 찾는다. (기존 hasLbl은 A열만 봄)
+                      const findLabelVal=(r,lbl)=>{
+                        if(!r) return ""
+                        for(let j=0;j<r.length;j++){
+                          const v=r[j]; if(v==null) continue
+                          if(String(v).replace(/\s/g,"").includes(lbl.replace(/\s/g,""))){
+                            for(let k=j+1;k<Math.min(j+3,r.length);k++){
+                              if(r[k]!=null && String(r[k]).trim()!=="") return String(r[k]).trim()
+                            }
+                          }
+                        }
+                        return ""
+                      }
                       let projName="",dept="",pm="",client="",dateStr="",laborCost=0,directExp=0,subContract=0,indirect=null,profit=null
                       const vendors=[]
                       const totalRows=rows.length
@@ -4084,9 +4098,9 @@ function ProjectsTab({projects,setProjects,selProjId,setSelProjId,selVerIdx,setS
                         const lbl=rLbl(r),lbl2=lbl.replace(/\s|\(.*\)/g,"")
                         if(hasLbl(r,"프로젝트명")) projName=String(r[1]||"").replace(/^\[.*?\]\s*/,"").trim()
                         if(hasLbl(r,"주관부서"))  dept=String(r[1]||"").trim()
-                        if(hasLbl(r,"담당PM")||hasLbl(r,"담당P M")) pm=String(r[6]||r[2]||"").trim()
+                        if(!pm){ const v=findLabelVal(r,"담당PM"); if(v) pm=v }
                         if(hasLbl(r,"발주처")&&!hasLbl(r,"담당")) client=String(r[1]||"").trim()
-                        if(hasLbl(r,"작성일")){ const dt=String(r[6]||r[1]||"").replace(/작성일\s*:/,"").trim(); if(dt) dateStr=dt }
+                        if(!dateStr){ const v=findLabelVal(r,"작성일"); if(v) dateStr=v.replace(/작성일\s*:/,"").trim() }
                         if(lbl2.includes("예상용역금액")||lbl2.includes("예상용역비")){ const v=parseFloat(String(r[1]||"").replace(/[,원\s(VAT별도)]/g,"")); if(Number.isFinite(v)&&v>0) {} }
                         if(lbl2==="직접인건비합계"){ let s=0;for(let c=2;c<r.length;c+=2)s+=toN(r[c]);if(s>0)laborCost=s }
                         if(lbl2==="직접경비합계"){  let s=0;for(let c=2;c<r.length;c+=2)s+=toN(r[c]);if(s>0)directExp=s }
