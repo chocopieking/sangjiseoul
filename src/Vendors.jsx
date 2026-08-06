@@ -7,7 +7,7 @@ import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Toolti
 import { fW, fE, fPy, getAreaBasis, calcUP, VENDOR_EMPTY, BID_TYPES } from "./data.js"
 
 const C = {
-  navy:"#0C447C",navyM:"#185FA5",navyL:"#E6F1FB",
+  navy:"#0C447C",navyM:"#0B6E63",navyL:"#E6F1FB",
   green:"#1D9E75",greenL:"#EAF3DE",
   amber:"#BA7517",amberL:"#FAEEDA",
   red:"#A32D2D",  redL:"#FCEBEB",
@@ -15,15 +15,15 @@ const C = {
 }
 const S = {
   card:(x={})=>({background:"var(--color-background-primary,#fff)",border:"0.5px solid var(--color-border-tertiary,#e4e4e0)",borderRadius:14,padding:"19px 22px",marginBottom:16,...x}),
-  th:(a="left")=>({padding:"10px 12px",textAlign:a,fontSize:13,fontWeight:600,color:"var(--color-text-secondary,#888)",background:"var(--color-background-secondary,#f8f8f6)",borderBottom:"1px solid var(--color-border-tertiary,#eee)",whiteSpace:"nowrap"}),
-  td:(a="right")=>({padding:"9px 12px",borderBottom:"0.5px solid var(--color-border-tertiary,#eee)",textAlign:a,fontSize:13.5,verticalAlign:"middle"}),
-  bdg:(bg,fg)=>({display:"inline-flex",alignItems:"center",padding:"3px 10px",borderRadius:10,fontSize:12,fontWeight:600,background:bg,color:fg}),
-  inp:(w=120)=>({width:w,padding:"7px 9px",border:"1px solid var(--color-border-secondary,#ccc)",borderRadius:8,fontSize:13,fontFamily:"inherit",background:"#fff",color:"#222"}),
-  btn:(bg=C.navyM,fg="#fff")=>({padding:"9px 16px",background:bg,color:fg,border:"none",borderRadius:10,fontSize:13,fontWeight:700,cursor:"pointer",display:"inline-flex",alignItems:"center",gap:6}),
-  lbl:()=>({display:"block",fontSize:11,color:C.gray,fontWeight:600,marginBottom:3}),
+  th:(a="left")=>({padding:"10px 12px",textAlign:a,fontSize:19.5,fontWeight:600,color:"var(--color-text-secondary,#888)",background:"var(--color-background-secondary,#f8f8f6)",borderBottom:"1px solid var(--color-border-tertiary,#eee)",whiteSpace:"nowrap"}),
+  td:(a="right")=>({padding:"9px 12px",borderBottom:"0.5px solid var(--color-border-tertiary,#eee)",textAlign:a,fontSize:20.2,verticalAlign:"middle"}),
+  bdg:(bg,fg)=>({display:"inline-flex",alignItems:"center",padding:"3px 10px",borderRadius:10,fontSize:18,fontWeight:600,background:bg,color:fg}),
+  inp:(w=120)=>({width:w,padding:"7px 9px",border:"1px solid var(--color-border-secondary,#ccc)",borderRadius:8,fontSize:19.5,fontFamily:"inherit",background:"#fff",color:"#222"}),
+  btn:(bg=C.navyM,fg="#fff")=>({padding:"9px 16px",background:bg,color:fg,border:"none",borderRadius:10,fontSize:19.5,fontWeight:700,cursor:"pointer",display:"inline-flex",alignItems:"center",gap:6}),
+  lbl:()=>({display:"block",fontSize:16.5,color:C.gray,fontWeight:600,marginBottom:3}),
 }
-const cardTitle = {fontSize:16,fontWeight:700,marginBottom:4,letterSpacing:-.2}
-const cardNote  = {fontSize:12,color:C.gray,marginBottom:12}
+const cardTitle = {fontSize:24,fontWeight:700,marginBottom:4,letterSpacing:-.2}
+const cardNote  = {fontSize:18,color:C.gray,marginBottom:12}
 const num = v => { const n=parseFloat(v); return Number.isFinite(n)?n:0 }
 const median = arr => { if(!arr.length) return null; const s=[...arr].sort((a,b)=>a-b); const mid=Math.floor(s.length/2); return s.length%2 ? s[mid] : (s[mid-1]+s[mid])/2 }
 
@@ -208,7 +208,7 @@ export function VendorsTab({projects,setProjects,vendorsDB,setVendorsDB,vendorPa
       <div style={{display:"flex",gap:8,marginBottom:14,flexWrap:"wrap",alignItems:"center"}}>
         {NAV.map(n=>(
           <button key={n.id} onClick={()=>{setView(n.id);if(n.id!=="list")setSelVendor(null)}} style={{
-            padding:"11px 18px",border:"none",borderRadius:11,fontSize:14.5,fontWeight:700,cursor:"pointer",
+            padding:"11px 18px",border:"none",borderRadius:11,fontSize:21.8,fontWeight:700,cursor:"pointer",
             background:(view===n.id||(n.id==="list"&&view==="detail"))?C.navy:"var(--color-background-primary,#fff)",
             color:(view===n.id||(n.id==="list"&&view==="detail"))?"#fff":"var(--color-text-secondary,#888)",
             boxShadow:(view===n.id||(n.id==="list"&&view==="detail"))?"0 2px 10px rgba(12,68,124,.25)":"0 0 0 0.5px var(--color-border-tertiary,#e4e4e0)",
@@ -217,14 +217,14 @@ export function VendorsTab({projects,setProjects,vendorsDB,setVendorsDB,vendorPa
         {/* 업다운로드 버튼 */}
         <div style={{marginLeft:"auto",display:"flex",gap:6,flexWrap:"wrap"}}>
           <button onClick={downloadVendors}
-            style={{...S.btn("var(--color-background-secondary,#f3f3f0)","var(--color-text-primary,#222)"),fontSize:12.5,padding:"7px 13px"}}>
+            style={{...S.btn("var(--color-background-secondary,#f3f3f0)","var(--color-text-primary,#222)"),fontSize:18.8,padding:"7px 13px"}}>
             ⬇ 전체 다운로드
           </button>
-          {canWrite&&<label style={{...S.btn(C.navyM),fontSize:12.5,padding:"7px 13px",cursor:"pointer"}}>
+          {canWrite&&<label style={{...S.btn(C.navyM),fontSize:18.8,padding:"7px 13px",cursor:"pointer"}}>
             ⬆ 협력업체 업로드
             <input type="file" accept=".xlsx,.xls" style={{display:"none"}} onChange={uploadVendors}/>
           </label>}
-          {canWrite&&<label style={{...S.btn("var(--color-background-secondary,#f3f3f0)","#D97706"),fontSize:12.5,padding:"7px 13px",cursor:"pointer",border:"1.5px solid #D97706"}}>
+          {canWrite&&<label style={{...S.btn("var(--color-background-secondary,#f3f3f0)","#D97706"),fontSize:18.8,padding:"7px 13px",cursor:"pointer",border:"1.5px solid #D97706"}}>
             ⬆ 💰 외주비 업로드
             <input type="file" accept=".xlsx,.xls" style={{display:"none"}} onChange={uploadPayments}/>
           </label>}
@@ -325,12 +325,12 @@ function VendorList({directory,search,setSearch,vendorsDB,onSelect}) {
         <div style={{display:"flex",gap:8,marginBottom:8,flexWrap:"wrap",alignItems:"center"}}>
           <input value={search} onChange={e=>{setSearch(e.target.value);setF("name",e.target.value)}}
             placeholder="🔍 업체명 검색..."
-            style={{...S.inp(220),textAlign:"left",padding:"9px 14px",fontSize:14,flex:1}}/>
+            style={{...S.inp(220),textAlign:"left",padding:"9px 14px",fontSize:21,flex:1}}/>
           <button onClick={()=>setShowFilter(v=>!v)}
-            style={{...S.btn(showFilter?C.navyM:C.navyL,showFilter?"#fff":C.navyM),padding:"8px 14px",fontSize:13}}>
+            style={{...S.btn(showFilter?C.navyM:C.navyL,showFilter?"#fff":C.navyM),padding:"8px 14px",fontSize:19.5}}>
             {showFilter?"▲ 간단검색":"▼ 상세검색"}
           </button>
-          <div style={{fontSize:13,color:C.gray,fontWeight:600,whiteSpace:"nowrap"}}>
+          <div style={{fontSize:19.5,color:C.gray,fontWeight:600,whiteSpace:"nowrap"}}>
             전체 <b style={{color:C.navyM}}>{filtered.length}</b>개 / {allVendors.length}개
           </div>
         </div>
@@ -340,23 +340,23 @@ function VendorList({directory,search,setSearch,vendorsDB,onSelect}) {
             <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10,marginBottom:10}}>
               {[["업체명","name","업체명 검색"],["주요분야/업무구분","field","예: 건축, 구조, 기계"],["대표자/담당자","rep","이름 검색"]].map(([l,k,ph])=>(
                 <div key={k}>
-                  <label style={{fontSize:11.5,fontWeight:700,color:C.navyM,display:"block",marginBottom:3}}>{l}</label>
+                  <label style={{fontSize:17.2,fontWeight:700,color:C.navyM,display:"block",marginBottom:3}}>{l}</label>
                   <input value={filters[k]} onChange={e=>setF(k,e.target.value)} placeholder={ph}
-                    style={{...S.inp("100%"),textAlign:"left",padding:"7px 10px",fontSize:13,width:"100%",boxSizing:"border-box"}}/>
+                    style={{...S.inp("100%"),textAlign:"left",padding:"7px 10px",fontSize:19.5,width:"100%",boxSizing:"border-box"}}/>
                 </div>
               ))}
             </div>
             <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
               {[["전화번호","tel","010-xxxx"],["주소","addr","시/구 검색"]].map(([l,k,ph])=>(
                 <div key={k}>
-                  <label style={{fontSize:11.5,fontWeight:700,color:C.navyM,display:"block",marginBottom:3}}>{l}</label>
+                  <label style={{fontSize:17.2,fontWeight:700,color:C.navyM,display:"block",marginBottom:3}}>{l}</label>
                   <input value={filters[k]} onChange={e=>setF(k,e.target.value)} placeholder={ph}
-                    style={{...S.inp("100%"),textAlign:"left",padding:"7px 10px",fontSize:13,width:"100%",boxSizing:"border-box"}}/>
+                    style={{...S.inp("100%"),textAlign:"left",padding:"7px 10px",fontSize:19.5,width:"100%",boxSizing:"border-box"}}/>
                 </div>
               ))}
             </div>
             <button onClick={()=>{setFilters({name:"",field:"",rep:"",tel:"",addr:""});setSearch("");setPage(1)}}
-              style={{marginTop:10,padding:"5px 14px",background:"#F3F4F6",color:"#6B7280",border:"none",borderRadius:7,fontSize:12.5,cursor:"pointer"}}>
+              style={{marginTop:10,padding:"5px 14px",background:"#F3F4F6",color:"#6B7280",border:"none",borderRadius:7,fontSize:18.8,cursor:"pointer"}}>
               초기화
             </button>
           </div>
@@ -364,11 +364,11 @@ function VendorList({directory,search,setSearch,vendorsDB,onSelect}) {
 
         {/* 정렬 */}
         <div style={{display:"flex",gap:6,alignItems:"center"}}>
-          <span style={{fontSize:12.5,color:C.gray}}>정렬:</span>
+          <span style={{fontSize:18.8,color:C.gray}}>정렬:</span>
           {[["name","업체명순"],["projects","프로젝트 많은순"],["payment","외주비 많은순"]].map(([v,l])=>(
             <button key={v} onClick={()=>setSortBy(v)}
               style={{padding:"4px 12px",border:`1.5px solid ${sortBy===v?C.navyM:"#E5E7EB"}`,borderRadius:7,
-                fontSize:12,cursor:"pointer",background:sortBy===v?C.navyL:"#fff",color:sortBy===v?C.navyM:"#6B7280",fontWeight:sortBy===v?700:400}}>
+                fontSize:18,cursor:"pointer",background:sortBy===v?C.navyL:"#fff",color:sortBy===v?C.navyM:"#6B7280",fontWeight:sortBy===v?700:400}}>
               {l}
             </button>
           ))}
@@ -385,7 +385,7 @@ function VendorList({directory,search,setSearch,vendorsDB,onSelect}) {
           </tr></thead>
           <tbody>
             {pageData.length===0&&(
-              <tr><td colSpan={7} style={{...S.td("center"),padding:"40px",color:C.gray,fontSize:14}}>
+              <tr><td colSpan={7} style={{...S.td("center"),padding:"40px",color:C.gray,fontSize:21}}>
                 검색 결과가 없습니다.
               </td></tr>
             )}
@@ -397,14 +397,14 @@ function VendorList({directory,search,setSearch,vendorsDB,onSelect}) {
                 <td style={{...S.td("left"),fontWeight:700,color:C.navyM,maxWidth:220,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
                   {v.name}
                 </td>
-                <td style={{...S.td("left"),fontSize:12.5,color:C.gray}}>
+                <td style={{...S.td("left"),fontSize:18.8,color:C.gray}}>
                   {v.bizType||((v.cats||[]).join(", "))||"-"}
                 </td>
-                <td style={{...S.td("left"),fontSize:12.5}}>
+                <td style={{...S.td("left"),fontSize:18.8}}>
                   {v.rep||"-"}
-                  {v.contact&&v.contact!==v.rep&&<span style={{fontSize:11,color:C.gray}}> / {v.contact}</span>}
+                  {v.contact&&v.contact!==v.rep&&<span style={{fontSize:16.5,color:C.gray}}> / {v.contact}</span>}
                 </td>
-                <td style={{...S.td("left"),fontSize:12.5,color:C.gray}}>
+                <td style={{...S.td("left"),fontSize:18.8,color:C.gray}}>
                   {v.tel||v.contactTel||"-"}
                 </td>
                 <td style={S.td()}>
@@ -415,7 +415,7 @@ function VendorList({directory,search,setSearch,vendorsDB,onSelect}) {
                     ? <span style={{color:"#059669",fontWeight:700}}>{v.paymentHistory.length}건</span>
                     : <span style={{color:C.gray}}>-</span>}
                 </td>
-                <td style={{...S.td("left"),fontSize:11.5,color:C.gray,maxWidth:180,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
+                <td style={{...S.td("left"),fontSize:17.2,color:C.gray,maxWidth:180,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
                   {v.addr||"-"}
                 </td>
               </tr>
@@ -428,24 +428,24 @@ function VendorList({directory,search,setSearch,vendorsDB,onSelect}) {
       {totalPages>1&&(
         <div style={{display:"flex",justifyContent:"center",gap:6,marginTop:14,flexWrap:"wrap"}}>
           <button onClick={()=>setPage(1)} disabled={page===1}
-            style={{padding:"5px 10px",border:"1px solid #E5E7EB",borderRadius:7,fontSize:12,cursor:page===1?"not-allowed":"pointer",color:page===1?C.gray:C.navyM}}>«</button>
+            style={{padding:"5px 10px",border:"1px solid #E5E7EB",borderRadius:7,fontSize:18,cursor:page===1?"not-allowed":"pointer",color:page===1?C.gray:C.navyM}}>«</button>
           <button onClick={()=>setPage(p=>Math.max(1,p-1))} disabled={page===1}
-            style={{padding:"5px 10px",border:"1px solid #E5E7EB",borderRadius:7,fontSize:12,cursor:page===1?"not-allowed":"pointer",color:page===1?C.gray:C.navyM}}>‹</button>
+            style={{padding:"5px 10px",border:"1px solid #E5E7EB",borderRadius:7,fontSize:18,cursor:page===1?"not-allowed":"pointer",color:page===1?C.gray:C.navyM}}>‹</button>
           {Array.from({length:Math.min(7,totalPages)},(_, i)=>{
             const p = Math.max(1,Math.min(totalPages-6,page-3))+i
             return p<=totalPages?(
               <button key={p} onClick={()=>setPage(p)}
-                style={{padding:"5px 12px",border:`1.5px solid ${page===p?C.navyM:"#E5E7EB"}`,borderRadius:7,fontSize:12.5,
+                style={{padding:"5px 12px",border:`1.5px solid ${page===p?C.navyM:"#E5E7EB"}`,borderRadius:7,fontSize:18.8,
                   cursor:"pointer",background:page===p?C.navyM:"#fff",color:page===p?"#fff":C.navyM,fontWeight:page===p?700:400}}>
                 {p}
               </button>
             ):null
           })}
           <button onClick={()=>setPage(p=>Math.min(totalPages,p+1))} disabled={page===totalPages}
-            style={{padding:"5px 10px",border:"1px solid #E5E7EB",borderRadius:7,fontSize:12,cursor:page===totalPages?"not-allowed":"pointer",color:page===totalPages?C.gray:C.navyM}}>›</button>
+            style={{padding:"5px 10px",border:"1px solid #E5E7EB",borderRadius:7,fontSize:18,cursor:page===totalPages?"not-allowed":"pointer",color:page===totalPages?C.gray:C.navyM}}>›</button>
           <button onClick={()=>setPage(totalPages)} disabled={page===totalPages}
-            style={{padding:"5px 10px",border:"1px solid #E5E7EB",borderRadius:7,fontSize:12,cursor:page===totalPages?"not-allowed":"pointer",color:page===totalPages?C.gray:C.navyM}}>»</button>
-          <span style={{fontSize:12.5,color:C.gray,padding:"5px 0",alignSelf:"center"}}>
+            style={{padding:"5px 10px",border:"1px solid #E5E7EB",borderRadius:7,fontSize:18,cursor:page===totalPages?"not-allowed":"pointer",color:page===totalPages?C.gray:C.navyM}}>»</button>
+          <span style={{fontSize:18.8,color:C.gray,padding:"5px 0",alignSelf:"center"}}>
             {(page-1)*PER_PAGE+1}–{Math.min(page*PER_PAGE,filtered.length)} / {filtered.length}
           </span>
         </div>
@@ -534,15 +534,15 @@ function VendorDetail({entry,vendorsDB,setVendorsDB,vendorPayments,setVendorPaym
 
   return (
     <div>
-      <button onClick={onBack} style={{...S.btn(C.grayL,"#555"),marginBottom:12,padding:"7px 14px",fontSize:12}}>← 목록으로</button>
+      <button onClick={onBack} style={{...S.btn(C.grayL,"#555"),marginBottom:12,padding:"7px 14px",fontSize:18}}>← 목록으로</button>
 
       {/* 헤더 */}
       <SCard title={`🏢 ${entry.name}`} note={`참여 프로젝트 ${entry.items.length}건 · 누적 계약액 ${fE(entry.total/1e8)}`}
         actions={canWrite&&(!editing
-          ?<button onClick={start} style={{...S.btn(C.navyL,C.navyM),padding:"6px 13px",fontSize:12}}>✏ 정보 수정</button>
+          ?<button onClick={start} style={{...S.btn(C.navyL,C.navyM),padding:"6px 13px",fontSize:18}}>✏ 정보 수정</button>
           :<div style={{display:"flex",gap:8}}>
-            <button onClick={save} style={{...S.btn(C.green),padding:"6px 13px",fontSize:12}}>저장</button>
-            <button onClick={cancel} style={{...S.btn(C.grayL,C.gray),padding:"6px 13px",fontSize:12}}>취소</button>
+            <button onClick={save} style={{...S.btn(C.green),padding:"6px 13px",fontSize:18}}>저장</button>
+            <button onClick={cancel} style={{...S.btn(C.grayL,C.gray),padding:"6px 13px",fontSize:18}}>취소</button>
           </div>)}>
         <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:14}}>
           {FIELDS.map(([k,l])=>(
@@ -550,14 +550,14 @@ function VendorDetail({entry,vendorsDB,setVendorsDB,vendorPayments,setVendorPaym
               <label style={S.lbl()}>{l}</label>
               {editing
                 ?<input value={draft[k]||""} onChange={e=>setDraft(p=>({...p,[k]:e.target.value}))} style={{...S.inp(),width:"100%"}}/>
-                :<div style={{fontSize:14,fontWeight:info[k]?600:400,color:info[k]?undefined:C.gray,padding:"7px 0"}}>{info[k]||"미입력"}</div>}
+                :<div style={{fontSize:21,fontWeight:info[k]?600:400,color:info[k]?undefined:C.gray,padding:"7px 0"}}>{info[k]||"미입력"}</div>}
             </div>
           ))}
           <div style={{gridColumn:"1/-1"}}>
             <label style={S.lbl()}>비고</label>
             {editing
               ?<input value={draft.note||""} onChange={e=>setDraft(p=>({...p,note:e.target.value}))} style={{...S.inp(),width:"100%"}}/>
-              :<div style={{fontSize:13,color:info.note?undefined:C.gray}}>{info.note||"-"}</div>}
+              :<div style={{fontSize:19.5,color:info.note?undefined:C.gray}}>{info.note||"-"}</div>}
           </div>
         </div>
       </SCard>
@@ -565,7 +565,7 @@ function VendorDetail({entry,vendorsDB,setVendorsDB,vendorPayments,setVendorPaym
       {/* 서브탭 */}
       <div style={{display:"flex",gap:4,marginBottom:14,borderBottom:"2px solid #E5E7EB"}}>
         {[["info","🏗 프로젝트·지급"],["plan","📅 지급계획 편집"],["docs","📎 문서보관"],["history","📅 사안기록"],["payments","💰 지급내역"]].map(([id,lbl])=>(
-          <button key={id} onClick={()=>setSubTab(id)} style={{padding:"9px 18px",border:"none",background:"none",fontSize:13.5,fontWeight:700,cursor:"pointer",
+          <button key={id} onClick={()=>setSubTab(id)} style={{padding:"9px 18px",border:"none",background:"none",fontSize:20.2,fontWeight:700,cursor:"pointer",
             color:subTab===id?C.navyM:"#6B7280",borderBottom:subTab===id?`3px solid ${C.navyM}`:"3px solid transparent",marginBottom:-2}}>
             {lbl}
           </button>
@@ -588,8 +588,8 @@ function VendorDetail({entry,vendorsDB,setVendorsDB,vendorPayments,setVendorPaym
                   const applied = it.nego2||it.nego1||it.contract||0
                   return (
                     <tr key={i} style={{background:i%2===0?"#fff":"#FAFAFA"}}>
-                      <td style={S.td("left")}><div style={{fontWeight:600}}>{it.projName}</div><div style={{fontSize:11,color:"#9CA3AF"}}>{it.projId}</div></td>
-                      <td style={S.td("left")}><span style={{...S.bdg(C.navyL,C.navyM),fontSize:11}}>{it.cat}</span></td>
+                      <td style={S.td("left")}><div style={{fontWeight:600}}>{it.projName}</div><div style={{fontSize:16.5,color:"#9CA3AF"}}>{it.projId}</div></td>
+                      <td style={S.td("left")}><span style={{...S.bdg(C.navyL,C.navyM),fontSize:16.5}}>{it.cat}</span></td>
                       <td style={S.td()}>{it.contract>0?it.contract.toLocaleString():"-"}</td>
                       <td style={{...S.td(),fontWeight:700,color:C.navyM}}>{applied>0?applied.toLocaleString():"-"}</td>
                       <td style={{...S.td(),color:"#0EA86E",fontWeight:600}}>{paid>0?paid.toLocaleString():"-"}</td>
@@ -615,23 +615,23 @@ function VendorDetail({entry,vendorsDB,setVendorsDB,vendorPayments,setVendorPaym
             <DocUploadForm onAdd={addDoc} cats={DOC_CATS}/>
           )}
           {docs.length===0
-            ?<div style={{padding:"30px",textAlign:"center",color:"#9CA3AF",fontSize:13}}>등록된 문서가 없습니다. 위에서 문서를 추가하세요.</div>
+            ?<div style={{padding:"30px",textAlign:"center",color:"#9CA3AF",fontSize:19.5}}>등록된 문서가 없습니다. 위에서 문서를 추가하세요.</div>
             :<div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(240px,1fr))",gap:10,marginTop:12}}>
               {docs.map(doc=>(
                 <div key={doc.id} style={{background:"#F8FAFC",borderRadius:12,border:"1px solid #E5E7EB",padding:"12px 14px"}}>
                   <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:6}}>
-                    <span style={{fontSize:20}}>{doc.category==="사업자등록증"?"🏢":doc.category==="통장사본"?"💳":doc.category==="계약서"?"📄":"📎"}</span>
+                    <span style={{fontSize:30}}>{doc.category==="사업자등록증"?"🏢":doc.category==="통장사본"?"💳":doc.category==="계약서"?"📄":"📎"}</span>
                     <div style={{flex:1}}>
-                      <div style={{fontSize:13.5,fontWeight:700,color:"#111827"}}>{doc.title}</div>
-                      <div style={{fontSize:11,color:"#9CA3AF"}}>{doc.category} · {doc.date}</div>
+                      <div style={{fontSize:20.2,fontWeight:700,color:"#111827"}}>{doc.title}</div>
+                      <div style={{fontSize:16.5,color:"#9CA3AF"}}>{doc.category} · {doc.date}</div>
                     </div>
-                    {canWrite&&<button onClick={()=>removeDoc(doc.id)} style={{background:"none",border:"none",cursor:"pointer",color:"#EF4444",fontSize:14}}>✕</button>}
+                    {canWrite&&<button onClick={()=>removeDoc(doc.id)} style={{background:"none",border:"none",cursor:"pointer",color:"#EF4444",fontSize:21}}>✕</button>}
                   </div>
-                  {doc.memo&&<div style={{fontSize:12,color:"#6B7280",marginBottom:6}}>{doc.memo}</div>}
+                  {doc.memo&&<div style={{fontSize:18,color:"#6B7280",marginBottom:6}}>{doc.memo}</div>}
                   {doc.fileData
-                    ?<a href={doc.fileData} download={doc.fileName} style={{display:"inline-flex",alignItems:"center",gap:5,padding:"5px 11px",background:"#EEF3FF",color:"#3B72F6",borderRadius:8,fontSize:12.5,fontWeight:700,textDecoration:"none"}}>⬇ 다운로드</a>
-                    :<span style={{fontSize:12,color:"#9CA3AF"}}>파일 없음</span>}
-                  <div style={{fontSize:10.5,color:"#9CA3AF",marginTop:5}}>{doc.createdBy} · {fmtDT(doc.createdAt)}</div>
+                    ?<a href={doc.fileData} download={doc.fileName} style={{display:"inline-flex",alignItems:"center",gap:5,padding:"5px 11px",background:"#EEF3FF",color:"#3B72F6",borderRadius:8,fontSize:18.8,fontWeight:700,textDecoration:"none"}}>⬇ 다운로드</a>
+                    :<span style={{fontSize:18,color:"#9CA3AF"}}>파일 없음</span>}
+                  <div style={{fontSize:15.8,color:"#9CA3AF",marginTop:5}}>{doc.createdBy} · {fmtDT(doc.createdAt)}</div>
                 </div>
               ))}
             </div>
@@ -653,12 +653,12 @@ function VendorDetail({entry,vendorsDB,setVendorsDB,vendorPayments,setVendorPaym
           )}
           {/* 타임라인 */}
           {history.length===0
-            ?<div style={{padding:"24px",textAlign:"center",color:"#9CA3AF",fontSize:13}}>등록된 기록이 없습니다.</div>
+            ?<div style={{padding:"24px",textAlign:"center",color:"#9CA3AF",fontSize:19.5}}>등록된 기록이 없습니다.</div>
             :<div style={{position:"relative",paddingLeft:8}}>
               <div style={{position:"absolute",left:120,top:0,bottom:0,width:2,background:"#E5E7EB"}}/>
               {[...history].reverse().map(h=>(
                 <div key={h.id} style={{display:"flex",gap:14,marginBottom:10,alignItems:"flex-start"}}>
-                  <div style={{width:112,flexShrink:0,textAlign:"right",paddingTop:3,fontSize:12.5,fontWeight:700,color:"#374151"}}>{h.date}</div>
+                  <div style={{width:112,flexShrink:0,textAlign:"right",paddingTop:3,fontSize:18.8,fontWeight:700,color:"#374151"}}>{h.date}</div>
                   <div style={{width:10,height:10,borderRadius:"50%",background:catColor[h.category]||"#9CA3AF",flexShrink:0,marginTop:5,zIndex:1,border:"2px solid #fff",boxShadow:`0 0 0 2px ${catColor[h.category]||"#9CA3AF"}`}}/>
                   <div style={{flex:1,background:"#fff",borderRadius:10,border:"1px solid #E5E7EB",padding:"10px 14px"}}>
                     {editHId===h.id
@@ -670,21 +670,21 @@ function VendorDetail({entry,vendorsDB,setVendorsDB,vendorPayments,setVendorPaym
                         <input value={editHDraft.content} onChange={e=>setEHD(p=>({...p,content:e.target.value}))} style={{...S.inp(),width:"100%"}}/>
                         <input value={editHDraft.memo||""} onChange={e=>setEHD(p=>({...p,memo:e.target.value}))} placeholder="메모" style={{...S.inp(),width:"100%"}}/>
                         <div style={{display:"flex",gap:6}}>
-                          <button onClick={saveHEdit} style={{...S.btn(C.green),padding:"5px 12px",fontSize:12}}>저장</button>
-                          <button onClick={()=>setEditHId(null)} style={{...S.btn(C.grayL,C.gray),padding:"5px 12px",fontSize:12}}>취소</button>
+                          <button onClick={saveHEdit} style={{...S.btn(C.green),padding:"5px 12px",fontSize:18}}>저장</button>
+                          <button onClick={()=>setEditHId(null)} style={{...S.btn(C.grayL,C.gray),padding:"5px 12px",fontSize:18}}>취소</button>
                         </div>
                       </div>
                       :<>
                         <div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}>
-                          <span style={{fontSize:11.5,padding:"2px 8px",borderRadius:10,background:(catColor[h.category]||"#9CA3AF")+"22",color:catColor[h.category]||"#9CA3AF",fontWeight:700}}>{h.category}</span>
-                          <span style={{fontSize:14,fontWeight:700,color:"#111827",flex:1}}>{h.content}</span>
+                          <span style={{fontSize:17.2,padding:"2px 8px",borderRadius:10,background:(catColor[h.category]||"#9CA3AF")+"22",color:catColor[h.category]||"#9CA3AF",fontWeight:700}}>{h.category}</span>
+                          <span style={{fontSize:21,fontWeight:700,color:"#111827",flex:1}}>{h.content}</span>
                           {canWrite&&<div style={{display:"flex",gap:4,marginLeft:"auto"}}>
-                            <button onClick={()=>{setEditHId(h.id);setEHD({date:h.date,category:h.category,content:h.content,memo:h.memo||""})}} style={{...S.btn(C.navyL,C.navyM),padding:"3px 9px",fontSize:11}}>수정</button>
-                            <button onClick={()=>removeHistory(h.id)} style={{...S.btn(C.redL,C.red),padding:"3px 9px",fontSize:11}}>삭제</button>
+                            <button onClick={()=>{setEditHId(h.id);setEHD({date:h.date,category:h.category,content:h.content,memo:h.memo||""})}} style={{...S.btn(C.navyL,C.navyM),padding:"3px 9px",fontSize:16.5}}>수정</button>
+                            <button onClick={()=>removeHistory(h.id)} style={{...S.btn(C.redL,C.red),padding:"3px 9px",fontSize:16.5}}>삭제</button>
                           </div>}
                         </div>
-                        {h.memo&&<div style={{fontSize:12.5,color:"#6B7280",background:"#F8FAFC",borderRadius:7,padding:"5px 9px",marginTop:4}}>📝 {h.memo}</div>}
-                        <div style={{fontSize:10.5,color:"#9CA3AF",marginTop:4}}>
+                        {h.memo&&<div style={{fontSize:18.8,color:"#6B7280",background:"#F8FAFC",borderRadius:7,padding:"5px 9px",marginTop:4}}>📝 {h.memo}</div>}
+                        <div style={{fontSize:15.8,color:"#9CA3AF",marginTop:4}}>
                           {h.createdBy&&`${h.createdBy} · `}{fmtDT(h.createdAt)}
                           {h.updatedAt&&` · 수정: ${h.updatedBy||""} ${fmtDT(h.updatedAt)}`}
                         </div>
@@ -710,21 +710,21 @@ function VendorDetail({entry,vendorsDB,setVendorsDB,vendorPayments,setVendorPaym
                   <details key={pi} style={{marginBottom:10,border:"1px solid #E5E7EB",borderRadius:10,overflow:"hidden"}}>
                     <summary style={{padding:"12px 16px",cursor:"pointer",background:"#F8FAFC",display:"flex",gap:10,alignItems:"center",justifyContent:"space-between",listStyle:"none"}}>
                       <div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap"}}>
-                        <span style={{fontSize:11.5,padding:"2px 8px",borderRadius:7,background:"#EEF2FF",color:"#6366F1",fontWeight:700}}>{ph.type}</span>
-                        <span style={{fontSize:14,fontWeight:700,color:"#111827"}}>{ph.project?.slice(0,35)}</span>
+                        <span style={{fontSize:17.2,padding:"2px 8px",borderRadius:7,background:"#E3F6F3",color:"#0E9C8C",fontWeight:700}}>{ph.type}</span>
+                        <span style={{fontSize:21,fontWeight:700,color:"#111827"}}>{ph.project?.slice(0,35)}</span>
                       </div>
                       <div style={{display:"flex",gap:14,alignItems:"center",flexShrink:0}}>
                         <div style={{textAlign:"right"}}>
-                          <div style={{fontSize:11,color:"#9CA3AF"}}>총 용역금액</div>
-                          <div style={{fontSize:13.5,fontWeight:800,color:"#185FA5"}}>{(ph.totalAmt/1e6).toFixed(1)}백만원</div>
+                          <div style={{fontSize:16.5,color:"#9CA3AF"}}>총 용역금액</div>
+                          <div style={{fontSize:20.2,fontWeight:800,color:"#0B6E63"}}>{(ph.totalAmt/1e6).toFixed(1)}백만원</div>
                         </div>
                         <div style={{textAlign:"right"}}>
-                          <div style={{fontSize:11,color:"#9CA3AF"}}>지급 합계</div>
-                          <div style={{fontSize:13.5,fontWeight:800,color:"#059669"}}>{ph.paidSum>0?(ph.paidSum/1e6).toFixed(1)+"백만원":"-"}</div>
+                          <div style={{fontSize:16.5,color:"#9CA3AF"}}>지급 합계</div>
+                          <div style={{fontSize:20.2,fontWeight:800,color:"#059669"}}>{ph.paidSum>0?(ph.paidSum/1e6).toFixed(1)+"백만원":"-"}</div>
                         </div>
                         <div style={{textAlign:"right"}}>
-                          <div style={{fontSize:11,color:"#9CA3AF"}}>잔액</div>
-                          <div style={{fontSize:13.5,fontWeight:800,color:ph.remain>0?"#DC2626":"#9CA3AF"}}>{ph.remain>0?(ph.remain/1e6).toFixed(1)+"백만원":"-"}</div>
+                          <div style={{fontSize:16.5,color:"#9CA3AF"}}>잔액</div>
+                          <div style={{fontSize:20.2,fontWeight:800,color:ph.remain>0?"#DC2626":"#9CA3AF"}}>{ph.remain>0?(ph.remain/1e6).toFixed(1)+"백만원":"-"}</div>
                         </div>
                         {paidRate>0&&(
                           <div style={{width:44,height:44,position:"relative",flexShrink:0}}>
@@ -733,59 +733,59 @@ function VendorDetail({entry,vendorsDB,setVendorsDB,vendorPayments,setVendorPaym
                               <circle cx="18" cy="18" r="15.9" fill="none" stroke="#059669" strokeWidth="3"
                                 strokeDasharray={`${Math.min(paidRate,100)} 100`}/>
                             </svg>
-                            <div style={{position:"absolute",inset:0,display:"flex",alignItems:"center",justifyContent:"center",fontSize:9.5,fontWeight:800,color:"#059669"}}>{paidRate}%</div>
+                            <div style={{position:"absolute",inset:0,display:"flex",alignItems:"center",justifyContent:"center",fontSize:14.2,fontWeight:800,color:"#059669"}}>{paidRate}%</div>
                           </div>
                         )}
-                        <span style={{fontSize:12,color:"#9CA3AF"}}>▼</span>
+                        <span style={{fontSize:18,color:"#9CA3AF"}}>▼</span>
                       </div>
                     </summary>
                     {/* 차수별 지급 상세 */}
                     <div style={{padding:"12px 16px"}}>
                       {(ph.payments||[]).length===0 ? (
-                        <div style={{color:"#9CA3AF",fontSize:13}}>차수별 지급 정보 없음</div>
+                        <div style={{color:"#9CA3AF",fontSize:19.5}}>차수별 지급 정보 없음</div>
                       ) : (
                         <table style={{width:"100%",borderCollapse:"collapse"}}>
                           <thead>
                             <tr style={{background:"#F8FAFC"}}>
-                              <th style={{padding:"8px 12px",textAlign:"center",fontSize:12,fontWeight:700,color:"#6B7280",borderBottom:"1px solid #E5E7EB"}}>차수</th>
-                              <th style={{padding:"8px 12px",textAlign:"left",fontSize:12,fontWeight:700,color:"#6B7280",borderBottom:"1px solid #E5E7EB"}}>지급 조건</th>
-                              <th style={{padding:"8px 12px",textAlign:"center",fontSize:12,fontWeight:700,color:"#6B7280",borderBottom:"1px solid #E5E7EB"}}>지급일</th>
-                              <th style={{padding:"8px 12px",textAlign:"right",fontSize:12,fontWeight:700,color:"#6B7280",borderBottom:"1px solid #E5E7EB"}}>금액(원)</th>
-                              <th style={{padding:"8px 12px",textAlign:"right",fontSize:12,fontWeight:700,color:"#6B7280",borderBottom:"1px solid #E5E7EB"}}>비율</th>
+                              <th style={{padding:"8px 12px",textAlign:"center",fontSize:18,fontWeight:700,color:"#6B7280",borderBottom:"1px solid #E5E7EB"}}>차수</th>
+                              <th style={{padding:"8px 12px",textAlign:"left",fontSize:18,fontWeight:700,color:"#6B7280",borderBottom:"1px solid #E5E7EB"}}>지급 조건</th>
+                              <th style={{padding:"8px 12px",textAlign:"center",fontSize:18,fontWeight:700,color:"#6B7280",borderBottom:"1px solid #E5E7EB"}}>지급일</th>
+                              <th style={{padding:"8px 12px",textAlign:"right",fontSize:18,fontWeight:700,color:"#6B7280",borderBottom:"1px solid #E5E7EB"}}>금액(원)</th>
+                              <th style={{padding:"8px 12px",textAlign:"right",fontSize:18,fontWeight:700,color:"#6B7280",borderBottom:"1px solid #E5E7EB"}}>비율</th>
                             </tr>
                           </thead>
                           <tbody>
                             {(ph.payments||[]).map((p,pj)=>(
                               <tr key={pj} style={{background:pj%2===0?"#fff":"#F9FAFB"}}>
-                                <td style={{padding:"8px 12px",textAlign:"center",fontSize:13,fontWeight:700,color:"#6366F1"}}>
-                                  <span style={{background:"#EEF2FF",padding:"2px 8px",borderRadius:6}}>{p.round}차</span>
+                                <td style={{padding:"8px 12px",textAlign:"center",fontSize:19.5,fontWeight:700,color:"#0E9C8C"}}>
+                                  <span style={{background:"#E3F6F3",padding:"2px 8px",borderRadius:6}}>{p.round}차</span>
                                 </td>
-                                <td style={{padding:"8px 12px",fontSize:13,color:"#374151"}}>{p.condition||"-"}</td>
-                                <td style={{padding:"8px 12px",textAlign:"center",fontSize:13,color:p.date?"#059669":"#9CA3AF",fontWeight:p.date?600:400}}>
+                                <td style={{padding:"8px 12px",fontSize:19.5,color:"#374151"}}>{p.condition||"-"}</td>
+                                <td style={{padding:"8px 12px",textAlign:"center",fontSize:19.5,color:p.date?"#059669":"#9CA3AF",fontWeight:p.date?600:400}}>
                                   {p.date||"미정"}
                                 </td>
-                                <td style={{padding:"8px 12px",textAlign:"right",fontSize:13.5,fontWeight:700,color:p.amount>0?"#185FA5":"#9CA3AF"}}>
+                                <td style={{padding:"8px 12px",textAlign:"right",fontSize:20.2,fontWeight:700,color:p.amount>0?"#0B6E63":"#9CA3AF"}}>
                                   {p.amount>0?p.amount.toLocaleString():"-"}
                                 </td>
-                                <td style={{padding:"8px 12px",textAlign:"right",fontSize:12,color:"#9CA3AF"}}>
+                                <td style={{padding:"8px 12px",textAlign:"right",fontSize:18,color:"#9CA3AF"}}>
                                   {ph.totalAmt>0&&p.amount>0?(p.amount/ph.totalAmt*100).toFixed(1)+"%":"-"}
                                 </td>
                               </tr>
                             ))}
                             {/* 합계 */}
-                            <tr style={{background:"#EEF2FF",borderTop:"2px solid #6366F1"}}>
-                              <td style={{padding:"9px 12px",textAlign:"center",fontSize:13,fontWeight:800,color:"#312E81"}} colSpan={3}>합계</td>
-                              <td style={{padding:"9px 12px",textAlign:"right",fontSize:14,fontWeight:900,color:"#185FA5"}}>
+                            <tr style={{background:"#E3F6F3",borderTop:"2px solid #0E9C8C"}}>
+                              <td style={{padding:"9px 12px",textAlign:"center",fontSize:19.5,fontWeight:800,color:"#312E81"}} colSpan={3}>합계</td>
+                              <td style={{padding:"9px 12px",textAlign:"right",fontSize:21,fontWeight:900,color:"#0B6E63"}}>
                                 {ph.paidSum>0?ph.paidSum.toLocaleString():paidAmt>0?paidAmt.toLocaleString():"-"}
                               </td>
-                              <td style={{padding:"9px 12px",textAlign:"right",fontSize:13,fontWeight:700,color:"#185FA5"}}>
+                              <td style={{padding:"9px 12px",textAlign:"right",fontSize:19.5,fontWeight:700,color:"#0B6E63"}}>
                                 {ph.totalAmt>0?paidRate+"%":"-"}
                               </td>
                             </tr>
                           </tbody>
                         </table>
                       )}
-                      {ph.note&&<div style={{marginTop:8,fontSize:12,color:"#9CA3AF"}}>비고: {ph.note}</div>}
+                      {ph.note&&<div style={{marginTop:8,fontSize:18,color:"#9CA3AF"}}>비고: {ph.note}</div>}
                     </div>
                   </details>
                 )
@@ -806,7 +806,7 @@ function VendorDetail({entry,vendorsDB,setVendorsDB,vendorPayments,setVendorPaym
               </div>
             )}
             {myPayments.length===0
-              ?<div style={{padding:"20px",textAlign:"center",color:"#9CA3AF",fontSize:13}}>수동 등록된 지급 기록이 없습니다.</div>
+              ?<div style={{padding:"20px",textAlign:"center",color:"#9CA3AF",fontSize:19.5}}>수동 등록된 지급 기록이 없습니다.</div>
               :<table style={{width:"100%",borderCollapse:"collapse"}}>
                 <thead><tr>
                   <th style={S.th()}>날짜</th><th style={S.th()}>프로젝트</th><th style={S.th()}>공종</th>
@@ -820,7 +820,7 @@ function VendorDetail({entry,vendorsDB,setVendorsDB,vendorPayments,setVendorPaym
                     <td style={{...S.td(),fontWeight:700,color:"#0EA86E"}}>{num(p.amount).toLocaleString()}</td>
                     <td style={S.td("left")}>{p.note||"-"}</td>
                     <td style={S.td("left")}>{p.by||"-"}</td>
-                    <td style={S.td("center")}>{canWrite&&<button onClick={()=>setVendorPayments(prev=>(prev||[]).filter(x=>x.id!==p.id))} style={{background:"none",border:"none",cursor:"pointer",color:"#EF4444",fontSize:14}}>✕</button>}</td>
+                    <td style={S.td("center")}>{canWrite&&<button onClick={()=>setVendorPayments(prev=>(prev||[]).filter(x=>x.id!==p.id))} style={{background:"none",border:"none",cursor:"pointer",color:"#EF4444",fontSize:21}}>✕</button>}</td>
                   </tr>
                 ))}</tbody>
               </table>
@@ -861,23 +861,23 @@ function DocUploadForm({onAdd,cats}) {
     if(fileRef.current)fileRef.current.value=""
   }
 
-  const S2={inp:{padding:"8px 11px",border:"1.5px solid #E5E7EB",borderRadius:9,fontSize:13.5,fontFamily:"inherit",outline:"none",boxSizing:"border-box",width:"100%"}}
+  const S2={inp:{padding:"8px 11px",border:"1.5px solid #E5E7EB",borderRadius:9,fontSize:20.2,fontFamily:"inherit",outline:"none",boxSizing:"border-box",width:"100%"}}
   return(
     <div style={{background:"#EEF3FF",borderRadius:12,padding:"14px 16px",marginBottom:14,border:"1px solid #3B72F633"}}>
-      <div style={{fontSize:13.5,fontWeight:700,color:"#3B72F6",marginBottom:10}}>📎 문서 추가</div>
+      <div style={{fontSize:20.2,fontWeight:700,color:"#3B72F6",marginBottom:10}}>📎 문서 추가</div>
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10,marginBottom:10}}>
-        <div><label style={{fontSize:12,fontWeight:700,color:"#6B7280",display:"block",marginBottom:4}}>문서명 *</label><input value={title} onChange={e=>setTitle(e.target.value)} placeholder="예: 사업자등록증 2026" style={S2.inp}/></div>
-        <div><label style={{fontSize:12,fontWeight:700,color:"#6B7280",display:"block",marginBottom:4}}>분류</label><select value={cat} onChange={e=>setCat(e.target.value)} style={S2.inp}>{cats.map(c=><option key={c}>{c}</option>)}</select></div>
-        <div><label style={{fontSize:12,fontWeight:700,color:"#6B7280",display:"block",marginBottom:4}}>날짜</label><input type="date" value={date} onChange={e=>setDate(e.target.value)} style={S2.inp}/></div>
-        <div style={{gridColumn:"span 2"}}><label style={{fontSize:12,fontWeight:700,color:"#6B7280",display:"block",marginBottom:4}}>메모</label><input value={memo} onChange={e=>setMemo(e.target.value)} placeholder="추가 메모" style={S2.inp}/></div>
-        <div><label style={{fontSize:12,fontWeight:700,color:"#6B7280",display:"block",marginBottom:4}}>파일 첨부</label>
-          <div onClick={()=>fileRef.current?.click()} style={{border:"1.5px dashed #3B72F6",borderRadius:9,padding:"8px 12px",cursor:"pointer",textAlign:"center",background:"#fff",fontSize:13}}>
+        <div><label style={{fontSize:18,fontWeight:700,color:"#6B7280",display:"block",marginBottom:4}}>문서명 *</label><input value={title} onChange={e=>setTitle(e.target.value)} placeholder="예: 사업자등록증 2026" style={S2.inp}/></div>
+        <div><label style={{fontSize:18,fontWeight:700,color:"#6B7280",display:"block",marginBottom:4}}>분류</label><select value={cat} onChange={e=>setCat(e.target.value)} style={S2.inp}>{cats.map(c=><option key={c}>{c}</option>)}</select></div>
+        <div><label style={{fontSize:18,fontWeight:700,color:"#6B7280",display:"block",marginBottom:4}}>날짜</label><input type="date" value={date} onChange={e=>setDate(e.target.value)} style={S2.inp}/></div>
+        <div style={{gridColumn:"span 2"}}><label style={{fontSize:18,fontWeight:700,color:"#6B7280",display:"block",marginBottom:4}}>메모</label><input value={memo} onChange={e=>setMemo(e.target.value)} placeholder="추가 메모" style={S2.inp}/></div>
+        <div><label style={{fontSize:18,fontWeight:700,color:"#6B7280",display:"block",marginBottom:4}}>파일 첨부</label>
+          <div onClick={()=>fileRef.current?.click()} style={{border:"1.5px dashed #3B72F6",borderRadius:9,padding:"8px 12px",cursor:"pointer",textAlign:"center",background:"#fff",fontSize:19.5}}>
             {file?<span style={{color:"#0EA86E",fontWeight:700}}>✓ {file.name} ({fmtSize(file.size)})</span>:<span style={{color:"#9CA3AF"}}>클릭하여 파일 선택</span>}
           </div>
           <input ref={fileRef} type="file" style={{display:"none"}} accept=".pdf,.jpg,.jpeg,.png,.docx,.xlsx,.hwp" onChange={pick}/>
         </div>
       </div>
-      <button onClick={add} style={{padding:"9px 20px",background:"#3B72F6",color:"#fff",border:"none",borderRadius:10,fontSize:13.5,fontWeight:700,cursor:"pointer"}}>+ 문서 추가</button>
+      <button onClick={add} style={{padding:"9px 20px",background:"#3B72F6",color:"#fff",border:"none",borderRadius:10,fontSize:20.2,fontWeight:700,cursor:"pointer"}}>+ 문서 추가</button>
     </div>
   )
 }
@@ -923,20 +923,20 @@ function VendorCompare({directory}) {
           <select value={cat} onChange={e=>setCat(e.target.value)} style={{...S.inp(220)}}>
             {allCats.map(c=><option key={c} value={c}>{c}</option>)}
           </select>
-          {cat&&<span style={{fontSize:12,color:C.gray,marginLeft:10}}>면적기준: {basis==="1식"?"1식 (평당단가 비교 불가)":basis}</span>}
+          {cat&&<span style={{fontSize:18,color:C.gray,marginLeft:10}}>면적기준: {basis==="1식"?"1식 (평당단가 비교 불가)":basis}</span>}
         </div>
 
         {byType.length===0
-          ? <div style={{padding:"12px 14px",borderRadius:10,background:C.grayL,color:C.gray,fontSize:13}}>해당 분야는 평당단가 비교가 가능한 데이터가 없습니다. (면적기준이 "1식"인 분야는 비교 대상에서 제외됩니다.)</div>
+          ? <div style={{padding:"12px 14px",borderRadius:10,background:C.grayL,color:C.gray,fontSize:19.5}}>해당 분야는 평당단가 비교가 가능한 데이터가 없습니다. (면적기준이 "1식"인 분야는 비교 대상에서 제외됩니다.)</div>
           : <>
             <ResponsiveContainer width="100%" height={240}>
               <BarChart data={byType.map(r=>({name:r.type,평균평당단가:Math.round(r.avg)}))} barCategoryGap="30%" margin={{top:24,right:10,left:0,bottom:0}}>
                 <CartesianGrid strokeDasharray="3 3" stroke="rgba(0,0,0,.05)"/>
-                <XAxis dataKey="name" tick={{fontSize:12,fontWeight:600}}/>
-                <YAxis tick={{fontSize:10}} tickFormatter={v=>(v/10000).toFixed(0)+"만"}/>
+                <XAxis dataKey="name" tick={{fontSize:18,fontWeight:600}}/>
+                <YAxis tick={{fontSize:15}} tickFormatter={v=>(v/10000).toFixed(0)+"만"}/>
                 <Tooltip formatter={v=>v.toLocaleString()+"원/평"}/>
                 <Bar dataKey="평균평당단가" fill={C.navyM} radius={[5,5,0,0]} barSize={64}>
-                  <LabelList dataKey="평균평당단가" position="top" formatter={v=>(v/10000).toFixed(0)+"만"} style={{fontSize:12,fontWeight:700,fill:C.navyM}}/>
+                  <LabelList dataKey="평균평당단가" position="top" formatter={v=>(v/10000).toFixed(0)+"만"} style={{fontSize:18,fontWeight:700,fill:C.navyM}}/>
                 </Bar>
               </BarChart>
             </ResponsiveContainer>
@@ -1041,28 +1041,28 @@ function VendorDraft({projects,setProjects,directory,canWrite,setTab,setSelProjI
         </div>
       </div>
 
-      {!proj ? <div style={{color:C.gray,fontSize:13}}>프로젝트를 선택하세요.</div> : basis==="1식"
-        ? <div style={{padding:"12px 14px",borderRadius:10,background:C.grayL,color:C.gray,fontSize:13}}>"{cat}" 분야는 면적기준이 1식이라 평당단가 기반 초안을 생성할 수 없습니다.</div>
+      {!proj ? <div style={{color:C.gray,fontSize:19.5}}>프로젝트를 선택하세요.</div> : basis==="1식"
+        ? <div style={{padding:"12px 14px",borderRadius:10,background:C.grayL,color:C.gray,fontSize:19.5}}>"{cat}" 분야는 면적기준이 1식이라 평당단가 기반 초안을 생성할 수 없습니다.</div>
         : comparable.length===0
-        ? <div style={{padding:"12px 14px",borderRadius:10,background:C.grayL,color:C.gray,fontSize:13}}>"{proj.bidType||"기타"}" 수주형태의 "{cat}" 분야 비교 사례가 없습니다. (다른 수주형태 데이터만 존재)</div>
+        ? <div style={{padding:"12px 14px",borderRadius:10,background:C.grayL,color:C.gray,fontSize:19.5}}>"{proj.bidType||"기타"}" 수주형태의 "{cat}" 분야 비교 사례가 없습니다. (다른 수주형태 데이터만 존재)</div>
         : <>
           <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:12,marginBottom:14}}>
             <div style={S.card({marginBottom:0,padding:"12px 14px"})}>
-              <div style={{fontSize:11,color:C.gray,marginBottom:5}}>비교 사례 수 ({proj.bidType||"기타"})</div>
-              <div style={{fontSize:20,fontWeight:800}}>{comparable.length}건</div>
+              <div style={{fontSize:16.5,color:C.gray,marginBottom:5}}>비교 사례 수 ({proj.bidType||"기타"})</div>
+              <div style={{fontSize:30,fontWeight:800}}>{comparable.length}건</div>
             </div>
             <div style={S.card({marginBottom:0,padding:"12px 14px"})}>
-              <div style={{fontSize:11,color:C.gray,marginBottom:5}}>평당단가 중간값</div>
-              <div style={{fontSize:20,fontWeight:800,color:C.navyM}}>{Math.round(med).toLocaleString()}원</div>
+              <div style={{fontSize:16.5,color:C.gray,marginBottom:5}}>평당단가 중간값</div>
+              <div style={{fontSize:30,fontWeight:800,color:C.navyM}}>{Math.round(med).toLocaleString()}원</div>
             </div>
             <div style={S.card({marginBottom:0,padding:"12px 14px"})}>
-              <div style={{fontSize:11,color:C.gray,marginBottom:5}}>대상 프로젝트 면적</div>
-              <div style={{fontSize:20,fontWeight:800}}>{py.toLocaleString(undefined,{maximumFractionDigits:0})}평</div>
-              <div style={{fontSize:10,color:C.gray}}>{basis} 기준</div>
+              <div style={{fontSize:16.5,color:C.gray,marginBottom:5}}>대상 프로젝트 면적</div>
+              <div style={{fontSize:30,fontWeight:800}}>{py.toLocaleString(undefined,{maximumFractionDigits:0})}평</div>
+              <div style={{fontSize:15,color:C.gray}}>{basis} 기준</div>
             </div>
             <div style={S.card({marginBottom:0,padding:"12px 14px",background:C.navyL})}>
-              <div style={{fontSize:11,color:C.navyM,marginBottom:5}}>제안 계약금액</div>
-              <div style={{fontSize:20,fontWeight:800,color:C.navyM}}>{suggested!=null?fW(suggested):"-"}</div>
+              <div style={{fontSize:16.5,color:C.navyM,marginBottom:5}}>제안 계약금액</div>
+              <div style={{fontSize:30,fontWeight:800,color:C.navyM}}>{suggested!=null?fW(suggested):"-"}</div>
             </div>
           </div>
 
@@ -1083,8 +1083,8 @@ function VendorDraft({projects,setProjects,directory,canWrite,setTab,setSelProjI
 
           {canWrite
             ? <button onClick={applyDraft} style={S.btn(C.navyM)}><i className="ti ti-file-plus" aria-hidden="true"/> 이 제안금액으로 신규버전 초안 생성</button>
-            : <div style={{fontSize:12,color:C.gray}}>초안 생성은 입력 권한이 있는 계정에서 가능합니다.</div>}
-          <div style={{fontSize:11,color:C.gray,marginTop:8}}>초안 생성 시 프로젝트 탭의 새 버전으로 추가되며, 업체명은 "(업체 선택 필요)"로 표시되어 직접 지정해야 합니다.</div>
+            : <div style={{fontSize:18,color:C.gray}}>초안 생성은 입력 권한이 있는 계정에서 가능합니다.</div>}
+          <div style={{fontSize:16.5,color:C.gray,marginTop:8}}>초안 생성 시 프로젝트 탭의 새 버전으로 추가되며, 업체명은 "(업체 선택 필요)"로 표시되어 직접 지정해야 합니다.</div>
         </>}
     </SCard>
   )
@@ -1186,15 +1186,15 @@ ${JSON.stringify(ctx.vendors, null, 0).slice(0,6000)}
   const renderMD = (text) => {
     const lines = text.split("\n")
     return lines.map((line,i)=>{
-      if(line.startsWith("## ")) return <div key={i} style={{fontSize:16,fontWeight:800,color:C.navyM,margin:"10px 0 4px"}}>{line.slice(3)}</div>
-      if(line.startsWith("# "))  return <div key={i} style={{fontSize:18,fontWeight:900,color:"#111827",margin:"12px 0 4px"}}>{line.slice(2)}</div>
+      if(line.startsWith("## ")) return <div key={i} style={{fontSize:24,fontWeight:800,color:C.navyM,margin:"10px 0 4px"}}>{line.slice(3)}</div>
+      if(line.startsWith("# "))  return <div key={i} style={{fontSize:27,fontWeight:900,color:"#111827",margin:"12px 0 4px"}}>{line.slice(2)}</div>
       if(line.startsWith("**")||line.match(/^\*\*.*\*\*$/)) return <div key={i} style={{fontWeight:700,color:"#111827"}}>{line.replace(/\*\*/g,"")}</div>
       if(line.startsWith("- ")||line.startsWith("• ")) return <div key={i} style={{paddingLeft:16,margin:"2px 0",display:"flex",gap:6}}><span>•</span><span>{line.slice(2)}</span></div>
       if(line.match(/^\d+\. /)) return <div key={i} style={{paddingLeft:16,margin:"2px 0"}}>{line}</div>
       if(line.startsWith("|")&&line.includes("|")) {
         const cells=line.split("|").filter(Boolean)
         return <div key={i} style={{display:"flex",gap:0,borderBottom:"1px solid #E5E7EB"}}>
-          {cells.map((c,ci)=><div key={ci} style={{flex:1,padding:"5px 8px",fontSize:13,borderRight:"1px solid #E5E7EB",fontWeight:cells[0].includes("---")?"normal":ci===0?700:400}}>{c.trim()==="-".repeat(c.trim().length)?null:c.trim()}</div>)}
+          {cells.map((c,ci)=><div key={ci} style={{flex:1,padding:"5px 8px",fontSize:19.5,borderRight:"1px solid #E5E7EB",fontWeight:cells[0].includes("---")?"normal":ci===0?700:400}}>{c.trim()==="-".repeat(c.trim().length)?null:c.trim()}</div>)}
         </div>
       }
       if(line==="---"||line.match(/^-{3,}$/)) return <hr key={i} style={{border:"none",borderTop:"1px solid #E5E7EB",margin:"8px 0"}}/>
@@ -1206,12 +1206,12 @@ ${JSON.stringify(ctx.vendors, null, 0).slice(0,6000)}
     <SCard title="🤖 AI 통합 분석" note="프로젝트·협력업체·외주비 데이터를 자연어로 질의하여 분석합니다">
       {/* 예시 질문 */}
       <div style={{marginBottom:14}}>
-        <div style={{fontSize:13,fontWeight:700,color:C.gray,marginBottom:7}}>💡 예시 질문 (클릭하면 바로 질의)</div>
+        <div style={{fontSize:19.5,fontWeight:700,color:C.gray,marginBottom:7}}>💡 예시 질문 (클릭하면 바로 질의)</div>
         <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
           {examples.map((ex,i)=>(
             <button key={i} onClick={()=>sendQuery(ex)}
               style={{padding:"6px 12px",background:C.navyL,color:C.navyM,border:`1px solid ${C.navyM}40`,
-                borderRadius:8,fontSize:12.5,cursor:"pointer",fontWeight:500,textAlign:"left",lineHeight:1.4}}>
+                borderRadius:8,fontSize:18.8,cursor:"pointer",fontWeight:500,textAlign:"left",lineHeight:1.4}}>
               {ex}
             </button>
           ))}
@@ -1222,9 +1222,9 @@ ${JSON.stringify(ctx.vendors, null, 0).slice(0,6000)}
       <div style={{background:"#F8FAFC",borderRadius:12,border:"1px solid #E5E7EB",minHeight:300,maxHeight:500,overflowY:"auto",padding:"14px 16px",marginBottom:12}}>
         {history.length===0&&(
           <div style={{textAlign:"center",padding:"60px 20px",color:C.gray}}>
-            <div style={{fontSize:36,marginBottom:10}}>🤖</div>
-            <div style={{fontSize:14,fontWeight:600,marginBottom:4}}>AI 분석 어시스턴트</div>
-            <div style={{fontSize:12.5}}>위 예시를 클릭하거나 아래 입력창에 질문을 입력하세요</div>
+            <div style={{fontSize:54,marginBottom:10}}>🤖</div>
+            <div style={{fontSize:21,fontWeight:600,marginBottom:4}}>AI 분석 어시스턴트</div>
+            <div style={{fontSize:18.8}}>위 예시를 클릭하거나 아래 입력창에 질문을 입력하세요</div>
           </div>
         )}
         {history.map((msg,i)=>(
@@ -1236,17 +1236,17 @@ ${JSON.stringify(ctx.vendors, null, 0).slice(0,6000)}
               color:msg.role==="user"?"#fff":"#111827",
               boxShadow:"0 1px 4px rgba(0,0,0,.08)",
               border:msg.role==="assistant"?"1px solid #E5E7EB":"none",
-              fontSize:13.5,lineHeight:1.65
+              fontSize:20.2,lineHeight:1.65
             }}>
               {msg.role==="assistant" ? renderMD(msg.content) : msg.content}
             </div>
-            {msg.time&&<div style={{fontSize:11,color:C.gray,marginTop:3}}>{msg.time}</div>}
+            {msg.time&&<div style={{fontSize:16.5,color:C.gray,marginTop:3}}>{msg.time}</div>}
           </div>
         ))}
         {loading&&(
           <div style={{display:"flex",alignItems:"center",gap:8,padding:"10px 14px",background:"#fff",borderRadius:12,border:"1px solid #E5E7EB",width:"fit-content"}}>
-            <div style={{fontSize:18}}>🤖</div>
-            <div style={{fontSize:13,color:C.gray}}>분석 중...</div>
+            <div style={{fontSize:27}}>🤖</div>
+            <div style={{fontSize:19.5,color:C.gray}}>분석 중...</div>
             <div style={{display:"flex",gap:3}}>
               {[0,1,2].map(i=><div key={i} style={{width:6,height:6,borderRadius:"50%",background:C.navyM,animation:`pulse 1.2s ${i*0.4}s infinite`}}/>)}
             </div>
@@ -1260,14 +1260,14 @@ ${JSON.stringify(ctx.vendors, null, 0).slice(0,6000)}
         <input value={query} onChange={e=>setQuery(e.target.value)}
           onKeyDown={e=>e.key==="Enter"&&!e.shiftKey&&sendQuery(query)}
           placeholder="예: LH 프로젝트에서 구조 분야 협력업체 비교해줘 (Enter)"
-          style={{flex:1,padding:"11px 16px",border:`1.5px solid ${C.navyM}`,borderRadius:10,fontSize:14,fontFamily:"inherit",outline:"none"}}
+          style={{flex:1,padding:"11px 16px",border:`1.5px solid ${C.navyM}`,borderRadius:10,fontSize:21,fontFamily:"inherit",outline:"none"}}
           disabled={loading}/>
         <button onClick={()=>sendQuery(query)} disabled={loading||!query.trim()}
-          style={{...S.btn(loading?C.gray:C.navyM),padding:"11px 22px",fontSize:14,opacity:loading||!query.trim()?0.6:1}}>
+          style={{...S.btn(loading?C.gray:C.navyM),padding:"11px 22px",fontSize:21,opacity:loading||!query.trim()?0.6:1}}>
           전송
         </button>
         {history.length>0&&<button onClick={()=>setHistory([])}
-          style={{...S.btn(C.grayL,C.gray),padding:"11px 14px",fontSize:13}}>
+          style={{...S.btn(C.grayL,C.gray),padding:"11px 14px",fontSize:19.5}}>
           초기화
         </button>}
       </div>
@@ -1309,7 +1309,7 @@ export function VendorPaymentPlanEditor({vendorsDB, setVendorsDB, entry, canWrit
     })
   }
 
-  const INP = {padding:"7px 10px",border:"1.5px solid #E5E7EB",borderRadius:7,fontSize:13,
+  const INP = {padding:"7px 10px",border:"1.5px solid #E5E7EB",borderRadius:7,fontSize:19.5,
                width:"100%",boxSizing:"border-box",fontFamily:"inherit",outline:"none"}
 
   return (
@@ -1319,9 +1319,9 @@ export function VendorPaymentPlanEditor({vendorsDB, setVendorsDB, entry, canWrit
         <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:14}}>
           {history.map((h,i)=>(
             <button key={i} onClick={()=>setSelProjIdx(i)}
-              style={{padding:"6px 12px",border:`1.5px solid ${selProjIdx===i?"#6366F1":"#E5E7EB"}`,
-                borderRadius:8,fontSize:12.5,cursor:"pointer",fontWeight:selProjIdx===i?700:400,
-                background:selProjIdx===i?"#EEF2FF":"#fff",color:selProjIdx===i?"#6366F1":"#6B7280"}}>
+              style={{padding:"6px 12px",border:`1.5px solid ${selProjIdx===i?"#0E9C8C":"#E5E7EB"}`,
+                borderRadius:8,fontSize:18.8,cursor:"pointer",fontWeight:selProjIdx===i?700:400,
+                background:selProjIdx===i?"#E3F6F3":"#fff",color:selProjIdx===i?"#0E9C8C":"#6B7280"}}>
               {h.project?.slice(0,20)} ({h.type})
             </button>
           ))}
@@ -1332,13 +1332,13 @@ export function VendorPaymentPlanEditor({vendorsDB, setVendorsDB, entry, canWrit
       {ph && (
         <div>
           {/* 프로젝트·공종 요약 */}
-          <div style={{background:"linear-gradient(135deg,#0C447C,#185FA5)",borderRadius:12,padding:"14px 18px",marginBottom:14,color:"#fff",display:"flex",gap:16,flexWrap:"wrap",alignItems:"center"}}>
+          <div style={{background:"linear-gradient(135deg,#0C447C,#0B6E63)",borderRadius:12,padding:"14px 18px",marginBottom:14,color:"#fff",display:"flex",gap:16,flexWrap:"wrap",alignItems:"center"}}>
             <div style={{flex:1}}>
-              <div style={{fontSize:11.5,opacity:.8,marginBottom:3}}>[{ph.type}] {ph.project?.slice(0,40)}</div>
+              <div style={{fontSize:17.2,opacity:.8,marginBottom:3}}>[{ph.type}] {ph.project?.slice(0,40)}</div>
               <div style={{display:"flex",gap:16}}>
-                <div><div style={{fontSize:10,opacity:.7}}>총 용역금액</div><div style={{fontSize:15,fontWeight:800}}>{(ph.totalAmt/1e8).toFixed(2)}억</div></div>
-                <div><div style={{fontSize:10,opacity:.7}}>지급 합계</div><div style={{fontSize:15,fontWeight:800,color:"#34D399"}}>{ph.paidSum>0?(ph.paidSum/1e8).toFixed(2)+"억":"-"}</div></div>
-                <div><div style={{fontSize:10,opacity:.7}}>잔액</div><div style={{fontSize:15,fontWeight:800,color:ph.remain>0?"#FDE68A":"#9CA3AF"}}>{ph.remain>0?(ph.remain/1e8).toFixed(2)+"억":"-"}</div></div>
+                <div><div style={{fontSize:15,opacity:.7}}>총 용역금액</div><div style={{fontSize:22.5,fontWeight:800}}>{(ph.totalAmt/1e8).toFixed(2)}억</div></div>
+                <div><div style={{fontSize:15,opacity:.7}}>지급 합계</div><div style={{fontSize:22.5,fontWeight:800,color:"#34D399"}}>{ph.paidSum>0?(ph.paidSum/1e8).toFixed(2)+"억":"-"}</div></div>
+                <div><div style={{fontSize:15,opacity:.7}}>잔액</div><div style={{fontSize:22.5,fontWeight:800,color:ph.remain>0?"#FDE68A":"#9CA3AF"}}>{ph.remain>0?(ph.remain/1e8).toFixed(2)+"억":"-"}</div></div>
               </div>
             </div>
           </div>
@@ -1348,7 +1348,7 @@ export function VendorPaymentPlanEditor({vendorsDB, setVendorsDB, entry, canWrit
             <thead>
               <tr style={{background:"#F8FAFC"}}>
                 {["차수","지급 조건/단계","지급 예정일","금액(원)","지급 여부","비고",""].map((h,i)=>(
-                  <th key={h+i} style={{padding:"9px 12px",textAlign:i>=2?"center":"left",fontSize:12.5,fontWeight:700,color:"#6B7280",borderBottom:"2px solid #E5E7EB"}}>{h}</th>
+                  <th key={h+i} style={{padding:"9px 12px",textAlign:i>=2?"center":"left",fontSize:18.8,fontWeight:700,color:"#6B7280",borderBottom:"2px solid #E5E7EB"}}>{h}</th>
                 ))}
               </tr>
             </thead>
@@ -1358,10 +1358,10 @@ export function VendorPaymentPlanEditor({vendorsDB, setVendorsDB, entry, canWrit
                 const isPaid = !!p.date && p.date <= new Date().toISOString().slice(0,10)
                 return (
                   <tr key={pi} style={{background:isPaid?"#F0FDF4":pi%2===0?"#fff":"#F9FAFB"}}>
-                    <td style={{padding:"9px 12px",textAlign:"center",fontWeight:700,color:"#6366F1",fontSize:13}}>
-                      <span style={{background:"#EEF2FF",padding:"2px 8px",borderRadius:6}}>{p.round}차</span>
+                    <td style={{padding:"9px 12px",textAlign:"center",fontWeight:700,color:"#0E9C8C",fontSize:19.5}}>
+                      <span style={{background:"#E3F6F3",padding:"2px 8px",borderRadius:6}}>{p.round}차</span>
                     </td>
-                    <td style={{padding:"9px 12px",fontSize:13,color:"#374151",minWidth:120}}>
+                    <td style={{padding:"9px 12px",fontSize:19.5,color:"#374151",minWidth:120}}>
                       {isEdit
                         ? <input value={draft.condition} onChange={e=>setDraft(d=>({...d,condition:e.target.value}))} style={INP}/>
                         : p.condition||"-"}
@@ -1369,20 +1369,20 @@ export function VendorPaymentPlanEditor({vendorsDB, setVendorsDB, entry, canWrit
                     <td style={{padding:"9px 12px",textAlign:"center",minWidth:130}}>
                       {isEdit
                         ? <input type="date" value={draft.date} onChange={e=>setDraft(d=>({...d,date:e.target.value}))} style={INP}/>
-                        : <span style={{fontSize:13,fontWeight:p.date?700:400,color:p.date?"#059669":"#9CA3AF"}}>{p.date||"미정"}</span>}
+                        : <span style={{fontSize:19.5,fontWeight:p.date?700:400,color:p.date?"#059669":"#9CA3AF"}}>{p.date||"미정"}</span>}
                     </td>
                     <td style={{padding:"9px 12px",textAlign:"right",minWidth:120}}>
                       {isEdit
                         ? <input type="number" value={draft.amount} onChange={e=>setDraft(d=>({...d,amount:e.target.value}))} style={{...INP,textAlign:"right"}}/>
-                        : <span style={{fontSize:13.5,fontWeight:700,color:p.amount>0?"#185FA5":"#9CA3AF"}}>{p.amount>0?p.amount.toLocaleString():"-"}</span>}
+                        : <span style={{fontSize:20.2,fontWeight:700,color:p.amount>0?"#0B6E63":"#9CA3AF"}}>{p.amount>0?p.amount.toLocaleString():"-"}</span>}
                     </td>
                     <td style={{padding:"9px 12px",textAlign:"center"}}>
-                      <span style={{fontSize:11,padding:"2px 8px",borderRadius:8,fontWeight:700,
+                      <span style={{fontSize:16.5,padding:"2px 8px",borderRadius:8,fontWeight:700,
                         background:isPaid?"#D1FAE5":"#FEF3C7",color:isPaid?"#059669":"#D97706"}}>
                         {isPaid?"✅ 지급완료":"⏳ 예정"}
                       </span>
                     </td>
-                    <td style={{padding:"9px 12px",fontSize:12,color:"#9CA3AF",minWidth:100}}>
+                    <td style={{padding:"9px 12px",fontSize:18,color:"#9CA3AF",minWidth:100}}>
                       {isEdit
                         ? <input value={draft.note||""} onChange={e=>setDraft(d=>({...d,note:e.target.value}))} placeholder="비고" style={INP}/>
                         : p.note||""}
@@ -1390,7 +1390,7 @@ export function VendorPaymentPlanEditor({vendorsDB, setVendorsDB, entry, canWrit
                     <td style={{padding:"6px 8px",textAlign:"center",whiteSpace:"nowrap"}}>
                       {canWrite && !isEdit && (
                         <button onClick={()=>{setEditingIdx(pi);setDraft({...p})}}
-                          style={{padding:"4px 10px",background:"#EEF2FF",color:"#6366F1",border:"none",borderRadius:6,fontSize:11.5,cursor:"pointer",fontWeight:700}}>✏</button>
+                          style={{padding:"4px 10px",background:"#E3F6F3",color:"#0E9C8C",border:"none",borderRadius:6,fontSize:17.2,cursor:"pointer",fontWeight:700}}>✏</button>
                       )}
                       {canWrite && isEdit && (
                         <div style={{display:"flex",gap:4}}>
@@ -1399,15 +1399,15 @@ export function VendorPaymentPlanEditor({vendorsDB, setVendorsDB, entry, canWrit
                             updated[pi]={...p,...draft,amount:parseInt(draft.amount)||p.amount}
                             savePaymentPlan(selProjIdx,updated)
                             setEditingIdx(null); setDraft(null)
-                          }} style={{padding:"4px 10px",background:"#D1FAE5",color:"#059669",border:"none",borderRadius:6,fontSize:11.5,cursor:"pointer",fontWeight:700}}>✓</button>
+                          }} style={{padding:"4px 10px",background:"#D1FAE5",color:"#059669",border:"none",borderRadius:6,fontSize:17.2,cursor:"pointer",fontWeight:700}}>✓</button>
                           <button onClick={()=>{setEditingIdx(null);setDraft(null)}}
-                            style={{padding:"4px 8px",background:"#F3F4F6",color:"#6B7280",border:"none",borderRadius:6,fontSize:11.5,cursor:"pointer"}}>✕</button>
+                            style={{padding:"4px 8px",background:"#F3F4F6",color:"#6B7280",border:"none",borderRadius:6,fontSize:17.2,cursor:"pointer"}}>✕</button>
                           <button onClick={()=>{
                             if(!window.confirm("이 차수를 삭제하시겠습니까?")) return
                             const updated=(ph.payments||[]).filter((_,i)=>i!==pi)
                             savePaymentPlan(selProjIdx,updated)
                             setEditingIdx(null); setDraft(null)
-                          }} style={{padding:"4px 8px",background:"#FEE2E2",color:"#DC2626",border:"none",borderRadius:6,fontSize:11.5,cursor:"pointer"}}>🗑</button>
+                          }} style={{padding:"4px 8px",background:"#FEE2E2",color:"#DC2626",border:"none",borderRadius:6,fontSize:17.2,cursor:"pointer"}}>🗑</button>
                         </div>
                       )}
                     </td>
@@ -1415,9 +1415,9 @@ export function VendorPaymentPlanEditor({vendorsDB, setVendorsDB, entry, canWrit
                 )
               })}
               {/* 합계 행 */}
-              <tr style={{background:"#EEF2FF",borderTop:"2px solid #6366F1"}}>
-                <td style={{padding:"9px 12px",fontWeight:800,color:"#312E81",textAlign:"center",fontSize:13}} colSpan={3}>합계</td>
-                <td style={{padding:"9px 12px",textAlign:"right",fontWeight:900,color:"#185FA5",fontSize:14}}>
+              <tr style={{background:"#E3F6F3",borderTop:"2px solid #0E9C8C"}}>
+                <td style={{padding:"9px 12px",fontWeight:800,color:"#312E81",textAlign:"center",fontSize:19.5}} colSpan={3}>합계</td>
+                <td style={{padding:"9px 12px",textAlign:"right",fontWeight:900,color:"#0B6E63",fontSize:21}}>
                   {(ph.payments||[]).reduce((s,p)=>s+(p.amount||0),0).toLocaleString()}원
                 </td>
                 <td colSpan={3}/>
@@ -1430,34 +1430,34 @@ export function VendorPaymentPlanEditor({vendorsDB, setVendorsDB, entry, canWrit
             <div>
               {!showAdd
                 ? <button onClick={()=>setShowAdd(true)}
-                    style={{padding:"8px 18px",background:"#6366F1",color:"#fff",border:"none",borderRadius:9,fontSize:13,fontWeight:700,cursor:"pointer"}}>
+                    style={{padding:"8px 18px",background:"#0E9C8C",color:"#fff",border:"none",borderRadius:9,fontSize:19.5,fontWeight:700,cursor:"pointer"}}>
                     + 새 차수 추가
                   </button>
-                : <div style={{background:"#EEF2FF",borderRadius:12,border:"2px solid #6366F1",padding:"14px 16px"}}>
-                    <div style={{fontSize:13.5,fontWeight:700,color:"#312E81",marginBottom:10}}>+ 지급 차수 추가</div>
+                : <div style={{background:"#E3F6F3",borderRadius:12,border:"2px solid #0E9C8C",padding:"14px 16px"}}>
+                    <div style={{fontSize:20.2,fontWeight:700,color:"#312E81",marginBottom:10}}>+ 지급 차수 추가</div>
                     <div style={{display:"grid",gridTemplateColumns:"1fr 2fr 1fr 1fr 1fr",gap:10,marginBottom:10}}>
                       <div>
-                        <label style={{fontSize:11,fontWeight:700,color:"#6366F1",display:"block",marginBottom:3}}>차수</label>
+                        <label style={{fontSize:16.5,fontWeight:700,color:"#0E9C8C",display:"block",marginBottom:3}}>차수</label>
                         <input type="number" value={newPay.round} onChange={e=>setNewPay(p=>({...p,round:e.target.value}))}
                           placeholder={((ph.payments||[]).length+1)+"차"}
                           style={INP}/>
                       </div>
                       <div>
-                        <label style={{fontSize:11,fontWeight:700,color:"#6366F1",display:"block",marginBottom:3}}>지급 조건/단계</label>
+                        <label style={{fontSize:16.5,fontWeight:700,color:"#0E9C8C",display:"block",marginBottom:3}}>지급 조건/단계</label>
                         <input value={newPay.condition} onChange={e=>setNewPay(p=>({...p,condition:e.target.value}))}
                           placeholder="예: 실시설계 완료 후" style={INP}/>
                       </div>
                       <div>
-                        <label style={{fontSize:11,fontWeight:700,color:"#6366F1",display:"block",marginBottom:3}}>지급 예정일</label>
+                        <label style={{fontSize:16.5,fontWeight:700,color:"#0E9C8C",display:"block",marginBottom:3}}>지급 예정일</label>
                         <input type="date" value={newPay.date} onChange={e=>setNewPay(p=>({...p,date:e.target.value}))} style={INP}/>
                       </div>
                       <div>
-                        <label style={{fontSize:11,fontWeight:700,color:"#6366F1",display:"block",marginBottom:3}}>금액(원)</label>
+                        <label style={{fontSize:16.5,fontWeight:700,color:"#0E9C8C",display:"block",marginBottom:3}}>금액(원)</label>
                         <input type="number" value={newPay.amount} onChange={e=>setNewPay(p=>({...p,amount:e.target.value}))}
                           placeholder="10000000" style={INP}/>
                       </div>
                       <div>
-                        <label style={{fontSize:11,fontWeight:700,color:"#6366F1",display:"block",marginBottom:3}}>비고</label>
+                        <label style={{fontSize:16.5,fontWeight:700,color:"#0E9C8C",display:"block",marginBottom:3}}>비고</label>
                         <input value={newPay.note} onChange={e=>setNewPay(p=>({...p,note:e.target.value}))} style={INP}/>
                       </div>
                     </div>
@@ -1470,9 +1470,9 @@ export function VendorPaymentPlanEditor({vendorsDB, setVendorsDB, entry, canWrit
                         savePaymentPlan(selProjIdx,updated)
                         setNewPay({round:"",condition:"",date:"",amount:"",note:""})
                         setShowAdd(false)
-                      }} style={{padding:"7px 18px",background:"#059669",color:"#fff",border:"none",borderRadius:9,fontSize:13,fontWeight:700,cursor:"pointer"}}>💾 추가</button>
+                      }} style={{padding:"7px 18px",background:"#059669",color:"#fff",border:"none",borderRadius:9,fontSize:19.5,fontWeight:700,cursor:"pointer"}}>💾 추가</button>
                       <button onClick={()=>setShowAdd(false)}
-                        style={{padding:"7px 14px",background:"#F3F4F6",color:"#6B7280",border:"none",borderRadius:9,fontSize:13,cursor:"pointer"}}>취소</button>
+                        style={{padding:"7px 14px",background:"#F3F4F6",color:"#6B7280",border:"none",borderRadius:9,fontSize:19.5,cursor:"pointer"}}>취소</button>
                     </div>
                   </div>
               }

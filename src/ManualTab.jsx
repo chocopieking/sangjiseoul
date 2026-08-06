@@ -3,19 +3,19 @@
 // ══════════════════════════════════════════════════════════════
 import { useState, useMemo, useRef } from "react"
 
-const C={navyM:"#3B72F6",navyL:"#EEF3FF",navy:"#1A3B6E",green:"#0EA86E",greenL:"#E6F9F2",amber:"#F59E0B",amberL:"#FEF3C7",red:"#EF4444",redL:"#FEE2E2",gray:"#6B7280",grayL:"#F3F4F6"}
+const C={navyM:"#0E9C8C",navyL:"#E3F6F3",navy:"#0B6E63",green:"#0EA86E",greenL:"#E6F9F2",amber:"#F59E0B",amberL:"#FEF3C7",red:"#EF4444",redL:"#FEE2E2",gray:"#6B7280",grayL:"#F3F4F6"}
 const now=()=>new Date().toISOString()
 const fmtDT=iso=>iso?new Date(iso).toLocaleString("ko-KR",{month:"short",day:"numeric",hour:"2-digit",minute:"2-digit"}):""
 const uid=()=>`id_${Date.now()}_${Math.random().toString(36).slice(2,7)}`
 
 // ── 섹션 타입 정의 ───────────────────────────────────────────
 const SEC_TYPES=[
-  {type:"heading", label:"📌 소제목", color:"#1A3B6E"},
+  {type:"heading", label:"📌 소제목", color:"#0B6E63"},
   {type:"text",    label:"📝 본문",   color:"#374151"},
-  {type:"steps",   label:"🔢 절차단계",color:"#3B72F6"},
+  {type:"steps",   label:"🔢 절차단계",color:"#0E9C8C"},
   {type:"warning", label:"⚠ 주의",   color:"#F59E0B"},
   {type:"table",   label:"📊 표",     color:"#0EA86E"},
-  {type:"link",    label:"🔗 링크",   color:"#534AB7"},
+  {type:"link",    label:"🔗 링크",   color:"#0E9C8C"},
   {type:"approval",label:"📋 결재선", color:"#D85A30"},
   {type:"form",    label:"📎 양식첨부",color:"#6B7280"},
 ]
@@ -187,8 +187,8 @@ export function ManualTab({currentUser}){
     return{...prev,categories:a}
   })
 
-  const S={inp:{width:"100%",padding:"9px 12px",border:"1.5px solid #E5E7EB",borderRadius:9,fontSize:14,boxSizing:"border-box",fontFamily:"inherit",outline:"none"},
-    btn:(bg="#3B72F6",fg="#fff")=>({padding:"8px 16px",background:bg,color:fg,border:"none",borderRadius:9,fontSize:13.5,fontWeight:700,cursor:"pointer"})}
+  const S={inp:{width:"100%",padding:"9px 12px",border:"1.5px solid #E5E7EB",borderRadius:9,fontSize:21,boxSizing:"border-box",fontFamily:"inherit",outline:"none"},
+    btn:(bg="#0E9C8C",fg="#fff")=>({padding:"8px 16px",background:bg,color:fg,border:"none",borderRadius:9,fontSize:20.2,fontWeight:700,cursor:"pointer"})}
 
   return (
     <div style={{display:"grid",gridTemplateColumns:"240px 1fr",gap:0,height:"calc(100vh-140px)",minHeight:600}}>
@@ -197,29 +197,29 @@ export function ManualTab({currentUser}){
       <div style={{background:"#fff",borderRight:"1px solid #E5E7EB",display:"flex",flexDirection:"column",borderRadius:"14px 0 0 14px",overflow:"hidden"}}>
         <div style={{padding:"14px 12px",borderBottom:"1px solid #F3F4F6",display:"flex",gap:7,alignItems:"center"}}>
           <div style={{flex:1,position:"relative"}}>
-            <span style={{position:"absolute",left:9,top:"50%",transform:"translateY(-50%)",fontSize:13}}>🔍</span>
+            <span style={{position:"absolute",left:9,top:"50%",transform:"translateY(-50%)",fontSize:19.5}}>🔍</span>
             <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="검색..."
-              style={{...S.inp,padding:"8px 9px 8px 28px",fontSize:13}}/>
+              style={{...S.inp,padding:"8px 9px 8px 28px",fontSize:19.5}}/>
           </div>
-          {canEdit&&<button onClick={()=>setEditCat(v=>!v)} style={{...S.btn("#F3F4F6","#374151"),padding:"7px 9px",fontSize:12}} title="카테고리 관리">⚙</button>}
+          {canEdit&&<button onClick={()=>setEditCat(v=>!v)} style={{...S.btn("#F3F4F6","#374151"),padding:"7px 9px",fontSize:18}} title="카테고리 관리">⚙</button>}
         </div>
 
         {/* 카테고리 관리 모드 */}
         {editCat&&canEdit&&(
           <div style={{padding:"10px",background:"#FEF9EE",borderBottom:"1px solid #E5E7EB"}}>
-            <div style={{fontSize:12,fontWeight:700,color:C.amber,marginBottom:7}}>⚙ 카테고리 순서 편집</div>
+            <div style={{fontSize:18,fontWeight:700,color:C.amber,marginBottom:7}}>⚙ 카테고리 순서 편집</div>
             {[...data.categories].sort((a,b)=>a.order-b.order).map((cat,i,arr)=>(
               <div key={cat.id} style={{display:"flex",gap:4,alignItems:"center",marginBottom:4}}>
                 <div style={{display:"flex",flexDirection:"column",gap:1}}>
-                  <button onClick={()=>moveCat(i,-1)} disabled={i===0} style={{background:"none",border:"none",cursor:"pointer",color:"#9CA3AF",fontSize:10,lineHeight:1,padding:"1px 4px",opacity:i===0?.3:1}}>▲</button>
-                  <button onClick={()=>moveCat(i,1)} disabled={i===arr.length-1} style={{background:"none",border:"none",cursor:"pointer",color:"#9CA3AF",fontSize:10,lineHeight:1,padding:"1px 4px",opacity:i===arr.length-1?.3:1}}>▼</button>
+                  <button onClick={()=>moveCat(i,-1)} disabled={i===0} style={{background:"none",border:"none",cursor:"pointer",color:"#9CA3AF",fontSize:15,lineHeight:1,padding:"1px 4px",opacity:i===0?.3:1}}>▲</button>
+                  <button onClick={()=>moveCat(i,1)} disabled={i===arr.length-1} style={{background:"none",border:"none",cursor:"pointer",color:"#9CA3AF",fontSize:15,lineHeight:1,padding:"1px 4px",opacity:i===arr.length-1?.3:1}}>▼</button>
                 </div>
                 <input defaultValue={cat.name} onBlur={e=>setData(prev=>({...prev,categories:prev.categories.map(c=>c.id===cat.id?{...c,name:e.target.value}:c)}))}
-                  style={{flex:1,padding:"4px 7px",border:"1px solid #E5E7EB",borderRadius:6,fontSize:12,fontFamily:"inherit"}}/>
+                  style={{flex:1,padding:"4px 7px",border:"1px solid #E5E7EB",borderRadius:6,fontSize:18,fontFamily:"inherit"}}/>
               </div>
             ))}
             <button onClick={()=>{const id=uid();setData(prev=>({...prev,categories:[...prev.categories,{id,name:"새 카테고리",order:prev.categories.length+1}]}))}}
-              style={{...S.btn(C.navyL,C.navyM),width:"100%",justifyContent:"center",padding:"5px",fontSize:12,marginTop:4}}>+ 카테고리 추가</button>
+              style={{...S.btn(C.navyL,C.navyM),width:"100%",justifyContent:"center",padding:"5px",fontSize:18,marginTop:4}}>+ 카테고리 추가</button>
           </div>
         )}
 
@@ -229,22 +229,22 @@ export function ManualTab({currentUser}){
             ? [...data.categories].sort((a,b)=>a.order-b.order).map(cat=>(
               <div key={cat.id}>
                 <button onClick={()=>{setSelCat(cat.id);setSelPage(null)}}
-                  style={{width:"100%",textAlign:"left",padding:"9px 12px",border:"none",borderRadius:9,marginBottom:2,cursor:"pointer",fontSize:13.5,fontWeight:700,
-                    background:selCat===cat.id?"#EEF3FF":"transparent",color:selCat===cat.id?C.navyM:"#374151",transition:"all .12s"}}
+                  style={{width:"100%",textAlign:"left",padding:"9px 12px",border:"none",borderRadius:9,marginBottom:2,cursor:"pointer",fontSize:20.2,fontWeight:700,
+                    background:selCat===cat.id?"#E3F6F3":"transparent",color:selCat===cat.id?C.navyM:"#374151",transition:"all .12s"}}
                   onMouseEnter={e=>{if(selCat!==cat.id)e.currentTarget.style.background="#F8FAFC"}}
                   onMouseLeave={e=>{if(selCat!==cat.id)e.currentTarget.style.background="transparent"}}>
                   {cat.name}
                 </button>
                 {selCat===cat.id&&[...catPages].map((page,pi)=>(
                   <button key={page.id} onClick={()=>setSelPage(page.id)}
-                    style={{width:"100%",textAlign:"left",padding:"7px 12px 7px 22px",border:"none",borderRadius:8,marginBottom:1,cursor:"pointer",fontSize:13,
-                      background:currentPage?.id===page.id?"#EEF3FF":"transparent",color:currentPage?.id===page.id?C.navyM:"#6B7280",fontWeight:currentPage?.id===page.id?700:400}}>
+                    style={{width:"100%",textAlign:"left",padding:"7px 12px 7px 22px",border:"none",borderRadius:8,marginBottom:1,cursor:"pointer",fontSize:19.5,
+                      background:currentPage?.id===page.id?"#E3F6F3":"transparent",color:currentPage?.id===page.id?C.navyM:"#6B7280",fontWeight:currentPage?.id===page.id?700:400}}>
                     └ {page.title}
                   </button>
                 ))}
                 {selCat===cat.id&&canEdit&&(
                   <button onClick={addPage}
-                    style={{width:"100%",textAlign:"left",padding:"5px 12px 5px 22px",border:"none",background:"transparent",cursor:"pointer",fontSize:12,color:"#9CA3AF",marginBottom:4}}
+                    style={{width:"100%",textAlign:"left",padding:"5px 12px 5px 22px",border:"none",background:"transparent",cursor:"pointer",fontSize:18,color:"#9CA3AF",marginBottom:4}}
                     onMouseEnter={e=>e.currentTarget.style.color=C.navyM}
                     onMouseLeave={e=>e.currentTarget.style.color="#9CA3AF"}>
                     + 페이지 추가
@@ -255,9 +255,9 @@ export function ManualTab({currentUser}){
             : searchResults.map((r,i)=>(
               <button key={i} onClick={()=>{setSelCat(r.cat?.id||"");setSelPage(r.page.id);setSearch("")}}
                 style={{width:"100%",textAlign:"left",padding:"9px 12px",border:"none",borderRadius:10,marginBottom:5,cursor:"pointer",background:"#F8FAFC",color:"#111827"}}>
-                <div style={{fontSize:11.5,color:C.navyM,fontWeight:700,marginBottom:2}}>{r.cat?.name}</div>
-                <div style={{fontSize:13.5,fontWeight:700,marginBottom:3}}>{r.page.title}</div>
-                <div style={{fontSize:11.5,color:"#6B7280",lineHeight:1.5}}>{r.excerpt}</div>
+                <div style={{fontSize:17.2,color:C.navyM,fontWeight:700,marginBottom:2}}>{r.cat?.name}</div>
+                <div style={{fontSize:20.2,fontWeight:700,marginBottom:3}}>{r.page.title}</div>
+                <div style={{fontSize:17.2,color:"#6B7280",lineHeight:1.5}}>{r.excerpt}</div>
               </button>
             ))
           }
@@ -268,9 +268,9 @@ export function ManualTab({currentUser}){
       <div style={{background:"#fff",borderRadius:"0 14px 14px 0",border:"1px solid #E5E7EB",borderLeft:"none",display:"flex",flexDirection:"column",overflow:"hidden"}}>
         {!currentPage
           ?<div style={{padding:"60px 40px",textAlign:"center",color:"#6B7280"}}>
-            <div style={{fontSize:48,marginBottom:12}}>📚</div>
-            <div style={{fontSize:18,fontWeight:700,marginBottom:6}}>업무매뉴얼</div>
-            <div style={{fontSize:14}}>왼쪽에서 카테고리와 페이지를 선택하세요.</div>
+            <div style={{fontSize:72,marginBottom:12}}>📚</div>
+            <div style={{fontSize:27,fontWeight:700,marginBottom:6}}>업무매뉴얼</div>
+            <div style={{fontSize:21}}>왼쪽에서 카테고리와 페이지를 선택하세요.</div>
           </div>
           :editMode
             ?<PageEditor page={currentPage} onSave={savePage} onCancel={()=>setEditMode(false)} currentUser={currentUser}/>
@@ -292,12 +292,12 @@ function PageViewer({page,canEdit,onEdit,onDelete}){
       <div style={{flex:1,padding:"24px 32px",maxWidth:780}}>
         <div style={{display:"flex",alignItems:"flex-start",justifyContent:"space-between",gap:12,marginBottom:20}}>
           <div>
-            <h1 style={{fontSize:24,fontWeight:800,color:"#111827",margin:"0 0 6px",lineHeight:1.3}}>{page.title}</h1>
-            <div style={{fontSize:12,color:"#9CA3AF"}}>최종 수정: {page.updatedBy} · {fmtDT(page.updatedAt)}</div>
+            <h1 style={{fontSize:36,fontWeight:800,color:"#111827",margin:"0 0 6px",lineHeight:1.3}}>{page.title}</h1>
+            <div style={{fontSize:18,color:"#9CA3AF"}}>최종 수정: {page.updatedBy} · {fmtDT(page.updatedAt)}</div>
           </div>
           {canEdit&&<div style={{display:"flex",gap:7,flexShrink:0}}>
-            <button onClick={onEdit} style={{padding:"9px 16px",background:"#EEF3FF",color:C.navyM,border:"none",borderRadius:10,fontSize:14,fontWeight:700,cursor:"pointer"}}>✏ 편집</button>
-            {onDelete&&<button onClick={onDelete} style={{padding:"9px 16px",background:"#FEE2E2",color:"#EF4444",border:"none",borderRadius:10,fontSize:14,fontWeight:700,cursor:"pointer"}}>삭제</button>}
+            <button onClick={onEdit} style={{padding:"9px 16px",background:"#E3F6F3",color:C.navyM,border:"none",borderRadius:10,fontSize:21,fontWeight:700,cursor:"pointer"}}>✏ 편집</button>
+            {onDelete&&<button onClick={onDelete} style={{padding:"9px 16px",background:"#FEE2E2",color:"#EF4444",border:"none",borderRadius:10,fontSize:21,fontWeight:700,cursor:"pointer"}}>삭제</button>}
           </div>}
         </div>
         {page.sections.map(sec=><SectionView key={sec.id} s={sec}/>)}
@@ -306,10 +306,10 @@ function PageViewer({page,canEdit,onEdit,onDelete}){
       {/* 우측 목차 */}
       {page.toc&&headings.length>1&&(
         <div style={{width:180,flexShrink:0,padding:"24px 16px",borderLeft:"1px solid #F3F4F6",position:"sticky",top:0,alignSelf:"flex-start"}}>
-          <div style={{fontSize:12,fontWeight:800,color:"#9CA3AF",marginBottom:10,letterSpacing:".05em"}}>목차</div>
+          <div style={{fontSize:18,fontWeight:800,color:"#9CA3AF",marginBottom:10,letterSpacing:".05em"}}>목차</div>
           {headings.map((h,i)=>(
-            <div key={i} style={{fontSize:12.5,color:"#6B7280",marginBottom:6,lineHeight:1.5,cursor:"pointer",padding:"3px 6px",borderRadius:6}}
-              onMouseEnter={e=>{e.currentTarget.style.background="#EEF3FF";e.currentTarget.style.color=C.navyM}}
+            <div key={i} style={{fontSize:18.8,color:"#6B7280",marginBottom:6,lineHeight:1.5,cursor:"pointer",padding:"3px 6px",borderRadius:6}}
+              onMouseEnter={e=>{e.currentTarget.style.background="#E3F6F3";e.currentTarget.style.color=C.navyM}}
               onMouseLeave={e=>{e.currentTarget.style.background="transparent";e.currentTarget.style.color="#6B7280"}}>
               {i+1}. {h}
             </div>
@@ -324,9 +324,9 @@ function PageViewer({page,canEdit,onEdit,onDelete}){
 function SectionView({s}){
   switch(s.type){
     case "heading":
-      return<h2 style={{fontSize:17,fontWeight:800,color:"#1A3B6E",margin:"28px 0 10px",paddingBottom:6,borderBottom:"2px solid #EEF3FF"}}>{s.content}</h2>
+      return<h2 style={{fontSize:25.5,fontWeight:800,color:"#0B6E63",margin:"28px 0 10px",paddingBottom:6,borderBottom:"2px solid #E3F6F3"}}>{s.content}</h2>
     case "text":
-      return<p style={{fontSize:15,lineHeight:1.85,color:"#374151",margin:"0 0 14px",whiteSpace:"pre-wrap"}}>{s.content}</p>
+      return<p style={{fontSize:22.5,lineHeight:1.85,color:"#374151",margin:"0 0 14px",whiteSpace:"pre-wrap"}}>{s.content}</p>
     case "steps":{
       let steps=[]
       try{steps=JSON.parse(s.content)}catch{steps=String(s.content).split("\n").filter(Boolean).map((l,i)=>({id:i,title:l.replace(/^\d+\.\s*/,""),desc:""}))}
@@ -336,12 +336,12 @@ function SectionView({s}){
           {steps.length>1&&<div style={{position:"absolute",left:17,top:28,bottom:28,width:2,background:"#E5E7EB"}}/>}
           {steps.map((st,i)=>(
             <div key={st.id||i} style={{display:"flex",gap:14,marginBottom:12,position:"relative",zIndex:1}}>
-              <div style={{width:36,height:36,borderRadius:10,background:C.navyM,color:"#fff",fontSize:15,fontWeight:800,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,boxShadow:"0 2px 8px rgba(59,114,246,.3)"}}>
+              <div style={{width:36,height:36,borderRadius:10,background:C.navyM,color:"#fff",fontSize:22.5,fontWeight:800,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,boxShadow:"0 2px 8px rgba(59,114,246,.3)"}}>
                 {i+1}
               </div>
               <div style={{flex:1,background:"#F8FAFC",borderRadius:10,padding:"10px 14px",border:"1px solid #E5E7EB"}}>
-                <div style={{fontSize:15,fontWeight:700,color:"#111827",marginBottom:st.desc?4:0}}>{st.title}</div>
-                {st.desc&&<div style={{fontSize:13.5,color:"#6B7280",lineHeight:1.6}}>{st.desc}</div>}
+                <div style={{fontSize:22.5,fontWeight:700,color:"#111827",marginBottom:st.desc?4:0}}>{st.title}</div>
+                {st.desc&&<div style={{fontSize:20.2,color:"#6B7280",lineHeight:1.6}}>{st.desc}</div>}
               </div>
             </div>
           ))}
@@ -349,13 +349,13 @@ function SectionView({s}){
       )
     }
     case "warning":
-      return<div style={{background:"#FEF3C7",border:"1px solid #F59E0B",borderRadius:12,padding:"14px 18px",margin:"0 0 16px",fontSize:14.5,color:"#92400E",lineHeight:1.8,whiteSpace:"pre-wrap"}}>{s.content}</div>
+      return<div style={{background:"#FEF3C7",border:"1px solid #F59E0B",borderRadius:12,padding:"14px 18px",margin:"0 0 16px",fontSize:21.8,color:"#92400E",lineHeight:1.8,whiteSpace:"pre-wrap"}}>{s.content}</div>
     case "table":{
       const rows=String(s.content).split("\n").map(r=>r.split("|"))
       if(!rows.length)return null
       return(
         <div style={{overflowX:"auto",margin:"0 0 18px"}}>
-          <table style={{width:"100%",borderCollapse:"collapse",fontSize:14}}>
+          <table style={{width:"100%",borderCollapse:"collapse",fontSize:21}}>
             <thead><tr>{rows[0].map((h,i)=><th key={i} style={{padding:"10px 14px",background:"#F8FAFC",borderBottom:"2px solid #E5E7EB",textAlign:"left",fontWeight:700,color:"#374151"}}>{h}</th>)}</tr></thead>
             <tbody>{rows.slice(1).map((row,i)=><tr key={i} style={{borderBottom:"1px solid #F3F4F6"}}>{row.map((c,j)=><td key={j} style={{padding:"10px 14px",color:"#374151",lineHeight:1.6}}>{c}</td>)}</tr>)}</tbody>
           </table>
@@ -366,8 +366,8 @@ function SectionView({s}){
       let ap={drafter:"",approvers:[],collaborators:[],viewers:[]}
       try{ap=JSON.parse(s.content)}catch{}
       return(
-        <div style={{background:"#EEF3FF",border:"1px solid #3B72F644",borderRadius:12,padding:"14px 18px",margin:"0 0 16px"}}>
-          <div style={{fontSize:13,fontWeight:800,color:C.navyM,marginBottom:10}}>📋 결재선</div>
+        <div style={{background:"#E3F6F3",border:"1px solid #0E9C8C44",borderRadius:12,padding:"14px 18px",margin:"0 0 16px"}}>
+          <div style={{fontSize:19.5,fontWeight:800,color:C.navyM,marginBottom:10}}>📋 결재선</div>
           <div style={{display:"flex",gap:10,flexWrap:"wrap"}}>
             <ApprovalRole label="기안자" names={[ap.drafter]} color="#374151" bg="#F8FAFC"/>
             {ap.approvers?.map((n,i)=><ApprovalRole key={i} label={`결재 ${i+1}`} names={[n]} color={C.navyM} bg={C.navyL}/>)}
@@ -382,15 +382,15 @@ function SectionView({s}){
       try{forms=JSON.parse(s.content)}catch{}
       return(
         <div style={{margin:"0 0 16px"}}>
-          <div style={{fontSize:13,fontWeight:800,color:"#6B7280",marginBottom:8}}>📎 관련 양식</div>
+          <div style={{fontSize:19.5,fontWeight:800,color:"#6B7280",marginBottom:8}}>📎 관련 양식</div>
           <div style={{display:"flex",flexWrap:"wrap",gap:8}}>
             {forms.map((f,i)=>(
               <div key={i} style={{background:"#F8FAFC",border:"1px solid #E5E7EB",borderRadius:10,padding:"10px 14px",minWidth:180}}>
-                <div style={{fontSize:14,fontWeight:700,color:"#111827",marginBottom:3}}>{f.name}</div>
-                {f.desc&&<div style={{fontSize:12,color:"#6B7280",marginBottom:6}}>{f.desc}</div>}
+                <div style={{fontSize:21,fontWeight:700,color:"#111827",marginBottom:3}}>{f.name}</div>
+                {f.desc&&<div style={{fontSize:18,color:"#6B7280",marginBottom:6}}>{f.desc}</div>}
                 {f.fileData
-                  ?<a href={f.fileData} download={f.fileName} style={{display:"inline-flex",alignItems:"center",gap:5,padding:"6px 12px",background:C.navyL,color:C.navyM,borderRadius:8,fontSize:12.5,fontWeight:700,textDecoration:"none"}}>⬇ 다운로드</a>
-                  :<span style={{fontSize:12,color:"#9CA3AF"}}>파일 미등록</span>}
+                  ?<a href={f.fileData} download={f.fileName} style={{display:"inline-flex",alignItems:"center",gap:5,padding:"6px 12px",background:C.navyL,color:C.navyM,borderRadius:8,fontSize:18.8,fontWeight:700,textDecoration:"none"}}>⬇ 다운로드</a>
+                  :<span style={{fontSize:18,color:"#9CA3AF"}}>파일 미등록</span>}
               </div>
             ))}
           </div>
@@ -404,8 +404,8 @@ function SectionView({s}){
           {lines.map((line,i)=>{
             const[label,url]=line.split("|")
             return url
-              ?<a key={i} href={url} target="_blank" rel="noopener noreferrer" style={{display:"inline-flex",alignItems:"center",gap:6,padding:"8px 14px",background:C.navyL,color:C.navyM,borderRadius:9,fontSize:13.5,fontWeight:700,textDecoration:"none"}}>🔗 {label}</a>
-              :<div key={i} style={{fontSize:14,color:"#374151",marginBottom:4}}>{line}</div>
+              ?<a key={i} href={url} target="_blank" rel="noopener noreferrer" style={{display:"inline-flex",alignItems:"center",gap:6,padding:"8px 14px",background:C.navyL,color:C.navyM,borderRadius:9,fontSize:20.2,fontWeight:700,textDecoration:"none"}}>🔗 {label}</a>
+              :<div key={i} style={{fontSize:21,color:"#374151",marginBottom:4}}>{line}</div>
           })}
         </div>
       )
@@ -417,11 +417,11 @@ function SectionView({s}){
 function ApprovalRole({label,names,color,bg}){
   return(
     <div style={{textAlign:"center",minWidth:80}}>
-      <div style={{fontSize:11,fontWeight:700,color:"#6B7280",marginBottom:4}}>{label}</div>
+      <div style={{fontSize:16.5,fontWeight:700,color:"#6B7280",marginBottom:4}}>{label}</div>
       {names.filter(Boolean).map((n,i)=>(
-        <div key={i} style={{background:bg,color,padding:"8px 12px",borderRadius:9,border:`1.5px solid ${color}33`,fontSize:13,fontWeight:700,marginBottom:3}}>
+        <div key={i} style={{background:bg,color,padding:"8px 12px",borderRadius:9,border:`1.5px solid ${color}33`,fontSize:19.5,fontWeight:700,marginBottom:3}}>
           {n}
-          <div style={{fontSize:18,marginTop:4}}>🖊</div>
+          <div style={{fontSize:27,marginTop:4}}>🖊</div>
         </div>
       ))}
     </div>
@@ -480,22 +480,22 @@ function PageEditor({page,onSave,onCancel,currentUser}){
         {steps.map((st,i)=>(
           <div key={st.id||i} style={{display:"flex",gap:8,alignItems:"flex-start",marginBottom:8,background:"#F8FAFC",borderRadius:10,padding:"10px 12px",border:"1px solid #E5E7EB"}}>
             <div style={{display:"flex",flexDirection:"column",gap:2,flexShrink:0}}>
-              <button onClick={()=>{if(i>0){const a=[...steps];[a[i-1],a[i]]=[a[i],a[i-1]];setSteps(a)}}} disabled={i===0} style={{background:"none",border:"none",cursor:"pointer",color:"#9CA3AF",fontSize:11,opacity:i===0?.3:1}}>▲</button>
-              <div style={{width:26,height:26,borderRadius:7,background:C.navyM,color:"#fff",fontSize:13,fontWeight:800,display:"flex",alignItems:"center",justifyContent:"center"}}>{i+1}</div>
-              <button onClick={()=>{if(i<steps.length-1){const a=[...steps];[a[i],a[i+1]]=[a[i+1],a[i]];setSteps(a)}}} disabled={i===steps.length-1} style={{background:"none",border:"none",cursor:"pointer",color:"#9CA3AF",fontSize:11,opacity:i===steps.length-1?.3:1}}>▼</button>
+              <button onClick={()=>{if(i>0){const a=[...steps];[a[i-1],a[i]]=[a[i],a[i-1]];setSteps(a)}}} disabled={i===0} style={{background:"none",border:"none",cursor:"pointer",color:"#9CA3AF",fontSize:16.5,opacity:i===0?.3:1}}>▲</button>
+              <div style={{width:26,height:26,borderRadius:7,background:C.navyM,color:"#fff",fontSize:19.5,fontWeight:800,display:"flex",alignItems:"center",justifyContent:"center"}}>{i+1}</div>
+              <button onClick={()=>{if(i<steps.length-1){const a=[...steps];[a[i],a[i+1]]=[a[i+1],a[i]];setSteps(a)}}} disabled={i===steps.length-1} style={{background:"none",border:"none",cursor:"pointer",color:"#9CA3AF",fontSize:16.5,opacity:i===steps.length-1?.3:1}}>▼</button>
             </div>
             <div style={{flex:1,display:"flex",flexDirection:"column",gap:5}}>
               <input value={st.title} onChange={e=>{const a=[...steps];a[i]={...a[i],title:e.target.value};setSteps(a)}}
-                placeholder="단계 제목" style={{padding:"6px 10px",border:"1.5px solid #E5E7EB",borderRadius:8,fontSize:14,fontWeight:700,fontFamily:"inherit"}}/>
+                placeholder="단계 제목" style={{padding:"6px 10px",border:"1.5px solid #E5E7EB",borderRadius:8,fontSize:21,fontWeight:700,fontFamily:"inherit"}}/>
               <textarea value={st.desc||""} onChange={e=>{const a=[...steps];a[i]={...a[i],desc:e.target.value};setSteps(a)}}
                 placeholder="단계 설명 (선택)" rows={2}
-                style={{padding:"6px 10px",border:"1.5px solid #E5E7EB",borderRadius:8,fontSize:13,fontFamily:"inherit",resize:"vertical"}}/>
+                style={{padding:"6px 10px",border:"1.5px solid #E5E7EB",borderRadius:8,fontSize:19.5,fontFamily:"inherit",resize:"vertical"}}/>
             </div>
-            <button onClick={()=>setSteps(steps.filter((_,ri)=>ri!==i))} style={{background:"none",border:"none",cursor:"pointer",color:"#EF4444",fontSize:18,flexShrink:0,paddingTop:4}}>✕</button>
+            <button onClick={()=>setSteps(steps.filter((_,ri)=>ri!==i))} style={{background:"none",border:"none",cursor:"pointer",color:"#EF4444",fontSize:27,flexShrink:0,paddingTop:4}}>✕</button>
           </div>
         ))}
         <button onClick={()=>setSteps([...steps,{id:uid(),title:"새 단계",desc:""}])}
-          style={{width:"100%",padding:"9px",background:C.navyL,color:C.navyM,border:"1.5px dashed #3B72F6",borderRadius:9,fontSize:13.5,fontWeight:700,cursor:"pointer"}}>
+          style={{width:"100%",padding:"9px",background:C.navyL,color:C.navyM,border:"1.5px dashed #0E9C8C",borderRadius:9,fontSize:20.2,fontWeight:700,cursor:"pointer"}}>
           + 단계 추가
         </button>
       </div>
@@ -517,17 +517,17 @@ function PageEditor({page,onSave,onCancel,currentUser}){
           ["열람자","viewers",true],
         ].map(([label,key,isArr])=>(
           <div key={key}>
-            <div style={{fontSize:12,fontWeight:700,color:"#6B7280",marginBottom:5}}>{label}</div>
+            <div style={{fontSize:18,fontWeight:700,color:"#6B7280",marginBottom:5}}>{label}</div>
             {isArr
               ?(ap[key]||[]).map((v,i)=>(
                 <div key={i} style={{display:"flex",gap:5,marginBottom:4}}>
-                  <input value={v} onChange={e=>arrFld(key,e.target.value,i)} style={{flex:1,padding:"6px 9px",border:"1.5px solid #E5E7EB",borderRadius:7,fontSize:13,fontFamily:"inherit"}}/>
-                  <button onClick={()=>set({[key]:(ap[key]||[]).filter((_,ri)=>ri!==i)})} style={{background:"none",border:"none",cursor:"pointer",color:"#EF4444",fontSize:15}}>✕</button>
+                  <input value={v} onChange={e=>arrFld(key,e.target.value,i)} style={{flex:1,padding:"6px 9px",border:"1.5px solid #E5E7EB",borderRadius:7,fontSize:19.5,fontFamily:"inherit"}}/>
+                  <button onClick={()=>set({[key]:(ap[key]||[]).filter((_,ri)=>ri!==i)})} style={{background:"none",border:"none",cursor:"pointer",color:"#EF4444",fontSize:22.5}}>✕</button>
                 </div>
               ))
-              :<input value={ap[key]||""} onChange={e=>set({[key]:e.target.value})} style={{width:"100%",padding:"6px 9px",border:"1.5px solid #E5E7EB",borderRadius:7,fontSize:13,fontFamily:"inherit",boxSizing:"border-box"}}/>
+              :<input value={ap[key]||""} onChange={e=>set({[key]:e.target.value})} style={{width:"100%",padding:"6px 9px",border:"1.5px solid #E5E7EB",borderRadius:7,fontSize:19.5,fontFamily:"inherit",boxSizing:"border-box"}}/>
             }
-            {isArr&&<button onClick={()=>set({[key]:[...(ap[key]||[]),""]}) } style={{fontSize:12,color:C.navyM,background:"none",border:"none",cursor:"pointer",padding:"2px 0"}}>+ 추가</button>}
+            {isArr&&<button onClick={()=>set({[key]:[...(ap[key]||[]),""]}) } style={{fontSize:18,color:C.navyM,background:"none",border:"none",cursor:"pointer",padding:"2px 0"}}>+ 추가</button>}
           </div>
         ))}
       </div>
@@ -544,21 +544,21 @@ function PageEditor({page,onSave,onCancel,currentUser}){
         {forms.map((f,i)=>(
           <div key={i} style={{background:"#F8FAFC",borderRadius:10,padding:"10px 12px",border:"1px solid #E5E7EB",marginBottom:7}}>
             <div style={{display:"flex",gap:7,marginBottom:6}}>
-              <input value={f.name} onChange={e=>{const a=[...forms];a[i]={...a[i],name:e.target.value};setForms(a)}} placeholder="양식명" style={{flex:1,padding:"6px 9px",border:"1.5px solid #E5E7EB",borderRadius:7,fontSize:13,fontFamily:"inherit"}}/>
-              <button onClick={()=>setForms(forms.filter((_,ri)=>ri!==i))} style={{background:"none",border:"none",cursor:"pointer",color:"#EF4444",fontSize:15}}>✕</button>
+              <input value={f.name} onChange={e=>{const a=[...forms];a[i]={...a[i],name:e.target.value};setForms(a)}} placeholder="양식명" style={{flex:1,padding:"6px 9px",border:"1.5px solid #E5E7EB",borderRadius:7,fontSize:19.5,fontFamily:"inherit"}}/>
+              <button onClick={()=>setForms(forms.filter((_,ri)=>ri!==i))} style={{background:"none",border:"none",cursor:"pointer",color:"#EF4444",fontSize:22.5}}>✕</button>
             </div>
-            <input value={f.desc||""} onChange={e=>{const a=[...forms];a[i]={...a[i],desc:e.target.value};setForms(a)}} placeholder="설명" style={{width:"100%",padding:"6px 9px",border:"1.5px solid #E5E7EB",borderRadius:7,fontSize:12,fontFamily:"inherit",boxSizing:"border-box",marginBottom:6}}/>
+            <input value={f.desc||""} onChange={e=>{const a=[...forms];a[i]={...a[i],desc:e.target.value};setForms(a)}} placeholder="설명" style={{width:"100%",padding:"6px 9px",border:"1.5px solid #E5E7EB",borderRadius:7,fontSize:18,fontFamily:"inherit",boxSizing:"border-box",marginBottom:6}}/>
             <div style={{display:"flex",gap:6,alignItems:"center"}}>
               <button onClick={()=>{setFileTarget({secId:sec.id,formIdx:i});fileRef.current?.click()}}
-                style={{padding:"5px 12px",background:C.navyL,color:C.navyM,border:"none",borderRadius:7,fontSize:12.5,fontWeight:700,cursor:"pointer"}}>
+                style={{padding:"5px 12px",background:C.navyL,color:C.navyM,border:"none",borderRadius:7,fontSize:18.8,fontWeight:700,cursor:"pointer"}}>
                 📎 {f.fileData?"파일 교체":"파일 첨부"}
               </button>
-              {f.fileData&&<span style={{fontSize:12,color:"#0EA86E",fontWeight:600}}>✓ {f.fileName}</span>}
+              {f.fileData&&<span style={{fontSize:18,color:"#0EA86E",fontWeight:600}}>✓ {f.fileName}</span>}
             </div>
           </div>
         ))}
         <button onClick={()=>setForms([...forms,{name:"새 양식",desc:"",fileData:null,fileName:null}])}
-          style={{width:"100%",padding:"8px",background:C.navyL,color:C.navyM,border:"1.5px dashed #3B72F6",borderRadius:9,fontSize:13,fontWeight:700,cursor:"pointer"}}>
+          style={{width:"100%",padding:"8px",background:C.navyL,color:C.navyM,border:"1.5px dashed #0E9C8C",borderRadius:9,fontSize:19.5,fontWeight:700,cursor:"pointer"}}>
           + 양식 추가
         </button>
         <input ref={fileRef} type="file" style={{display:"none"}} onChange={uploadForm}/>
@@ -566,21 +566,21 @@ function PageEditor({page,onSave,onCancel,currentUser}){
     )
   }
 
-  const inp2={width:"100%",padding:"8px 11px",border:"1.5px solid #E5E7EB",borderRadius:8,fontSize:14,boxSizing:"border-box",fontFamily:"inherit",outline:"none"}
+  const inp2={width:"100%",padding:"8px 11px",border:"1.5px solid #E5E7EB",borderRadius:8,fontSize:21,boxSizing:"border-box",fontFamily:"inherit",outline:"none"}
 
   return(
     <div style={{flex:1,overflowY:"auto"}}>
       {/* 편집 헤더 */}
       <div style={{padding:"16px 22px",borderBottom:"1px solid #E5E7EB",background:"#FEF9EE",display:"flex",gap:10,alignItems:"center",flexWrap:"wrap"}}>
-        <span style={{fontSize:13,fontWeight:700,color:C.amber}}>✏ 편집 모드</span>
+        <span style={{fontSize:19.5,fontWeight:700,color:C.amber}}>✏ 편집 모드</span>
         <input value={title} onChange={e=>setTitle(e.target.value)} placeholder="페이지 제목"
-          style={{...inp2,fontSize:18,fontWeight:800,flex:1,minWidth:200,border:"none",background:"transparent",padding:"4px 0"}}/>
-        <label style={{display:"flex",alignItems:"center",gap:5,fontSize:13,cursor:"pointer"}}>
+          style={{...inp2,fontSize:27,fontWeight:800,flex:1,minWidth:200,border:"none",background:"transparent",padding:"4px 0"}}/>
+        <label style={{display:"flex",alignItems:"center",gap:5,fontSize:19.5,cursor:"pointer"}}>
           <input type="checkbox" checked={toc} onChange={e=>setToc(e.target.checked)}/> 목차 표시
         </label>
         <div style={{display:"flex",gap:7}}>
-          <button onClick={()=>onSave({...page,title,toc,sections})} style={{padding:"9px 20px",background:C.navyM,color:"#fff",border:"none",borderRadius:10,fontSize:14,fontWeight:700,cursor:"pointer"}}>✓ 저장</button>
-          <button onClick={onCancel} style={{padding:"9px 16px",background:"#F3F4F6",color:"#374151",border:"none",borderRadius:10,fontSize:14,fontWeight:700,cursor:"pointer"}}>취소</button>
+          <button onClick={()=>onSave({...page,title,toc,sections})} style={{padding:"9px 20px",background:C.navyM,color:"#fff",border:"none",borderRadius:10,fontSize:21,fontWeight:700,cursor:"pointer"}}>✓ 저장</button>
+          <button onClick={onCancel} style={{padding:"9px 16px",background:"#F3F4F6",color:"#374151",border:"none",borderRadius:10,fontSize:21,fontWeight:700,cursor:"pointer"}}>취소</button>
         </div>
       </div>
 
@@ -590,14 +590,14 @@ function PageEditor({page,onSave,onCancel,currentUser}){
           <div key={sec.id} style={{marginBottom:12,border:"1.5px solid #E5E7EB",borderRadius:12,overflow:"hidden",background:"#fff"}}>
             <div style={{display:"flex",alignItems:"center",gap:7,padding:"7px 12px",background:"#F8FAFC",borderBottom:"1px solid #E5E7EB"}}>
               <div style={{display:"flex",flexDirection:"column",gap:1}}>
-                <button onClick={()=>i>0&&movSec(i,-1)} style={{background:"none",border:"none",cursor:"pointer",color:"#9CA3AF",fontSize:11,lineHeight:1,opacity:i===0?.3:1}}>▲</button>
-                <button onClick={()=>i<sections.length-1&&movSec(i,1)} style={{background:"none",border:"none",cursor:"pointer",color:"#9CA3AF",fontSize:11,lineHeight:1,opacity:i===sections.length-1?.3:1}}>▼</button>
+                <button onClick={()=>i>0&&movSec(i,-1)} style={{background:"none",border:"none",cursor:"pointer",color:"#9CA3AF",fontSize:16.5,lineHeight:1,opacity:i===0?.3:1}}>▲</button>
+                <button onClick={()=>i<sections.length-1&&movSec(i,1)} style={{background:"none",border:"none",cursor:"pointer",color:"#9CA3AF",fontSize:16.5,lineHeight:1,opacity:i===sections.length-1?.3:1}}>▼</button>
               </div>
               <select value={sec.type} onChange={e=>updSec(sec.id,"type",e.target.value)}
-                style={{padding:"4px 8px",border:"1px solid #E5E7EB",borderRadius:7,fontSize:12,background:"#fff",flex:1}}>
+                style={{padding:"4px 8px",border:"1px solid #E5E7EB",borderRadius:7,fontSize:18,background:"#fff",flex:1}}>
                 {SEC_TYPES.map(t=><option key={t.type} value={t.type}>{t.label}</option>)}
               </select>
-              <button onClick={()=>delSec(sec.id)} style={{background:"none",border:"none",cursor:"pointer",color:"#EF4444",fontSize:16,padding:"0 4px"}}>✕</button>
+              <button onClick={()=>delSec(sec.id)} style={{background:"none",border:"none",cursor:"pointer",color:"#EF4444",fontSize:24,padding:"0 4px"}}>✕</button>
             </div>
             <div style={{padding:"10px 12px"}}>
               {sec.type==="steps"    ?<StepsEditor   sec={sec}/>
@@ -612,12 +612,12 @@ function PageEditor({page,onSave,onCancel,currentUser}){
 
         {/* 섹션 추가 */}
         <div style={{background:"#F8FAFC",borderRadius:12,padding:"14px 16px",border:"1.5px dashed #E5E7EB"}}>
-          <div style={{fontSize:13,fontWeight:700,color:"#6B7280",marginBottom:8}}>+ 섹션 추가</div>
+          <div style={{fontSize:19.5,fontWeight:700,color:"#6B7280",marginBottom:8}}>+ 섹션 추가</div>
           <div style={{display:"flex",flexWrap:"wrap",gap:6}}>
             {SEC_TYPES.map(t=>(
               <button key={t.type} onClick={()=>addSec(t.type)}
-                style={{padding:"7px 13px",background:"#fff",color:"#374151",border:"1.5px solid #E5E7EB",borderRadius:9,fontSize:13,fontWeight:600,cursor:"pointer"}}
-                onMouseEnter={e=>{e.currentTarget.style.background="#EEF3FF";e.currentTarget.style.color=C.navyM;e.currentTarget.style.borderColor=C.navyM}}
+                style={{padding:"7px 13px",background:"#fff",color:"#374151",border:"1.5px solid #E5E7EB",borderRadius:9,fontSize:19.5,fontWeight:600,cursor:"pointer"}}
+                onMouseEnter={e=>{e.currentTarget.style.background="#E3F6F3";e.currentTarget.style.color=C.navyM;e.currentTarget.style.borderColor=C.navyM}}
                 onMouseLeave={e=>{e.currentTarget.style.background="#fff";e.currentTarget.style.color="#374151";e.currentTarget.style.borderColor="#E5E7EB"}}>
                 {t.label}
               </button>

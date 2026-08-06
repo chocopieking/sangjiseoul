@@ -3,8 +3,8 @@ import { INITIAL_STAFF_DB } from "./staffData.js"
 import * as XLSX from "xlsx"
 
 const STATUS_OPTIONS = ["재직","휴직","파견","퇴사","계약직","비카운트"]
-const STATUS_COLOR   = {재직:"#059669",휴직:"#D97706",파견:"#6366F1",퇴사:"#DC2626",계약직:"#0891B2",비카운트:"#9CA3AF"}
-const STATUS_BG      = {재직:"#D1FAE5",휴직:"#FEF3C7",파견:"#EEF2FF",퇴사:"#FEE2E2",계약직:"#E0F7FA",비카운트:"#F3F4F6"}
+const STATUS_COLOR   = {재직:"#059669",휴직:"#D97706",파견:"#0E9C8C",퇴사:"#DC2626",계약직:"#0891B2",비카운트:"#9CA3AF"}
+const STATUS_BG      = {재직:"#D1FAE5",휴직:"#FEF3C7",파견:"#E3F6F3",퇴사:"#FEE2E2",계약직:"#E0F7FA",비카운트:"#F3F4F6"}
 // 인원 집계 제외 상태 (본부별 현황에 반영 안 됨)
 const EXCLUDE_FROM_COUNT = new Set(["퇴사","계약직","비카운트"])
 const RANK_ORDER = ["회장","부회장","사장","부사장","전무","전무보","상무","상무보","이사","이사대우","부장","차장","과장","대리","주임","사원","연구원",""]
@@ -80,7 +80,7 @@ const DEFAULT_ORG = {
         { id:"ops4", title:"김재은", role:"사원(99)", color:"#FECACA", children:[] },
       ]
     },
-    { id:"ceo", title:"강순일", role:"사장/부장장", color:"#6366F1",
+    { id:"ceo", title:"강순일", role:"사장/부장장", color:"#0E9C8C",
       children:[
         { id:"design_part", title:"설계파트(28명)", role:"홍성필 전무보 / 설계·디자인파트장", color:"#059669",
           children:[
@@ -232,21 +232,21 @@ function OrgNode({node, onEdit, onAdd, onDelete, onMove, depth=0, isFirst, isLas
 
         {/* 메인 노드 박스 */}
         <div style={{
-          background:node.color||"#6366F1",color:"#fff",borderRadius:12,
+          background:node.color||"#0E9C8C",color:"#fff",borderRadius:12,
           padding:"10px 18px",minWidth:120,textAlign:"center",
           boxShadow:"0 4px 14px rgba(0,0,0,.18)",position:"relative",
           border:"2px solid rgba(255,255,255,.2)",transition:"all .15s",
         }}>
-          <div style={{fontSize:14,fontWeight:800}}>{node.title}</div>
-          <div style={{fontSize:11,opacity:.85,marginTop:2}}>{node.role}</div>
+          <div style={{fontSize:21,fontWeight:800}}>{node.title}</div>
+          <div style={{fontSize:16.5,opacity:.85,marginTop:2}}>{node.role}</div>
 
           {/* 직원 수 뱃지 */}
           {hasDeptMembers&&(
             <div onClick={e=>{e.stopPropagation();setShowMembers(v=>!v)}}
               style={{position:"absolute",top:-8,left:-8,minWidth:20,height:20,borderRadius:10,
-                background:showMembers?"#FDE68A":"#fff",color:node.color||"#6366F1",
-                fontSize:10.5,fontWeight:800,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",
-                border:`2px solid ${node.color||"#6366F1"}`,padding:"0 4px",zIndex:2}}>
+                background:showMembers?"#FDE68A":"#fff",color:node.color||"#0E9C8C",
+                fontSize:15.8,fontWeight:800,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",
+                border:`2px solid ${node.color||"#0E9C8C"}`,padding:"0 4px",zIndex:2}}>
               {members.length}
             </div>
           )}
@@ -254,20 +254,20 @@ function OrgNode({node, onEdit, onAdd, onDelete, onMove, depth=0, isFirst, isLas
           {/* 편집 버튼들 */}
           <div style={{position:"absolute",top:-8,right:-8,display:"flex",gap:2}}>
             <button onClick={e=>{e.stopPropagation();onEdit(node)}}
-              style={{width:18,height:18,border:"none",borderRadius:"50%",background:"#FEF3C7",color:"#D97706",fontSize:9,cursor:"pointer",fontWeight:900,display:"flex",alignItems:"center",justifyContent:"center"}}>✏</button>
+              style={{width:18,height:18,border:"none",borderRadius:"50%",background:"#FEF3C7",color:"#D97706",fontSize:13.5,cursor:"pointer",fontWeight:900,display:"flex",alignItems:"center",justifyContent:"center"}}>✏</button>
             <button onClick={e=>{e.stopPropagation();onAdd(node)}}
-              style={{width:18,height:18,border:"none",borderRadius:"50%",background:"#D1FAE5",color:"#059669",fontSize:12,cursor:"pointer",fontWeight:900,display:"flex",alignItems:"center",justifyContent:"center"}}>+</button>
+              style={{width:18,height:18,border:"none",borderRadius:"50%",background:"#D1FAE5",color:"#059669",fontSize:18,cursor:"pointer",fontWeight:900,display:"flex",alignItems:"center",justifyContent:"center"}}>+</button>
             {depth>0&&<button onClick={e=>{e.stopPropagation();onDelete(node.id)}}
-              style={{width:18,height:18,border:"none",borderRadius:"50%",background:"#FEE2E2",color:"#DC2626",fontSize:9,cursor:"pointer",fontWeight:900,display:"flex",alignItems:"center",justifyContent:"center"}}>✕</button>}
+              style={{width:18,height:18,border:"none",borderRadius:"50%",background:"#FEE2E2",color:"#DC2626",fontSize:13.5,cursor:"pointer",fontWeight:900,display:"flex",alignItems:"center",justifyContent:"center"}}>✕</button>}
           </div>
 
           {/* 좌우 이동 버튼 (형제 노드 순서 변경) */}
           {depth>0&&(
             <div style={{position:"absolute",bottom:-8,left:"50%",transform:"translateX(-50%)",display:"flex",gap:2,zIndex:2}}>
               {!isFirst&&<button onClick={e=>{e.stopPropagation();onMove(node.id,"left")}}
-                style={{width:16,height:16,border:"none",borderRadius:"50%",background:"#EEF2FF",color:"#6366F1",fontSize:8,cursor:"pointer",fontWeight:900,display:"flex",alignItems:"center",justifyContent:"center"}}>←</button>}
+                style={{width:16,height:16,border:"none",borderRadius:"50%",background:"#E3F6F3",color:"#0E9C8C",fontSize:12,cursor:"pointer",fontWeight:900,display:"flex",alignItems:"center",justifyContent:"center"}}>←</button>}
               {!isLast&&<button onClick={e=>{e.stopPropagation();onMove(node.id,"right")}}
-                style={{width:16,height:16,border:"none",borderRadius:"50%",background:"#EEF2FF",color:"#6366F1",fontSize:8,cursor:"pointer",fontWeight:900,display:"flex",alignItems:"center",justifyContent:"center"}}>→</button>}
+                style={{width:16,height:16,border:"none",borderRadius:"50%",background:"#E3F6F3",color:"#0E9C8C",fontSize:12,cursor:"pointer",fontWeight:900,display:"flex",alignItems:"center",justifyContent:"center"}}>→</button>}
             </div>
           )}
 
@@ -275,9 +275,9 @@ function OrgNode({node, onEdit, onAdd, onDelete, onMove, depth=0, isFirst, isLas
           {hasChildren&&(
             <div onClick={e=>{e.stopPropagation();setCollapsed(v=>!v)}}
               style={{position:"absolute",bottom:depth>0?-22:-10,left:"50%",transform:"translateX(-50%)",
-                width:18,height:18,borderRadius:"50%",background:"#fff",color:"#6366F1",
-                fontSize:10,fontWeight:900,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",
-                border:"2px solid #6366F1",zIndex:1}}>
+                width:18,height:18,borderRadius:"50%",background:"#fff",color:"#0E9C8C",
+                fontSize:15,fontWeight:900,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",
+                border:"2px solid #0E9C8C",zIndex:1}}>
               {collapsed?"▶":"▼"}
             </div>
           )}
@@ -290,10 +290,10 @@ function OrgNode({node, onEdit, onAdd, onDelete, onMove, depth=0, isFirst, isLas
             boxShadow:"0 8px 24px rgba(0,0,0,.15)",zIndex:100,minWidth:260,maxWidth:320,
             padding:"10px 0"}}>
             <div style={{padding:"6px 14px 8px",borderBottom:"1px solid #F3F4F6",
-              fontSize:13,fontWeight:800,color:node.color,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+              fontSize:19.5,fontWeight:800,color:node.color,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
               <span>👥 {node.title} ({members.length}명)</span>
               <button onClick={e=>{e.stopPropagation();setShowMembers(false)}}
-                style={{border:"none",background:"none",cursor:"pointer",fontSize:14,color:"#9CA3AF"}}>✕</button>
+                style={{border:"none",background:"none",cursor:"pointer",fontSize:21,color:"#9CA3AF"}}>✕</button>
             </div>
             <div style={{maxHeight:300,overflowY:"auto"}}>
               {members.sort((a,b)=>{
@@ -309,19 +309,19 @@ function OrgNode({node, onEdit, onAdd, onDelete, onMove, depth=0, isFirst, isLas
                     display:"flex",alignItems:"center",justifyContent:"center"}}>
                     {m.photo
                       ? <img src={m.photo} style={{width:"100%",height:"100%",objectFit:"cover"}}/>
-                      : <span style={{fontSize:16}}>👤</span>}
+                      : <span style={{fontSize:24}}>👤</span>}
                   </div>
                   <div style={{flex:1,minWidth:0}}>
                     <div style={{display:"flex",gap:5,alignItems:"center",marginBottom:2}}>
-                      <span style={{fontSize:14,fontWeight:800,color:"#111827"}}>{m.name}</span>
-                      <span style={{fontSize:10,padding:"1px 5px",borderRadius:6,
+                      <span style={{fontSize:21,fontWeight:800,color:"#111827"}}>{m.name}</span>
+                      <span style={{fontSize:15,padding:"1px 5px",borderRadius:6,
                         background:(STATUS_BG[m.status]||"#F3F4F6"),
                         color:(STATUS_COLOR[m.status]||"#6B7280"),fontWeight:700}}>
                         {m.status}
                       </span>
                     </div>
-                    <div style={{fontSize:12,color:"#6B7280",fontWeight:500}}>{m.rank}</div>
-                    {m.mobile&&<div style={{fontSize:12,color:"#6366F1",fontWeight:600}}>{m.mobile}</div>}
+                    <div style={{fontSize:18,color:"#6B7280",fontWeight:500}}>{m.rank}</div>
+                    {m.mobile&&<div style={{fontSize:18,color:"#0E9C8C",fontWeight:600}}>{m.mobile}</div>}
                   </div>
                 </div>
               ))}
@@ -386,7 +386,7 @@ function OrgChart({org, setOrg, staffList=[]}) {
   const save = (next) => { setOrg(next); localStorage.setItem("sjs_org_chart",JSON.stringify(next)) }
 
   const handleEdit   = (node) => { setEditNode(node); setDraftNode({...node}); setAddParentId(null) }
-  const handleAdd    = (node) => { setAddParentId(node.id); setDraftNode({id:`N${Date.now()}`,title:"",role:"",color:"#6366F1",children:[]}); setEditNode(null) }
+  const handleAdd    = (node) => { setAddParentId(node.id); setDraftNode({id:`N${Date.now()}`,title:"",role:"",color:"#0E9C8C",children:[]}); setEditNode(null) }
   const handleDelete = (id)   => { if(window.confirm("삭제하시겠습니까?")) save(deleteNode(org,id)) }
   const handleMove   = (id, dir) => save(moveNode(org, id, dir))
 
@@ -397,40 +397,40 @@ function OrgChart({org, setOrg, staffList=[]}) {
     setEditNode(null); setAddParentId(null); setDraftNode(null)
   }
 
-  const COLORS=["#312E81","#6366F1","#059669","#D97706","#DC2626","#7C3AED","#0891B2","#374151","#9CA3AF","#B45309","#047857"]
-  const INP={padding:"7px 10px",border:"1.5px solid #E5E7EB",borderRadius:7,fontSize:13,width:"100%",boxSizing:"border-box",fontFamily:"inherit",outline:"none"}
+  const COLORS=["#312E81","#0E9C8C","#059669","#D97706","#DC2626","#7C3AED","#0891B2","#374151","#9CA3AF","#B45309","#047857"]
+  const INP={padding:"7px 10px",border:"1.5px solid #E5E7EB",borderRadius:7,fontSize:19.5,width:"100%",boxSizing:"border-box",fontFamily:"inherit",outline:"none"}
 
   return (
     <div>
       <div style={{display:"flex",gap:8,marginBottom:12,alignItems:"center",flexWrap:"wrap"}}>
-        <div style={{fontSize:16,fontWeight:800,color:"#312E81"}}>🏢 조직도</div>
-        <div style={{fontSize:12,color:"#9CA3AF",marginLeft:4}}>
+        <div style={{fontSize:24,fontWeight:800,color:"#312E81"}}>🏢 조직도</div>
+        <div style={{fontSize:18,color:"#9CA3AF",marginLeft:4}}>
           ← → 버튼으로 노드 순서 이동 · 숫자 뱃지 클릭으로 소속 직원 확인
         </div>
         <button onClick={()=>{if(window.confirm("조직도를 초기화하시겠습니까?")) save(DEFAULT_ORG)}}
-          style={{marginLeft:"auto",padding:"5px 12px",background:"#F3F4F6",color:"#6B7280",border:"none",borderRadius:7,fontSize:12,cursor:"pointer"}}>
+          style={{marginLeft:"auto",padding:"5px 12px",background:"#F3F4F6",color:"#6B7280",border:"none",borderRadius:7,fontSize:18,cursor:"pointer"}}>
           🔄 초기화
         </button>
       </div>
 
       {/* 편집 폼 */}
       {(editNode||addParentId)&&draftNode&&(
-        <div style={{background:"#EEF2FF",borderRadius:12,border:"2px solid #6366F1",padding:"14px 16px",marginBottom:14}}>
-          <div style={{fontSize:13.5,fontWeight:700,color:"#312E81",marginBottom:10}}>
+        <div style={{background:"#E3F6F3",borderRadius:12,border:"2px solid #0E9C8C",padding:"14px 16px",marginBottom:14}}>
+          <div style={{fontSize:20.2,fontWeight:700,color:"#312E81",marginBottom:10}}>
             {editNode?"✏ 노드 수정":"+ 하위 노드 추가"}
           </div>
           <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:8}}>
             <div>
-              <label style={{fontSize:11,fontWeight:700,color:"#6366F1",display:"block",marginBottom:3}}>이름/부서명</label>
+              <label style={{fontSize:16.5,fontWeight:700,color:"#0E9C8C",display:"block",marginBottom:3}}>이름/부서명</label>
               <input value={draftNode.title} onChange={e=>setDraftNode(p=>({...p,title:e.target.value}))} style={INP}/>
             </div>
             <div>
-              <label style={{fontSize:11,fontWeight:700,color:"#6366F1",display:"block",marginBottom:3}}>직책/역할</label>
+              <label style={{fontSize:16.5,fontWeight:700,color:"#0E9C8C",display:"block",marginBottom:3}}>직책/역할</label>
               <input value={draftNode.role||""} onChange={e=>setDraftNode(p=>({...p,role:e.target.value}))} style={INP}/>
             </div>
           </div>
           <div style={{marginBottom:10}}>
-            <label style={{fontSize:11,fontWeight:700,color:"#6366F1",display:"block",marginBottom:4}}>색상</label>
+            <label style={{fontSize:16.5,fontWeight:700,color:"#0E9C8C",display:"block",marginBottom:4}}>색상</label>
             <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
               {COLORS.map(c=>(
                 <div key={c} onClick={()=>setDraftNode(p=>({...p,color:c}))}
@@ -442,15 +442,15 @@ function OrgChart({org, setOrg, staffList=[]}) {
           </div>
           <div style={{display:"flex",gap:8}}>
             <button onClick={()=>{setEditNode(null);setAddParentId(null);setDraftNode(null)}}
-              style={{padding:"6px 14px",background:"#F3F4F6",color:"#6B7280",border:"none",borderRadius:7,fontSize:12.5,cursor:"pointer"}}>취소</button>
+              style={{padding:"6px 14px",background:"#F3F4F6",color:"#6B7280",border:"none",borderRadius:7,fontSize:18.8,cursor:"pointer"}}>취소</button>
             <button onClick={saveNode}
-              style={{padding:"6px 16px",background:"#6366F1",color:"#fff",border:"none",borderRadius:7,fontSize:12.5,fontWeight:700,cursor:"pointer"}}>💾 저장</button>
+              style={{padding:"6px 16px",background:"#0E9C8C",color:"#fff",border:"none",borderRadius:7,fontSize:18.8,fontWeight:700,cursor:"pointer"}}>💾 저장</button>
           </div>
         </div>
       )}
 
       {/* 조직도 렌더 */}
-      <div style={{overflowX:"auto",padding:"24px",background:"linear-gradient(135deg,#F8FAFC,#EEF2FF)",borderRadius:14,border:"1px solid #E5E7EB",minHeight:300}}>
+      <div style={{overflowX:"auto",padding:"24px",background:"linear-gradient(135deg,#F8FAFC,#E3F6F3)",borderRadius:14,border:"1px solid #E5E7EB",minHeight:300}}>
         <div style={{display:"inline-flex",flexDirection:"column",alignItems:"center",minWidth:"100%",position:"relative"}}>
           <OrgNode node={org}
             onEdit={handleEdit} onAdd={handleAdd} onDelete={handleDelete} onMove={handleMove}
@@ -655,35 +655,35 @@ export function StaffMgmtPage({currentUser,deptStaff,setDeptStaff,DEPTS=[],DEPT_
     setShowAdd(true)
   }
 
-  const INP={padding:"8px 12px",border:"1.5px solid #E5E7EB",borderRadius:8,fontSize:14,fontFamily:"inherit",outline:"none",width:"100%",boxSizing:"border-box"}
-  const LBL={fontSize:12,fontWeight:700,color:"#6366F1",display:"block",marginBottom:4}
+  const INP={padding:"8px 12px",border:"1.5px solid #E5E7EB",borderRadius:8,fontSize:21,fontFamily:"inherit",outline:"none",width:"100%",boxSizing:"border-box"}
+  const LBL={fontSize:18,fontWeight:700,color:"#0E9C8C",display:"block",marginBottom:4}
   const MEMO_TYPES=["일반","부서이동","직급변경","프로젝트","평가","기타"]
-  const MEMO_COLOR={"일반":"#6366F1","부서이동":"#D97706","직급변경":"#059669","프로젝트":"#0891B2","평가":"#7C3AED","기타":"#6B7280","시스템":"#9CA3AF","변경사항":"#DC2626"}
+  const MEMO_COLOR={"일반":"#0E9C8C","부서이동":"#D97706","직급변경":"#059669","프로젝트":"#0891B2","평가":"#7C3AED","기타":"#6B7280","시스템":"#9CA3AF","변경사항":"#DC2626"}
 
   return (
     <div style={{fontFamily:"'Noto Sans KR',sans-serif"}}>
       {/* 헤더 */}
-      <div style={{background:"linear-gradient(135deg,#312E81,#6366F1)",borderRadius:16,padding:"18px 22px",marginBottom:14,color:"#fff",display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:10}}>
+      <div style={{background:"linear-gradient(135deg,#312E81,#0E9C8C)",borderRadius:16,padding:"18px 22px",marginBottom:14,color:"#fff",display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:10}}>
         <div>
-          <div style={{fontSize:20,fontWeight:900,marginBottom:3}}>👤 직원 관리 시스템</div>
-          <div style={{fontSize:13,opacity:.8}}>
+          <div style={{fontSize:30,fontWeight:900,marginBottom:3}}>👤 직원 관리 시스템</div>
+          <div style={{fontSize:19.5,opacity:.8}}>
             전체 {staffList.length}명 · 인원집계 {staffList.filter(s=>!EXCLUDE_FROM_COUNT.has(s.status)&&!s.excludeCount).length}명 · 퇴사 {staffList.filter(s=>s.status==="퇴사").length}명
           </div>
         </div>
         <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
           <button onClick={()=>setTab&&setTab("home")}
-            style={{padding:"7px 14px",background:"rgba(255,255,255,.2)",color:"#fff",border:"2px solid rgba(255,255,255,.35)",borderRadius:9,fontSize:12.5,fontWeight:700,cursor:"pointer"}}>🏠 홈</button>
+            style={{padding:"7px 14px",background:"rgba(255,255,255,.2)",color:"#fff",border:"2px solid rgba(255,255,255,.35)",borderRadius:9,fontSize:18.8,fontWeight:700,cursor:"pointer"}}>🏠 홈</button>
           <button onClick={downloadTemplate}
-            style={{padding:"7px 14px",background:"#D1FAE5",color:"#065F46",border:"none",borderRadius:9,fontSize:12.5,fontWeight:700,cursor:"pointer"}}>⬇ 양식</button>
+            style={{padding:"7px 14px",background:"#D1FAE5",color:"#065F46",border:"none",borderRadius:9,fontSize:18.8,fontWeight:700,cursor:"pointer"}}>⬇ 양식</button>
           <button onClick={downloadAll}
-            style={{padding:"7px 14px",background:"#EDE9FE",color:"#5B21B6",border:"none",borderRadius:9,fontSize:12.5,fontWeight:700,cursor:"pointer"}}>⬇ 전체</button>
-          <label style={{padding:"7px 14px",background:"#FEF3C7",color:"#92400E",border:"none",borderRadius:9,fontSize:12.5,fontWeight:700,cursor:"pointer",display:"inline-flex",alignItems:"center",gap:3}}>
+            style={{padding:"7px 14px",background:"#EDE9FE",color:"#5B21B6",border:"none",borderRadius:9,fontSize:18.8,fontWeight:700,cursor:"pointer"}}>⬇ 전체</button>
+          <label style={{padding:"7px 14px",background:"#FEF3C7",color:"#92400E",border:"none",borderRadius:9,fontSize:18.8,fontWeight:700,cursor:"pointer",display:"inline-flex",alignItems:"center",gap:3}}>
             ⬆ 업로드 <input type="file" accept=".xlsx,.xls" style={{display:"none"}} onChange={uploadExcel}/>
           </label>
           <button onClick={startAdd}
-            style={{padding:"7px 14px",background:"#fff",color:"#6366F1",border:"none",borderRadius:9,fontSize:12.5,fontWeight:800,cursor:"pointer"}}>+ 추가</button>
+            style={{padding:"7px 14px",background:"#fff",color:"#0E9C8C",border:"none",borderRadius:9,fontSize:18.8,fontWeight:800,cursor:"pointer"}}>+ 추가</button>
           <button onClick={()=>{if(window.confirm("초기화하시겠습니까?")){localStorage.removeItem("sjs_staff_db");window.location.reload()}}}
-            style={{padding:"7px 12px",background:"rgba(255,255,255,.1)",color:"rgba(255,255,255,.7)",border:"1px solid rgba(255,255,255,.2)",borderRadius:9,fontSize:11,cursor:"pointer"}}>🔄</button>
+            style={{padding:"7px 12px",background:"rgba(255,255,255,.1)",color:"rgba(255,255,255,.7)",border:"1px solid rgba(255,255,255,.2)",borderRadius:9,fontSize:16.5,cursor:"pointer"}}>🔄</button>
         </div>
       </div>
 
@@ -691,8 +691,8 @@ export function StaffMgmtPage({currentUser,deptStaff,setDeptStaff,DEPTS=[],DEPT_
       <div style={{display:"flex",gap:4,marginBottom:14,background:"#F3F4F6",borderRadius:10,padding:3,width:"fit-content"}}>
         {[["org","🏢 조직도"],["list","👥 직원 목록"]].map(([v,l])=>(
           <button key={v} onClick={()=>{setView(v);if(v==="org")setSelId(null)}}
-            style={{padding:"8px 20px",border:"none",borderRadius:8,fontSize:13.5,fontWeight:view===v?700:400,cursor:"pointer",
-              background:view===v?"#fff":"none",color:view===v?"#6366F1":"#6B7280",
+            style={{padding:"8px 20px",border:"none",borderRadius:8,fontSize:20.2,fontWeight:view===v?700:400,cursor:"pointer",
+              background:view===v?"#fff":"none",color:view===v?"#0E9C8C":"#6B7280",
               boxShadow:view===v?"0 1px 4px rgba(0,0,0,.1)":"none"}}>
             {l}
           </button>
@@ -708,20 +708,20 @@ export function StaffMgmtPage({currentUser,deptStaff,setDeptStaff,DEPTS=[],DEPT_
           {/* 본부별 통계 */}
           <div style={{display:"flex",gap:8,flexWrap:"wrap",marginBottom:12}}>
             <div onClick={()=>setFilter(p=>({...p,dept:"전체"}))}
-              style={{padding:"8px 14px",background:filter.dept==="전체"?"#6366F1":"#fff",borderRadius:10,cursor:"pointer",
+              style={{padding:"8px 14px",background:filter.dept==="전체"?"#0E9C8C":"#fff",borderRadius:10,cursor:"pointer",
                 border:"2px solid #E5E7EB",display:"flex",gap:8,alignItems:"center"}}>
-              <span style={{fontSize:13.5,fontWeight:700,color:filter.dept==="전체"?"#fff":"#6B7280"}}>전체</span>
-              <span style={{fontSize:18,fontWeight:900,color:filter.dept==="전체"?"#fff":"#111827"}}>
+              <span style={{fontSize:20.2,fontWeight:700,color:filter.dept==="전체"?"#fff":"#6B7280"}}>전체</span>
+              <span style={{fontSize:27,fontWeight:900,color:filter.dept==="전체"?"#fff":"#111827"}}>
                 {staffList.filter(s=>!EXCLUDE_FROM_COUNT.has(s.status)&&!s.excludeCount).length}
               </span>
             </div>
             {Object.entries(deptStats).sort((a,b)=>b[1]-a[1]).map(([d,c])=>(
               <div key={d} onClick={()=>setFilter(p=>({...p,dept:d}))}
-                style={{padding:"8px 14px",background:filter.dept===d?(DEPT_COLORS[d]||"#6366F1"):"#fff",borderRadius:10,cursor:"pointer",
-                  border:`2px solid ${DEPT_COLORS[d]||"#6366F1"}`,display:"flex",gap:8,alignItems:"center"}}>
-                <div style={{width:8,height:8,borderRadius:"50%",background:filter.dept===d?"#fff":(DEPT_COLORS[d]||"#6366F1")}}/>
-                <span style={{fontSize:13,fontWeight:700,color:filter.dept===d?"#fff":(DEPT_COLORS[d]||"#6366F1")}}>{d}</span>
-                <span style={{fontSize:18,fontWeight:900,color:filter.dept===d?"#fff":"#111827"}}>{c}</span>
+                style={{padding:"8px 14px",background:filter.dept===d?(DEPT_COLORS[d]||"#0E9C8C"):"#fff",borderRadius:10,cursor:"pointer",
+                  border:`2px solid ${DEPT_COLORS[d]||"#0E9C8C"}`,display:"flex",gap:8,alignItems:"center"}}>
+                <div style={{width:8,height:8,borderRadius:"50%",background:filter.dept===d?"#fff":(DEPT_COLORS[d]||"#0E9C8C")}}/>
+                <span style={{fontSize:19.5,fontWeight:700,color:filter.dept===d?"#fff":(DEPT_COLORS[d]||"#0E9C8C")}}>{d}</span>
+                <span style={{fontSize:27,fontWeight:900,color:filter.dept===d?"#fff":"#111827"}}>{c}</span>
               </div>
             ))}
           </div>
@@ -736,25 +736,25 @@ export function StaffMgmtPage({currentUser,deptStaff,setDeptStaff,DEPTS=[],DEPT_
                   <option value="전체">전체</option>
                   {STATUS_OPTIONS.map(s=><option key={s} value={s}>{s}</option>)}
                 </select>
-                <div style={{fontSize:12,color:"#6B7280",marginTop:6,fontWeight:600}}>{filtered.length}명</div>
+                <div style={{fontSize:18,color:"#6B7280",marginTop:6,fontWeight:600}}>{filtered.length}명</div>
               </div>
               <div style={{display:"flex",flexDirection:"column",gap:3,maxHeight:"calc(100vh-450px)",overflowY:"auto"}}>
                 {filtered.map(s=>(
                   <div key={s.id} onClick={()=>{setSelId(s.id);setShowAdd(false)}}
-                    style={{background:selId===s.id?"#EEF2FF":"#fff",borderRadius:10,
-                      border:`1.5px solid ${selId===s.id?"#6366F1":"#E5E7EB"}`,
+                    style={{background:selId===s.id?"#E3F6F3":"#fff",borderRadius:10,
+                      border:`1.5px solid ${selId===s.id?"#0E9C8C":"#E5E7EB"}`,
                       padding:"9px 11px",cursor:"pointer",display:"flex",gap:9,alignItems:"center"}}>
                     <div style={{width:40,height:40,borderRadius:"50%",flexShrink:0,background:s.photo?"transparent":"#E5E7EB",
                       overflow:"hidden",display:"flex",alignItems:"center",justifyContent:"center"}}>
-                      {s.photo?<img src={s.photo} style={{width:"100%",height:"100%",objectFit:"cover"}}/>:<span style={{fontSize:17,color:"#9CA3AF"}}>👤</span>}
+                      {s.photo?<img src={s.photo} style={{width:"100%",height:"100%",objectFit:"cover"}}/>:<span style={{fontSize:25.5,color:"#9CA3AF"}}>👤</span>}
                     </div>
                     <div style={{flex:1,minWidth:0}}>
                       <div style={{display:"flex",gap:4,alignItems:"center",marginBottom:1}}>
-                        <span style={{fontSize:14,fontWeight:800,color:"#111827"}}>{s.name}</span>
-                        <span style={{fontSize:9,padding:"1px 5px",borderRadius:7,background:STATUS_BG[s.status]||"#F3F4F6",color:STATUS_COLOR[s.status]||"#6B7280",fontWeight:700}}>{s.status}</span>
-                        {s.excludeCount&&<span style={{fontSize:9,padding:"1px 5px",borderRadius:7,background:"#F3F4F6",color:"#9CA3AF",fontWeight:700}}>제외</span>}
+                        <span style={{fontSize:21,fontWeight:800,color:"#111827"}}>{s.name}</span>
+                        <span style={{fontSize:13.5,padding:"1px 5px",borderRadius:7,background:STATUS_BG[s.status]||"#F3F4F6",color:STATUS_COLOR[s.status]||"#6B7280",fontWeight:700}}>{s.status}</span>
+                        {s.excludeCount&&<span style={{fontSize:13.5,padding:"1px 5px",borderRadius:7,background:"#F3F4F6",color:"#9CA3AF",fontWeight:700}}>제외</span>}
                       </div>
-                      <div style={{fontSize:11.5,color:"#6B7280",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{s.dept}·{s.rank}</div>
+                      <div style={{fontSize:17.2,color:"#6B7280",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{s.dept}·{s.rank}</div>
                     </div>
                   </div>
                 ))}
@@ -764,8 +764,8 @@ export function StaffMgmtPage({currentUser,deptStaff,setDeptStaff,DEPTS=[],DEPT_
             {/* 상세 */}
             <div style={{flex:1}}>
               {showAdd&&draft&&(
-                <div style={{background:"#fff",borderRadius:14,border:"2px solid #6366F1",padding:"20px",marginBottom:12}}>
-                  <div style={{fontSize:16,fontWeight:800,color:"#312E81",marginBottom:14}}>{draft.id?"✏ 정보 수정":"+ 신규 등록"}</div>
+                <div style={{background:"#fff",borderRadius:14,border:"2px solid #0E9C8C",padding:"20px",marginBottom:12}}>
+                  <div style={{fontSize:24,fontWeight:800,color:"#312E81",marginBottom:14}}>{draft.id?"✏ 정보 수정":"+ 신규 등록"}</div>
                   <div style={{display:"grid",gridTemplateColumns:"2fr 2fr 1fr",gap:9,marginBottom:9}}>
                     {[["이름 *","name"],["영문","nameEn"],["이메일","email"]].map(([l,k])=>(
                       <div key={k}><label style={LBL}>{l}</label><input value={draft[k]||""} onChange={e=>setDraft(p=>({...p,[k]:e.target.value}))} style={INP}/></div>
@@ -791,15 +791,15 @@ export function StaffMgmtPage({currentUser,deptStaff,setDeptStaff,DEPTS=[],DEPT_
                       <div key={k}><label style={LBL}>{l}</label><input value={draft[k]||""} placeholder="YYYY-MM-DD" onChange={e=>setDraft(p=>({...p,[k]:e.target.value}))} style={INP}/></div>
                     ))}
                   </div>
-                  <label style={{display:"flex",gap:8,alignItems:"center",marginBottom:12,cursor:"pointer",fontSize:13.5,fontWeight:600,color:"#374151"}}>
+                  <label style={{display:"flex",gap:8,alignItems:"center",marginBottom:12,cursor:"pointer",fontSize:20.2,fontWeight:600,color:"#374151"}}>
                     <input type="checkbox" checked={draft.excludeCount||false} onChange={e=>setDraft(p=>({...p,excludeCount:e.target.checked}))} style={{width:16,height:16}}/>
                     인원 집계에서 제외 (회장, 비카운트 등)
                   </label>
                   <div style={{display:"flex",gap:8,justifyContent:"flex-end"}}>
                     <button onClick={()=>{setShowAdd(false);setDraft(null)}}
-                      style={{padding:"8px 16px",background:"#F3F4F6",color:"#6B7280",border:"none",borderRadius:9,fontSize:13,fontWeight:600,cursor:"pointer"}}>취소</button>
+                      style={{padding:"8px 16px",background:"#F3F4F6",color:"#6B7280",border:"none",borderRadius:9,fontSize:19.5,fontWeight:600,cursor:"pointer"}}>취소</button>
                     <button onClick={saveDraft}
-                      style={{padding:"8px 20px",background:"#6366F1",color:"#fff",border:"none",borderRadius:9,fontSize:13,fontWeight:800,cursor:"pointer"}}>💾 저장</button>
+                      style={{padding:"8px 20px",background:"#0E9C8C",color:"#fff",border:"none",borderRadius:9,fontSize:19.5,fontWeight:800,cursor:"pointer"}}>💾 저장</button>
                   </div>
                 </div>
               )}
@@ -809,20 +809,20 @@ export function StaffMgmtPage({currentUser,deptStaff,setDeptStaff,DEPTS=[],DEPT_
                   <div style={{background:"#fff",borderRadius:14,border:"1px solid #E5E7EB",padding:"18px",display:"flex",gap:18,alignItems:"flex-start"}}>
                     <div style={{flexShrink:0,textAlign:"center"}}>
                       <div style={{width:90,height:90,borderRadius:14,background:"#E5E7EB",overflow:"hidden",display:"flex",alignItems:"center",justifyContent:"center",border:"3px solid #E5E7EB",marginBottom:6}}>
-                        {sel.photo?<img src={sel.photo} style={{width:"100%",height:"100%",objectFit:"cover"}}/>:<span style={{fontSize:40}}>👤</span>}
+                        {sel.photo?<img src={sel.photo} style={{width:"100%",height:"100%",objectFit:"cover"}}/>:<span style={{fontSize:60}}>👤</span>}
                       </div>
                       <input type="file" ref={photoRef} accept="image/*" style={{display:"none"}} onChange={handlePhoto}/>
                       <button onClick={()=>photoRef.current?.click()}
-                        style={{padding:"4px 10px",background:"#EEF2FF",color:"#6366F1",border:"none",borderRadius:6,fontSize:11.5,cursor:"pointer",fontWeight:700}}>📷 사진</button>
+                        style={{padding:"4px 10px",background:"#E3F6F3",color:"#0E9C8C",border:"none",borderRadius:6,fontSize:17.2,cursor:"pointer",fontWeight:700}}>📷 사진</button>
                     </div>
                     <div style={{flex:1}}>
                       <div style={{display:"flex",gap:8,alignItems:"center",marginBottom:6,flexWrap:"wrap"}}>
-                        <span style={{fontSize:20,fontWeight:900,color:"#111827"}}>{sel.name}</span>
-                        {sel.nameEn&&<span style={{fontSize:13,color:"#9CA3AF"}}>{sel.nameEn}</span>}
-                        <span style={{fontSize:11,padding:"2px 9px",borderRadius:9,background:STATUS_BG[sel.status]||"#F3F4F6",color:STATUS_COLOR[sel.status]||"#6B7280",fontWeight:800}}>{sel.status}</span>
-                        {sel.excludeCount&&<span style={{fontSize:11,padding:"2px 9px",borderRadius:9,background:"#F3F4F6",color:"#9CA3AF",fontWeight:700}}>인원제외</span>}
+                        <span style={{fontSize:30,fontWeight:900,color:"#111827"}}>{sel.name}</span>
+                        {sel.nameEn&&<span style={{fontSize:19.5,color:"#9CA3AF"}}>{sel.nameEn}</span>}
+                        <span style={{fontSize:16.5,padding:"2px 9px",borderRadius:9,background:STATUS_BG[sel.status]||"#F3F4F6",color:STATUS_COLOR[sel.status]||"#6B7280",fontWeight:800}}>{sel.status}</span>
+                        {sel.excludeCount&&<span style={{fontSize:16.5,padding:"2px 9px",borderRadius:9,background:"#F3F4F6",color:"#9CA3AF",fontWeight:700}}>인원제외</span>}
                       </div>
-                      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"5px 18px",fontSize:13.5,marginBottom:10}}>
+                      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"5px 18px",fontSize:20.2,marginBottom:10}}>
                         {[["본부",sel.dept],["직급",sel.rank],["이메일",sel.email],["핸드폰",sel.mobile||"-"],["입사일",sel.joinDate||"-"],["퇴사일",sel.resignDate||"-"]].map(([l,v])=>(
                           <div key={l} style={{display:"flex",gap:8}}>
                             <span style={{color:"#9CA3AF",minWidth:42,flexShrink:0,fontWeight:600}}>{l}</span>
@@ -832,25 +832,25 @@ export function StaffMgmtPage({currentUser,deptStaff,setDeptStaff,DEPTS=[],DEPT_
                       </div>
                       <div style={{display:"flex",gap:7}}>
                         <button onClick={()=>startEdit(sel)}
-                          style={{padding:"6px 14px",background:"#6366F1",color:"#fff",border:"none",borderRadius:9,fontSize:13,fontWeight:700,cursor:"pointer"}}>✏ 수정</button>
+                          style={{padding:"6px 14px",background:"#0E9C8C",color:"#fff",border:"none",borderRadius:9,fontSize:19.5,fontWeight:700,cursor:"pointer"}}>✏ 수정</button>
                         <button onClick={()=>{if(window.confirm("삭제?")){setStaffDB(p=>{const n={...p};delete n[sel.id];return n});setSelId(null)}}}
-                          style={{padding:"6px 14px",background:"#FEE2E2",color:"#DC2626",border:"none",borderRadius:9,fontSize:13,fontWeight:700,cursor:"pointer"}}>🗑 삭제</button>
+                          style={{padding:"6px 14px",background:"#FEE2E2",color:"#DC2626",border:"none",borderRadius:9,fontSize:19.5,fontWeight:700,cursor:"pointer"}}>🗑 삭제</button>
                       </div>
                     </div>
                   </div>
 
                   {/* 히스토리 */}
                   <div style={{background:"#fff",borderRadius:14,border:"1px solid #E5E7EB",overflow:"hidden"}}>
-                    <div style={{padding:"12px 16px",borderBottom:"1px solid #E5E7EB",fontSize:15,fontWeight:800,color:"#111827"}}>
+                    <div style={{padding:"12px 16px",borderBottom:"1px solid #E5E7EB",fontSize:22.5,fontWeight:800,color:"#111827"}}>
                       📋 히스토리 ({(sel.memo||[]).length}건)
                     </div>
                     <div style={{padding:"10px 14px",background:"#F9FAFB",borderBottom:"1px solid #E5E7EB"}}>
                       <div style={{display:"flex",gap:5,marginBottom:7,flexWrap:"wrap"}}>
                         {MEMO_TYPES.map(t=>(
                           <button key={t} onClick={()=>setMemoType(t)}
-                            style={{padding:"3px 10px",border:`2px solid ${memoType===t?(MEMO_COLOR[t]||"#6366F1"):"#E5E7EB"}`,
-                              borderRadius:7,fontSize:12,cursor:"pointer",fontWeight:memoType===t?700:400,
-                              background:memoType===t?(MEMO_COLOR[t]||"#6366F1"):"#fff",
+                            style={{padding:"3px 10px",border:`2px solid ${memoType===t?(MEMO_COLOR[t]||"#0E9C8C"):"#E5E7EB"}`,
+                              borderRadius:7,fontSize:18,cursor:"pointer",fontWeight:memoType===t?700:400,
+                              background:memoType===t?(MEMO_COLOR[t]||"#0E9C8C"):"#fff",
                               color:memoType===t?"#fff":"#6B7280"}}>
                             {t}
                           </button>
@@ -858,36 +858,36 @@ export function StaffMgmtPage({currentUser,deptStaff,setDeptStaff,DEPTS=[],DEPT_
                       </div>
                       <div style={{display:"grid",gridTemplateColumns:"140px 1fr auto",gap:6,alignItems:"center"}}>
                         <input type="date" value={memoDate} onChange={e=>setMemoDate(e.target.value)}
-                          style={{...INP,fontSize:12.5}}/>
+                          style={{...INP,fontSize:18.8}}/>
                         <input value={newMemo} onChange={e=>setNewMemo(e.target.value)}
                           onKeyDown={e=>e.key==="Enter"&&addMemo()}
                           placeholder={`[${memoType}] 내용 입력`}
                           style={INP}/>
                         <button onClick={addMemo}
-                          style={{padding:"8px 16px",background:"#6366F1",color:"#fff",border:"none",borderRadius:9,fontSize:13,fontWeight:700,cursor:"pointer",flexShrink:0,whiteSpace:"nowrap"}}>+ 기록</button>
+                          style={{padding:"8px 16px",background:"#0E9C8C",color:"#fff",border:"none",borderRadius:9,fontSize:19.5,fontWeight:700,cursor:"pointer",flexShrink:0,whiteSpace:"nowrap"}}>+ 기록</button>
                       </div>
                     </div>
                     <div style={{maxHeight:360,overflowY:"auto"}}>
                       {(sel.memo||[]).length===0&&(
-                        <div style={{padding:"36px",textAlign:"center",color:"#9CA3AF",fontSize:13}}>아직 기록이 없습니다.</div>
+                        <div style={{padding:"36px",textAlign:"center",color:"#9CA3AF",fontSize:19.5}}>아직 기록이 없습니다.</div>
                       )}
                       {[...(sel.memo||[])].reverse().map((m,i)=>(
                         <div key={m.id||i} style={{padding:"11px 14px",borderBottom:"1px solid #F3F4F6",display:"flex",gap:10,alignItems:"flex-start",background:m.auto?"#FAFAFA":"#fff"}}>
-                          <div style={{width:3,background:MEMO_COLOR[m.type||"일반"]||"#6366F1",borderRadius:2,alignSelf:"stretch",flexShrink:0}}/>
+                          <div style={{width:3,background:MEMO_COLOR[m.type||"일반"]||"#0E9C8C",borderRadius:2,alignSelf:"stretch",flexShrink:0}}/>
                           <div style={{flex:1}}>
                             <div style={{display:"flex",gap:7,alignItems:"center",marginBottom:3,flexWrap:"wrap"}}>
-                              <span style={{fontSize:11,padding:"1px 6px",borderRadius:7,background:(MEMO_COLOR[m.type||"일반"]||"#6366F1")+"18",color:MEMO_COLOR[m.type||"일반"]||"#6366F1",fontWeight:700}}>{m.type||"일반"}</span>
-                              <span style={{fontSize:13,fontWeight:800,color:"#374151"}}>{m.date}</span>
-                              {m.time&&<span style={{fontSize:11.5,color:"#9CA3AF"}}>{m.time}</span>}
-                              {m.author&&<span style={{fontSize:11,color:"#9CA3AF"}}>by {m.author}</span>}
-                              {m.auto&&<span style={{fontSize:9,background:"#EEF2FF",color:"#6366F1",padding:"1px 5px",borderRadius:4}}>자동</span>}
+                              <span style={{fontSize:16.5,padding:"1px 6px",borderRadius:7,background:(MEMO_COLOR[m.type||"일반"]||"#0E9C8C")+"18",color:MEMO_COLOR[m.type||"일반"]||"#0E9C8C",fontWeight:700}}>{m.type||"일반"}</span>
+                              <span style={{fontSize:19.5,fontWeight:800,color:"#374151"}}>{m.date}</span>
+                              {m.time&&<span style={{fontSize:17.2,color:"#9CA3AF"}}>{m.time}</span>}
+                              {m.author&&<span style={{fontSize:16.5,color:"#9CA3AF"}}>by {m.author}</span>}
+                              {m.auto&&<span style={{fontSize:13.5,background:"#E3F6F3",color:"#0E9C8C",padding:"1px 5px",borderRadius:4}}>자동</span>}
                             </div>
-                            <div style={{fontSize:13.5,color:"#111827",lineHeight:1.6}}>{m.text}</div>
+                            <div style={{fontSize:20.2,color:"#111827",lineHeight:1.6}}>{m.text}</div>
                           </div>
                           {!m.auto&&<button onClick={()=>{
                             const real=[...(sel.memo||[])]; real.splice(real.length-1-i,1)
                             setStaffDB(prev=>({...prev,[sel.id]:{...sel,memo:real}}))
-                          }} style={{padding:"2px 7px",background:"#FEE2E2",color:"#DC2626",border:"none",borderRadius:5,fontSize:11,cursor:"pointer",flexShrink:0}}>✕</button>}
+                          }} style={{padding:"2px 7px",background:"#FEE2E2",color:"#DC2626",border:"none",borderRadius:5,fontSize:16.5,cursor:"pointer",flexShrink:0}}>✕</button>}
                         </div>
                       ))}
                     </div>
@@ -897,9 +897,9 @@ export function StaffMgmtPage({currentUser,deptStaff,setDeptStaff,DEPTS=[],DEPT_
 
               {!sel&&!showAdd&&(
                 <div style={{padding:"60px",textAlign:"center",color:"#9CA3AF",background:"#fff",borderRadius:14,border:"1px solid #E5E7EB"}}>
-                  <div style={{fontSize:42,marginBottom:10}}>👤</div>
-                  <div style={{fontSize:15,fontWeight:700,color:"#374151",marginBottom:5}}>직원을 선택하면 상세정보가 표시됩니다</div>
-                  <div style={{fontSize:12.5}}>왼쪽 목록에서 이름을 클릭하세요</div>
+                  <div style={{fontSize:63,marginBottom:10}}>👤</div>
+                  <div style={{fontSize:22.5,fontWeight:700,color:"#374151",marginBottom:5}}>직원을 선택하면 상세정보가 표시됩니다</div>
+                  <div style={{fontSize:18.8}}>왼쪽 목록에서 이름을 클릭하세요</div>
                 </div>
               )}
             </div>
