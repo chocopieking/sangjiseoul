@@ -4678,7 +4678,15 @@ function VersionCompareCard({proj,selVerIdx,setProjects}) {
 
 // 협력업체(외주비) 분야별 회차 비교
 function VendorVersionCompare({versions,proj,setProjects}) {
-  const allCats = useMemo(()=>[...new Set(versions.flatMap(v=>(v.vendors||[]).map(x=>x.cat)))].sort(),[versions])
+  // 최신 회차 협력업체 배열의 순서를 화면 표시·정렬 기준으로 사용 (위/아래 이동이 실제로 반영되도록)
+  const latestVer = versions[versions.length-1]
+  const latestOrigIdx = latestVer?._origIdx
+  const allCats = useMemo(()=>{
+    const seen=new Set(), ordered=[]
+    for(const v of (latestVer?.vendors||[])){ if(!seen.has(v.cat)){seen.add(v.cat);ordered.push(v.cat)} }
+    for(const v of versions.flatMap(x=>x.vendors||[])){ if(!seen.has(v.cat)){seen.add(v.cat);ordered.push(v.cat)} }
+    return ordered
+  },[versions])
   const svc = proj.serviceFee||0
   const pyF = (proj.floorArea||0)/3.3058
   const pyS = (proj.siteArea||0)/3.3058
@@ -4709,7 +4717,6 @@ function VendorVersionCompare({versions,proj,setProjects}) {
   }
 
   // 새 외주업체 추가 — 가장 최근 회차에 추가 (지난 회차는 이미 확정된 실행계획서이므로 건드리지 않음)
-  const latestOrigIdx = versions[versions.length-1]?._origIdx
   const [showAdd,setShowAdd] = useState(false)
   const [newV,setNewV] = useState({cat:"",name:"",contract:""})
   const addVendorRow = () => {
@@ -4725,6 +4732,34 @@ function VendorVersionCompare({versions,proj,setProjects}) {
       })}
     }))
     setNewV({cat:"",name:"",contract:""}); setShowAdd(false)
+  }
+
+  // 최신 회차에서 해당 분야 삭제
+  const deleteVendorCat = (cat) => {
+    if(!window.confirm(`"${cat}" 분야를 최신 회차에서 삭제할까요?`)) return
+    setProjects(prev=>prev.map(p=>{
+      if(p.id!==proj.id) return p
+      return {...p, versions:(p.versions||[]).map((ver,vi)=>{
+        if(vi!==latestOrigIdx) return ver
+        return {...ver, vendors:(ver.vendors||[]).filter(x=>x.cat!==cat)}
+      })}
+    }))
+  }
+
+  // 최신 회차 내 분야 순서를 위/아래로 이동
+  const moveVendorCat = (cat, dir) => {
+    setProjects(prev=>prev.map(p=>{
+      if(p.id!==proj.id) return p
+      return {...p, versions:(p.versions||[]).map((ver,vi)=>{
+        if(vi!==latestOrigIdx) return ver
+        const arr=[...(ver.vendors||[])]
+        const idx=arr.findIndex(x=>x.cat===cat)
+        const swapIdx=idx+dir
+        if(idx<0||swapIdx<0||swapIdx>=arr.length) return ver
+        ;[arr[idx],arr[swapIdx]]=[arr[swapIdx],arr[idx]]
+        return {...ver, vendors:arr}
+      })}
+    }))
   }
 
   return (
@@ -4758,6 +4793,7 @@ function VendorVersionCompare({versions,proj,setProjects}) {
               ))}
               {versions.length>=2 && <th style={{...S.th("right"),color:C.amber}}>증감액</th>}
               <th style={S.th("right")}>평당단가(최신)</th>
+              {canEdit && <th style={S.th("center")}>관리</th>}
             </tr>
           </thead>
           <tbody>
@@ -4807,6 +4843,21 @@ function VendorVersionCompare({versions,proj,setProjects}) {
                   <td style={{...S.td("right"),fontSize:13.2,color:C.navyM}}>
                     {up?fPy(up):"1식"}
                   </td>
+                  {canEdit && (
+                    <td style={{...S.td("center")}}>
+                      <div style={{display:"flex",gap:3,justifyContent:"center"}}>
+                        <button onClick={()=>moveVendorCat(cat,-1)} disabled={ci===0}
+                          title="위로 이동"
+                          style={{padding:"3px 6px",background:"#F8FAFC",border:"1px solid #E5E7EB",borderRadius:5,fontSize:10,cursor:ci===0?"default":"pointer",opacity:ci===0?.35:1,color:"#334155"}}>▲</button>
+                        <button onClick={()=>moveVendorCat(cat,1)} disabled={ci===allCats.length-1}
+                          title="아래로 이동"
+                          style={{padding:"3px 6px",background:"#F8FAFC",border:"1px solid #E5E7EB",borderRadius:5,fontSize:10,cursor:ci===allCats.length-1?"default":"pointer",opacity:ci===allCats.length-1?.35:1,color:"#334155"}}>▼</button>
+                        <button onClick={()=>deleteVendorCat(cat)}
+                          title="최신 회차에서 삭제"
+                          style={{padding:"3px 7px",background:"#FEE2E2",border:"none",borderRadius:5,fontSize:10,cursor:"pointer",color:"#DC2626",fontWeight:700}}>✕</button>
+                      </div>
+                    </td>
+                  )}
                 </tr>
               )
             })}
@@ -4824,6 +4875,7 @@ function VendorVersionCompare({versions,proj,setProjects}) {
                 return <td style={{...S.td("right"),color:d>0?C.red:d<0?C.green:C.gray}}>{d!==0?(d>0?"+":"")+fW(d):"-"}</td>
               })()}
               <td/>
+              {canEdit && <td/>}
             </tr>
           </tbody>
         </table>
