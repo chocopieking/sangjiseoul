@@ -66,24 +66,24 @@ const lbl = (color,dec=2,size=11,suffix="")=>({
 
 // ── 스타일 헬퍼 ───────────────────────────────────────────────
 const S = {
-  card:(x={})=>({background:"#fff",border:"1px solid #E5E7EB",borderRadius:10,padding:"24px 28px",marginBottom:18,boxShadow:"0 1px 4px rgba(0,0,0,.05)",...x}),
-  kpi:(accent="#0E9C8C")=>({background:"#fff",border:"1px solid #E5E7EB",borderRadius:10,padding:"22px 24px",borderLeft:`4px solid ${accent}`,cursor:"pointer",transition:"all .2s",boxShadow:"0 1px 4px rgba(0,0,0,.05)"}),
-  grid:(c,g=16)=>({display:"grid",gridTemplateColumns:`repeat(${c},1fr)`,gap:g,marginBottom:g}),
-  th:(a="left")=>({padding:"13px 17px",textAlign:a,fontSize:14,fontWeight:700,color:"#64748B",background:"#F8FAFC",borderBottom:"1px solid #E5E7EB",whiteSpace:"nowrap",letterSpacing:"0.02em"}),
-  td:(a="right")=>({padding:"14px 17px",borderBottom:"1px solid #F3F4F6",textAlign:a,fontSize:15,verticalAlign:"middle",color:"#0F172A"}),
-  btn:(bg="#0E9C8C",fg="#fff")=>({padding:"11px 19px",background:bg,color:fg,border:"none",borderRadius:6,fontSize:15,fontWeight:700,cursor:"pointer",display:"inline-flex",alignItems:"center",gap:7,transition:"opacity .15s",letterSpacing:"-0.01em"}),
-  inp:(w)=>({padding:"11px 15px",border:"1.5px solid #E5E7EB",borderRadius:6,fontSize:15,width:w||"100%",boxSizing:"border-box",background:"#fff",color:"#0F172A",fontFamily:"inherit",outline:"none",transition:"border-color .15s"}),
-  lbl:()=>({display:"block",fontSize:14,color:"#64748B",fontWeight:700,marginBottom:6,letterSpacing:"0.01em"}),
-  bdg:(bg,fg)=>({display:"inline-flex",alignItems:"center",padding:"5px 13px",borderRadius:20,fontSize:14,fontWeight:700,background:bg,color:fg,letterSpacing:"0.01em"}),
+  card:(x={})=>({background:"#fff",border:"1px solid #E5E7EB",borderRadius:10,padding:"32px 38px",marginBottom:24,boxShadow:"0 1px 4px rgba(0,0,0,.05)",...x}),
+  kpi:(accent="#0E9C8C")=>({background:"#fff",border:"1px solid #E5E7EB",borderRadius:10,padding:"28px 30px",borderLeft:`5px solid ${accent}`,cursor:"pointer",transition:"all .2s",boxShadow:"0 1px 4px rgba(0,0,0,.05)"}),
+  grid:(c,g=20)=>({display:"grid",gridTemplateColumns:`repeat(${c},1fr)`,gap:g,marginBottom:g}),
+  th:(a="left")=>({padding:"16px 20px",textAlign:a,fontSize:20,fontWeight:700,color:"#64748B",background:"#F8FAFC",borderBottom:"1px solid #E5E7EB",whiteSpace:"nowrap",letterSpacing:"0.02em"}),
+  td:(a="right")=>({padding:"17px 20px",borderBottom:"1px solid #F3F4F6",textAlign:a,fontSize:22,verticalAlign:"middle",color:"#0F172A"}),
+  btn:(bg="#0E9C8C",fg="#fff")=>({padding:"16px 28px",background:bg,color:fg,border:"none",borderRadius:7,fontSize:22,fontWeight:700,cursor:"pointer",display:"inline-flex",alignItems:"center",gap:9,transition:"opacity .15s",letterSpacing:"-0.01em"}),
+  inp:(w)=>({padding:"16px 22px",border:"1.5px solid #E5E7EB",borderRadius:7,fontSize:22,width:w||"100%",boxSizing:"border-box",background:"#fff",color:"#0F172A",fontFamily:"inherit",outline:"none",transition:"border-color .15s"}),
+  lbl:()=>({display:"block",fontSize:20,color:"#64748B",fontWeight:700,marginBottom:9,letterSpacing:"0.01em"}),
+  bdg:(bg,fg)=>({display:"inline-flex",alignItems:"center",padding:"7px 19px",borderRadius:20,fontSize:20,fontWeight:700,background:bg,color:fg,letterSpacing:"0.01em"}),
 }
 // 전역 TH 헬퍼 — 테이블 헤더 스타일 (여러 컴포넌트에서 공통 사용)
 const TH = (align="right", color="#64748B", bg="#F8FAFC") => ({
-  padding:"10px 12px", textAlign:align, fontSize:13, fontWeight:700,
+  padding:"15px 18px", textAlign:align, fontSize:19, fontWeight:700,
   color, borderBottom:"2px solid #E5E7EB", whiteSpace:"nowrap", background:bg
 })
 // 전역 TD 헬퍼 — 테이블 셀 스타일
 const TD = (color="#334155", bold=false, bg="transparent") => ({
-  padding:"10px 12px", textAlign:"right", fontSize:14,
+  padding:"15px 18px", textAlign:"right", fontSize:21,
   fontWeight:bold?700:400, color, background:bg,
   borderBottom:"1px solid #F3F4F6", verticalAlign:"middle"
 })
@@ -1698,7 +1698,7 @@ export default function App() {
   return (
     <ToastProvider>
     <DeptContext.Provider value={deptCtx}>
-    <div style={{fontFamily:"'Pretendard','Apple SD Gothic Neo','Noto Sans KR','Inter',sans-serif",fontSize:15,color:"#0F172A",background:"#F1F5F9",minHeight:"100vh",lineHeight:1.65}}>
+    <div style={{fontFamily:"'Pretendard','Apple SD Gothic Neo','Noto Sans KR','Inter',sans-serif",fontSize:23,color:"#0F172A",background:"#F1F5F9",minHeight:"100vh",lineHeight:1.7}}>
 
       {/* ── 전역 검색 모달 ── */}
       {showGlobalSearch&&(
@@ -6479,16 +6479,27 @@ function NewVerModal({proj,onClose,onSave,initial}) {
 }
 
 // ── 공통 컴포넌트 ────────────────────────────────────────────
-function Card({title,note,actions,children,style={}}) {
-  return <div style={{...S.card(),...style}}>
-    {title&&<div style={{fontSize:16,fontWeight:700,marginBottom:13,display:"flex",alignItems:"baseline",justifyContent:"space-between",gap:6,flexWrap:"wrap"}}>
-      <span>{title}</span>
-      <div style={{display:"flex",alignItems:"center",gap:8}}>
-        {note&&<span style={{fontSize:13,color:"var(--color-text-tertiary,#aaa)",fontWeight:400}}>{note}</span>}
-        {actions}
-      </div>
-    </div>}
-    {children}
+function Card({title,note,actions,children,style={},defaultOpen=true}) {
+  const [open,setOpen]=useState(defaultOpen)
+  return <div style={{...S.card(),padding:0,overflow:"hidden",...style}}>
+    {title&&
+      <div onClick={()=>setOpen(o=>!o)} style={{
+        fontSize:24,fontWeight:800,padding:"18px 28px",display:"flex",alignItems:"center",justifyContent:"space-between",
+        gap:10,flexWrap:"wrap",cursor:"pointer",userSelect:"none",
+        background:"linear-gradient(180deg,#F0FBF9,#fff)",borderBottom:open?"1px solid #E5E7EB":"none",
+        color:"#0B6E63"
+      }}>
+        <div style={{display:"flex",alignItems:"center",gap:10}}>
+          <i className={`ti ti-chevron-${open?"down":"right"}`} style={{fontSize:20,color:"#0E9C8C",flexShrink:0}}/>
+          <span>{title}</span>
+        </div>
+        <div style={{display:"flex",alignItems:"center",gap:12}}>
+          {note&&<span style={{fontSize:19,color:"var(--color-text-tertiary,#aaa)",fontWeight:400}}>{note}</span>}
+          {actions&&<span onClick={e=>e.stopPropagation()}>{actions}</span>}
+          <span style={{fontSize:15,fontWeight:700,color:"#94A3B8",border:"1px solid #E2E8F0",borderRadius:6,padding:"3px 10px"}}>{open?"접기":"펼치기"}</span>
+        </div>
+      </div>}
+    {(open||!title)&&<div style={{padding:title?"28px 38px 32px":"32px 38px"}}>{children}</div>}
   </div>
 }
 // yyyy-MM-dd 형식만 date input에 허용
