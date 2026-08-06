@@ -4574,20 +4574,20 @@ function VersionCompareCard({proj,selVerIdx,setProjects}) {
       {/* 요약 헤드라인 */}
       <div style={{display:"flex",gap:12,flexWrap:"wrap",marginBottom:16}}>
         <div style={{background:isGood?C.greenL:C.redL,borderRadius:8,padding:"10px 16px",flex:1,minWidth:180}}>
-          <div style={{fontSize:12.5,color:isGood?C.green:C.red,fontWeight:600,marginBottom:3}}>1차 → {versions.length}차 이윤 변화</div>
-          <div style={{fontSize:12.5,fontWeight:800,color:isGood?C.green:C.red}}>
+          <div style={{fontSize:13,color:isGood?C.green:C.red,fontWeight:600,marginBottom:3}}>1차 → {versions.length}차 이윤 변화</div>
+          <div style={{fontSize:22,fontWeight:800,color:isGood?C.green:C.red}}>
             {isGood?"+":""}{fMoney(profitChange)}
           </div>
-          <div style={{fontSize:12.5,color:isGood?C.green:C.red}}>({isGood?"+":""}{profitPctChange.toFixed(1)}%)</div>
+          <div style={{fontSize:13,color:isGood?C.green:C.red}}>({isGood?"+":""}{profitPctChange.toFixed(1)}%)</div>
         </div>
         {versions.map((v,i)=>{
           const p=pnls[i]
           const rate=p._total>0?+(p._profit/p._total*100).toFixed(1):null
           return (
             <div key={i} style={{background:selVerIdx===v._origIdx?"var(--color-background-primary,#fff)":C.grayL,borderRadius:8,padding:"10px 16px",flex:1,minWidth:140,border:`1px solid ${selVerIdx===v._origIdx?C.navyM:"transparent"}`}}>
-              <div style={{fontSize:12.5,fontWeight:700,color:C.gray,marginBottom:3}}>{v.round?`${v.round}차`:v.ver}</div>
-              <div style={{fontSize:12.5,fontWeight:700,color:C.navy}}>{fMoney(p._profit)}</div>
-              <div style={{fontSize:12.5,color:rate!=null&&rate<5?C.red:C.green}}>{rate!=null?`이윤율 ${rate}%`:"-"}</div>
+              <div style={{fontSize:13,fontWeight:700,color:C.gray,marginBottom:3}}>{v.round?`${v.round}차`:v.ver}</div>
+              <div style={{fontSize:18,fontWeight:700,color:C.navy}}>{fMoney(p._profit)}</div>
+              <div style={{fontSize:13,color:rate!=null&&rate<5?C.red:C.green}}>{rate!=null?`이윤율 ${rate}%`:"-"}</div>
             </div>
           )
         })}
@@ -4743,6 +4743,13 @@ function VendorVersionCompare({versions,proj,setProjects}) {
     if(!newV.cat.trim()) return
     const cat=newV.cat.trim()
     const targetIdx = newV.targetOrigIdx!=null?newV.targetOrigIdx:latestOrigIdx
+    const targetVer = versions.find(v=>v._origIdx===targetIdx)
+    // 같은 회차에 같은 분야명이 이미 있으면, 화면은 분야당 한 줄만 보여주는 구조라서 새로 추가해도 "먼저 있던 항목"에 가려져
+    // 보이지 않게 됨(합계에는 반영되지만 화면엔 안 나타나 "적용 안 됨"처럼 보임) → 미리 막고 안내
+    if(targetVer && (targetVer.vendors||[]).some(x=>x.cat===cat)){
+      alert(`"${cat}" 분야는 이 회차에 이미 있습니다.\n\n기존 항목의 금액을 고치려면 표에서 해당 금액 칸을 클릭해 바로 수정하세요.\n같은 분야의 업체를 하나 더 추가하려면 "${cat}(2)"처럼 다른 분야명을 사용해주세요.`)
+      return
+    }
     setProjects(prev=>prev.map(p=>{
       if(p.id!==proj.id) return p
       const baseOrder=(Array.isArray(p.vendorCatOrder)&&p.vendorCatOrder.length)?p.vendorCatOrder:allCats
@@ -4829,11 +4836,29 @@ function VendorVersionCompare({versions,proj,setProjects}) {
     }))
   }
 
+  // 드래그앤드롭으로 순서 이동 — dragCat을 targetCat 자리로 옮김
+  const [dragCat,setDragCat] = useState(null)
+  const [dragOverCat,setDragOverCat] = useState(null)
+  const dropReorder = (targetCat) => {
+    setDragOverCat(null)
+    if(!dragCat || dragCat===targetCat){ setDragCat(null); return }
+    setProjects(prev=>prev.map(p=>{
+      if(p.id!==proj.id) return p
+      const order=(Array.isArray(p.vendorCatOrder)&&p.vendorCatOrder.length?p.vendorCatOrder:allCats).slice()
+      const from=order.indexOf(dragCat), to=order.indexOf(targetCat)
+      if(from<0||to<0) return p
+      order.splice(from,1)
+      order.splice(to,0,dragCat)
+      return {...p, vendorCatOrder:order}
+    }))
+    setDragCat(null)
+  }
+
   return (
     <div style={{marginTop:16}}>
       <div style={{fontSize:13.2,color:C.gray,fontWeight:600,marginBottom:8,borderTop:`1px solid ${C.navyL}`,paddingTop:10,display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}>
         외주비 분야별 회차 비교
-        {canEdit&&<span style={{fontSize:8.8,color:"#94A3B8",fontWeight:400}}>· 금액과 분야명을 클릭하면 바로 수정할 수 있습니다</span>}
+        {canEdit&&<span style={{fontSize:8.8,color:"#94A3B8",fontWeight:400}}>· 금액·분야명·업체명을 클릭하면 바로 수정, ⠿를 드래그하면 순서 이동됩니다</span>}
         {canEdit&&<button onClick={()=>setShowAdd(v=>!v)} style={{marginLeft:"auto",padding:"5px 11px",background:showAdd?"#F8FAFC":"#0E9C8C",color:showAdd?"#64748B":"#fff",border:showAdd?"1px solid #E5E7EB":"none",borderRadius:6,fontSize:8.8,fontWeight:700,cursor:"pointer"}}>
           {showAdd?"✕ 취소":"+ 외주업체 추가"}
         </button>}
@@ -4885,38 +4910,53 @@ function VendorVersionCompare({versions,proj,setProjects}) {
               // 최신 회차부터 역순으로 찾아 해당 분야의 업체명을 표시 (분야만으로는 어느 업체인지 구분이 안 되던 문제)
               const vendorName=[...versions].reverse().map(v=>(v.vendors||[]).find(x=>x.cat===cat)).find(Boolean)?.name||""
               return (
-                <tr key={cat} style={{background:ci%2===0?"var(--color-background-primary,#fff)":"var(--color-background-secondary,#f8f8f6)"}}>
+                <tr key={cat}
+                  draggable={canEdit}
+                  onDragStart={()=>setDragCat(cat)}
+                  onDragOver={e=>{ if(canEdit){ e.preventDefault(); if(dragOverCat!==cat) setDragOverCat(cat) } }}
+                  onDragLeave={()=>{ if(dragOverCat===cat) setDragOverCat(null) }}
+                  onDrop={e=>{ e.preventDefault(); dropReorder(cat) }}
+                  onDragEnd={()=>{ setDragCat(null); setDragOverCat(null) }}
+                  style={{
+                    background:dragOverCat===cat?"#F0FBF9":ci%2===0?"var(--color-background-primary,#fff)":"var(--color-background-secondary,#f8f8f6)",
+                    opacity:dragCat===cat?0.4:1,
+                    outline:dragOverCat===cat?"2px dashed #0E9C8C":"none",
+                    outlineOffset:-2
+                  }}>
                   <td style={{...S.td("left")}}>
-                    <div style={{display:"flex",flexDirection:"column",gap:3}}>
-                      {editCatKey===cat ? (
-                        <input autoFocus value={editCatVal}
-                          onChange={e=>setEditCatVal(e.target.value)}
-                          onBlur={()=>commitCatRename(cat)}
-                          onKeyDown={e=>{
-                            if(e.key==="Enter") commitCatRename(cat)
-                            if(e.key==="Escape") setEditCatKey(null)
-                          }}
-                          style={{fontSize:9.5,padding:"3px 7px",border:"1.5px solid #0E9C8C",borderRadius:5,width:90}}/>
-                      ) : (
-                        <span onClick={()=>{ if(!canEdit) return; setEditCatKey(cat); setEditCatVal(cat) }}
-                          style={{...S.bdg(C.navyL,C.navyM),fontSize:9.5,alignSelf:"flex-start",cursor:canEdit?"pointer":"default"}}
-                          title={canEdit?"클릭해서 분야명 수정":undefined}>{cat}</span>
-                      )}
-                      {editNameKey===cat ? (
-                        <input autoFocus value={editNameVal}
-                          onChange={e=>setEditNameVal(e.target.value)}
-                          onBlur={()=>commitNameRename(cat)}
-                          onKeyDown={e=>{
-                            if(e.key==="Enter") commitNameRename(cat)
-                            if(e.key==="Escape") setEditNameKey(null)
-                          }}
-                          style={{fontSize:15,padding:"3px 7px",border:"1.5px solid #0E9C8C",borderRadius:5,width:150}}/>
+                    <div style={{display:"flex",alignItems:"flex-start",gap:6}}>
+                      {canEdit && <span title="드래그해서 순서 이동" style={{cursor:"grab",color:"#CBD5E1",fontSize:13,paddingTop:2,userSelect:"none"}}>⠿</span>}
+                      <div style={{display:"flex",flexDirection:"column",gap:3}}>
+                        {editCatKey===cat ? (
+                          <input autoFocus value={editCatVal}
+                            onChange={e=>setEditCatVal(e.target.value)}
+                            onBlur={()=>commitCatRename(cat)}
+                            onKeyDown={e=>{
+                              if(e.key==="Enter") commitCatRename(cat)
+                              if(e.key==="Escape") setEditCatKey(null)
+                            }}
+                            style={{fontSize:9.5,padding:"3px 7px",border:"1.5px solid #0E9C8C",borderRadius:5,width:90}}/>
+                        ) : (
+                          <span onClick={()=>{ if(!canEdit) return; setEditCatKey(cat); setEditCatVal(cat) }}
+                            style={{...S.bdg(C.navyL,C.navyM),fontSize:9.5,alignSelf:"flex-start",cursor:canEdit?"pointer":"default"}}
+                            title={canEdit?"클릭해서 분야명 수정":undefined}>{cat}</span>
+                        )}
+                        {editNameKey===cat ? (
+                          <input autoFocus value={editNameVal}
+                            onChange={e=>setEditNameVal(e.target.value)}
+                            onBlur={()=>commitNameRename(cat)}
+                            onKeyDown={e=>{
+                              if(e.key==="Enter") commitNameRename(cat)
+                              if(e.key==="Escape") setEditNameKey(null)
+                            }}
+                            style={{fontSize:15,padding:"3px 7px",border:"1.5px solid #0E9C8C",borderRadius:5,width:150}}/>
                       ) : (
                         (vendorName || canEdit) &&
                         <span onClick={()=>{ if(!canEdit) return; setEditNameKey(cat); setEditNameVal(vendorName) }}
                           style={{fontSize:15,color:"#334155",fontWeight:700,cursor:canEdit?"pointer":"default"}}
                           title={canEdit?"클릭해서 업체명 수정":undefined}>{vendorName||"(업체명 없음)"}</span>
                       )}
+                    </div>
                     </div>
                   </td>
                   {versions.map((v,i)=>{
