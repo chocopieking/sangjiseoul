@@ -4680,39 +4680,56 @@ function VersionCompareCard({proj,selVerIdx,setProjects}) {
 
 // 협력업체(외주비) 분야별 회차 비교
 function VendorVersionCompare({versions,proj,setProjects}) {
-  // 최신 회차 협력업체 배열의 순서를 화면 표시·정렬 기준으로 사용 (위/아래 이동이 실제로 반영되도록)
   const latestVer = versions[versions.length-1]
   const latestOrigIdx = latestVer?._origIdx
+  // 표시 순서 — proj.vendorCatOrder(직접 저장된 순서)가 있으면 그걸 우선 쓰고, 없으면 최신 회차 순서로 시작.
+  // 어느 회차에도 아직 없는 분야는 발견되는 대로 끝에 덧붙임.
   const allCats = useMemo(()=>{
     const seen=new Set(), ordered=[]
-    for(const v of (latestVer?.vendors||[])){ if(!seen.has(v.cat)){seen.add(v.cat);ordered.push(v.cat)} }
+    const savedOrder = proj.vendorCatOrder
+    if(Array.isArray(savedOrder)&&savedOrder.length){
+      for(const c of savedOrder){ if(!seen.has(c)){seen.add(c);ordered.push(c)} }
+    } else {
+      for(const v of (latestVer?.vendors||[])){ if(!seen.has(v.cat)){seen.add(v.cat);ordered.push(v.cat)} }
+    }
     for(const v of versions.flatMap(x=>x.vendors||[])){ if(!seen.has(v.cat)){seen.add(v.cat);ordered.push(v.cat)} }
     return ordered
-  },[versions])
+  },[versions,proj.vendorCatOrder])
   const svc = proj.serviceFee||0
   const pyF = (proj.floorArea||0)/3.3058
   const pyS = (proj.siteArea||0)/3.3058
   const fMoney = n => n != null ? fE((+n/1e8).toFixed(2)*1) : "-"
+  const canEdit = typeof setProjects === "function"
+
+  // 협력업체 배열이 바뀔 때마다 해당 회차의 외주용역비(subContract) 합계도 같이 갱신 —
+  // 이걸 안 하면 위 "비용 구성 요약"/"회차별 비교" 카드가 옛날 값을 계속 보여주는 문제가 생김
+  const recomputeSub = ver => ({...ver, subContract:(ver.vendors||[]).reduce((s,x)=>s+(x.nego2||x.nego1||x.contract||0),0)})
 
   // 셀 클릭으로 바로 수정 — editKey: "분야|원본회차인덱스"
   const [editKey,setEditKey] = useState(null)
   const [editVal,setEditVal] = useState("")
-  const canEdit = typeof setProjects === "function"
 
+  // 금액 수정 — 해당 회차에 이미 항목이 있으면 갱신, 없으면(예: 이 분야가 다른 회차에만 있던 경우) 새로 만들어서 추가
   const commitEdit = (cat, origIdx) => {
     const num = parseInt(String(editVal).replace(/[,원\s]/g,""))||0
     setProjects(prev=>prev.map(p=>{
       if(p.id!==proj.id) return p
       return {...p, versions:(p.versions||[]).map((ver,vi)=>{
         if(vi!==origIdx) return ver
-        const vendors=(ver.vendors||[]).map(x=>{
-          if(x.cat!==cat) return x
-          // 화면에 표시되던 필드(2차NEGO>1차NEGO>원가견적 우선순위)를 그대로 갱신
-          if(x.nego2) return {...x,nego2:num}
-          if(x.nego1) return {...x,nego1:num}
-          return {...x,contract:num}
-        })
-        return {...ver,vendors}
+        const exists=(ver.vendors||[]).some(x=>x.cat===cat)
+        let vendors
+        if(exists){
+          vendors=(ver.vendors||[]).map(x=>{
+            if(x.cat!==cat) return x
+            if(x.nego2) return {...x,nego2:num}
+            if(x.nego1) return {...x,nego1:num}
+            return {...x,contract:num}
+          })
+        } else {
+          const nameGuess=[...versions].reverse().map(v=>(v.vendors||[]).find(x=>x.cat===cat)).find(Boolean)?.name||""
+          vendors=[...(ver.vendors||[]), {cat,name:nameGuess,contract:num,nego1:0,nego2:0}]
+        }
+        return recomputeSub({...ver,vendors})
       })}
     }))
     setEditKey(null)
@@ -4724,22 +4741,29 @@ function VendorVersionCompare({versions,proj,setProjects}) {
   useEffect(()=>{ setNewV(v=>({...v,targetOrigIdx:latestOrigIdx})) },[latestOrigIdx])
   const addVendorRow = () => {
     if(!newV.cat.trim()) return
+    const cat=newV.cat.trim()
     const targetIdx = newV.targetOrigIdx!=null?newV.targetOrigIdx:latestOrigIdx
     setProjects(prev=>prev.map(p=>{
       if(p.id!==proj.id) return p
-      return {...p, versions:(p.versions||[]).map((ver,vi)=>{
-        if(vi!==targetIdx) return ver
-        return {...ver, vendors:[...(ver.vendors||[]), {
-          cat:newV.cat.trim(), name:newV.name.trim(),
-          contract:parseInt(String(newV.contract).replace(/[,원\s]/g,""))||0, nego1:0, nego2:0
-        }]}
-      })}
+      const baseOrder=(Array.isArray(p.vendorCatOrder)&&p.vendorCatOrder.length)?p.vendorCatOrder:allCats
+      return {
+        ...p,
+        vendorCatOrder: baseOrder.includes(cat)?baseOrder:[...baseOrder,cat],
+        versions:(p.versions||[]).map((ver,vi)=>{
+          if(vi!==targetIdx) return ver
+          return recomputeSub({...ver, vendors:[...(ver.vendors||[]), {
+            cat, name:newV.name.trim(),
+            contract:parseInt(String(newV.contract).replace(/[,원\s]/g,""))||0, nego1:0, nego2:0
+          }]})
+        })
+      }
     }))
     setNewV({cat:"",name:"",contract:"",targetOrigIdx:latestOrigIdx}); setShowAdd(false)
   }
 
-  // 분야 이름 자체를 수정 — 해당 이름을 쓰는 모든 회차의 항목을 한번에 바꿔야 회차간 비교가 계속 같은 줄로 이어짐
-  const [editCatKey,setEditCatKey] = useState(null) // 수정 중인 원래 분야명
+  // 분야 이름 자체를 수정 — 해당 이름을 쓰는 모든 회차의 항목 + 표시 순서 목록을 한번에 바꿔야
+  // 이름을 바꿔도 회차간 비교(같은 줄)와 정렬 순서가 계속 유지됨
+  const [editCatKey,setEditCatKey] = useState(null)
   const [editCatVal,setEditCatVal] = useState("")
   const commitCatRename = (oldCat) => {
     const newCat = editCatVal.trim()
@@ -4747,15 +4771,20 @@ function VendorVersionCompare({versions,proj,setProjects}) {
     if(!newCat || newCat===oldCat) return
     setProjects(prev=>prev.map(p=>{
       if(p.id!==proj.id) return p
-      return {...p, versions:(p.versions||[]).map(ver=>({
-        ...ver,
-        vendors:(ver.vendors||[]).map(x=>x.cat===oldCat?{...x,cat:newCat}:x)
-      }))}
+      const baseOrder=(Array.isArray(p.vendorCatOrder)&&p.vendorCatOrder.length)?p.vendorCatOrder:allCats
+      return {
+        ...p,
+        vendorCatOrder: baseOrder.map(c=>c===oldCat?newCat:c),
+        versions:(p.versions||[]).map(ver=>({
+          ...ver,
+          vendors:(ver.vendors||[]).map(x=>x.cat===oldCat?{...x,cat:newCat}:x)
+        }))
+      }
     }))
   }
 
-  // 업체명 수정 — 분야명과 마찬가지로 같은 분야를 쓰는 모든 회차의 업체명을 한번에 갱신
-  const [editNameKey,setEditNameKey] = useState(null) // 수정 중인 분야(cat)
+  // 업체명 수정 — 같은 분야를 쓰는 모든 회차의 업체명을 한번에 갱신
+  const [editNameKey,setEditNameKey] = useState(null)
   const [editNameVal,setEditNameVal] = useState("")
   const commitNameRename = (cat) => {
     const newName = editNameVal.trim()
@@ -4769,31 +4798,34 @@ function VendorVersionCompare({versions,proj,setProjects}) {
     }))
   }
 
-  // 최신 회차에서 해당 분야 삭제
+  // 분야 삭제 — 어느 회차에 있든 상관없이 그 분야를 쓰는 모든 회차에서 제거 (그래서 항상 클릭 가능함)
   const deleteVendorCat = (cat) => {
-    if(!window.confirm(`"${cat}" 분야를 최신 회차에서 삭제할까요?`)) return
+    if(!window.confirm(`"${cat}" 분야를 모든 회차에서 삭제할까요?\n(이 작업은 되돌릴 수 없습니다)`)) return
     setProjects(prev=>prev.map(p=>{
       if(p.id!==proj.id) return p
-      return {...p, versions:(p.versions||[]).map((ver,vi)=>{
-        if(vi!==latestOrigIdx) return ver
-        return {...ver, vendors:(ver.vendors||[]).filter(x=>x.cat!==cat)}
-      })}
+      const baseOrder=(Array.isArray(p.vendorCatOrder)&&p.vendorCatOrder.length)?p.vendorCatOrder:allCats
+      return {
+        ...p,
+        vendorCatOrder: baseOrder.filter(c=>c!==cat),
+        versions:(p.versions||[]).map(ver=>{
+          const vendors=(ver.vendors||[]).filter(x=>x.cat!==cat)
+          if(vendors.length===(ver.vendors||[]).length) return ver
+          return recomputeSub({...ver, vendors})
+        })
+      }
     }))
   }
 
-  // 최신 회차 내 분야 순서를 위/아래로 이동
+  // 분야 순서를 위/아래로 이동 — 어느 회차에 있는지와 무관하게 표시 순서 목록 자체를 바꾸므로 항상 클릭 가능함
   const moveVendorCat = (cat, dir) => {
     setProjects(prev=>prev.map(p=>{
       if(p.id!==proj.id) return p
-      return {...p, versions:(p.versions||[]).map((ver,vi)=>{
-        if(vi!==latestOrigIdx) return ver
-        const arr=[...(ver.vendors||[])]
-        const idx=arr.findIndex(x=>x.cat===cat)
-        const swapIdx=idx+dir
-        if(idx<0||swapIdx<0||swapIdx>=arr.length) return ver
-        ;[arr[idx],arr[swapIdx]]=[arr[swapIdx],arr[idx]]
-        return {...ver, vendors:arr}
-      })}
+      const order=(Array.isArray(p.vendorCatOrder)&&p.vendorCatOrder.length?p.vendorCatOrder:allCats).slice()
+      const idx=order.indexOf(cat)
+      const swapIdx=idx+dir
+      if(idx<0||swapIdx<0||swapIdx>=order.length) return p
+      ;[order[idx],order[swapIdx]]=[order[swapIdx],order[idx]]
+      return {...p, vendorCatOrder:order}
     }))
   }
 
@@ -4852,8 +4884,6 @@ function VendorVersionCompare({versions,proj,setProjects}) {
               const up=py>0&&latestAmt>0?Math.round(latestAmt/py):null
               // 최신 회차부터 역순으로 찾아 해당 분야의 업체명을 표시 (분야만으로는 어느 업체인지 구분이 안 되던 문제)
               const vendorName=[...versions].reverse().map(v=>(v.vendors||[]).find(x=>x.cat===cat)).find(Boolean)?.name||""
-              // 관리 버튼(이동/삭제)은 최신 회차 배열을 기준으로 동작하므로, 최신 회차에 없는(과거 회차에만 남아있는) 분야는 대상이 아님 — 비활성화 처리
-              const inLatest = (latestVer?.vendors||[]).some(x=>x.cat===cat)
               return (
                 <tr key={cat} style={{background:ci%2===0?"var(--color-background-primary,#fff)":"var(--color-background-secondary,#f8f8f6)"}}>
                   <td style={{...S.td("left")}}>
@@ -4921,15 +4951,15 @@ function VendorVersionCompare({versions,proj,setProjects}) {
                   {canEdit && (
                     <td style={{...S.td("center")}}>
                       <div style={{display:"flex",gap:3,justifyContent:"center"}}>
-                        <button onClick={()=>moveVendorCat(cat,-1)} disabled={!inLatest||ci===0}
-                          title={!inLatest?"최신 회차에 없는 항목은 이동할 수 없습니다":"위로 이동"}
-                          style={{padding:"3px 6px",background:"#F8FAFC",border:"1px solid #E5E7EB",borderRadius:5,fontSize:10,cursor:(!inLatest||ci===0)?"not-allowed":"pointer",opacity:(!inLatest||ci===0)?.35:1,color:"#334155"}}>▲</button>
-                        <button onClick={()=>moveVendorCat(cat,1)} disabled={!inLatest||ci===allCats.length-1}
-                          title={!inLatest?"최신 회차에 없는 항목은 이동할 수 없습니다":"아래로 이동"}
-                          style={{padding:"3px 6px",background:"#F8FAFC",border:"1px solid #E5E7EB",borderRadius:5,fontSize:10,cursor:(!inLatest||ci===allCats.length-1)?"not-allowed":"pointer",opacity:(!inLatest||ci===allCats.length-1)?.35:1,color:"#334155"}}>▼</button>
-                        <button onClick={()=>deleteVendorCat(cat)} disabled={!inLatest}
-                          title={!inLatest?"최신 회차에 없는 항목입니다 (과거 회차 기록)":"최신 회차에서 삭제"}
-                          style={{padding:"3px 7px",background:"#FEE2E2",border:"none",borderRadius:5,fontSize:10,cursor:!inLatest?"not-allowed":"pointer",opacity:!inLatest?.35:1,color:"#DC2626",fontWeight:700}}>✕</button>
+                        <button onClick={()=>moveVendorCat(cat,-1)} disabled={ci===0}
+                          title="위로 이동"
+                          style={{padding:"3px 6px",background:"#F8FAFC",border:"1px solid #E5E7EB",borderRadius:5,fontSize:10,cursor:ci===0?"not-allowed":"pointer",opacity:ci===0?.35:1,color:"#334155"}}>▲</button>
+                        <button onClick={()=>moveVendorCat(cat,1)} disabled={ci===allCats.length-1}
+                          title="아래로 이동"
+                          style={{padding:"3px 6px",background:"#F8FAFC",border:"1px solid #E5E7EB",borderRadius:5,fontSize:10,cursor:ci===allCats.length-1?"not-allowed":"pointer",opacity:ci===allCats.length-1?.35:1,color:"#334155"}}>▼</button>
+                        <button onClick={()=>deleteVendorCat(cat)}
+                          title="모든 회차에서 삭제"
+                          style={{padding:"3px 7px",background:"#FEE2E2",border:"none",borderRadius:5,fontSize:10,cursor:"pointer",color:"#DC2626",fontWeight:700}}>✕</button>
                       </div>
                     </td>
                   )}
