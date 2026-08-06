@@ -10,7 +10,7 @@ export function Section({ title, note, actions, children, style = {}, defaultOpe
         <div
           onClick={() => setOpen(o => !o)}
           style={{
-            fontSize: 24, fontWeight: 800, padding: "18px 28px",
+            fontSize: 17, fontWeight: 800, padding: "14px 20px",
             display: "flex", alignItems: "center", justifyContent: "space-between",
             gap: 10, flexWrap: "wrap", cursor: "pointer", userSelect: "none",
             background: "linear-gradient(180deg,#F0FBF9,#fff)",
@@ -19,13 +19,13 @@ export function Section({ title, note, actions, children, style = {}, defaultOpe
           }}
         >
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <i className={`ti ti-chevron-${open ? "down" : "right"}`} style={{ fontSize: 20, color: "#0E9C8C", flexShrink: 0 }} />
+            <i className={`ti ti-chevron-${open ? "down" : "right"}`} style={{ fontSize: 15, color: "#0E9C8C", flexShrink: 0 }} />
             <span>{title}</span>
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-            {note && <span style={{ fontSize: 19, color: "#94A3B8", fontWeight: 400 }}>{note}</span>}
+            {note && <span style={{ fontSize: 13, color: "#94A3B8", fontWeight: 400 }}>{note}</span>}
             {actions && <span onClick={e => e.stopPropagation()}>{actions}</span>}
-            <span style={{ fontSize: 15, fontWeight: 700, color: "#94A3B8", border: "1px solid #E2E8F0", borderRadius: 6, padding: "3px 10px" }}>
+            <span style={{ fontSize: 11, fontWeight: 700, color: "#94A3B8", border: "1px solid #E2E8F0", borderRadius: 6, padding: "3px 10px" }}>
               {open ? "접기" : "펼치기"}
             </span>
           </div>

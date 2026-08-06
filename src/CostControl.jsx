@@ -123,9 +123,9 @@ export function CostControlTab({ projects=[], vendorsDB={}, cashItems=[], vendor
 
   const S = {
     card: { background:"#fff", borderRadius:14, border:"1px solid #E5E7EB", padding:"18px 20px", marginBottom:16 },
-    hdr:  { fontSize:21, fontWeight:800, color:"#111827", marginBottom:14 },
-    lbl:  { fontSize:18, color:"#6B7280", marginBottom:4, display:"block", fontWeight:600 },
-    inp:  { padding:"8px 12px", border:"1.5px solid #E5E7EB", borderRadius:8, fontSize:19.5,
+    hdr:  { fontSize:15.4, fontWeight:800, color:"#111827", marginBottom:14 },
+    lbl:  { fontSize:13.2, color:"#6B7280", marginBottom:4, display:"block", fontWeight:600 },
+    inp:  { padding:"8px 12px", border:"1.5px solid #E5E7EB", borderRadius:8, fontSize:14.3,
             width:"100%", boxSizing:"border-box", outline:"none", fontFamily:"inherit" },
   }
 
@@ -135,7 +135,7 @@ export function CostControlTab({ projects=[], vendorsDB={}, cashItems=[], vendor
       <div style={{display:"flex",gap:0,marginBottom:18,borderBottom:"2px solid #E5E7EB",overflowX:"auto",WebkitOverflowScrolling:"touch"}}>
         {VIEWS.map(([id,lbl])=>(
           <button key={id} onClick={()=>setView(id)}
-            style={{padding:"10px 18px",border:"none",background:"none",fontSize:20.2,
+            style={{padding:"10px 18px",border:"none",background:"none",fontSize:14.8,
               fontWeight:view===id?800:500,cursor:"pointer",flexShrink:0,
               color:view===id?"#DC2626":"#6B7280",
               borderBottom:view===id?"3px solid #DC2626":"3px solid transparent",marginBottom:-2}}>
@@ -193,8 +193,8 @@ function Dashboard({ summary, projLimits, cashItems }) {
             rateLevel?.bg || "#F3F4F6"],
         ].map(([l,v,color,bg])=>(
           <div key={l} style={{background:bg, borderRadius:14, padding:"16px 18px", border:`1.5px solid ${color}30`}}>
-            <div style={{fontSize:18, color, fontWeight:700, marginBottom:6, whiteSpace:"pre-line"}}>{l}</div>
-            <div style={{fontSize:36, fontWeight:900, color}}>{v}</div>
+            <div style={{fontSize:13.2, color, fontWeight:700, marginBottom:6, whiteSpace:"pre-line"}}>{l}</div>
+            <div style={{fontSize:26.4, fontWeight:900, color}}>{v}</div>
           </div>
         ))}
       </div>
@@ -204,19 +204,19 @@ function Dashboard({ summary, projLimits, cashItems }) {
         <div style={{background:rateLevel.bg, border:`2px solid ${rateLevel.color}`,
           borderRadius:12, padding:"14px 18px", marginBottom:16,
           display:"flex", alignItems:"center", gap:14}}>
-          <div style={{fontSize:36}}>{rateLevel.label.split(" ")[0]}</div>
+          <div style={{fontSize:26.4}}>{rateLevel.label.split(" ")[0]}</div>
           <div>
-            <div style={{fontSize:22.5, fontWeight:800, color:rateLevel.color}}>
+            <div style={{fontSize:16.5, fontWeight:800, color:rateLevel.color}}>
               현재 외주비율 {costRate}% — {rateLevel.label}
             </div>
-            <div style={{fontSize:19.5, color:"#374151", marginTop:2}}>
+            <div style={{fontSize:14.3, color:"#374151", marginTop:2}}>
               {yr}년 외주비 {fA(yearExtAmt)} ÷ 현누계 매출 {fA(revenue)} = {costRate}%
                | 목표: 45~50% | {costRate > 60 && "⚠ 즉각적인 원가통제 조치 필요"}
             </div>
           </div>
           <div style={{marginLeft:"auto", textAlign:"right"}}>
-            <div style={{fontSize:16.5, color:"#6B7280"}}>목표 달성을 위해</div>
-            <div style={{fontSize:19.5, fontWeight:700, color:rateLevel.color}}>
+            <div style={{fontSize:12, color:"#6B7280"}}>목표 달성을 위해</div>
+            <div style={{fontSize:14.3, fontWeight:700, color:rateLevel.color}}>
               {revenue > 0 ? `외주비 ${fA(revenue * 0.5)} 이하 유지` : "-"}
             </div>
           </div>
@@ -227,7 +227,7 @@ function Dashboard({ summary, projLimits, cashItems }) {
       {allYears.length > 1 && (
         <div style={{background:"#fff",borderRadius:12,border:"1px solid #E5E7EB",
           padding:"14px 18px",marginBottom:16}}>
-          <div style={{fontSize:19.5,fontWeight:700,color:"#374151",marginBottom:10}}>
+          <div style={{fontSize:14.3,fontWeight:700,color:"#374151",marginBottom:10}}>
             📅 연도별 외주비 현황
           </div>
           <div style={{display:"flex",gap:6,marginBottom:14,flexWrap:"wrap"}}>
@@ -236,10 +236,10 @@ function Dashboard({ summary, projLimits, cashItems }) {
                 style={{padding:"6px 14px",
                   background:selYear===y?"#7C3AED":"#F3F4F6",
                   color:selYear===y?"#fff":"#6B7280",
-                  border:"none",borderRadius:8,fontSize:19.5,
+                  border:"none",borderRadius:8,fontSize:14.3,
                   fontWeight:selYear===y?700:500,cursor:"pointer"}}>
                 {y==="전체"?"전체":y+"년"}
-                {y!=="전체" && <span style={{fontSize:16.5,marginLeft:4,opacity:.8}}>
+                {y!=="전체" && <span style={{fontSize:12,marginLeft:4,opacity:.8}}>
                   ({fA(byYear[y]||0)})
                 </span>}
               </button>
@@ -256,11 +256,11 @@ function Dashboard({ summary, projLimits, cashItems }) {
                 <div key={y} style={{background:lvl?.bg||"#F8FAFC",borderRadius:10,
                   padding:"12px 14px",border:`1.5px solid ${lvl?.color||"#E5E7EB"}30`,
                   cursor:"pointer"}} onClick={()=>setSelYear(y)}>
-                  <div style={{fontSize:18,fontWeight:700,color:lvl?.color||"#6B7280",marginBottom:4}}>
+                  <div style={{fontSize:13.2,fontWeight:700,color:lvl?.color||"#6B7280",marginBottom:4}}>
                     {y}년 {selYear===y?"✓":""}
                   </div>
-                  <div style={{fontSize:27,fontWeight:900,color:"#7C3AED"}}>{fA(amt)}</div>
-                  <div style={{fontSize:16.5,color:"#6B7280",marginTop:4}}>
+                  <div style={{fontSize:19.8,fontWeight:900,color:"#7C3AED"}}>{fA(amt)}</div>
+                  <div style={{fontSize:12,color:"#6B7280",marginTop:4}}>
                     {rev>0?`매출 ${fA(rev)}`:"매출 미집계"} 
                     {rate?<span style={{fontWeight:700,color:lvl?.color}}>{rate}%</span>:""}
                   </div>
@@ -274,14 +274,14 @@ function Dashboard({ summary, projLimits, cashItems }) {
       {/* 한도 초과 경보 */}
       {overLimit.length > 0 && (
         <div style={{background:"#FEE2E2", border:"2px solid #DC2626", borderRadius:12, padding:"14px 18px", marginBottom:16}}>
-          <div style={{fontSize:21, fontWeight:800, color:"#DC2626", marginBottom:8}}>
+          <div style={{fontSize:15.4, fontWeight:800, color:"#DC2626", marginBottom:8}}>
             🚨 외주비 한도 초과 프로젝트 ({overLimit.length}건)
           </div>
           {overLimit.map(([pj, d]) => {
             const lim = projLimits[pj]?.limitAmt || 0
             const over = d.total - lim
             return (
-              <div key={pj} style={{display:"flex", justifyContent:"space-between", fontSize:19.5,
+              <div key={pj} style={{display:"flex", justifyContent:"space-between", fontSize:14.3,
                 padding:"6px 0", borderBottom:"1px solid #FECACA"}}>
                 <span style={{fontWeight:600}}>{pj.slice(0,40)}</span>
                 <span style={{color:"#DC2626", fontWeight:700}}>
@@ -297,9 +297,9 @@ function Dashboard({ summary, projLimits, cashItems }) {
         {/* 프로젝트별 외주비 TOP10 */}
         <div style={{background:"#fff", borderRadius:14, border:"1px solid #E5E7EB", overflow:"hidden"}}>
           <div style={{padding:"14px 18px", background:"linear-gradient(135deg,#DC2626,#EF4444)", color:"#fff"}}>
-            <div style={{fontSize:21, fontWeight:800}}>
+            <div style={{fontSize:15.4, fontWeight:800}}>
               🏗 프로젝트별 외주비 TOP 10
-              <span style={{fontSize:18,fontWeight:500,marginLeft:8,opacity:.8}}>
+              <span style={{fontSize:13.2,fontWeight:500,marginLeft:8,opacity:.8}}>
                 ({selYear==="전체"?"전체":selYear+"년"} 기준)
               </span>
             </div>
@@ -309,7 +309,7 @@ function Dashboard({ summary, projLimits, cashItems }) {
               <thead>
                 <tr style={{background:"#FEF2F2"}}>
                   {["프로젝트명","외주비","공종수","한도대비"].map((h,i)=>(
-                    <th key={i} style={{padding:"8px 12px", fontSize:17.2, fontWeight:700,
+                    <th key={i} style={{padding:"8px 12px", fontSize:12.6, fontWeight:700,
                       color:"#DC2626", borderBottom:"1px solid #FECACA",
                       textAlign:i===0?"left":"right", whiteSpace:"nowrap"}}>{h}</th>
                   ))}
@@ -323,15 +323,15 @@ function Dashboard({ summary, projLimits, cashItems }) {
                   return (
                     <tr key={pj} style={{background: isOver ? "#FEF2F2" : i%2===0?"#fff":"#FFF7F7",
                       borderBottom:"1px solid #FEE2E2"}}>
-                      <td style={{padding:"8px 12px", fontSize:18, fontWeight:600,
+                      <td style={{padding:"8px 12px", fontSize:13.2, fontWeight:600,
                         maxWidth:180, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap"}}>
                         {pj.slice(0,30)}
                       </td>
-                      <td style={{padding:"8px 12px", fontSize:18, fontWeight:700,
+                      <td style={{padding:"8px 12px", fontSize:13.2, fontWeight:700,
                         color:"#DC2626", textAlign:"right"}}>{fA(d.filteredAmt||d.total)}</td>
-                      <td style={{padding:"8px 12px", fontSize:18, textAlign:"right",
+                      <td style={{padding:"8px 12px", fontSize:13.2, textAlign:"right",
                         color:"#6B7280"}}>{Object.keys(d.cats).length}</td>
-                      <td style={{padding:"8px 12px", fontSize:18, textAlign:"right",
+                      <td style={{padding:"8px 12px", fontSize:13.2, textAlign:"right",
                         color: isOver ? "#DC2626" : ratio ? "#059669" : "#9CA3AF",
                         fontWeight: isOver ? 700 : 400}}>
                         {ratio ? `${ratio}%${isOver?" ⚠":""}` : "한도 미설정"}
@@ -347,7 +347,7 @@ function Dashboard({ summary, projLimits, cashItems }) {
         {/* 공종별 외주비 */}
         <div style={{background:"#fff", borderRadius:14, border:"1px solid #E5E7EB", overflow:"hidden"}}>
           <div style={{padding:"14px 18px", background:"linear-gradient(135deg,#312E81,#0E9C8C)", color:"#fff"}}>
-            <div style={{fontSize:21, fontWeight:800}}>📊 공종별 외주비 현황</div>
+            <div style={{fontSize:15.4, fontWeight:800}}>📊 공종별 외주비 현황</div>
           </div>
           <div style={{padding:"8px 0"}}>
             {topCats.map(([cat, amt], i) => {
@@ -357,14 +357,14 @@ function Dashboard({ summary, projLimits, cashItems }) {
               return (
                 <div key={cat} style={{padding:"7px 16px", borderBottom: i<topCats.length-1?"1px solid #F3F4F6":"none"}}>
                   <div style={{display:"flex", justifyContent:"space-between", marginBottom:4}}>
-                    <span style={{fontSize:18.8, fontWeight:700, color:"#374151"}}>{cat}</span>
-                    <span style={{fontSize:18, fontWeight:700, color:"#0E9C8C"}}>{fA(amt)}</span>
+                    <span style={{fontSize:13.8, fontWeight:700, color:"#374151"}}>{cat}</span>
+                    <span style={{fontSize:13.2, fontWeight:700, color:"#0E9C8C"}}>{fA(amt)}</span>
                   </div>
                   <div style={{height:6, background:"#E5E7EB", borderRadius:3, overflow:"hidden"}}>
                     <div style={{height:"100%", width:`${barW}%`, background:"#0E9C8C", borderRadius:3}}/>
                   </div>
                   {std && (
-                    <div style={{fontSize:15.8, color:"#9CA3AF", marginTop:2}}>
+                    <div style={{fontSize:11.6, color:"#9CA3AF", marginTop:2}}>
                       표준단가: {fN(std.std)}원/평 | 경보기준: {fN(Math.round(std.std*1.3))}원/평
                     </div>
                   )}
@@ -437,7 +437,7 @@ function EstimateChecker({ canWrite }) {
     try { localStorage.setItem("sjs_estimate_history", JSON.stringify(next)) } catch {}
   }
 
-  const inp = { padding:"8px 12px", border:"1.5px solid #E5E7EB", borderRadius:8, fontSize:19.5,
+  const inp = { padding:"8px 12px", border:"1.5px solid #E5E7EB", borderRadius:8, fontSize:14.3,
                 width:"100%", boxSizing:"border-box", outline:"none", fontFamily:"inherit" }
   const sel = { ...inp, background:"#fff" }
 
@@ -445,17 +445,17 @@ function EstimateChecker({ canWrite }) {
     <div>
       {/* 입력 패널 */}
       <div style={{background:"#fff", borderRadius:14, border:"2px solid #DC2626", padding:"20px", marginBottom:16}}>
-        <div style={{fontSize:22.5, fontWeight:800, color:"#DC2626", marginBottom:16}}>
+        <div style={{fontSize:16.5, fontWeight:800, color:"#DC2626", marginBottom:16}}>
           🔍 견적 적정성 검토 — 표준단가 대비 편차 자동 경보
         </div>
         <div style={{display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:12, marginBottom:12}}>
           <div>
-            <label style={{fontSize:18, color:"#6B7280", fontWeight:600, display:"block", marginBottom:4}}>프로젝트명</label>
+            <label style={{fontSize:13.2, color:"#6B7280", fontWeight:600, display:"block", marginBottom:4}}>프로젝트명</label>
             <input value={form.projName} onChange={e=>u("projName",e.target.value)}
               placeholder="프로젝트명 입력" style={inp}/>
           </div>
           <div>
-            <label style={{fontSize:18, color:"#DC2626", fontWeight:700, display:"block", marginBottom:4}}>공종 *</label>
+            <label style={{fontSize:13.2, color:"#DC2626", fontWeight:700, display:"block", marginBottom:4}}>공종 *</label>
             <select value={form.cat} onChange={e=>u("cat",e.target.value)} style={sel}>
               <option value="">공종 선택</option>
               {STD_RATES.map(r=>(
@@ -465,31 +465,31 @@ function EstimateChecker({ canWrite }) {
             </select>
           </div>
           <div>
-            <label style={{fontSize:18, color:"#6B7280", fontWeight:600, display:"block", marginBottom:4}}>
+            <label style={{fontSize:13.2, color:"#6B7280", fontWeight:600, display:"block", marginBottom:4}}>
               {form.cat ? STD_MAP[form.cat]?.basis || "면적" : "면적"} (m²)
             </label>
             <input type="number" value={form.area || ""} onChange={e=>u("area",e.target.value)}
               placeholder="면적 입력 (m²)" style={inp}/>
           </div>
           <div>
-            <label style={{fontSize:18, color:"#DC2626", fontWeight:700, display:"block", marginBottom:4}}>견적금액 (원) *</label>
+            <label style={{fontSize:13.2, color:"#DC2626", fontWeight:700, display:"block", marginBottom:4}}>견적금액 (원) *</label>
             <input type="number" value={form.estAmt || ""} onChange={e=>u("estAmt",e.target.value)}
               placeholder="견적금액 입력 (원)" style={inp}/>
           </div>
           <div>
-            <label style={{fontSize:18, color:"#6B7280", fontWeight:600, display:"block", marginBottom:4}}>상지 용역비 (원, 선택)</label>
+            <label style={{fontSize:13.2, color:"#6B7280", fontWeight:600, display:"block", marginBottom:4}}>상지 용역비 (원, 선택)</label>
             <input type="number" value={form.serviceFee || ""} onChange={e=>u("serviceFee",e.target.value)}
               placeholder="용역비 입력 (원) — 비율 검토용" style={inp}/>
           </div>
           <div>
-            <label style={{fontSize:18, color:"#6B7280", fontWeight:600, display:"block", marginBottom:4}}>비고</label>
+            <label style={{fontSize:13.2, color:"#6B7280", fontWeight:600, display:"block", marginBottom:4}}>비고</label>
             <input value={form.note} onChange={e=>u("note",e.target.value)}
               placeholder="비고 (협력업체명 등)" style={inp}/>
           </div>
         </div>
         <button onClick={check}
           style={{padding:"11px 28px", background:"linear-gradient(135deg,#DC2626,#EF4444)",
-            color:"#fff", border:"none", borderRadius:10, fontSize:21, fontWeight:800,
+            color:"#fff", border:"none", borderRadius:10, fontSize:15.4, fontWeight:800,
             cursor:"pointer", boxShadow:"0 2px 8px rgba(220,38,38,.3)"}}>
           🔍 견적 검토 실행
         </button>
@@ -505,17 +505,17 @@ function EstimateChecker({ canWrite }) {
         <div style={{background:"#fff", borderRadius:14, border:"1px solid #E5E7EB", overflow:"hidden"}}>
           <div style={{padding:"12px 18px", background:"#F8FAFC", borderBottom:"1px solid #E5E7EB",
             display:"flex", justifyContent:"space-between", alignItems:"center"}}>
-            <div style={{fontSize:21, fontWeight:700}}>📋 견적 검토 이력 ({history.length}건)</div>
+            <div style={{fontSize:15.4, fontWeight:700}}>📋 견적 검토 이력 ({history.length}건)</div>
             <button onClick={()=>{setHistory([]);localStorage.removeItem("sjs_estimate_history")}}
               style={{padding:"5px 10px", background:"#FEE2E2", color:"#DC2626", border:"none",
-                borderRadius:7, fontSize:18, cursor:"pointer"}}>초기화</button>
+                borderRadius:7, fontSize:13.2, cursor:"pointer"}}>초기화</button>
           </div>
           <div style={{overflowX:"auto"}}>
             <table style={{width:"100%", borderCollapse:"collapse", minWidth:700}}>
               <thead>
                 <tr style={{background:"#F8FAFC"}}>
                   {["날짜","프로젝트","공종","견적금액","평당단가","표준단가","편차","판정","조치"].map((h,i)=>(
-                    <th key={i} style={{padding:"8px 12px", fontSize:17.2, fontWeight:700,
+                    <th key={i} style={{padding:"8px 12px", fontSize:12.6, fontWeight:700,
                       color:"#6B7280", borderBottom:"1px solid #E5E7EB",
                       textAlign:i<3?"left":"right", whiteSpace:"nowrap"}}>{h}</th>
                   ))}
@@ -526,22 +526,22 @@ function EstimateChecker({ canWrite }) {
                   const al = r.alertLevel
                   return (
                     <tr key={r.id} style={{background:al?.bg||"#fff", borderBottom:"1px solid #E5E7EB"}}>
-                      <td style={{padding:"8px 12px", fontSize:18, color:"#6B7280"}}>{r.date}</td>
-                      <td style={{padding:"8px 12px", fontSize:18, fontWeight:600, maxWidth:140,
+                      <td style={{padding:"8px 12px", fontSize:13.2, color:"#6B7280"}}>{r.date}</td>
+                      <td style={{padding:"8px 12px", fontSize:13.2, fontWeight:600, maxWidth:140,
                         overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap"}}>
                         {r.projName || "-"}
                       </td>
-                      <td style={{padding:"8px 12px", fontSize:18}}>{r.cat}</td>
-                      <td style={{padding:"8px 12px", fontSize:18, textAlign:"right", fontWeight:700}}>{fA(r.estAmt)}</td>
-                      <td style={{padding:"8px 12px", fontSize:18, textAlign:"right"}}>{r.upEst ? fN(r.upEst) : "-"}</td>
-                      <td style={{padding:"8px 12px", fontSize:18, textAlign:"right", color:"#0B6E63"}}>{r.upStd ? fN(r.upStd) : "-"}</td>
-                      <td style={{padding:"8px 12px", fontSize:18, textAlign:"right",
+                      <td style={{padding:"8px 12px", fontSize:13.2}}>{r.cat}</td>
+                      <td style={{padding:"8px 12px", fontSize:13.2, textAlign:"right", fontWeight:700}}>{fA(r.estAmt)}</td>
+                      <td style={{padding:"8px 12px", fontSize:13.2, textAlign:"right"}}>{r.upEst ? fN(r.upEst) : "-"}</td>
+                      <td style={{padding:"8px 12px", fontSize:13.2, textAlign:"right", color:"#0B6E63"}}>{r.upStd ? fN(r.upStd) : "-"}</td>
+                      <td style={{padding:"8px 12px", fontSize:13.2, textAlign:"right",
                         color:al?.color||"#6B7280", fontWeight:700}}>
                         {r.devPct !== undefined ? `${r.devPct > 0 ? "+" : ""}${r.devPct}%` : "-"}
                       </td>
-                      <td style={{padding:"8px 12px", fontSize:18, textAlign:"right", fontWeight:700,
+                      <td style={{padding:"8px 12px", fontSize:13.2, textAlign:"right", fontWeight:700,
                         color:al?.color||"#9CA3AF"}}>{al?.label || "기준없음"}</td>
-                      <td style={{padding:"8px 12px", fontSize:17.2, textAlign:"right",
+                      <td style={{padding:"8px 12px", fontSize:12.6, textAlign:"right",
                         color:"#DC2626", fontWeight:al?.action ? 700 : 400}}>
                         {al?.action || "-"}
                       </td>
@@ -567,16 +567,16 @@ function CheckResult({ r }) {
       background:al?.bg || "#F8FAFC", padding:"20px", marginBottom:16}}>
       <div style={{display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:16}}>
         <div>
-          <div style={{fontSize:24, fontWeight:800, color:"#111827", marginBottom:4}}>
+          <div style={{fontSize:17.6, fontWeight:800, color:"#111827", marginBottom:4}}>
             검토 결과: {r.projName || "프로젝트 미입력"} — {r.cat}
           </div>
-          <div style={{fontSize:19.5, color:"#6B7280"}}>견적금액: {fN(r.estAmt)}원 ({fA(r.estAmt)})</div>
+          <div style={{fontSize:14.3, color:"#6B7280"}}>견적금액: {fN(r.estAmt)}원 ({fA(r.estAmt)})</div>
         </div>
         {al && (
           <div style={{textAlign:"center", background:"#fff", borderRadius:12,
             padding:"12px 20px", border:`1.5px solid ${al.color}`}}>
-            <div style={{fontSize:33, fontWeight:900, color:al.color}}>{al.label}</div>
-            {al.action && <div style={{fontSize:18, color:al.color, fontWeight:700, marginTop:4}}>⚡ {al.action}</div>}
+            <div style={{fontSize:24.2, fontWeight:900, color:al.color}}>{al.label}</div>
+            {al.action && <div style={{fontSize:13.2, color:al.color, fontWeight:700, marginTop:4}}>⚡ {al.action}</div>}
           </div>
         )}
       </div>
@@ -585,7 +585,7 @@ function CheckResult({ r }) {
         {/* 평당단가 비교 */}
         {r.upEst && (
           <div style={{background:"#fff", borderRadius:10, padding:"14px 16px", border:"1px solid #E5E7EB"}}>
-            <div style={{fontSize:18, color:"#6B7280", fontWeight:600, marginBottom:8}}>📐 평당단가 비교</div>
+            <div style={{fontSize:13.2, color:"#6B7280", fontWeight:600, marginBottom:8}}>📐 평당단가 비교</div>
             {[
               ["견적 단가",  fN(r.upEst)+"원/평", al?.color || "#374151"],
               ["표준 단가",  fN(r.upStd)+"원/평", "#0B6E63"],
@@ -593,7 +593,7 @@ function CheckResult({ r }) {
               ["편차",       `${r.devPct > 0 ? "+" : ""}${r.devPct}%`, al?.color || "#374151"],
             ].map(([l,v,c])=>(
               <div key={l} style={{display:"flex", justifyContent:"space-between",
-                fontSize:19.5, marginBottom:4}}>
+                fontSize:14.3, marginBottom:4}}>
                 <span style={{color:"#6B7280"}}>{l}</span>
                 <span style={{fontWeight:700, color:c}}>{v}</span>
               </div>
@@ -604,7 +604,7 @@ function CheckResult({ r }) {
                 <div style={{height:"100%", width:`${Math.min(r.upEst/r.upHi*100, 100)}%`,
                   background:al?.color || "#059669", borderRadius:4}}/>
               </div>
-              <div style={{display:"flex", justifyContent:"space-between", fontSize:15, color:"#9CA3AF", marginTop:2}}>
+              <div style={{display:"flex", justifyContent:"space-between", fontSize:11, color:"#9CA3AF", marginTop:2}}>
                 <span>0</span>
                 <span>표준 {fN(r.upStd)}</span>
                 <span>상한 {fN(r.upHi)}</span>
@@ -616,14 +616,14 @@ function CheckResult({ r }) {
         {/* 용역비 대비 */}
         {r.ratioEst && (
           <div style={{background:"#fff", borderRadius:10, padding:"14px 16px", border:"1px solid #E5E7EB"}}>
-            <div style={{fontSize:18, color:"#6B7280", fontWeight:600, marginBottom:8}}>💰 용역비 대비 비율</div>
+            <div style={{fontSize:13.2, color:"#6B7280", fontWeight:600, marginBottom:8}}>💰 용역비 대비 비율</div>
             {[
               ["견적 비율", `${r.ratioEst}%`, r.ratioAlert?.color || "#374151"],
               ["표준 비율", `${r.ratioStd}%`, "#0B6E63"],
               ["판정",      r.ratioAlert?.label || "-", r.ratioAlert?.color || "#6B7280"],
             ].map(([l,v,c])=>(
               <div key={l} style={{display:"flex", justifyContent:"space-between",
-                fontSize:19.5, marginBottom:4}}>
+                fontSize:14.3, marginBottom:4}}>
                 <span style={{color:"#6B7280"}}>{l}</span>
                 <span style={{fontWeight:700, color:c}}>{v}</span>
               </div>
@@ -634,14 +634,14 @@ function CheckResult({ r }) {
         {/* 표준단가 참고 */}
         {r.cat && STD_MAP[r.cat] && (
           <div style={{background:"#fff", borderRadius:10, padding:"14px 16px", border:"1px solid #E5E7EB"}}>
-            <div style={{fontSize:18, color:"#6B7280", fontWeight:600, marginBottom:8}}>📋 {r.cat} 표준 참고</div>
+            <div style={{fontSize:13.2, color:"#6B7280", fontWeight:600, marginBottom:8}}>📋 {r.cat} 표준 참고</div>
             {[
               ["하한", fN(STD_MAP[r.cat].lo)+"원/평"],
               ["표준", fN(STD_MAP[r.cat].std)+"원/평"],
               ["상한", fN(STD_MAP[r.cat].hi)+"원/평"],
               ["경보기준", fN(Math.round(STD_MAP[r.cat].std*1.3))+"원/평"],
             ].map(([l,v])=>(
-              <div key={l} style={{display:"flex", justifyContent:"space-between", fontSize:19.5, marginBottom:4}}>
+              <div key={l} style={{display:"flex", justifyContent:"space-between", fontSize:14.3, marginBottom:4}}>
                 <span style={{color:"#6B7280"}}>{l}</span>
                 <span style={{fontWeight:l==="경보기준"?700:400, color:l==="경보기준"?"#DC2626":"#374151"}}>{v}</span>
               </div>
@@ -654,10 +654,10 @@ function CheckResult({ r }) {
       {needApprove && (
         <div style={{marginTop:14, background:"#7F1D1D", borderRadius:10, padding:"12px 16px",
           display:"flex", alignItems:"center", gap:10}}>
-          <div style={{fontSize:30}}>⚡</div>
+          <div style={{fontSize:22}}>⚡</div>
           <div>
-            <div style={{fontSize:21, fontWeight:800, color:"#FECACA"}}>승인 필요 — {al.action}</div>
-            <div style={{fontSize:18, color:"#FCA5A5", marginTop:2}}>
+            <div style={{fontSize:15.4, fontWeight:800, color:"#FECACA"}}>승인 필요 — {al.action}</div>
+            <div style={{fontSize:13.2, color:"#FCA5A5", marginTop:2}}>
               표준단가 대비 {r.devPct}% 초과. 계약 전 결재 라인 승인 후 진행하세요.
             </div>
           </div>
@@ -690,8 +690,8 @@ function ProjectLimits({ projects, projLimits, saveLimits, extSummary, canWrite 
       <div style={{background:"#fff", borderRadius:14, border:"1px solid #E5E7EB",
         padding:"14px 18px", marginBottom:14, display:"flex", gap:12, alignItems:"center",
         flexWrap:"wrap"}}>
-        <div style={{fontSize:21, fontWeight:800}}>🔒 프로젝트별 외주비 한도 설정</div>
-        <div style={{fontSize:19.5, color:"#6B7280"}}>각 프로젝트의 외주비 한도를 설정하면 실제 집행액과 비교하여 초과 경보를 발생시킵니다.</div>
+        <div style={{fontSize:15.4, fontWeight:800}}>🔒 프로젝트별 외주비 한도 설정</div>
+        <div style={{fontSize:14.3, color:"#6B7280"}}>각 프로젝트의 외주비 한도를 설정하면 실제 집행액과 비교하여 초과 경보를 발생시킵니다.</div>
       </div>
 
       <div style={{overflowX:"auto", background:"#fff", borderRadius:14,
@@ -701,7 +701,7 @@ function ProjectLimits({ projects, projLimits, saveLimits, extSummary, canWrite 
             <tr style={{background:"#F8FAFC"}}>
               {["프로젝트명","본부","용역비(원)","외주비 한도(원)","한도비율(%)","집행액(실적)",
                 "한도대비","원가등급",canWrite?"설정":""].filter(Boolean).map((h,i)=>(
-                <th key={i} style={{padding:"10px 12px", fontSize:18, fontWeight:700,
+                <th key={i} style={{padding:"10px 12px", fontSize:13.2, fontWeight:700,
                   color:"#374151", borderBottom:"2px solid #0E9C8C",
                   textAlign:i<2?"left":"right", whiteSpace:"nowrap"}}>{h}</th>
               ))}
@@ -726,24 +726,24 @@ function ProjectLimits({ projects, projLimits, saveLimits, extSummary, canWrite 
               return (
                 <tr key={pId} style={{background:isOver?"#FEF2F2":i%2===0?"#fff":"#F9FAFB",
                   borderBottom:"1px solid #E5E7EB"}}>
-                  <td style={{padding:"10px 12px", fontSize:19.5, fontWeight:700, maxWidth:200,
+                  <td style={{padding:"10px 12px", fontSize:14.3, fontWeight:700, maxWidth:200,
                     overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap"}}>
                     {p.name}
                   </td>
-                  <td style={{padding:"10px 12px", fontSize:18, color:"#6B7280"}}>
+                  <td style={{padding:"10px 12px", fontSize:13.2, color:"#6B7280"}}>
                     {(p.depts||[]).join("·") || "-"}
                   </td>
-                  <td style={{padding:"10px 12px", fontSize:19.5, textAlign:"right", color:"#059669", fontWeight:600}}>
+                  <td style={{padding:"10px 12px", fontSize:14.3, textAlign:"right", color:"#059669", fontWeight:600}}>
                     {svcFee > 0 ? fN(svcFee) : "-"}
                   </td>
                   <td style={{padding:"10px 12px", textAlign:"right"}}>
                     {isEdit ? (
                       <input type="number" value={draft.limitAmt || ""} style={{width:130,
-                        padding:"5px 8px", border:"1.5px solid #0E9C8C", borderRadius:7, fontSize:18}}
+                        padding:"5px 8px", border:"1.5px solid #0E9C8C", borderRadius:7, fontSize:13.2}}
                         onChange={e=>setDraft(d=>({...d,limitAmt:Number(e.target.value)}))}
                         placeholder={autoLim > 0 ? fN(Math.round(autoLim)) : "직접 입력"}/>
                     ) : (
-                      <span style={{fontSize:19.5, fontWeight:limAmt?700:400,
+                      <span style={{fontSize:14.3, fontWeight:limAmt?700:400,
                         color:limAmt?"#374151":"#9CA3AF"}}>
                         {limAmt ? fN(limAmt) : svcFee > 0 ? `자동(${limPct}%): ${fN(Math.round(autoLim))}` : "미설정"}
                       </span>
@@ -752,28 +752,28 @@ function ProjectLimits({ projects, projLimits, saveLimits, extSummary, canWrite 
                   <td style={{padding:"10px 12px", textAlign:"right"}}>
                     {isEdit ? (
                       <input type="number" value={draft.limitPct || limPct} style={{width:60,
-                        padding:"5px 8px", border:"1.5px solid #0E9C8C", borderRadius:7, fontSize:18}}
+                        padding:"5px 8px", border:"1.5px solid #0E9C8C", borderRadius:7, fontSize:13.2}}
                         onChange={e=>setDraft(d=>({...d,limitPct:Number(e.target.value)}))}/>
                     ) : (
-                      <span style={{fontSize:19.5, color:"#0E9C8C", fontWeight:600}}>{limPct}%</span>
+                      <span style={{fontSize:14.3, color:"#0E9C8C", fontWeight:600}}>{limPct}%</span>
                     )}
                   </td>
-                  <td style={{padding:"10px 12px", fontSize:19.5, textAlign:"right",
+                  <td style={{padding:"10px 12px", fontSize:14.3, textAlign:"right",
                     color:extAmt>0?"#DC2626":"#9CA3AF", fontWeight:extAmt>0?700:400}}>
                     {extAmt > 0 ? fN(extAmt) : "-"}
                   </td>
-                  <td style={{padding:"10px 12px", textAlign:"right", fontSize:19.5,
+                  <td style={{padding:"10px 12px", textAlign:"right", fontSize:14.3,
                     color:isOver?"#DC2626":useRatio?"#059669":"#9CA3AF",
                     fontWeight:isOver?800:600}}>
                     {useRatio ? `${useRatio}%${isOver?" ⚠":""}` : "-"}
                   </td>
                   <td style={{padding:"10px 12px", textAlign:"right"}}>
                     {lvl ? (
-                      <span style={{fontSize:18, fontWeight:700, color:lvl.color,
+                      <span style={{fontSize:13.2, fontWeight:700, color:lvl.color,
                         background:lvl.bg, padding:"3px 8px", borderRadius:6}}>
                         {lvl.label}
                       </span>
-                    ) : <span style={{fontSize:18, color:"#9CA3AF"}}>-</span>}
+                    ) : <span style={{fontSize:13.2, color:"#9CA3AF"}}>-</span>}
                   </td>
                   {canWrite && (
                     <td style={{padding:"10px 12px", textAlign:"center"}}>
@@ -781,15 +781,15 @@ function ProjectLimits({ projects, projLimits, saveLimits, extSummary, canWrite 
                         <div style={{display:"flex", gap:5, justifyContent:"center"}}>
                           <button onClick={()=>save(pId)} style={{padding:"5px 10px",
                             background:"#059669", color:"#fff", border:"none",
-                            borderRadius:7, fontSize:18, cursor:"pointer"}}>저장</button>
+                            borderRadius:7, fontSize:13.2, cursor:"pointer"}}>저장</button>
                           <button onClick={()=>setEditId(null)} style={{padding:"5px 10px",
                             background:"#F3F4F6", color:"#6B7280", border:"none",
-                            borderRadius:7, fontSize:18, cursor:"pointer"}}>취소</button>
+                            borderRadius:7, fontSize:13.2, cursor:"pointer"}}>취소</button>
                         </div>
                       ) : (
                         <button onClick={()=>{setEditId(pId);setDraft(lim)}} style={{padding:"5px 10px",
                           background:"#EEF2FF", color:"#0E9C8C", border:"none",
-                          borderRadius:7, fontSize:18, cursor:"pointer"}}>설정</button>
+                          borderRadius:7, fontSize:13.2, cursor:"pointer"}}>설정</button>
                       )}
                     </td>
                   )}
@@ -891,11 +891,11 @@ function ReportDownload({ extSummary, projLimits, projects, cashItems }) {
     <div>
       <div style={{background:"#fff", borderRadius:14, border:"2px solid #0C447C",
         padding:"24px", marginBottom:16, textAlign:"center"}}>
-        <div style={{fontSize:60, marginBottom:12}}>📥</div>
-        <div style={{fontSize:27, fontWeight:800, color:"#0C447C", marginBottom:8}}>
+        <div style={{fontSize:44, marginBottom:12}}>📥</div>
+        <div style={{fontSize:19.8, fontWeight:800, color:"#0C447C", marginBottom:8}}>
           외주비 원가통제 리포트 다운로드
         </div>
-        <div style={{fontSize:19.5, color:"#6B7280", marginBottom:20, lineHeight:1.8}}>
+        <div style={{fontSize:14.3, color:"#6B7280", marginBottom:20, lineHeight:1.8}}>
           현재 시스템 데이터를 기반으로 4개 시트 엑셀 리포트를 생성합니다.<br/>
           ① 원가 대시보드 요약  ② 공종별 표준단가 DB  ③ 프로젝트별 원가분석  ④ 공종별 집계
         </div>
@@ -909,8 +909,8 @@ function ReportDownload({ extSummary, projLimits, projects, cashItems }) {
             ["분석 프로젝트", `${Object.keys(byProj).length}개`, "#0E9C8C"],
           ].map(([l,v,c])=>(
             <div key={l} style={{background:"#F8FAFC", borderRadius:10, padding:"12px"}}>
-              <div style={{fontSize:16.5, color:"#6B7280", fontWeight:600}}>{l}</div>
-              <div style={{fontSize:27, fontWeight:800, color:c, marginTop:4}}>{v}</div>
+              <div style={{fontSize:12, color:"#6B7280", fontWeight:600}}>{l}</div>
+              <div style={{fontSize:19.8, fontWeight:800, color:c, marginTop:4}}>{v}</div>
             </div>
           ))}
         </div>
@@ -918,12 +918,12 @@ function ReportDownload({ extSummary, projLimits, projects, cashItems }) {
         <button onClick={download} disabled={downloading}
           style={{padding:"14px 40px", background:downloading?"#9CA3AF":
             "linear-gradient(135deg,#0C447C,#0B6E63)",
-            color:"#fff", border:"none", borderRadius:12, fontSize:22.5,
+            color:"#fff", border:"none", borderRadius:12, fontSize:16.5,
             fontWeight:800, cursor:downloading?"not-allowed":"pointer",
             boxShadow:"0 4px 12px rgba(12,68,124,.3)"}}>
           {downloading ? "⏳ 생성 중..." : "📥 엑셀 리포트 다운로드"}
         </button>
-        <div style={{marginTop:10, fontSize:18, color:"#9CA3AF"}}>
+        <div style={{marginTop:10, fontSize:13.2, color:"#9CA3AF"}}>
           파일명: 외주비원가통제_리포트_{new Date().toISOString().slice(0,10)}.xlsx
         </div>
       </div>

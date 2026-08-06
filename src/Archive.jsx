@@ -97,15 +97,15 @@ export function ArchiveTab({ currentUser, projects }) {
       <div style={{background:"linear-gradient(135deg,#1A3B6E 0%,#0E9C8C 100%)",borderRadius:16,padding:"22px 28px",marginBottom:20,color:"#fff"}}>
         <div style={{display:"flex",alignItems:"flex-start",justifyContent:"space-between",flexWrap:"wrap",gap:12}}>
           <div>
-            <div style={{fontSize:33,fontWeight:800,marginBottom:4}}>📁 문서 아카이브</div>
-            <div style={{fontSize:20.2,opacity:.8}}>계약서·협약서·사업자등록증·회의록 등 중요 문서를 보관합니다</div>
-            <div style={{fontSize:18,opacity:.6,marginTop:4}}>
+            <div style={{fontSize:24.2,fontWeight:800,marginBottom:4}}>📁 문서 아카이브</div>
+            <div style={{fontSize:14.8,opacity:.8}}>계약서·협약서·사업자등록증·회의록 등 중요 문서를 보관합니다</div>
+            <div style={{fontSize:13.2,opacity:.6,marginTop:4}}>
               ⚠ 건축설계 도면·대용량 파일은 NAS에 보관 · 이 시스템은 소용량 문서 전용 (전체 {fmtSize(totalSize)} 사용 중)
             </div>
           </div>
           {canWrite && (
             <button onClick={()=>setShowUpload(true)}
-              style={{padding:"11px 20px",background:"rgba(255,255,255,.2)",color:"#fff",border:"1.5px solid rgba(255,255,255,.4)",borderRadius:12,fontSize:21,fontWeight:700,cursor:"pointer",display:"flex",alignItems:"center",gap:7}}>
+              style={{padding:"11px 20px",background:"rgba(255,255,255,.2)",color:"#fff",border:"1.5px solid rgba(255,255,255,.4)",borderRadius:12,fontSize:15.4,fontWeight:700,cursor:"pointer",display:"flex",alignItems:"center",gap:7}}>
               📎 문서 추가
             </button>
           )}
@@ -114,13 +114,13 @@ export function ArchiveTab({ currentUser, projects }) {
         {/* 분류 버튼 */}
         <div style={{display:"flex",gap:7,flexWrap:"wrap",marginTop:18}}>
           <button onClick={()=>setCatFilter("")}
-            style={{padding:"6px 14px",borderRadius:20,border:`1.5px solid ${catFilter?"rgba(255,255,255,.3)":"#fff"}`,background:catFilter?"rgba(255,255,255,.1)":"rgba(255,255,255,.25)",color:"#fff",fontSize:19.5,fontWeight:700,cursor:"pointer"}}>
+            style={{padding:"6px 14px",borderRadius:20,border:`1.5px solid ${catFilter?"rgba(255,255,255,.3)":"#fff"}`,background:catFilter?"rgba(255,255,255,.1)":"rgba(255,255,255,.25)",color:"#fff",fontSize:14.3,fontWeight:700,cursor:"pointer"}}>
             전체 ({docs.length})
           </button>
           {Object.entries(DOC_CATS).map(([k,v])=>(
             <button key={k} onClick={()=>setCatFilter(f=>f===k?"":k)}
-              style={{padding:"6px 14px",borderRadius:20,border:`1.5px solid ${catFilter===k?"#fff":"rgba(255,255,255,.3)"}`,background:catFilter===k?"rgba(255,255,255,.3)":"rgba(255,255,255,.1)",color:"#fff",fontSize:19.5,fontWeight:catFilter===k?700:400,cursor:"pointer",display:"flex",alignItems:"center",gap:5}}>
-              {v.icon} {k} {stats[k]>0&&<span style={{fontSize:16.5,background:"rgba(0,0,0,.2)",borderRadius:10,padding:"1px 6px"}}>{stats[k]}</span>}
+              style={{padding:"6px 14px",borderRadius:20,border:`1.5px solid ${catFilter===k?"#fff":"rgba(255,255,255,.3)"}`,background:catFilter===k?"rgba(255,255,255,.3)":"rgba(255,255,255,.1)",color:"#fff",fontSize:14.3,fontWeight:catFilter===k?700:400,cursor:"pointer",display:"flex",alignItems:"center",gap:5}}>
+              {v.icon} {k} {stats[k]>0&&<span style={{fontSize:12,background:"rgba(0,0,0,.2)",borderRadius:10,padding:"1px 6px"}}>{stats[k]}</span>}
             </button>
           ))}
         </div>
@@ -129,12 +129,12 @@ export function ArchiveTab({ currentUser, projects }) {
       {/* 검색·필터 툴바 */}
       <div style={{display:"flex",gap:9,marginBottom:16,alignItems:"center",flexWrap:"wrap"}}>
         <div style={{flex:1,minWidth:220,position:"relative"}}>
-          <span style={{position:"absolute",left:12,top:"50%",transform:"translateY(-50%)",fontSize:22.5}}>🔍</span>
+          <span style={{position:"absolute",left:12,top:"50%",transform:"translateY(-50%)",fontSize:16.5}}>🔍</span>
           <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="제목·설명·태그 검색"
-            style={{width:"100%",padding:"10px 12px 10px 36px",border:"1.5px solid #E5E7EB",borderRadius:10,fontSize:21,boxSizing:"border-box"}}/>
+            style={{width:"100%",padding:"10px 12px 10px 36px",border:"1.5px solid #E5E7EB",borderRadius:10,fontSize:15.4,boxSizing:"border-box"}}/>
         </div>
         <select value={projFilter} onChange={e=>setProjFilter(e.target.value)}
-          style={{padding:"10px 12px",border:"1.5px solid #E5E7EB",borderRadius:10,fontSize:21,background:"#fff",maxWidth:220}}>
+          style={{padding:"10px 12px",border:"1.5px solid #E5E7EB",borderRadius:10,fontSize:15.4,background:"#fff",maxWidth:220}}>
           <option value="">전체 프로젝트</option>
           {(projects||[]).map(p=><option key={p.id} value={p.id}>{p.name.slice(0,20)}</option>)}
           <option value="__none">공통 (프로젝트 무관)</option>
@@ -142,21 +142,21 @@ export function ArchiveTab({ currentUser, projects }) {
         <div style={{display:"flex",gap:2,border:"1.5px solid #E5E7EB",borderRadius:10,overflow:"hidden"}}>
           {[["grid","⊞"],["list","☰"]].map(([v,l])=>(
             <button key={v} onClick={()=>setViewMode(v)}
-              style={{padding:"9px 14px",border:"none",background:viewMode===v?"#0E9C8C":"#fff",color:viewMode===v?"#fff":"#6B7280",cursor:"pointer",fontSize:22.5}}>
+              style={{padding:"9px 14px",border:"none",background:viewMode===v?"#0E9C8C":"#fff",color:viewMode===v?"#fff":"#6B7280",cursor:"pointer",fontSize:16.5}}>
               {l}
             </button>
           ))}
         </div>
-        <span style={{fontSize:19.5,color:"#6B7280",fontWeight:600}}>{filtered.length}건</span>
+        <span style={{fontSize:14.3,color:"#6B7280",fontWeight:600}}>{filtered.length}건</span>
       </div>
 
       {/* 문서 없음 */}
       {filtered.length===0 && (
         <div style={{background:"#fff",borderRadius:16,border:"1px solid #E5E7EB",padding:"60px 20px",textAlign:"center"}}>
-          <div style={{fontSize:72,marginBottom:12}}>📂</div>
-          <div style={{fontSize:25.5,fontWeight:700,color:"#111827",marginBottom:6}}>등록된 문서가 없습니다</div>
-          <div style={{fontSize:21,color:"#6B7280",marginBottom:20}}>계약서, 협약서, 회의록 등 중요 문서를 추가하세요</div>
-          {canWrite&&<button onClick={()=>setShowUpload(true)} style={{padding:"11px 22px",background:"#0E9C8C",color:"#fff",border:"none",borderRadius:10,fontSize:21,fontWeight:700,cursor:"pointer"}}>📎 첫 문서 추가하기</button>}
+          <div style={{fontSize:52.8,marginBottom:12}}>📂</div>
+          <div style={{fontSize:18.7,fontWeight:700,color:"#111827",marginBottom:6}}>등록된 문서가 없습니다</div>
+          <div style={{fontSize:15.4,color:"#6B7280",marginBottom:20}}>계약서, 협약서, 회의록 등 중요 문서를 추가하세요</div>
+          {canWrite&&<button onClick={()=>setShowUpload(true)} style={{padding:"11px 22px",background:"#0E9C8C",color:"#fff",border:"none",borderRadius:10,fontSize:15.4,fontWeight:700,cursor:"pointer"}}>📎 첫 문서 추가하기</button>}
         </div>
       )}
 
@@ -179,7 +179,7 @@ export function ArchiveTab({ currentUser, projects }) {
             <thead>
               <tr style={{background:"#F8FAFC"}}>
                 {["분류","제목","프로젝트","등록일","크기","등록자",""].map((h,i)=>(
-                  <th key={i} style={{padding:"12px 16px",textAlign:i>1?"center":"left",fontSize:19.5,fontWeight:700,color:"#6B7280",borderBottom:"1px solid #E5E7EB",whiteSpace:"nowrap"}}>{h}</th>
+                  <th key={i} style={{padding:"12px 16px",textAlign:i>1?"center":"left",fontSize:14.3,fontWeight:700,color:"#6B7280",borderBottom:"1px solid #E5E7EB",whiteSpace:"nowrap"}}>{h}</th>
                 ))}
               </tr>
             </thead>
@@ -193,22 +193,22 @@ export function ArchiveTab({ currentUser, projects }) {
                     onMouseEnter={e=>e.currentTarget.style.background="#EEF3FF"}
                     onMouseLeave={e=>e.currentTarget.style.background=i%2===0?"#fff":"#FAFAFA"}>
                     <td style={{padding:"12px 16px"}}>
-                      <span style={{display:"inline-flex",alignItems:"center",gap:5,padding:"4px 10px",borderRadius:20,background:cat.color+"18",color:cat.color,fontSize:18.8,fontWeight:700}}>
+                      <span style={{display:"inline-flex",alignItems:"center",gap:5,padding:"4px 10px",borderRadius:20,background:cat.color+"18",color:cat.color,fontSize:13.8,fontWeight:700}}>
                         {cat.icon} {doc.category}
                       </span>
                     </td>
                     <td style={{padding:"12px 16px"}}>
-                      <div style={{fontSize:21,fontWeight:600,color:"#111827"}}>{doc.title}</div>
-                      {doc.description&&<div style={{fontSize:18,color:"#6B7280",marginTop:2}}>{doc.description.slice(0,50)}</div>}
+                      <div style={{fontSize:15.4,fontWeight:600,color:"#111827"}}>{doc.title}</div>
+                      {doc.description&&<div style={{fontSize:13.2,color:"#6B7280",marginTop:2}}>{doc.description.slice(0,50)}</div>}
                     </td>
-                    <td style={{padding:"12px 16px",textAlign:"center",fontSize:19.5,color:"#374151"}}>{proj?.name?.slice(0,14)||"-"}</td>
-                    <td style={{padding:"12px 16px",textAlign:"center",fontSize:18,color:"#6B7280"}}>{doc.dateDoc||doc.createdAt?.slice(0,10)}</td>
-                    <td style={{padding:"12px 16px",textAlign:"center",fontSize:18,color:"#6B7280"}}>{doc.fileSize?fmtSize(doc.fileSize):"-"}</td>
-                    <td style={{padding:"12px 16px",textAlign:"center",fontSize:18,color:"#6B7280"}}>{doc.createdBy||"-"}</td>
+                    <td style={{padding:"12px 16px",textAlign:"center",fontSize:14.3,color:"#374151"}}>{proj?.name?.slice(0,14)||"-"}</td>
+                    <td style={{padding:"12px 16px",textAlign:"center",fontSize:13.2,color:"#6B7280"}}>{doc.dateDoc||doc.createdAt?.slice(0,10)}</td>
+                    <td style={{padding:"12px 16px",textAlign:"center",fontSize:13.2,color:"#6B7280"}}>{doc.fileSize?fmtSize(doc.fileSize):"-"}</td>
+                    <td style={{padding:"12px 16px",textAlign:"center",fontSize:13.2,color:"#6B7280"}}>{doc.createdBy||"-"}</td>
                     <td style={{padding:"12px 16px",textAlign:"center"}}>
                       <div style={{display:"flex",gap:5,justifyContent:"center"}}>
-                        {canWrite&&<button onClick={e=>{e.stopPropagation();setEditDoc(doc)}} style={{padding:"4px 10px",background:"#EEF3FF",color:"#0E9C8C",border:"none",borderRadius:7,fontSize:18,fontWeight:600,cursor:"pointer"}}>수정</button>}
-                        {canWrite&&<button onClick={e=>{e.stopPropagation();deleteDoc(doc.id)}} style={{padding:"4px 10px",background:"#FEE2E2",color:"#EF4444",border:"none",borderRadius:7,fontSize:18,fontWeight:600,cursor:"pointer"}}>삭제</button>}
+                        {canWrite&&<button onClick={e=>{e.stopPropagation();setEditDoc(doc)}} style={{padding:"4px 10px",background:"#EEF3FF",color:"#0E9C8C",border:"none",borderRadius:7,fontSize:13.2,fontWeight:600,cursor:"pointer"}}>수정</button>}
+                        {canWrite&&<button onClick={e=>{e.stopPropagation();deleteDoc(doc.id)}} style={{padding:"4px 10px",background:"#FEE2E2",color:"#EF4444",border:"none",borderRadius:7,fontSize:13.2,fontWeight:600,cursor:"pointer"}}>삭제</button>}
                       </div>
                     </td>
                   </tr>
@@ -249,33 +249,33 @@ function DocCard({ doc, projects, onView, onEdit, onDelete }) {
       <div style={{height:100,background:`linear-gradient(135deg,${cat.color}18,${cat.color}08)`,display:"flex",alignItems:"center",justifyContent:"center",position:"relative",borderBottom:"1px solid #E5E7EB"}}>
         {doc.fileData && doc.fileName?.match(/\.(jpg|jpeg|png)$/i)
           ? <img src={doc.fileData} alt="" style={{width:"100%",height:"100%",objectFit:"cover"}}/>
-          : <span style={{fontSize:66}}>{cat.icon}</span>
+          : <span style={{fontSize:48.4}}>{cat.icon}</span>
         }
-        {ext&&<span style={{position:"absolute",top:8,right:8,background:EXT_COLORS[ext]||"#6B7280",color:"#fff",borderRadius:6,padding:"2px 7px",fontSize:16.5,fontWeight:800}}>{ext}</span>}
+        {ext&&<span style={{position:"absolute",top:8,right:8,background:EXT_COLORS[ext]||"#6B7280",color:"#fff",borderRadius:6,padding:"2px 7px",fontSize:12,fontWeight:800}}>{ext}</span>}
       </div>
 
       {/* 정보 */}
       <div style={{padding:"12px 14px"}}>
         <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:6}}>
-          <span style={{fontSize:17.2,padding:"3px 9px",borderRadius:20,background:cat.color+"18",color:cat.color,fontWeight:700}}>{doc.category}</span>
-          {proj&&<span style={{fontSize:16.5,color:"#6B7280",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{proj.name.slice(0,12)}</span>}
+          <span style={{fontSize:12.6,padding:"3px 9px",borderRadius:20,background:cat.color+"18",color:cat.color,fontWeight:700}}>{doc.category}</span>
+          {proj&&<span style={{fontSize:12,color:"#6B7280",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{proj.name.slice(0,12)}</span>}
         </div>
-        <div style={{fontSize:21,fontWeight:700,color:"#111827",lineHeight:1.4,marginBottom:6,
+        <div style={{fontSize:15.4,fontWeight:700,color:"#111827",lineHeight:1.4,marginBottom:6,
           overflow:"hidden",textOverflow:"ellipsis",display:"-webkit-box",WebkitLineClamp:2,WebkitBoxOrient:"vertical"}}>
           {doc.title}
         </div>
-        {doc.description&&<div style={{fontSize:18,color:"#6B7280",marginBottom:8,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{doc.description}</div>}
+        {doc.description&&<div style={{fontSize:13.2,color:"#6B7280",marginBottom:8,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{doc.description}</div>}
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-          <div style={{fontSize:17.2,color:"#9CA3AF"}}>{doc.dateDoc||doc.createdAt?.slice(0,10)} · {doc.createdBy||""}</div>
-          {doc.fileSize&&<span style={{fontSize:16.5,color:"#9CA3AF"}}>{fmtSize(doc.fileSize)}</span>}
+          <div style={{fontSize:12.6,color:"#9CA3AF"}}>{doc.dateDoc||doc.createdAt?.slice(0,10)} · {doc.createdBy||""}</div>
+          {doc.fileSize&&<span style={{fontSize:12,color:"#9CA3AF"}}>{fmtSize(doc.fileSize)}</span>}
         </div>
       </div>
 
       {/* 수정/삭제 */}
       {(onEdit||onDelete)&&(
         <div style={{padding:"8px 14px",borderTop:"1px solid #F3F4F6",display:"flex",gap:6}} onClick={e=>e.stopPropagation()}>
-          {onEdit&&<button onClick={onEdit} style={{flex:1,padding:"6px",background:"#EEF3FF",color:"#0E9C8C",border:"none",borderRadius:8,fontSize:18.8,fontWeight:700,cursor:"pointer"}}>수정</button>}
-          {onDelete&&<button onClick={onDelete} style={{flex:1,padding:"6px",background:"#FEE2E2",color:"#EF4444",border:"none",borderRadius:8,fontSize:18.8,fontWeight:700,cursor:"pointer"}}>삭제</button>}
+          {onEdit&&<button onClick={onEdit} style={{flex:1,padding:"6px",background:"#EEF3FF",color:"#0E9C8C",border:"none",borderRadius:8,fontSize:13.8,fontWeight:700,cursor:"pointer"}}>수정</button>}
+          {onDelete&&<button onClick={onDelete} style={{flex:1,padding:"6px",background:"#FEE2E2",color:"#EF4444",border:"none",borderRadius:8,fontSize:13.8,fontWeight:700,cursor:"pointer"}}>삭제</button>}
         </div>
       )}
     </div>
@@ -304,17 +304,17 @@ function ViewModal({ doc, projects, currentUser, onClose, onEdit, onDelete }) {
 
         {/* 헤더 */}
         <div style={{background:`linear-gradient(135deg,${cat.color}18,${cat.color}08)`,padding:"20px 24px",borderBottom:"1px solid #E5E7EB",display:"flex",gap:14,alignItems:"flex-start"}}>
-          <div style={{width:52,height:52,borderRadius:14,background:cat.color+"22",display:"flex",alignItems:"center",justifyContent:"center",fontSize:42,flexShrink:0}}>
+          <div style={{width:52,height:52,borderRadius:14,background:cat.color+"22",display:"flex",alignItems:"center",justifyContent:"center",fontSize:30.8,flexShrink:0}}>
             {cat.icon}
           </div>
           <div style={{flex:1,minWidth:0}}>
-            <div style={{fontSize:17.2,color:cat.color,fontWeight:700,marginBottom:3}}>{doc.category}</div>
-            <div style={{fontSize:27,fontWeight:800,color:"#111827",lineHeight:1.3}}>{doc.title}</div>
-            <div style={{fontSize:19.5,color:"#6B7280",marginTop:4}}>
+            <div style={{fontSize:12.6,color:cat.color,fontWeight:700,marginBottom:3}}>{doc.category}</div>
+            <div style={{fontSize:19.8,fontWeight:800,color:"#111827",lineHeight:1.3}}>{doc.title}</div>
+            <div style={{fontSize:14.3,color:"#6B7280",marginTop:4}}>
               {proj&&`${proj.name} · `}{doc.dateDoc||doc.createdAt?.slice(0,10)} · {doc.createdBy||""}
             </div>
           </div>
-          <button onClick={onClose} style={{background:"none",border:"none",cursor:"pointer",fontSize:33,color:"#9CA3AF",flexShrink:0}}>✕</button>
+          <button onClick={onClose} style={{background:"none",border:"none",cursor:"pointer",fontSize:24.2,color:"#9CA3AF",flexShrink:0}}>✕</button>
         </div>
 
         {/* 파일 뷰어 */}
@@ -324,10 +324,10 @@ function ViewModal({ doc, projects, currentUser, onClose, onEdit, onDelete }) {
             {isPDF && (
               <div>
                 <div style={{background:"#F8FAFC",borderRadius:10,padding:"12px 16px",marginBottom:10,display:"flex",alignItems:"center",gap:10}}>
-                  <span style={{fontSize:42}}>📄</span>
+                  <span style={{fontSize:30.8}}>📄</span>
                   <div>
-                    <div style={{fontSize:21,fontWeight:700}}>{doc.fileName}</div>
-                    <div style={{fontSize:18,color:"#6B7280"}}>{doc.fileSize?fmtSize(doc.fileSize):""} · PDF 파일</div>
+                    <div style={{fontSize:15.4,fontWeight:700}}>{doc.fileName}</div>
+                    <div style={{fontSize:13.2,color:"#6B7280"}}>{doc.fileSize?fmtSize(doc.fileSize):""} · PDF 파일</div>
                   </div>
                 </div>
                 <iframe src={doc.fileData} style={{width:"100%",height:480,border:"1px solid #E5E7EB",borderRadius:10}} title={doc.title}/>
@@ -335,10 +335,10 @@ function ViewModal({ doc, projects, currentUser, onClose, onEdit, onDelete }) {
             )}
             {!isImage && !isPDF && (
               <div style={{background:"#F8FAFC",borderRadius:10,padding:"20px",textAlign:"center"}}>
-                <div style={{fontSize:72,marginBottom:8}}>📎</div>
-                <div style={{fontSize:21,fontWeight:700,color:"#111827"}}>{doc.fileName}</div>
-                <div style={{fontSize:19.5,color:"#6B7280",marginTop:4}}>{doc.fileSize?fmtSize(doc.fileSize):""}</div>
-                <button onClick={download} style={{marginTop:14,padding:"10px 20px",background:"#0E9C8C",color:"#fff",border:"none",borderRadius:10,fontSize:21,fontWeight:700,cursor:"pointer"}}>
+                <div style={{fontSize:52.8,marginBottom:8}}>📎</div>
+                <div style={{fontSize:15.4,fontWeight:700,color:"#111827"}}>{doc.fileName}</div>
+                <div style={{fontSize:14.3,color:"#6B7280",marginTop:4}}>{doc.fileSize?fmtSize(doc.fileSize):""}</div>
+                <button onClick={download} style={{marginTop:14,padding:"10px 20px",background:"#0E9C8C",color:"#fff",border:"none",borderRadius:10,fontSize:15.4,fontWeight:700,cursor:"pointer"}}>
                   ⬇ 다운로드
                 </button>
               </div>
@@ -358,25 +358,25 @@ function ViewModal({ doc, projects, currentUser, onClose, onEdit, onDelete }) {
               ["파일 크기", doc.fileSize?fmtSize(doc.fileSize):"-"],
             ].filter(Boolean).map(([k,v])=>(
               <div key={k} style={{padding:"10px 14px",background:"#F8FAFC",borderRadius:10}}>
-                <div style={{fontSize:18,color:"#6B7280",fontWeight:700,marginBottom:3}}>{k}</div>
-                <div style={{fontSize:20.2,color:"#111827",fontWeight:500}}>{v}</div>
+                <div style={{fontSize:13.2,color:"#6B7280",fontWeight:700,marginBottom:3}}>{k}</div>
+                <div style={{fontSize:14.8,color:"#111827",fontWeight:500}}>{v}</div>
               </div>
             ))}
           </div>
 
           {doc.description&&<div style={{padding:"12px 14px",background:"#F8FAFC",borderRadius:10,marginBottom:12}}>
-            <div style={{fontSize:18,color:"#6B7280",fontWeight:700,marginBottom:4}}>설명</div>
-            <div style={{fontSize:21,color:"#374151",lineHeight:1.7}}>{doc.description}</div>
+            <div style={{fontSize:13.2,color:"#6B7280",fontWeight:700,marginBottom:4}}>설명</div>
+            <div style={{fontSize:15.4,color:"#374151",lineHeight:1.7}}>{doc.description}</div>
           </div>}
 
           {doc.tags?.length>0&&<div style={{display:"flex",flexWrap:"wrap",gap:6,marginBottom:14}}>
-            {doc.tags.map(t=><span key={t} style={{padding:"4px 12px",borderRadius:20,background:cat.color+"18",color:cat.color,fontSize:18.8,fontWeight:600}}>#{t}</span>)}
+            {doc.tags.map(t=><span key={t} style={{padding:"4px 12px",borderRadius:20,background:cat.color+"18",color:cat.color,fontSize:13.8,fontWeight:600}}>#{t}</span>)}
           </div>}
 
           <div style={{display:"flex",gap:8}}>
-            {doc.fileData&&<button onClick={download} style={{padding:"10px 18px",background:"#0E9C8C",color:"#fff",border:"none",borderRadius:10,fontSize:21,fontWeight:700,cursor:"pointer"}}>⬇ 다운로드</button>}
-            {onEdit&&<button onClick={onEdit} style={{padding:"10px 18px",background:"#EEF3FF",color:"#0E9C8C",border:"none",borderRadius:10,fontSize:21,fontWeight:700,cursor:"pointer"}}>✏ 수정</button>}
-            {onDelete&&<button onClick={onDelete} style={{padding:"10px 18px",background:"#FEE2E2",color:"#EF4444",border:"none",borderRadius:10,fontSize:21,fontWeight:700,cursor:"pointer"}}>🗑 삭제</button>}
+            {doc.fileData&&<button onClick={download} style={{padding:"10px 18px",background:"#0E9C8C",color:"#fff",border:"none",borderRadius:10,fontSize:15.4,fontWeight:700,cursor:"pointer"}}>⬇ 다운로드</button>}
+            {onEdit&&<button onClick={onEdit} style={{padding:"10px 18px",background:"#EEF3FF",color:"#0E9C8C",border:"none",borderRadius:10,fontSize:15.4,fontWeight:700,cursor:"pointer"}}>✏ 수정</button>}
+            {onDelete&&<button onClick={onDelete} style={{padding:"10px 18px",background:"#FEE2E2",color:"#EF4444",border:"none",borderRadius:10,fontSize:15.4,fontWeight:700,cursor:"pointer"}}>🗑 삭제</button>}
           </div>
         </div>
       </div>
@@ -438,20 +438,20 @@ function UploadModal({ projects, currentUser, initial, onClose, onSave }) {
     setLoading(false)
   }
 
-  const lbl = {display:"block",fontSize:19.5,fontWeight:700,color:"#6B7280",marginBottom:5}
-  const inp = {width:"100%",padding:"10px 14px",border:"1.5px solid #E5E7EB",borderRadius:10,fontSize:21,boxSizing:"border-box",fontFamily:"inherit",outline:"none"}
+  const lbl = {display:"block",fontSize:14.3,fontWeight:700,color:"#6B7280",marginBottom:5}
+  const inp = {width:"100%",padding:"10px 14px",border:"1.5px solid #E5E7EB",borderRadius:10,fontSize:15.4,boxSizing:"border-box",fontFamily:"inherit",outline:"none"}
 
   return (
     <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.5)",display:"flex",alignItems:"flex-start",justifyContent:"center",zIndex:700,padding:20,overflowY:"auto"}}
       onClick={e=>e.target===e.currentTarget&&onClose()}>
       <div style={{background:"#fff",borderRadius:18,width:"100%",maxWidth:560,marginTop:20,boxShadow:"0 20px 60px rgba(0,0,0,.2)"}}>
         <div style={{padding:"20px 24px",borderBottom:"1px solid #E5E7EB",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-          <div style={{fontSize:27,fontWeight:800,color:"#111827"}}>{isEdit?"문서 수정":"문서 추가"}</div>
-          <button onClick={onClose} style={{background:"none",border:"none",cursor:"pointer",fontSize:33,color:"#9CA3AF"}}>✕</button>
+          <div style={{fontSize:19.8,fontWeight:800,color:"#111827"}}>{isEdit?"문서 수정":"문서 추가"}</div>
+          <button onClick={onClose} style={{background:"none",border:"none",cursor:"pointer",fontSize:24.2,color:"#9CA3AF"}}>✕</button>
         </div>
 
         <div style={{padding:"20px 24px",display:"flex",flexDirection:"column",gap:14}}>
-          {error&&<div style={{background:"#FEE2E2",color:"#EF4444",padding:"10px 14px",borderRadius:10,fontSize:19.5,fontWeight:600}}>{error}</div>}
+          {error&&<div style={{background:"#FEE2E2",color:"#EF4444",padding:"10px 14px",borderRadius:10,fontSize:14.3,fontWeight:600}}>{error}</div>}
 
           {/* 파일 드롭존 */}
           <div onClick={()=>fileRef.current?.click()}
@@ -459,13 +459,13 @@ function UploadModal({ projects, currentUser, initial, onClose, onSave }) {
             onMouseEnter={e=>e.currentTarget.style.borderColor="#0E9C8C"}
             onMouseLeave={e=>e.currentTarget.style.borderColor=file||preview?"#0EA86E":"#E5E7EB"}>
             {preview && form.category!=="사진"
-              ? <div style={{fontSize:19.5,color:"#0EA86E",fontWeight:700}}>✅ {file?.name || initial?.fileName}</div>
+              ? <div style={{fontSize:14.3,color:"#0EA86E",fontWeight:700}}>✅ {file?.name || initial?.fileName}</div>
               : preview && <img src={preview} alt="" style={{maxHeight:80,maxWidth:"100%",borderRadius:8,marginBottom:6}}/>
             }
             {!preview && <>
-              <div style={{fontSize:42,marginBottom:6}}>📎</div>
-              <div style={{fontSize:21,fontWeight:600,color:"#374151"}}>클릭하여 파일 선택</div>
-              <div style={{fontSize:18,color:"#9CA3AF",marginTop:4}}>PDF, Word, Excel, HWP, 이미지 (최대 20MB)</div>
+              <div style={{fontSize:30.8,marginBottom:6}}>📎</div>
+              <div style={{fontSize:15.4,fontWeight:600,color:"#374151"}}>클릭하여 파일 선택</div>
+              <div style={{fontSize:13.2,color:"#9CA3AF",marginTop:4}}>PDF, Word, Excel, HWP, 이미지 (최대 20MB)</div>
             </>}
             <input ref={fileRef} type="file" style={{display:"none"}}
               accept=".pdf,.docx,.doc,.xlsx,.xls,.hwp,.jpg,.jpeg,.png" onChange={pickFile}/>
@@ -517,10 +517,10 @@ function UploadModal({ projects, currentUser, initial, onClose, onSave }) {
 
           <div style={{display:"flex",gap:8,paddingTop:4}}>
             <button onClick={save} disabled={loading}
-              style={{flex:1,padding:"12px",background:"#0E9C8C",color:"#fff",border:"none",borderRadius:12,fontSize:22.5,fontWeight:800,cursor:"pointer",opacity:loading?.6:1}}>
+              style={{flex:1,padding:"12px",background:"#0E9C8C",color:"#fff",border:"none",borderRadius:12,fontSize:16.5,fontWeight:800,cursor:"pointer",opacity:loading?.6:1}}>
               {loading?"저장 중…":isEdit?"✓ 수정 저장":"✓ 문서 추가"}
             </button>
-            <button onClick={onClose} style={{padding:"12px 20px",background:"#F3F4F6",color:"#374151",border:"none",borderRadius:12,fontSize:22.5,fontWeight:700,cursor:"pointer"}}>
+            <button onClick={onClose} style={{padding:"12px 20px",background:"#F3F4F6",color:"#374151",border:"none",borderRadius:12,fontSize:16.5,fontWeight:700,cursor:"pointer"}}>
               취소
             </button>
           </div>

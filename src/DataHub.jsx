@@ -14,14 +14,14 @@ const C = {
 }
 const S = {
   card:(x={})=>({background:"var(--color-background-primary,#fff)",border:"0.5px solid var(--color-border-tertiary,#e4e4e0)",borderRadius:14,padding:"19px 22px",marginBottom:16,...x}),
-  th:(a="left")=>({padding:"10px 12px",textAlign:a,fontSize:19.5,fontWeight:600,color:"var(--color-text-secondary,#888)",background:"var(--color-background-secondary,#f8f8f6)",borderBottom:"1px solid var(--color-border-tertiary,#eee)",whiteSpace:"nowrap"}),
-  td:(a="right")=>({padding:"9px 12px",borderBottom:"0.5px solid var(--color-border-tertiary,#eee)",textAlign:a,fontSize:21,verticalAlign:"middle"}),
-  bdg:(bg,fg)=>({display:"inline-flex",alignItems:"center",padding:"3px 10px",borderRadius:10,fontSize:18,fontWeight:600,background:bg,color:fg}),
-  inp:(w=78)=>({width:w,padding:"7px 9px",border:"1px solid var(--color-border-secondary,#ccc)",borderRadius:8,fontSize:21,textAlign:"right",fontFamily:"inherit",background:"#fff",color:"#222"}),
-  btn:(bg=C.navyM,fg="#fff")=>({padding:"10px 18px",background:bg,color:fg,border:"none",borderRadius:10,fontSize:21,fontWeight:700,cursor:"pointer",display:"inline-flex",alignItems:"center",gap:6}),
+  th:(a="left")=>({padding:"10px 12px",textAlign:a,fontSize:14.3,fontWeight:600,color:"var(--color-text-secondary,#888)",background:"var(--color-background-secondary,#f8f8f6)",borderBottom:"1px solid var(--color-border-tertiary,#eee)",whiteSpace:"nowrap"}),
+  td:(a="right")=>({padding:"9px 12px",borderBottom:"0.5px solid var(--color-border-tertiary,#eee)",textAlign:a,fontSize:15.4,verticalAlign:"middle"}),
+  bdg:(bg,fg)=>({display:"inline-flex",alignItems:"center",padding:"3px 10px",borderRadius:10,fontSize:13.2,fontWeight:600,background:bg,color:fg}),
+  inp:(w=78)=>({width:w,padding:"7px 9px",border:"1px solid var(--color-border-secondary,#ccc)",borderRadius:8,fontSize:15.4,textAlign:"right",fontFamily:"inherit",background:"#fff",color:"#222"}),
+  btn:(bg=C.navyM,fg="#fff")=>({padding:"10px 18px",background:bg,color:fg,border:"none",borderRadius:10,fontSize:15.4,fontWeight:700,cursor:"pointer",display:"inline-flex",alignItems:"center",gap:6}),
 }
-const cardTitle = {fontSize:25.5,fontWeight:700,marginBottom:4,letterSpacing:-.2}
-const cardNote  = {fontSize:18.8,color:C.gray,marginBottom:14}
+const cardTitle = {fontSize:18.7,fontWeight:700,marginBottom:4,letterSpacing:-.2}
+const cardNote  = {fontSize:13.8,color:C.gray,marginBottom:14}
 const num = v => { const n=parseFloat(v); return Number.isFinite(n)?n:0 }
 
 const STAFF_FIELDS = [["total","합계"]]
@@ -79,8 +79,8 @@ export function DataHubTab({
     <div>
       {/* 권한 안내 배너 */}
       <div style={{background:C.navyL,borderLeft:`6px solid ${C.navyM}`,borderRadius:"0 12px 12px 0",padding:"14px 18px",marginBottom:18,display:"flex",gap:14,alignItems:"center",flexWrap:"wrap"}}>
-        <i className="ti ti-database" aria-hidden="true" style={{fontSize:39,color:C.navyM,flexShrink:0}}/>
-        <div style={{fontSize:21,lineHeight:1.7,color:"#0C447C"}}>
+        <i className="ti ti-database" aria-hidden="true" style={{fontSize:28.6,color:C.navyM,flexShrink:0}}/>
+        <div style={{fontSize:15.4,lineHeight:1.7,color:"#0C447C"}}>
           <b>모든 운영 데이터를 이 화면에서 입력합니다.</b> 본부 인원·월별 손익·월수금계획은 <b>본인 본부 데이터만 입력</b>할 수 있고,
           입력 즉시 <b>전체 구성원이 조회</b>할 수 있습니다. 프로젝트·협력업체는 구조가 달라 전용 화면(프로젝트 탭)에서 관리하며, 아래 ‘프로젝트·협력업체’ 섹션에서 바로 이동할 수 있습니다.
           저장할 때마다 <b>버전 기록</b>에 자동 보관되어 언제든 꺼내보고 복원할 수 있습니다.
@@ -98,7 +98,7 @@ export function DataHubTab({
       <div style={{display:"flex",gap:8,marginBottom:18,flexWrap:"wrap"}}>
         {SECTIONS.map(s=>(
           <button key={s.id} onClick={()=>setSection(s.id)} style={{
-            padding:"11px 18px",border:"none",borderRadius:11,fontSize:21.8,fontWeight:700,cursor:"pointer",
+            padding:"11px 18px",border:"none",borderRadius:11,fontSize:16,fontWeight:700,cursor:"pointer",
             background:section===s.id?(s.accent?C.amber:C.navy):"var(--color-background-primary,#fff)",
             color:section===s.id?"#fff":(s.accent?C.amber:"var(--color-text-secondary,#888)"),
             boxShadow:section===s.id?"0 2px 10px rgba(12,68,124,.25)":"0 0 0 0.5px var(--color-border-tertiary,#e4e4e0)",
@@ -185,14 +185,14 @@ function StaffSection({deptStaff,setDeptStaff,staffTarget,setStaffTarget,staffMo
                   ))}
 
                   <td style={S.td("center")}>{canEditDept(dept)
-                    ? <span style={{...S.bdg(C.greenL,"#27500A"),fontSize:16.5}}>입력가능</span>
-                    : <span style={{...S.bdg(C.grayL,C.gray),fontSize:16.5}}>조회</span>}</td>
+                    ? <span style={{...S.bdg(C.greenL,"#27500A"),fontSize:12}}>입력가능</span>
+                    : <span style={{...S.bdg(C.grayL,C.gray),fontSize:12}}>조회</span>}</td>
                 </tr>
               )
             })}
             <tr style={{background:"var(--color-background-secondary,#f0f0ee)",fontWeight:700}}>
               <td style={S.td("left")}>전사 합계</td>
-              <td style={{...S.td(),fontSize:24,color:C.navyM,fontWeight:800}}>{STAFF_DEPTS.reduce((s,d)=>s+num(work[d]?.total),0).toFixed(1)}명</td>
+              <td style={{...S.td(),fontSize:17.6,color:C.navyM,fontWeight:800}}>{STAFF_DEPTS.reduce((s,d)=>s+num(work[d]?.total),0).toFixed(1)}명</td>
               <td/>
             </tr>
           </tbody>
@@ -243,7 +243,7 @@ function PnlDeptSection({pnlData,setPnlData,DEPTS,canEditDept,currentUser,isAdmi
         </div>
         <div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap"}}>
           <select value={selDept} onChange={e=>{setSelDept(e.target.value);setEditing(false);setDraft(null)}}
-            style={{padding:"9px 13px",border:"1px solid var(--color-border-secondary,#ccc)",borderRadius:10,fontSize:21,fontWeight:600,background:"#fff"}}>
+            style={{padding:"9px 13px",border:"1px solid var(--color-border-secondary,#ccc)",borderRadius:10,fontSize:15.4,fontWeight:600,background:"#fff"}}>
             {DEPTS.map(d=><option key={d} value={d}>{d}</option>)}
           </select>
           {canEdit && (!editing
@@ -283,7 +283,7 @@ function PnlDeptSection({pnlData,setPnlData,DEPTS,canEditDept,currentUser,isAdmi
                 const v = num(r.rev)-num(r.sal)-num(r.sub)
                 return <td key={i} style={{...S.td(),color:v>=0?C.green:C.red}}>{v.toFixed(2)}</td>
               })}
-              <td style={{...S.td(),fontSize:24,color:pnlTotal>=0?C.green:C.red}}>{pnlTotal.toFixed(2)}</td>
+              <td style={{...S.td(),fontSize:17.6,color:pnlTotal>=0?C.green:C.red}}>{pnlTotal.toFixed(2)}</td>
             </tr>
           </tbody>
         </table>
@@ -326,7 +326,7 @@ function CashflowDeptSection({cashflow,setCashflow,DEPTS,DEPT_COLORS,canEditDept
         </div>
         <div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap"}}>
           <select value={selDept} onChange={e=>{setSelDept(e.target.value);setEditing(false);setDraft(null)}}
-            style={{padding:"9px 13px",border:"1px solid var(--color-border-secondary,#ccc)",borderRadius:10,fontSize:21,fontWeight:600,background:"#fff"}}>
+            style={{padding:"9px 13px",border:"1px solid var(--color-border-secondary,#ccc)",borderRadius:10,fontSize:15.4,fontWeight:600,background:"#fff"}}>
             {DEPTS.map(d=><option key={d} value={d}>{d}</option>)}
           </select>
           {canEdit && (!editing
@@ -343,7 +343,7 @@ function CashflowDeptSection({cashflow,setCashflow,DEPTS,DEPT_COLORS,canEditDept
         <table style={{width:"100%",borderCollapse:"collapse",minWidth:900}}>
           <thead><tr>
             <th style={S.th()}>구분</th>
-            {MONTHS.map((m,i)=><th key={m} style={S.th("right")}>{m}{cashflow[i]?.actual&&<span style={{...S.bdg(C.navyL,C.navyM),marginLeft:3,fontSize:13.5}}>실</span>}</th>)}
+            {MONTHS.map((m,i)=><th key={m} style={S.th("right")}>{m}{cashflow[i]?.actual&&<span style={{...S.bdg(C.navyL,C.navyM),marginLeft:3,fontSize:10}}>실</span>}</th>)}
             <th style={S.th("right")}>합계</th>
           </tr></thead>
           <tbody>
@@ -356,7 +356,7 @@ function CashflowDeptSection({cashflow,setCashflow,DEPTS,DEPT_COLORS,canEditDept
                     : <span style={{color:v>0?DEPT_COLORS[selDept]||C.navyM:"var(--color-text-secondary,#aaa)"}}>{v>0?v.toFixed(2):"-"}</span>}
                 </td>
               ))}
-              <td style={{...S.td(),fontSize:24,fontWeight:700,color:C.navyM}}>{total.toFixed(2)}</td>
+              <td style={{...S.td(),fontSize:17.6,fontWeight:700,color:C.navyM}}>{total.toFixed(2)}</td>
             </tr>
           </tbody>
         </table>
@@ -594,14 +594,14 @@ function ProjectsShortcut({projects,setProjects,vendorsDB,setVendorsDB,setVendor
     <div>
       {/* 통합 업로드 마법사 카드 */}
       <div style={{background:"linear-gradient(135deg,#312E81,#6366F1)",borderRadius:16,padding:"20px 24px",marginBottom:16,color:"#fff"}}>
-        <div style={{fontSize:27,fontWeight:900,marginBottom:4}}>📦 통합 데이터 업로드</div>
-        <div style={{fontSize:19.5,opacity:.85,marginBottom:16}}>
+        <div style={{fontSize:19.8,fontWeight:900,marginBottom:4}}>📦 통합 데이터 업로드</div>
+        <div style={{fontSize:14.3,opacity:.85,marginBottom:16}}>
           프로젝트 목록 · 협력업체 참여프로젝트 · 외주비 — 3개 파일을 동시에 업로드합니다
         </div>
 
         {step===null&&(
           <button onClick={()=>setStep("wizard")}
-            style={{padding:"10px 22px",background:"#fff",color:"#6366F1",border:"none",borderRadius:10,fontSize:21,fontWeight:800,cursor:"pointer"}}>
+            style={{padding:"10px 22px",background:"#fff",color:"#6366F1",border:"none",borderRadius:10,fontSize:15.4,fontWeight:800,cursor:"pointer"}}>
             🚀 업로드 마법사 시작
           </button>
         )}
@@ -611,27 +611,27 @@ function ProjectsShortcut({projects,setProjects,vendorsDB,setVendorsDB,setVendor
             <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:12,marginBottom:14}}>
               {FILE_DEFS.map(({key,icon,label,desc,accept})=>(
                 <div key={key} style={{background:"rgba(255,255,255,.12)",borderRadius:12,padding:"14px 16px",border:`2px solid ${files[key]?"#34D399":"rgba(255,255,255,.25)"}`}}>
-                  <div style={{fontSize:33,marginBottom:6}}>{icon}</div>
-                  <div style={{fontSize:20.2,fontWeight:700,marginBottom:2}}>{label}</div>
-                  <div style={{fontSize:16.5,opacity:.75,marginBottom:10}}>{desc}</div>
+                  <div style={{fontSize:24.2,marginBottom:6}}>{icon}</div>
+                  <div style={{fontSize:14.8,fontWeight:700,marginBottom:2}}>{label}</div>
+                  <div style={{fontSize:12,opacity:.75,marginBottom:10}}>{desc}</div>
                   <label style={{display:"block",padding:"7px 12px",background:files[key]?"#D1FAE5":"rgba(255,255,255,.2)",
-                    color:files[key]?"#065F46":"#fff",borderRadius:8,fontSize:18.8,fontWeight:700,cursor:"pointer",textAlign:"center"}}>
+                    color:files[key]?"#065F46":"#fff",borderRadius:8,fontSize:13.8,fontWeight:700,cursor:"pointer",textAlign:"center"}}>
                     {files[key]?`✓ ${files[key].name.slice(0,18)}...`:"파일 선택"}
                     <input type="file" accept={accept} style={{display:"none"}} onChange={e=>handleFile(key,e.target.files?.[0])}/>
                   </label>
-                  {progress[key]&&<div style={{marginTop:6,fontSize:17.2,fontWeight:700,color:progress[key].includes("✅")?"#34D399":"#FDE68A"}}>{progress[key]}</div>}
+                  {progress[key]&&<div style={{marginTop:6,fontSize:12.6,fontWeight:700,color:progress[key].includes("✅")?"#34D399":"#FDE68A"}}>{progress[key]}</div>}
                 </div>
               ))}
             </div>
             <div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap"}}>
-              <div style={{fontSize:18.8,opacity:.8}}>
+              <div style={{fontSize:13.8,opacity:.8}}>
                 {Object.values(files).filter(Boolean).length}개 파일 선택됨 · 선택한 파일만 업로드됩니다 · 기존 데이터는 중복 체크 후 병합됩니다
               </div>
               <button onClick={()=>{setStep(null);setFiles({proj:null,vendor:null,payment:null});setProgress({proj:null,vendor:null,payment:null})}}
-                style={{padding:"7px 14px",background:"rgba(255,255,255,.2)",color:"#fff",border:"none",borderRadius:8,fontSize:18.8,cursor:"pointer"}}>취소</button>
+                style={{padding:"7px 14px",background:"rgba(255,255,255,.2)",color:"#fff",border:"none",borderRadius:8,fontSize:13.8,cursor:"pointer"}}>취소</button>
               <button onClick={runUpload} disabled={running||!Object.values(files).some(Boolean)}
                 style={{padding:"9px 22px",background:Object.values(files).some(Boolean)?"#34D399":"rgba(255,255,255,.3)",
-                  color:"#fff",border:"none",borderRadius:9,fontSize:21,fontWeight:800,cursor:"pointer",opacity:running?0.7:1}}>
+                  color:"#fff",border:"none",borderRadius:9,fontSize:15.4,fontWeight:800,cursor:"pointer",opacity:running?0.7:1}}>
                 {running?"⏳ 처리중...":"⬆ 업로드 실행"}
               </button>
             </div>
@@ -640,32 +640,32 @@ function ProjectsShortcut({projects,setProjects,vendorsDB,setVendorsDB,setVendor
 
         {step==="done"&&results&&(
           <div style={{background:"rgba(255,255,255,.15)",borderRadius:12,padding:"14px 16px"}}>
-            <div style={{fontSize:22.5,fontWeight:800,marginBottom:10}}>✅ 업로드 완료!</div>
+            <div style={{fontSize:16.5,fontWeight:800,marginBottom:10}}>✅ 업로드 완료!</div>
             <div style={{display:"flex",gap:12,flexWrap:"wrap"}}>
-              {results.proj&&<div style={{background:"rgba(255,255,255,.15)",borderRadius:9,padding:"10px 14px",fontSize:19.5}}>
-                🏗 프로젝트<br/><b style={{fontSize:25.5}}>{results.proj.data.length}</b>건 반영<br/>
-                <span style={{fontSize:16.5,opacity:.8}}>신규 {results.proj.added} · 업데이트 {results.proj.updated}</span>
+              {results.proj&&<div style={{background:"rgba(255,255,255,.15)",borderRadius:9,padding:"10px 14px",fontSize:14.3}}>
+                🏗 프로젝트<br/><b style={{fontSize:18.7}}>{results.proj.data.length}</b>건 반영<br/>
+                <span style={{fontSize:12,opacity:.8}}>신규 {results.proj.added} · 업데이트 {results.proj.updated}</span>
               </div>}
-              {results.vendor&&<div style={{background:"rgba(255,255,255,.15)",borderRadius:9,padding:"10px 14px",fontSize:19.5}}>
-                🤝 협력업체<br/><b style={{fontSize:25.5}}>{Object.keys(results.vendor.data).length}</b>개 반영<br/>
-                <span style={{fontSize:16.5,opacity:.8}}>신규 {results.vendor.added} · 업데이트 {results.vendor.updated}</span>
+              {results.vendor&&<div style={{background:"rgba(255,255,255,.15)",borderRadius:9,padding:"10px 14px",fontSize:14.3}}>
+                🤝 협력업체<br/><b style={{fontSize:18.7}}>{Object.keys(results.vendor.data).length}</b>개 반영<br/>
+                <span style={{fontSize:12,opacity:.8}}>신규 {results.vendor.added} · 업데이트 {results.vendor.updated}</span>
               </div>}
-              {results.payment&&<div style={{background:"rgba(255,255,255,.15)",borderRadius:9,padding:"10px 14px",fontSize:19.5}}>
-                💰 외주비<br/><b style={{fontSize:25.5}}>{results.payment.count}</b>건 반영<br/>
-                <span style={{fontSize:16.5,opacity:.8}}>협력업체에 자동 연결</span>
+              {results.payment&&<div style={{background:"rgba(255,255,255,.15)",borderRadius:9,padding:"10px 14px",fontSize:14.3}}>
+                💰 외주비<br/><b style={{fontSize:18.7}}>{results.payment.count}</b>건 반영<br/>
+                <span style={{fontSize:12,opacity:.8}}>협력업체에 자동 연결</span>
               </div>}
             </div>
             <div style={{display:"flex",gap:8,marginTop:12}}>
               <button onClick={()=>{setStep(null);setFiles({proj:null,vendor:null,payment:null});setProgress({proj:null,vendor:null,payment:null});setResults(null)}}
-                style={{padding:"7px 16px",background:"rgba(255,255,255,.2)",color:"#fff",border:"none",borderRadius:8,fontSize:18.8,fontWeight:700,cursor:"pointer"}}>
+                style={{padding:"7px 16px",background:"rgba(255,255,255,.2)",color:"#fff",border:"none",borderRadius:8,fontSize:13.8,fontWeight:700,cursor:"pointer"}}>
                 🔄 재업로드
               </button>
               <button onClick={()=>setTab("projects")}
-                style={{padding:"7px 16px",background:"#fff",color:"#6366F1",border:"none",borderRadius:8,fontSize:18.8,fontWeight:800,cursor:"pointer"}}>
+                style={{padding:"7px 16px",background:"#fff",color:"#6366F1",border:"none",borderRadius:8,fontSize:13.8,fontWeight:800,cursor:"pointer"}}>
                 프로젝트 확인 →
               </button>
               <button onClick={()=>setTab("vendors")}
-                style={{padding:"7px 16px",background:"rgba(255,255,255,.2)",color:"#fff",border:"none",borderRadius:8,fontSize:18.8,fontWeight:700,cursor:"pointer"}}>
+                style={{padding:"7px 16px",background:"rgba(255,255,255,.2)",color:"#fff",border:"none",borderRadius:8,fontSize:13.8,fontWeight:700,cursor:"pointer"}}>
                 협력업체 확인 →
               </button>
             </div>
@@ -682,8 +682,8 @@ function ProjectsShortcut({projects,setProjects,vendorsDB,setVendorsDB,setVendor
         ].map(([l,v,bg,fg,action])=>(
           <div key={l} onClick={action||undefined}
             style={{...S.card({background:bg,cursor:action?"pointer":"default",marginBottom:0}),display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-            <div style={{fontSize:21,fontWeight:700,color:fg}}>{l}</div>
-            <div style={{fontSize:39,fontWeight:900,color:fg}}>{v}</div>
+            <div style={{fontSize:15.4,fontWeight:700,color:fg}}>{l}</div>
+            <div style={{fontSize:28.6,fontWeight:900,color:fg}}>{v}</div>
           </div>
         ))}
       </div>
@@ -703,9 +703,9 @@ function ProjectsShortcut({projects,setProjects,vendorsDB,setVendorsDB,setVendor
               {list.slice(0,10).map((p,i)=>(
                 <tr key={p.id} style={{background:i%2===0?"var(--color-background-primary,#fff)":"var(--color-background-secondary,#f8f8f6)"}}>
                   <td style={{...S.td("left"),fontWeight:600,maxWidth:280,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{p.name}</td>
-                  <td style={S.td("left")}><span style={{fontSize:17.2,color:C.gray}}>{p.code}</span></td>
+                  <td style={S.td("left")}><span style={{fontSize:12.6,color:C.gray}}>{p.code}</span></td>
                   <td style={S.td("left")}>{(p.depts||[]).join(", ")}</td>
-                  <td style={S.td("center")}><button onClick={()=>goto(p.id)} style={{...S.btn(C.navyL,C.navyM),padding:"5px 12px",fontSize:18}}>편집</button></td>
+                  <td style={S.td("center")}><button onClick={()=>goto(p.id)} style={{...S.btn(C.navyL,C.navyM),padding:"5px 12px",fontSize:13.2}}>편집</button></td>
                 </tr>
               ))}
             </tbody>
@@ -757,24 +757,24 @@ function VersionHistorySection({versions,restoreVersion,deleteVersion,saveVersio
           </div>
           <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
             {HIST_FILTERS.map(([k,l])=>(
-              <button key={k} onClick={()=>setFilter(k)} style={{padding:"7px 13px",border:"none",borderRadius:8,fontSize:18.8,fontWeight:600,cursor:"pointer",background:filter===k?C.navy:C.grayL,color:filter===k?"#fff":"#666"}}>{l}</button>
+              <button key={k} onClick={()=>setFilter(k)} style={{padding:"7px 13px",border:"none",borderRadius:8,fontSize:13.8,fontWeight:600,cursor:"pointer",background:filter===k?C.navy:C.grayL,color:filter===k?"#fff":"#666"}}>{l}</button>
             ))}
           </div>
         </div>
 
         {list.length===0
-          ? <div style={{padding:"14px 16px",borderRadius:10,background:C.grayL,color:C.gray,fontSize:19.5}}>저장된 버전 기록이 없습니다. 각 섹션에서 데이터를 입력·저장하면 여기에 자동으로 쌓입니다.</div>
+          ? <div style={{padding:"14px 16px",borderRadius:10,background:C.grayL,color:C.gray,fontSize:14.3}}>저장된 버전 기록이 없습니다. 각 섹션에서 데이터를 입력·저장하면 여기에 자동으로 쌓입니다.</div>
           : list.map(v=>{
               const expanded = expandedId===v.id
               return (
                 <div key={v.id} style={{border:"0.5px solid var(--color-border-tertiary,#e4e4e0)",borderRadius:10,marginBottom:8,overflow:"hidden"}}>
                   <div style={{display:"flex",alignItems:"center",gap:10,padding:"11px 14px",flexWrap:"wrap"}}>
                     <span style={{...S.bdg("#fff",TYPE_COLOR[v.type]||C.gray),border:`1px solid ${TYPE_COLOR[v.type]||C.gray}`,fontWeight:700}}>{TYPE_LABEL[v.type]||v.type}</span>
-                    <span style={{fontSize:20.2,fontWeight:700,flex:1,minWidth:140}}>{v.label}</span>
-                    <span style={{fontSize:18,color:C.gray,whiteSpace:"nowrap"}}>{v.savedBy||"-"} · {fmtDate(v.savedAt)}</span>
-                    <button onClick={()=>setExpandedId(expanded?null:v.id)} style={{...S.btn(C.grayL,"#555"),padding:"6px 12px",fontSize:18}}>{expanded?"닫기":"보기"}</button>
-                    {canManage && <button onClick={()=>setPendingRestore(v)} style={{...S.btn(C.navyL,C.navyM),padding:"6px 12px",fontSize:18}}>복원</button>}
-                    {canManage && <button onClick={()=>setPendingDelete(v)} style={{...S.btn(C.redL,C.red),padding:"6px 12px",fontSize:18}}>삭제</button>}
+                    <span style={{fontSize:14.8,fontWeight:700,flex:1,minWidth:140}}>{v.label}</span>
+                    <span style={{fontSize:13.2,color:C.gray,whiteSpace:"nowrap"}}>{v.savedBy||"-"} · {fmtDate(v.savedAt)}</span>
+                    <button onClick={()=>setExpandedId(expanded?null:v.id)} style={{...S.btn(C.grayL,"#555"),padding:"6px 12px",fontSize:13.2}}>{expanded?"닫기":"보기"}</button>
+                    {canManage && <button onClick={()=>setPendingRestore(v)} style={{...S.btn(C.navyL,C.navyM),padding:"6px 12px",fontSize:13.2}}>복원</button>}
+                    {canManage && <button onClick={()=>setPendingDelete(v)} style={{...S.btn(C.redL,C.red),padding:"6px 12px",fontSize:13.2}}>삭제</button>}
                   </div>
                   {expanded && <div style={{padding:"0 14px 14px",borderTop:"0.5px solid var(--color-border-tertiary,#eee)"}}><SnapshotPreview snap={v} STAFF_DEPTS={STAFF_DEPTS} DEPTS={DEPTS} DEPT_COLORS={DEPT_COLORS}/></div>}
                 </div>
@@ -786,8 +786,8 @@ function VersionHistorySection({versions,restoreVersion,deleteVersion,saveVersio
       {pendingRestore && (
         <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.4)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:300}}>
           <div style={S.card({width:420,maxWidth:"95vw",marginBottom:0})}>
-            <div style={{fontSize:22.5,fontWeight:700,marginBottom:10}}>이 버전으로 복원하시겠습니까?</div>
-            <div style={{fontSize:19.5,color:"#555",marginBottom:14,lineHeight:1.7}}>
+            <div style={{fontSize:16.5,fontWeight:700,marginBottom:10}}>이 버전으로 복원하시겠습니까?</div>
+            <div style={{fontSize:14.3,color:"#555",marginBottom:14,lineHeight:1.7}}>
               <span style={{...S.bdg("#fff",TYPE_COLOR[pendingRestore.type]||C.gray),border:`1px solid ${TYPE_COLOR[pendingRestore.type]||C.gray}`,fontWeight:700,marginRight:6}}>{TYPE_LABEL[pendingRestore.type]||pendingRestore.type}</span>
               {pendingRestore.label}<br/>{fmtDate(pendingRestore.savedAt)} · {pendingRestore.savedBy}<br/><br/>
               현재 데이터는 이 버전의 값으로 교체됩니다. 복원 전 현재 상태도 자동으로 새 버전으로 기록되니 필요하면 다시 되돌릴 수 있습니다.
@@ -804,8 +804,8 @@ function VersionHistorySection({versions,restoreVersion,deleteVersion,saveVersio
       {pendingDelete && (
         <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.4)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:300}}>
           <div style={S.card({width:380,maxWidth:"95vw",marginBottom:0})}>
-            <div style={{fontSize:22.5,fontWeight:700,marginBottom:10}}>이 버전 기록을 삭제하시겠습니까?</div>
-            <div style={{fontSize:19.5,color:"#555",marginBottom:14,lineHeight:1.7}}>{pendingDelete.label} · {fmtDate(pendingDelete.savedAt)}<br/>삭제 후에는 복구할 수 없습니다.</div>
+            <div style={{fontSize:16.5,fontWeight:700,marginBottom:10}}>이 버전 기록을 삭제하시겠습니까?</div>
+            <div style={{fontSize:14.3,color:"#555",marginBottom:14,lineHeight:1.7}}>{pendingDelete.label} · {fmtDate(pendingDelete.savedAt)}<br/>삭제 후에는 복구할 수 없습니다.</div>
             <div style={{display:"flex",gap:8}}>
               <button onClick={()=>{deleteVersion?.(pendingDelete.id);setPendingDelete(null)}} style={S.btn(C.red)}>삭제</button>
               <button onClick={()=>setPendingDelete(null)} style={S.btn(C.grayL,C.gray)}>취소</button>
@@ -825,11 +825,11 @@ function SnapshotPreview({snap,STAFF_DEPTS,DEPTS,DEPT_COLORS}) {
   if(type==="cashflow") return <CashflowPreviewTable data={data} DEPTS={DEPTS} DEPT_COLORS={DEPT_COLORS}/>
   if(type==="years")    return <YearsPreviewTable data={data}/>
   if(type==="all") return <>
-    <div style={{fontWeight:700,fontSize:19.5,margin:"12px 0 4px"}}>👥 본부 인원</div><StaffPreviewTable data={data.deptStaff} STAFF_DEPTS={STAFF_DEPTS} DEPT_COLORS={DEPT_COLORS}/>
-    <div style={{fontWeight:700,fontSize:19.5,margin:"12px 0 4px"}}>📅 연간 인원계획</div><StaffPlanPreviewTable data={data} STAFF_DEPTS={STAFF_DEPTS} DEPT_COLORS={DEPT_COLORS}/>
-    <div style={{fontWeight:700,fontSize:19.5,margin:"12px 0 4px"}}>💰 월별 손익 (부서별 12개월 합계)</div><PnlPreviewTable data={data.pnlData} DEPTS={DEPTS} DEPT_COLORS={DEPT_COLORS}/>
-    <div style={{fontWeight:700,fontSize:19.5,margin:"12px 0 4px"}}>💧 월수금 (부서별 12개월 합계)</div><CashflowPreviewTable data={data.cashflow} DEPTS={DEPTS} DEPT_COLORS={DEPT_COLORS}/>
-    <div style={{fontWeight:700,fontSize:19.5,margin:"12px 0 4px"}}>📈 3개년 실적</div><YearsPreviewTable data={data.years}/>
+    <div style={{fontWeight:700,fontSize:14.3,margin:"12px 0 4px"}}>👥 본부 인원</div><StaffPreviewTable data={data.deptStaff} STAFF_DEPTS={STAFF_DEPTS} DEPT_COLORS={DEPT_COLORS}/>
+    <div style={{fontWeight:700,fontSize:14.3,margin:"12px 0 4px"}}>📅 연간 인원계획</div><StaffPlanPreviewTable data={data} STAFF_DEPTS={STAFF_DEPTS} DEPT_COLORS={DEPT_COLORS}/>
+    <div style={{fontWeight:700,fontSize:14.3,margin:"12px 0 4px"}}>💰 월별 손익 (부서별 12개월 합계)</div><PnlPreviewTable data={data.pnlData} DEPTS={DEPTS} DEPT_COLORS={DEPT_COLORS}/>
+    <div style={{fontWeight:700,fontSize:14.3,margin:"12px 0 4px"}}>💧 월수금 (부서별 12개월 합계)</div><CashflowPreviewTable data={data.cashflow} DEPTS={DEPTS} DEPT_COLORS={DEPT_COLORS}/>
+    <div style={{fontWeight:700,fontSize:14.3,margin:"12px 0 4px"}}>📈 3개년 실적</div><YearsPreviewTable data={data.years}/>
   </>
   return null
 }
@@ -860,7 +860,7 @@ function StaffPlanPreviewTable({data,STAFF_DEPTS,DEPT_COLORS}) {
         <tr key={d}>
           <td style={{...S.td("left"),fontWeight:600}}><span style={{display:"inline-block",width:10,height:10,borderRadius:3,background:DEPT_COLORS?.[d]||C.gray,marginRight:7,verticalAlign:"middle"}}/>{d}</td>
           <td style={S.td()}>{t.toFixed(0)}명</td>
-          <td style={S.td()}>{li>=0?cur.toFixed(1)+"명":"-"}{li>=0&&<span style={{fontSize:15,color:C.gray,marginLeft:4}}>({MONTHS[li]})</span>}</td>
+          <td style={S.td()}>{li>=0?cur.toFixed(1)+"명":"-"}{li>=0&&<span style={{fontSize:11,color:C.gray,marginLeft:4}}>({MONTHS[li]})</span>}</td>
           <td style={{...S.td(),fontWeight:700,color:a>0?C.green:"var(--color-text-secondary,#aaa)"}}>{a>0?a.toFixed(1)+"명":"-"}</td>
         </tr>
       )
@@ -895,7 +895,7 @@ function CashflowPreviewTable({data,DEPTS,DEPT_COLORS}) {
         </tr>
       ))}
       <tr style={{background:"var(--color-background-secondary,#f0f0ee)",fontWeight:700}}>
-        <td style={S.td("left")}>합계</td><td style={{...S.td(),fontSize:22.5,color:C.navy}}>{total.toFixed(2)}</td>
+        <td style={S.td("left")}>합계</td><td style={{...S.td(),fontSize:16.5,color:C.navy}}>{total.toFixed(2)}</td>
       </tr>
     </tbody>
   </table>
@@ -958,11 +958,11 @@ function StaffPlanSection({deptStaff,staffTarget,setStaffTarget,staffMonthly,set
         </div>
         <div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap"}}>
           <select value={selYear} onChange={e=>{setSelYear(e.target.value);setEditing(false);setDraft(null)}}
-            style={{padding:"9px 13px",border:"1px solid var(--color-border-secondary,#ccc)",borderRadius:10,fontSize:21,fontWeight:700,background:"#fff",color:C.navy}}>
+            style={{padding:"9px 13px",border:"1px solid var(--color-border-secondary,#ccc)",borderRadius:10,fontSize:15.4,fontWeight:700,background:"#fff",color:C.navy}}>
             {YEARS.map(y=><option key={y} value={y}>{y}년</option>)}
           </select>
           <select value={selDept} onChange={e=>{setSelDept(e.target.value);setEditing(false);setDraft(null)}}
-            style={{padding:"9px 13px",border:"1px solid var(--color-border-secondary,#ccc)",borderRadius:10,fontSize:21,fontWeight:600,background:"#fff"}}>
+            style={{padding:"9px 13px",border:"1px solid var(--color-border-secondary,#ccc)",borderRadius:10,fontSize:15.4,fontWeight:600,background:"#fff"}}>
             {STAFF_DEPTS.map(d=><option key={d} value={d}>{d}</option>)}
           </select>
           {canEdit && (!editing
@@ -979,22 +979,22 @@ function StaffPlanSection({deptStaff,staffTarget,setStaffTarget,staffMonthly,set
       {/* 선택 본부 KPI */}
       <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:12,marginBottom:14}}>
         <div style={S.card({marginBottom:0,padding:"13px 15px"})}>
-          <div style={{fontSize:18,color:C.gray,marginBottom:6}}>목표인원 ({selYear})</div>
+          <div style={{fontSize:13.2,color:C.gray,marginBottom:6}}>목표인원 ({selYear})</div>
           {editing
-            ? <input type="number" step="1" value={work.target} onChange={e=>updTarget(e.target.value)} style={{...S.inp(80),fontSize:30,fontWeight:800}}/>
-            : <div style={{fontSize:36,fontWeight:800,color:C.navy}}>{work.target.toFixed(0)}명</div>}
+            ? <input type="number" step="1" value={work.target} onChange={e=>updTarget(e.target.value)} style={{...S.inp(80),fontSize:22,fontWeight:800}}/>
+            : <div style={{fontSize:26.4,fontWeight:800,color:C.navy}}>{work.target.toFixed(0)}명</div>}
         </div>
         <div style={S.card({marginBottom:0,padding:"13px 15px"})}>
-          <div style={{fontSize:18,color:C.gray,marginBottom:6}}>현인원 {lastIdx>=0?`(${MONTHS[lastIdx]} 기준)`:"(미입력)"}</div>
-          <div style={{fontSize:36,fontWeight:800,color:C.navyM}}>{lastIdx>=0?current.toFixed(1)+"명":"-"}</div>
+          <div style={{fontSize:13.2,color:C.gray,marginBottom:6}}>현인원 {lastIdx>=0?`(${MONTHS[lastIdx]} 기준)`:"(미입력)"}</div>
+          <div style={{fontSize:26.4,fontWeight:800,color:C.navyM}}>{lastIdx>=0?current.toFixed(1)+"명":"-"}</div>
         </div>
         <div style={S.card({marginBottom:0,padding:"13px 15px"})}>
-          <div style={{fontSize:18,color:C.gray,marginBottom:6}}>{selYear} 연간 평균인원 (입력월 기준)</div>
-          <div style={{fontSize:36,fontWeight:800,color:C.green}}>{avg>0?avg.toFixed(1)+"명":"-"}</div>
+          <div style={{fontSize:13.2,color:C.gray,marginBottom:6}}>{selYear} 연간 평균인원 (입력월 기준)</div>
+          <div style={{fontSize:26.4,fontWeight:800,color:C.green}}>{avg>0?avg.toFixed(1)+"명":"-"}</div>
         </div>
         <div style={S.card({marginBottom:0,padding:"13px 15px"})}>
-          <div style={{fontSize:18,color:C.gray,marginBottom:6}}>목표 달성률 (현인원 기준)</div>
-          <div style={{fontSize:36,fontWeight:800,color:rate>=100?C.green:rate>=85?C.amber:C.red}}>{lastIdx>=0?rate.toFixed(0)+"%":"-"}</div>
+          <div style={{fontSize:13.2,color:C.gray,marginBottom:6}}>목표 달성률 (현인원 기준)</div>
+          <div style={{fontSize:26.4,fontWeight:800,color:rate>=100?C.green:rate>=85?C.amber:C.red}}>{lastIdx>=0?rate.toFixed(0)+"%":"-"}</div>
         </div>
       </div>
 
@@ -1016,13 +1016,13 @@ function StaffPlanSection({deptStaff,staffTarget,setStaffTarget,staffMonthly,set
                     : <span style={{color:v>0?DEPT_COLORS[selDept]||C.navyM:"var(--color-text-secondary,#aaa)",fontWeight:v>0?700:400}}>{v>0?(+v).toFixed(1):"-"}</span>}
                 </td>
               ))}
-              <td style={{...S.td(),fontSize:22.5,fontWeight:800,color:C.green}}>{avg>0?avg.toFixed(1):"-"}</td>
+              <td style={{...S.td(),fontSize:16.5,fontWeight:800,color:C.green}}>{avg>0?avg.toFixed(1):"-"}</td>
             </tr>
             <tr>
               <td style={{...S.td("left"),color:C.gray}}>목표 대비</td>
               {work.monthly.map((v,i)=>{
                 const r = work.target>0&&num(v)>0 ? num(v)/work.target*100 : null
-                return <td key={i} style={S.td()}>{r!=null?<span style={{...rateBdg(r),fontSize:15.8}}>{r.toFixed(0)}%</span>:<span style={{color:"var(--color-text-secondary,#ccc)"}}>-</span>}</td>
+                return <td key={i} style={S.td()}>{r!=null?<span style={{...rateBdg(r),fontSize:11.6}}>{r.toFixed(0)}%</span>:<span style={{color:"var(--color-text-secondary,#ccc)"}}>-</span>}</td>
               })}
               <td/>
             </tr>
@@ -1050,7 +1050,7 @@ function StaffPlanSection({deptStaff,staffTarget,setStaffTarget,staffMonthly,set
                 <tr key={d} style={{background:i%2===0?"var(--color-background-primary,#fff)":"var(--color-background-secondary,#f8f8f6)"}}>
                   <td style={{...S.td("left"),fontWeight:600}}><span style={{display:"inline-block",width:10,height:10,borderRadius:3,background:DEPT_COLORS[d]||C.gray,marginRight:7,verticalAlign:"middle"}}/>{d}</td>
                   <td style={S.td()}>{t.toFixed(0)}명</td>
-                  <td style={S.td()}>{li>=0?cur.toFixed(1)+"명":"-"}{li>=0&&<span style={{fontSize:15,color:C.gray,marginLeft:4}}>({MONTHS[li]})</span>}</td>
+                  <td style={S.td()}>{li>=0?cur.toFixed(1)+"명":"-"}{li>=0&&<span style={{fontSize:11,color:C.gray,marginLeft:4}}>({MONTHS[li]})</span>}</td>
                   <td style={{...S.td(),fontWeight:700,color:a>0?C.green:"var(--color-text-secondary,#aaa)"}}>{a>0?a.toFixed(1)+"명":"-"}</td>
                   <td style={S.td()}>{r!=null?<span style={rateBdg(r)}>{r.toFixed(0)}%</span>:"-"}</td>
                 </tr>
@@ -1117,7 +1117,7 @@ function DeptManageSection({departments,addDept,renameDept,deleteDept,mergeDept,
 
   return (
     <div>
-      <div style={{background:C.navyL,borderLeft:`6px solid ${C.navyM}`,borderRadius:"0 12px 12px 0",padding:"14px 18px",marginBottom:18,fontSize:20.2,lineHeight:1.8,color:"#0C447C"}}>
+      <div style={{background:C.navyL,borderLeft:`6px solid ${C.navyM}`,borderRadius:"0 12px 12px 0",padding:"14px 18px",marginBottom:18,fontSize:14.8,lineHeight:1.8,color:"#0C447C"}}>
         <b>본부(부서)를 추가·이름변경·삭제합니다.</b> 변경 즉시 본부 인원현황·월별손익·월수금·경영분석·경영최적화·프로젝트·아카이브 전체 화면에 반영됩니다.
         <br/>"재무추적"을 켠 본부는 월별손익·월수금을 본부별로 입력할 수 있습니다(설계 계열 본부 권장). 행정·해외 등 인원만 관리하는 본부는 꺼두세요.
         <br/><span style={{...S.bdg(C.amberL,"#633806"),marginTop:6,display:"inline-flex"}}>주의</span> 사용자 계정의 "소속 부서"는 별도 시스템(권한관리)에 고정되어 있어, 본부명을 변경해도 기존 계정의 소속은 자동으로 바뀌지 않습니다. 이름을 바꾼 경우 관리자가 계정 소속을 함께 점검해 주세요.
@@ -1153,24 +1153,24 @@ function DeptManageSection({departments,addDept,renameDept,deleteDept,mergeDept,
                       {editing
                         ? <div style={{display:"flex",gap:6,alignItems:"center"}}>
                             <input value={editVal} onChange={e=>setEditVal(e.target.value)} style={{...S.inp(160),textAlign:"left",fontWeight:700}}/>
-                            <button onClick={()=>saveRename(d)} style={{...S.btn(C.green),padding:"6px 12px",fontSize:18}}>저장</button>
-                            <button onClick={cancelRename} style={{...S.btn(C.grayL,C.gray),padding:"6px 12px",fontSize:18}}>취소</button>
+                            <button onClick={()=>saveRename(d)} style={{...S.btn(C.green),padding:"6px 12px",fontSize:13.2}}>저장</button>
+                            <button onClick={cancelRename} style={{...S.btn(C.grayL,C.gray),padding:"6px 12px",fontSize:13.2}}>취소</button>
                           </div>
                         : <span style={{fontWeight:700}}>{d.name}</span>}
-                      {editing && editMsg && <div style={{fontSize:17.2,color:C.red,marginTop:4}}>{editMsg}</div>}
+                      {editing && editMsg && <div style={{fontSize:12.6,color:C.red,marginTop:4}}>{editMsg}</div>}
                     </td>
                     <td style={S.td("center")}>
                       {isAdmin
                         ? <input type="checkbox" checked={!!d.finance} onChange={e=>setDeptFinance(d.name,e.target.checked)} style={{width:18,height:18,cursor:"pointer"}}/>
-                        : (d.finance ? <span style={{...S.bdg(C.greenL,"#27500A"),fontSize:16.5}}>ON</span> : <span style={{...S.bdg(C.grayL,C.gray),fontSize:16.5}}>OFF</span>)}
+                        : (d.finance ? <span style={{...S.bdg(C.greenL,"#27500A"),fontSize:12}}>ON</span> : <span style={{...S.bdg(C.grayL,C.gray),fontSize:12}}>OFF</span>)}
                     </td>
                     <td style={S.td()}>{usage.staff.toFixed(1)}명</td>
                     <td style={S.td()}>{usage.projects}건</td>
-                    <td style={{...S.td("left"),fontSize:18,color:C.gray}}>{usage.users.length?usage.users.join(", "):"-"}</td>
+                    <td style={{...S.td("left"),fontSize:13.2,color:C.gray}}>{usage.users.length?usage.users.join(", "):"-"}</td>
                     <td style={S.td("center")}>
                       {isAdmin && !editing && <div style={{display:"flex",gap:6,justifyContent:"center"}}>
-                        <button onClick={()=>startRename(d)} style={{...S.btn(C.navyL,C.navyM),padding:"6px 12px",fontSize:18}}>이름변경</button>
-                        <button onClick={()=>askDelete(d)} style={{...S.btn(C.redL,C.red),padding:"6px 12px",fontSize:18}}>삭제</button>
+                        <button onClick={()=>startRename(d)} style={{...S.btn(C.navyL,C.navyM),padding:"6px 12px",fontSize:13.2}}>이름변경</button>
+                        <button onClick={()=>askDelete(d)} style={{...S.btn(C.redL,C.red),padding:"6px 12px",fontSize:13.2}}>삭제</button>
                       </div>}
                     </td>
                   </tr>
@@ -1188,12 +1188,12 @@ function DeptManageSection({departments,addDept,renameDept,deleteDept,mergeDept,
           <div style={{display:"flex",gap:10,alignItems:"center",flexWrap:"wrap"}}>
             <input value={newName} onChange={e=>setNewName(e.target.value)} placeholder="본부명 (예: 신사업본부)" style={{...S.inp(200),textAlign:"left"}}/>
             <input type="color" value={newColor} onChange={e=>setNewColor(e.target.value)} style={{width:40,height:36,border:"none",borderRadius:8,cursor:"pointer",background:"none"}}/>
-            <label style={{display:"flex",alignItems:"center",gap:6,fontSize:19.5,fontWeight:600,cursor:"pointer"}}>
+            <label style={{display:"flex",alignItems:"center",gap:6,fontSize:14.3,fontWeight:600,cursor:"pointer"}}>
               <input type="checkbox" checked={newFinance} onChange={e=>setNewFinance(e.target.checked)} style={{width:18,height:18,cursor:"pointer"}}/>재무추적(손익·수금 부서별 입력)
             </label>
             <button onClick={submitAdd} style={S.btn(C.green)}><i className="ti ti-plus" aria-hidden="true"/> 본부 추가</button>
           </div>
-          {addMsg && <div style={{fontSize:18.8,color:C.red,marginTop:8}}>{addMsg}</div>}
+          {addMsg && <div style={{fontSize:13.8,color:C.red,marginTop:8}}>{addMsg}</div>}
         </div>
       )}
 
@@ -1202,13 +1202,13 @@ function DeptManageSection({departments,addDept,renameDept,deleteDept,mergeDept,
         <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.45)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:300}}>
           <div style={{...S.card({width:500,maxWidth:"95vw",marginBottom:0}),padding:24}}>
             {/* 제목 */}
-            <div style={{fontSize:24,fontWeight:800,color:"#0F172A",marginBottom:4}}>
+            <div style={{fontSize:17.6,fontWeight:800,color:"#0F172A",marginBottom:4}}>
               🏢 '{pendingDelete.name}' 본부 삭제
             </div>
 
             {/* 현재 데이터 현황 */}
             {(pendingDelete.usage.staff>0||pendingDelete.usage.projects>0||pendingDelete.usage.users.length>0) && (
-              <div style={{background:"#FEF3C7",border:"1px solid #F59E0B",borderRadius:8,padding:"10px 14px",marginBottom:16,fontSize:19.5,color:"#78350F",lineHeight:1.8}}>
+              <div style={{background:"#FEF3C7",border:"1px solid #F59E0B",borderRadius:8,padding:"10px 14px",marginBottom:16,fontSize:14.3,color:"#78350F",lineHeight:1.8}}>
                 ⚠ 이 본부에는 연결된 데이터가 있습니다:<br/>
                 <b>인원</b> {pendingDelete.usage.staff.toFixed(1)}명 &nbsp;|&nbsp;
                 <b>프로젝트</b> {pendingDelete.usage.projects}건
@@ -1217,7 +1217,7 @@ function DeptManageSection({departments,addDept,renameDept,deleteDept,mergeDept,
             )}
 
             {/* 처리 방식 선택 */}
-            <div style={{fontSize:19.5,fontWeight:700,color:"#334155",marginBottom:10}}>
+            <div style={{fontSize:14.3,fontWeight:700,color:"#334155",marginBottom:10}}>
               삭제 후 데이터를 어떻게 처리할까요?
             </div>
             <div style={{display:"flex",flexDirection:"column",gap:8,marginBottom:16}}>
@@ -1230,29 +1230,29 @@ function DeptManageSection({departments,addDept,renameDept,deleteDept,mergeDept,
                   style={{marginTop:3,accentColor:"#0E9C8C",flexShrink:0}}/>
                 <div>
                   <div style={{fontWeight:700,color:"#0E9C8C",marginBottom:4}}>📦 다른 본부로 합치기 (권장)</div>
-                  <div style={{fontSize:18,color:"#64748B",lineHeight:1.6}}>
+                  <div style={{fontSize:13.2,color:"#64748B",lineHeight:1.6}}>
                     이 본부의 프로젝트·인원·매출·계약·지출 데이터를 선택한 본부로 모두 이전합니다.
                     데이터가 사라지지 않습니다.
                   </div>
                   {mergeMode && (
                     <div style={{marginTop:10}}>
-                      <div style={{fontSize:18,fontWeight:600,color:"#334155",marginBottom:6}}>
+                      <div style={{fontSize:13.2,fontWeight:600,color:"#334155",marginBottom:6}}>
                         합칠 대상 본부 선택:
                       </div>
                       <select value={mergeTarget} onChange={e=>{ setMergeTarget(e.target.value); setMergeMsg("") }}
                         style={{width:"100%",padding:"8px 10px",border:"1.5px solid #0E9C8C",borderRadius:6,
-                          fontSize:19.5,fontWeight:600,background:"#fff",outline:"none"}}>
+                          fontSize:14.3,fontWeight:600,background:"#fff",outline:"none"}}>
                         <option value="">-- 본부 선택 --</option>
                         {mergeTargets.map(d=>(
                           <option key={d.name} value={d.name}>{d.name}</option>
                         ))}
                       </select>
                       {mergeTarget && (
-                        <div style={{marginTop:8,fontSize:18,color:"#059669",fontWeight:600}}>
+                        <div style={{marginTop:8,fontSize:13.2,color:"#059669",fontWeight:600}}>
                           ✓ '{pendingDelete.name}'의 모든 데이터가 '{mergeTarget}'으로 이전됩니다.
                         </div>
                       )}
-                      {mergeMsg && <div style={{marginTop:6,fontSize:18,color:"#DC2626",fontWeight:600}}>{mergeMsg}</div>}
+                      {mergeMsg && <div style={{marginTop:6,fontSize:13.2,color:"#DC2626",fontWeight:600}}>{mergeMsg}</div>}
                     </div>
                   )}
                 </div>
@@ -1266,7 +1266,7 @@ function DeptManageSection({departments,addDept,renameDept,deleteDept,mergeDept,
                   style={{marginTop:3,accentColor:"#DC2626",flexShrink:0}}/>
                 <div>
                   <div style={{fontWeight:700,color:"#DC2626",marginBottom:4}}>🗑 본부와 데이터 모두 삭제</div>
-                  <div style={{fontSize:18,color:"#64748B",lineHeight:1.6}}>
+                  <div style={{fontSize:13.2,color:"#64748B",lineHeight:1.6}}>
                     인원현황·월별손익·월수금에서 이 본부 데이터가 제거되고,
                     연결된 프로젝트에서도 이 본부 연결이 해제됩니다. <b>복구 불가</b>
                   </div>
@@ -1277,12 +1277,12 @@ function DeptManageSection({departments,addDept,renameDept,deleteDept,mergeDept,
             {/* 버튼 */}
             <div style={{display:"flex",gap:8,justifyContent:"flex-end"}}>
               <button onClick={()=>setPendingDelete(null)}
-                style={{padding:"9px 18px",background:"#F1F5F9",color:"#334155",border:"none",borderRadius:8,fontSize:19.5,fontWeight:600,cursor:"pointer"}}>
+                style={{padding:"9px 18px",background:"#F1F5F9",color:"#334155",border:"none",borderRadius:8,fontSize:14.3,fontWeight:600,cursor:"pointer"}}>
                 취소
               </button>
               <button onClick={confirmAction}
                 style={{padding:"9px 20px",background:mergeMode?"#0E9C8C":"#DC2626",
-                  color:"#fff",border:"none",borderRadius:8,fontSize:19.5,fontWeight:700,cursor:"pointer"}}>
+                  color:"#fff",border:"none",borderRadius:8,fontSize:14.3,fontWeight:700,cursor:"pointer"}}>
                 {mergeMode ? `'${mergeTarget||"?"}' 으로 합치기` : "삭제 확인"}
               </button>
             </div>
@@ -1333,15 +1333,15 @@ function ContractTypeSection({contractTypes, setContractTypes, canManage}) {
 
   const C2 = {navy:"#0C447C",navyM:"#0B6E63",navyL:"#E6F1FB",green:"#1D9E75",red:"#A32D2D",redL:"#FCEBEB",gray:"#888780",grayL:"#F1EFE8",amber:"#BA7517"}
   const card = {background:"var(--color-background-primary,#fff)",border:"0.5px solid var(--color-border-tertiary,#e4e4e0)",borderRadius:14,padding:"19px 22px",marginBottom:16}
-  const inp  = (w=200)=>({width:w,padding:"7px 9px",border:"1px solid var(--color-border-secondary,#ccc)",borderRadius:8,fontSize:19.5,fontFamily:"inherit",background:"#fff",color:"#222",boxSizing:"border-box"})
-  const btn  = (bg=C2.navyM,fg="#fff")=>({padding:"7px 14px",background:bg,color:fg,border:"none",borderRadius:8,fontSize:19.5,fontWeight:600,cursor:"pointer"})
+  const inp  = (w=200)=>({width:w,padding:"7px 9px",border:"1px solid var(--color-border-secondary,#ccc)",borderRadius:8,fontSize:14.3,fontFamily:"inherit",background:"#fff",color:"#222",boxSizing:"border-box"})
+  const btn  = (bg=C2.navyM,fg="#fff")=>({padding:"7px 14px",background:bg,color:fg,border:"none",borderRadius:8,fontSize:14.3,fontWeight:600,cursor:"pointer"})
 
   return (
     <div style={card}>
-      <div style={{fontSize:22.5,fontWeight:700,marginBottom:4}}>🏷 수주유형 관리</div>
-      <div style={{fontSize:18,color:C2.gray,marginBottom:16}}>프로젝트 등록 시 선택할 수주 유형 목록을 관리합니다. 순서를 드래그하거나 위/아래 버튼으로 조정할 수 있습니다.</div>
+      <div style={{fontSize:16.5,fontWeight:700,marginBottom:4}}>🏷 수주유형 관리</div>
+      <div style={{fontSize:13.2,color:C2.gray,marginBottom:16}}>프로젝트 등록 시 선택할 수주 유형 목록을 관리합니다. 순서를 드래그하거나 위/아래 버튼으로 조정할 수 있습니다.</div>
 
-      {msg && <div style={{background:C2.navyL,borderRadius:8,padding:"7px 12px",fontSize:18,color:C2.navyM,fontWeight:600,marginBottom:12}}>{msg}</div>}
+      {msg && <div style={{background:C2.navyL,borderRadius:8,padding:"7px 12px",fontSize:13.2,color:C2.navyM,fontWeight:600,marginBottom:12}}>{msg}</div>}
 
       {/* 추가 */}
       {canManage && (
@@ -1354,19 +1354,19 @@ function ContractTypeSection({contractTypes, setContractTypes, canManage}) {
 
       {/* 목록 */}
       <div style={{display:"flex",flexDirection:"column",gap:6}}>
-        {contractTypes.length===0 && <div style={{color:C2.gray,fontSize:19.5}}>등록된 유형이 없습니다.</div>}
+        {contractTypes.length===0 && <div style={{color:C2.gray,fontSize:14.3}}>등록된 유형이 없습니다.</div>}
         {contractTypes.map((t,i)=>(
           <div key={i} style={{display:"flex",alignItems:"center",gap:8,padding:"8px 12px",background:"var(--color-background-secondary,#f8f8f6)",borderRadius:10,border:"0.5px solid var(--color-border-tertiary,#eee)"}}>
             {/* 순서 이동 */}
             {canManage && (
               <div style={{display:"flex",flexDirection:"column",gap:2}}>
-                <button onClick={()=>moveUp(i)} style={{...btn(C2.navyL,C2.navyM),padding:"2px 6px",fontSize:15,lineHeight:1}} title="위로">▲</button>
-                <button onClick={()=>moveDown(i)} style={{...btn(C2.navyL,C2.navyM),padding:"2px 6px",fontSize:15,lineHeight:1}} title="아래로">▼</button>
+                <button onClick={()=>moveUp(i)} style={{...btn(C2.navyL,C2.navyM),padding:"2px 6px",fontSize:11,lineHeight:1}} title="위로">▲</button>
+                <button onClick={()=>moveDown(i)} style={{...btn(C2.navyL,C2.navyM),padding:"2px 6px",fontSize:11,lineHeight:1}} title="아래로">▼</button>
               </div>
             )}
 
             {/* 번호 뱃지 */}
-            <span style={{width:22,height:22,borderRadius:6,background:C2.navyM,color:"#fff",fontSize:16.5,fontWeight:700,display:"inline-flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>{i+1}</span>
+            <span style={{width:22,height:22,borderRadius:6,background:C2.navyM,color:"#fff",fontSize:12,fontWeight:700,display:"inline-flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>{i+1}</span>
 
             {/* 이름 또는 편집 입력 */}
             {editIdx===i
@@ -1377,10 +1377,10 @@ function ContractTypeSection({contractTypes, setContractTypes, canManage}) {
                   <button onClick={()=>{setEditIdx(null);setEditVal("")}} style={{...btn(C2.grayL,C2.gray),padding:"5px 11px"}}>취소</button>
                 </>
               : <>
-                  <span style={{flex:1,fontSize:21,fontWeight:600}}>{t}</span>
+                  <span style={{flex:1,fontSize:15.4,fontWeight:600}}>{t}</span>
                   {canManage && <>
-                    <button onClick={()=>startEdit(i)} style={{...btn(C2.navyL,C2.navyM),padding:"5px 11px",fontSize:18}}>수정</button>
-                    <button onClick={()=>remove(i)} style={{...btn(C2.redL,C2.red),padding:"5px 11px",fontSize:18}}>삭제</button>
+                    <button onClick={()=>startEdit(i)} style={{...btn(C2.navyL,C2.navyM),padding:"5px 11px",fontSize:13.2}}>수정</button>
+                    <button onClick={()=>remove(i)} style={{...btn(C2.redL,C2.red),padding:"5px 11px",fontSize:13.2}}>삭제</button>
                   </>}
                 </>
             }
@@ -1388,7 +1388,7 @@ function ContractTypeSection({contractTypes, setContractTypes, canManage}) {
         ))}
       </div>
 
-      <div style={{marginTop:14,fontSize:16.5,color:C2.gray,lineHeight:1.7}}>
+      <div style={{marginTop:14,fontSize:12,color:C2.gray,lineHeight:1.7}}>
         ※ 유형을 삭제해도 이미 해당 유형으로 저장된 프로젝트에는 영향을 주지 않습니다.<br/>
         ※ 유형 이름을 수정하면 이후 신규 등록/수정 시 새 이름으로 선택됩니다.
       </div>
@@ -1540,7 +1540,7 @@ function BackupSection({allData, restoreAllData, isAdmin, cashItems=[], setCashI
 
   const C2 = {navy:"#0C447C",navyM:"#0B6E63",navyL:"#E6F1FB",green:"#1D9E75",greenL:"#EAF3DE",red:"#A32D2D",redL:"#FCEBEB",amber:"#BA7517",amberL:"#FAEEDA",gray:"#888780",grayL:"#F1EFE8"}
   const card2 = {background:"#fff",border:"1px solid #E2E8F0",borderRadius:12,padding:"20px 24px",marginBottom:16}
-  const btn2  = (bg,fg="#fff",disabled=false)=>({padding:"10px 20px",background:disabled?"#E5E7EB":bg,color:disabled?"#94A3B8":fg,border:"none",borderRadius:8,fontSize:19.5,fontWeight:700,cursor:disabled?"not-allowed":"pointer",display:"inline-flex",alignItems:"center",gap:7,transition:"opacity .15s"})
+  const btn2  = (bg,fg="#fff",disabled=false)=>({padding:"10px 20px",background:disabled?"#E5E7EB":bg,color:disabled?"#94A3B8":fg,border:"none",borderRadius:8,fontSize:14.3,fontWeight:700,cursor:disabled?"not-allowed":"pointer",display:"inline-flex",alignItems:"center",gap:7,transition:"opacity .15s"})
 
   return (
     <div>
@@ -1548,7 +1548,7 @@ function BackupSection({allData, restoreAllData, isAdmin, cashItems=[], setCashI
       {msg && (
         <div style={{marginBottom:16,padding:"12px 16px",borderRadius:10,
           background:msg.ok?"#D1FAE5":"#FEE2E2",color:msg.ok?"#065F46":"#7F1D1D",
-          fontSize:19.5,fontWeight:600,lineHeight:1.7,whiteSpace:"pre-line",
+          fontSize:14.3,fontWeight:600,lineHeight:1.7,whiteSpace:"pre-line",
           border:`1px solid ${msg.ok?"#6EE7B7":"#FCA5A5"}`}}>
           {msg.text}
         </div>
@@ -1558,10 +1558,10 @@ function BackupSection({allData, restoreAllData, isAdmin, cashItems=[], setCashI
       <div style={{...card2,border:"2px solid #0E9C8C",background:"linear-gradient(135deg,#E3F6F3,#F0F9FF)"}}>
         <div style={{display:"flex",alignItems:"flex-start",justifyContent:"space-between",flexWrap:"wrap",gap:12}}>
           <div>
-            <div style={{fontSize:25.5,fontWeight:800,color:"#0B6E63",marginBottom:6}}>
+            <div style={{fontSize:18.7,fontWeight:800,color:"#0B6E63",marginBottom:6}}>
               📦 전체 데이터 백업 (내보내기)
             </div>
-            <div style={{fontSize:19.5,color:"#0E9C8C",lineHeight:1.8}}>
+            <div style={{fontSize:14.3,color:"#0E9C8C",lineHeight:1.8}}>
               현재 시스템의 <b>모든 데이터</b>를 JSON 파일로 저장합니다.<br/>
               데이터가 초기화되거나 브라우저를 바꿀 때 이 파일로 복구할 수 있습니다.
             </div>
@@ -1573,18 +1573,18 @@ function BackupSection({allData, restoreAllData, isAdmin, cashItems=[], setCashI
                 {label:"계약현황", count:getCount("sjs_contract_items"), color:"#7C3AED"},
                 {label:"협력업체", count:getCount("sjs_vendors"), color:"#D97706"},
               ].map(({label,count,color})=>(
-                <div key={label} style={{background:"#fff",borderRadius:8,padding:"6px 12px",border:"1px solid #E2E8F0",fontSize:18}}>
+                <div key={label} style={{background:"#fff",borderRadius:8,padding:"6px 12px",border:"1px solid #E2E8F0",fontSize:13.2}}>
                   <span style={{color:"#94A3B8"}}>{label} </span>
                   <span style={{fontWeight:800,color}}>{count}건</span>
                 </div>
               ))}
-              <div style={{background:"#E3F6F3",borderRadius:8,padding:"6px 12px",border:"1px solid #BFDBFE",fontSize:18}}>
+              <div style={{background:"#E3F6F3",borderRadius:8,padding:"6px 12px",border:"1px solid #BFDBFE",fontSize:13.2}}>
                 <span style={{color:"#94A3B8"}}>총 용량 </span>
                 <span style={{fontWeight:800,color:"#0E9C8C"}}>{totalKB}KB</span>
               </div>
             </div>
           </div>
-          <button onClick={exportAll} style={{...btn2("#0E9C8C"),padding:"12px 24px",fontSize:21,flexShrink:0}}>
+          <button onClick={exportAll} style={{...btn2("#0E9C8C"),padding:"12px 24px",fontSize:15.4,flexShrink:0}}>
             ⬇ 전체 백업 다운로드
           </button>
         </div>
@@ -1592,15 +1592,15 @@ function BackupSection({allData, restoreAllData, isAdmin, cashItems=[], setCashI
 
       {/* ② 복구 (불러오기) */}
       <div style={{...card2,border:"2px solid #059669",background:"linear-gradient(135deg,#F0FDF4,#ECFDF5)"}}>
-        <div style={{fontSize:25.5,fontWeight:800,color:"#065F46",marginBottom:6}}>
+        <div style={{fontSize:18.7,fontWeight:800,color:"#065F46",marginBottom:6}}>
           📥 백업 파일로 복구 (불러오기)
         </div>
-        <div style={{fontSize:19.5,color:"#059669",lineHeight:1.8,marginBottom:14}}>
+        <div style={{fontSize:14.3,color:"#059669",lineHeight:1.8,marginBottom:14}}>
           이전에 다운로드한 <b>상지서울_전체백업_날짜.json</b> 파일을 선택하면 복구 전 미리보기를 확인할 수 있습니다.
         </div>
 
         {!previewInfo ? (
-          <label style={{...btn2("#059669"),cursor:"pointer",fontSize:21,padding:"12px 24px"}}>
+          <label style={{...btn2("#059669"),cursor:"pointer",fontSize:15.4,padding:"12px 24px"}}>
             📂 백업 파일 선택 (.json)
             <input type="file" accept=".json" style={{display:"none"}} onChange={previewFile}/>
           </label>
@@ -1610,8 +1610,8 @@ function BackupSection({allData, restoreAllData, isAdmin, cashItems=[], setCashI
             <div style={{background:"#fff",borderRadius:10,border:"2px solid #059669",padding:"16px 20px",marginBottom:14}}>
               <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12,flexWrap:"wrap",gap:8}}>
                 <div>
-                  <div style={{fontSize:22.5,fontWeight:800,color:"#065F46"}}>📋 복구 미리보기</div>
-                  <div style={{fontSize:18,color:"#64748B",marginTop:3}}>
+                  <div style={{fontSize:16.5,fontWeight:800,color:"#065F46"}}>📋 복구 미리보기</div>
+                  <div style={{fontSize:13.2,color:"#64748B",marginTop:3}}>
                     백업일시: <b>{previewInfo.savedAt}</b> &nbsp;|&nbsp;
                     버전: v{previewInfo.version} &nbsp;|&nbsp;
                     항목: {previewInfo.items.length}개 &nbsp;|&nbsp;
@@ -1619,26 +1619,26 @@ function BackupSection({allData, restoreAllData, isAdmin, cashItems=[], setCashI
                   </div>
                 </div>
                 <button onClick={()=>setPreviewInfo(null)}
-                  style={{...btn2("#F1F5F9","#64748B"),padding:"6px 12px",fontSize:18}}>✕ 취소</button>
+                  style={{...btn2("#F1F5F9","#64748B"),padding:"6px 12px",fontSize:13.2}}>✕ 취소</button>
               </div>
 
               {/* 복구될 항목 목록 */}
               <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(160px,1fr))",gap:8,marginBottom:14}}>
                 {previewInfo.items.map(({key,label,emoji,count})=>(
                   <div key={key} style={{background:"#F0FDF4",borderRadius:8,padding:"8px 12px",border:"1px solid #6EE7B7"}}>
-                    <div style={{fontSize:16.5,color:"#64748B",marginBottom:2}}>{emoji} {label}</div>
-                    <div style={{fontSize:22.5,fontWeight:800,color:"#059669"}}>{count}<span style={{fontSize:16.5,fontWeight:400,color:"#94A3B8"}}>{count>1?" 건":""}</span></div>
+                    <div style={{fontSize:12,color:"#64748B",marginBottom:2}}>{emoji} {label}</div>
+                    <div style={{fontSize:16.5,fontWeight:800,color:"#059669"}}>{count}<span style={{fontSize:12,fontWeight:400,color:"#94A3B8"}}>{count>1?" 건":""}</span></div>
                   </div>
                 ))}
               </div>
 
-              <div style={{background:"#FEF3C7",borderRadius:8,padding:"10px 14px",border:"1px solid #FCD34D",marginBottom:14,fontSize:19.5,color:"#92400E",lineHeight:1.7}}>
+              <div style={{background:"#FEF3C7",borderRadius:8,padding:"10px 14px",border:"1px solid #FCD34D",marginBottom:14,fontSize:14.3,color:"#92400E",lineHeight:1.7}}>
                 ⚠️ <b>주의</b>: 복구를 실행하면 현재 입력된 모든 데이터가 백업 파일의 데이터로 완전히 대체됩니다.<br/>
                 현재 데이터를 보존하려면 먼저 위 "전체 백업 다운로드"를 받으세요.
               </div>
 
               <button onClick={doRestore}
-                style={{...btn2("#059669"),padding:"12px 28px",fontSize:21}}>
+                style={{...btn2("#059669"),padding:"12px 28px",fontSize:15.4}}>
                 🔄 이 백업으로 복구 실행
               </button>
             </div>
@@ -1648,7 +1648,7 @@ function BackupSection({allData, restoreAllData, isAdmin, cashItems=[], setCashI
 
       {/* ③ 자동 백업 안내 */}
       <div style={{...card2,background:"#FFFBEB",border:"1px solid #FDE68A"}}>
-        <div style={{fontSize:22.5,fontWeight:800,color:"#92400E",marginBottom:8}}>💡 백업 보관 권장사항</div>
+        <div style={{fontSize:16.5,fontWeight:800,color:"#92400E",marginBottom:8}}>💡 백업 보관 권장사항</div>
         <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(200px,1fr))",gap:10}}>
           {[
             {icon:"📅",title:"백업 주기",desc:"월 1~2회 정기 백업 권장\n(계약현황 입력 후 즉시 백업)"},
@@ -1657,8 +1657,8 @@ function BackupSection({allData, restoreAllData, isAdmin, cashItems=[], setCashI
             {icon:"⚠️",title:"주의사항",desc:"브라우저 데이터 삭제 시\n백업 없이는 복구 불가"},
           ].map(({icon,title,desc})=>(
             <div key={title} style={{background:"#fff",borderRadius:8,padding:"12px 14px",border:"1px solid #FDE68A"}}>
-              <div style={{fontSize:19.5,fontWeight:700,color:"#92400E",marginBottom:4}}>{icon} {title}</div>
-              <div style={{fontSize:18,color:"#78350F",lineHeight:1.7,whiteSpace:"pre-line"}}>{desc}</div>
+              <div style={{fontSize:14.3,fontWeight:700,color:"#92400E",marginBottom:4}}>{icon} {title}</div>
+              <div style={{fontSize:13.2,color:"#78350F",lineHeight:1.7,whiteSpace:"pre-line"}}>{desc}</div>
             </div>
           ))}
         </div>
@@ -1666,10 +1666,10 @@ function BackupSection({allData, restoreAllData, isAdmin, cashItems=[], setCashI
 
       {/* ④ 경영 데이터 리셋 */}
       <div style={{...card2,border:"2px solid #DC2626",background:"#FEF2F2"}}>
-        <div style={{fontSize:22.5,fontWeight:800,color:"#DC2626",marginBottom:8}}>
+        <div style={{fontSize:16.5,fontWeight:800,color:"#DC2626",marginBottom:8}}>
           🗑 경영 데이터 리셋 (월수금·계약현황·지출현황)
         </div>
-        <div style={{fontSize:19.5,color:"#7F1D1D",lineHeight:1.7,marginBottom:14}}>
+        <div style={{fontSize:14.3,color:"#7F1D1D",lineHeight:1.7,marginBottom:14}}>
           기존 데이터를 모두 지우고 새 엑셀을 업로드할 때 사용합니다.<br/>
           삭제 후 <b>경영분석 → 각 탭의 ⬆ 엑셀 업로드</b>로 새 데이터를 올리세요.
         </div>
@@ -1682,10 +1682,10 @@ function BackupSection({allData, restoreAllData, isAdmin, cashItems=[], setCashI
             ["⚠️ 전체 리셋",  "all",       (projects?.length||0)+(cashItems?.length||0)+(contractItems?.length||0)+(saleItems?.length||0), "#DC2626","#FEE2E2"],
           ].map(([label,type,count,color,bg])=>(
             <div key={type} style={{background:bg,borderRadius:10,padding:"12px 14px",border:`1.5px solid ${color}30`}}>
-              <div style={{fontSize:18.8,fontWeight:700,color,marginBottom:4}}>{label}</div>
-              <div style={{fontSize:30,fontWeight:900,color,marginBottom:8}}>{count}<span style={{fontSize:18,fontWeight:400}}>건</span></div>
+              <div style={{fontSize:13.8,fontWeight:700,color,marginBottom:4}}>{label}</div>
+              <div style={{fontSize:22,fontWeight:900,color,marginBottom:8}}>{count}<span style={{fontSize:13.2,fontWeight:400}}>건</span></div>
               <button onClick={()=>resetData(type)} disabled={count===0&&type!=="all"}
-                style={{width:"100%",padding:"7px",background:count>0||type==="all"?color:"#D1D5DB",color:"#fff",border:"none",borderRadius:7,fontSize:18.8,fontWeight:700,cursor:count>0||type==="all"?"pointer":"not-allowed",opacity:count===0&&type!=="all"?0.5:1}}>
+                style={{width:"100%",padding:"7px",background:count>0||type==="all"?color:"#D1D5DB",color:"#fff",border:"none",borderRadius:7,fontSize:13.8,fontWeight:700,cursor:count>0||type==="all"?"pointer":"not-allowed",opacity:count===0&&type!=="all"?0.5:1}}>
                 {type==="all"?"전체 삭제":"삭제"}
               </button>
             </div>
@@ -1705,8 +1705,8 @@ function SimpleListSection({title, description, list, setList, canManage}) {
 
   const C2 = {navy:"#0C447C",navyM:"#0B6E63",navyL:"#E6F1FB",green:"#1D9E75",red:"#A32D2D",redL:"#FCEBEB",gray:"#888780",grayL:"#F1EFE8",amber:"#BA7517"}
   const card2 = {background:"var(--color-background-primary,#fff)",border:"0.5px solid var(--color-border-tertiary,#e4e4e0)",borderRadius:14,padding:"20px 24px",marginBottom:16}
-  const inp2  = (w="100%")=>({width:w,padding:"7px 9px",border:"1px solid var(--color-border-secondary,#ccc)",borderRadius:8,fontSize:19.5,fontFamily:"inherit",background:"#fff",color:"#222",boxSizing:"border-box"})
-  const btn2  = (bg=C2.navyM,fg="#fff")=>({padding:"7px 14px",background:bg,color:fg,border:"none",borderRadius:9,fontSize:19.5,fontWeight:600,cursor:"pointer"})
+  const inp2  = (w="100%")=>({width:w,padding:"7px 9px",border:"1px solid var(--color-border-secondary,#ccc)",borderRadius:8,fontSize:14.3,fontFamily:"inherit",background:"#fff",color:"#222",boxSizing:"border-box"})
+  const btn2  = (bg=C2.navyM,fg="#fff")=>({padding:"7px 14px",background:bg,color:fg,border:"none",borderRadius:9,fontSize:14.3,fontWeight:600,cursor:"pointer"})
 
   const flash = m => { setMsg(m); setTimeout(()=>setMsg(""),2000) }
 
@@ -1731,9 +1731,9 @@ function SimpleListSection({title, description, list, setList, canManage}) {
 
   return (
     <div style={card2}>
-      <div style={{fontSize:22.5,fontWeight:700,marginBottom:4}}>{title}</div>
-      <div style={{fontSize:18,color:C2.gray,marginBottom:14}}>{description}</div>
-      {msg && <div style={{background:C2.navyL,borderRadius:8,padding:"7px 12px",fontSize:18,color:C2.navyM,fontWeight:600,marginBottom:10}}>{msg}</div>}
+      <div style={{fontSize:16.5,fontWeight:700,marginBottom:4}}>{title}</div>
+      <div style={{fontSize:13.2,color:C2.gray,marginBottom:14}}>{description}</div>
+      {msg && <div style={{background:C2.navyL,borderRadius:8,padding:"7px 12px",fontSize:13.2,color:C2.navyM,fontWeight:600,marginBottom:10}}>{msg}</div>}
       {canManage && (
         <div style={{display:"flex",gap:8,marginBottom:14}}>
           <input value={newVal} onChange={e=>setNewVal(e.target.value)} onKeyDown={e=>e.key==="Enter"&&add()}
@@ -1742,16 +1742,16 @@ function SimpleListSection({title, description, list, setList, canManage}) {
         </div>
       )}
       <div style={{display:"flex",flexDirection:"column",gap:6}}>
-        {list.length===0 && <div style={{color:C2.gray,fontSize:19.5}}>등록된 항목이 없습니다.</div>}
+        {list.length===0 && <div style={{color:C2.gray,fontSize:14.3}}>등록된 항목이 없습니다.</div>}
         {list.map((t,i)=>(
           <div key={i} style={{display:"flex",alignItems:"center",gap:8,padding:"8px 12px",background:"var(--color-background-secondary,#f8f8f6)",borderRadius:10,border:"0.5px solid var(--color-border-tertiary,#eee)"}}>
             {canManage && (
               <div style={{display:"flex",flexDirection:"column",gap:2}}>
-                <button onClick={()=>moveUp(i)}   style={{...btn2(C2.navyL,C2.navyM),padding:"2px 6px",fontSize:15}}>▲</button>
-                <button onClick={()=>moveDown(i)} style={{...btn2(C2.navyL,C2.navyM),padding:"2px 6px",fontSize:15}}>▼</button>
+                <button onClick={()=>moveUp(i)}   style={{...btn2(C2.navyL,C2.navyM),padding:"2px 6px",fontSize:11}}>▲</button>
+                <button onClick={()=>moveDown(i)} style={{...btn2(C2.navyL,C2.navyM),padding:"2px 6px",fontSize:11}}>▼</button>
               </div>
             )}
-            <span style={{width:22,height:22,borderRadius:6,background:C2.navyM,color:"#fff",fontSize:16.5,fontWeight:700,display:"inline-flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>{i+1}</span>
+            <span style={{width:22,height:22,borderRadius:6,background:C2.navyM,color:"#fff",fontSize:12,fontWeight:700,display:"inline-flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>{i+1}</span>
             {editIdx===i
               ? <>
                   <input value={editVal} onChange={e=>setEditVal(e.target.value)} onKeyDown={e=>{if(e.key==="Enter")saveEdit();if(e.key==="Escape"){setEditIdx(null)}}} style={{...inp2(),flex:1,maxWidth:240}} autoFocus/>
@@ -1759,17 +1759,17 @@ function SimpleListSection({title, description, list, setList, canManage}) {
                   <button onClick={()=>setEditIdx(null)} style={{...btn2(C2.grayL,C2.gray),padding:"5px 11px"}}>취소</button>
                 </>
               : <>
-                  <span style={{flex:1,fontSize:21,fontWeight:600}}>{t}</span>
+                  <span style={{flex:1,fontSize:15.4,fontWeight:600}}>{t}</span>
                   {canManage && <>
-                    <button onClick={()=>startEdit(i)} style={{...btn2(C2.navyL,C2.navyM),padding:"5px 11px",fontSize:18}}>수정</button>
-                    <button onClick={()=>remove(i)}    style={{...btn2(C2.redL,C2.red),padding:"5px 11px",fontSize:18}}>삭제</button>
+                    <button onClick={()=>startEdit(i)} style={{...btn2(C2.navyL,C2.navyM),padding:"5px 11px",fontSize:13.2}}>수정</button>
+                    <button onClick={()=>remove(i)}    style={{...btn2(C2.redL,C2.red),padding:"5px 11px",fontSize:13.2}}>삭제</button>
                   </>}
                 </>
             }
           </div>
         ))}
       </div>
-      <div style={{marginTop:12,fontSize:16.5,color:C2.gray}}>※ 삭제해도 기존 프로젝트에 저장된 값에는 영향을 주지 않습니다.</div>
+      <div style={{marginTop:12,fontSize:12,color:C2.gray}}>※ 삭제해도 기존 프로젝트에 저장된 값에는 영향을 주지 않습니다.</div>
     </div>
   )
 }
@@ -1985,15 +1985,15 @@ function ArchiveImportSection({projects=[], setProjects, isAdmin}) {
 
   return (
     <div>
-      <div style={{fontSize:25.5,fontWeight:800,color:"#0F172A",marginBottom:6}}>📦 자료이관 정보 임포트</div>
-      <div style={{fontSize:19.5,color:"#64748B",marginBottom:16,lineHeight:1.8}}>
+      <div style={{fontSize:18.7,fontWeight:800,color:"#0F172A",marginBottom:6}}>📦 자료이관 정보 임포트</div>
+      <div style={{fontSize:14.3,color:"#64748B",marginBottom:16,lineHeight:1.8}}>
         엑셀(프로젝트_자료이관정보.xlsx) 파일을 업로드하면 프로젝트명/코드를 기준으로 자동 매칭하여<br/>
         <b>자료이관 이력, 준공 정보, 수상 내역</b>을 기존 프로젝트에 병합합니다. 기존 데이터는 덮어쓰지 않습니다.
       </div>
 
       {!preview && (
         <label style={{display:"inline-flex",alignItems:"center",gap:8,padding:"12px 24px",
-          background:"#0E9C8C",color:"#fff",borderRadius:8,fontSize:21,fontWeight:700,cursor:"pointer"}}>
+          background:"#0E9C8C",color:"#fff",borderRadius:8,fontSize:15.4,fontWeight:700,cursor:"pointer"}}>
           📂 엑셀 파일 선택
           <input type="file" accept=".xlsx,.xls" style={{display:"none"}} onChange={handleFile}/>
         </label>
@@ -2010,15 +2010,15 @@ function ArchiveImportSection({projects=[], setProjects, isAdmin}) {
               ["미매칭", preview.filter(p=>!p.matchedId).length, "#DC2626"],
             ].map(([l,n,c])=>(
               <div key={l} style={{background:"#fff",borderRadius:8,padding:"10px 16px",border:`1.5px solid ${c}30`,textAlign:"center"}}>
-                <div style={{fontSize:30,fontWeight:800,color:c}}>{n}</div>
-                <div style={{fontSize:16.5,color:"#64748B"}}>{l}</div>
+                <div style={{fontSize:22,fontWeight:800,color:c}}>{n}</div>
+                <div style={{fontSize:12,color:"#64748B"}}>{l}</div>
               </div>
             ))}
           </div>
 
           {/* 미리보기 테이블 */}
           <div style={{background:"#fff",borderRadius:10,border:"1px solid #E2E8F0",marginBottom:14,overflow:"auto",maxHeight:400}}>
-            <table style={{width:"100%",borderCollapse:"collapse",fontSize:18}}>
+            <table style={{width:"100%",borderCollapse:"collapse",fontSize:13.2}}>
               <thead style={{position:"sticky",top:0,background:"#F8FAFC",zIndex:1}}>
                 <tr>{["엑셀 프로젝트명","코드","매칭 프로젝트","정확도","이관기록","준공정보","수상"].map(h=>(
                   <th key={h} style={{padding:"8px 10px",textAlign:"left",fontWeight:700,color:"#64748B",borderBottom:"2px solid #E2E8F0",whiteSpace:"nowrap"}}>{h}</th>
@@ -2028,12 +2028,12 @@ function ArchiveImportSection({projects=[], setProjects, isAdmin}) {
                 {preview.map((p,i)=>(
                   <tr key={i} style={{borderBottom:"1px solid #F1F5F9",background:!p.matchedId?"#FEF2F2":"#fff"}}>
                     <td style={{padding:"7px 10px",maxWidth:200,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",fontWeight:600}}>{p.srcName}</td>
-                    <td style={{padding:"7px 10px",fontSize:16.5,color:"#64748B"}}>{p.srcCode}</td>
+                    <td style={{padding:"7px 10px",fontSize:12,color:"#64748B"}}>{p.srcCode}</td>
                     <td style={{padding:"7px 10px",maxWidth:200,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",color:p.matchedId?"#059669":"#DC2626"}}>
                       {p.matchedId?p.matchedName:"❌ 미매칭"}
                     </td>
                     <td style={{padding:"7px 10px"}}>
-                      {p.matchedId&&<span style={{fontSize:15,fontWeight:700,background:MATCH_COLOR(p.matchScore)+"20",color:MATCH_COLOR(p.matchScore),padding:"1px 6px",borderRadius:8}}>{p.matchScore}%</span>}
+                      {p.matchedId&&<span style={{fontSize:11,fontWeight:700,background:MATCH_COLOR(p.matchScore)+"20",color:MATCH_COLOR(p.matchScore),padding:"1px 6px",borderRadius:8}}>{p.matchScore}%</span>}
                     </td>
                     <td style={{padding:"7px 10px",color:"#64748B"}}>{p.data.archiveData.records.length}건</td>
                     <td style={{padding:"7px 10px",color:"#64748B"}}>{p.data.completion.completionDate||p.data.completion.approvalDate?"✓":""}</td>
@@ -2046,17 +2046,17 @@ function ArchiveImportSection({projects=[], setProjects, isAdmin}) {
 
           <div style={{display:"flex",gap:8}}>
             <button onClick={doImport} disabled={importing}
-              style={{padding:"10px 24px",background:"#059669",color:"#fff",border:"none",borderRadius:8,fontSize:21,fontWeight:700,cursor:"pointer"}}>
+              style={{padding:"10px 24px",background:"#059669",color:"#fff",border:"none",borderRadius:8,fontSize:15.4,fontWeight:700,cursor:"pointer"}}>
               ✅ {importing?"임포트 중...":"매칭된 항목 병합 실행"}
             </button>
             <button onClick={()=>{setPreview(null);setResult(null)}}
-              style={{padding:"10px 16px",background:"#F1F5F9",color:"#64748B",border:"none",borderRadius:8,fontSize:19.5,cursor:"pointer"}}>
+              style={{padding:"10px 16px",background:"#F1F5F9",color:"#64748B",border:"none",borderRadius:8,fontSize:14.3,cursor:"pointer"}}>
               다시 선택
             </button>
           </div>
 
           {result&&(
-            <div style={{marginTop:12,padding:"12px 16px",background:"#D1FAE5",borderRadius:8,fontSize:19.5,fontWeight:600,color:"#065F46"}}>
+            <div style={{marginTop:12,padding:"12px 16px",background:"#D1FAE5",borderRadius:8,fontSize:14.3,fontWeight:600,color:"#065F46"}}>
               ✅ 임포트 완료: {result.matched}건 병합 / {result.added}건 신규추가 / {result.skipped}건 미처리
             </div>
           )}

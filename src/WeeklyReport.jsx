@@ -14,12 +14,12 @@ const C = {
   gray:"#888780", grayL:"#F1EFE8",
 }
 const card  = (x={})=>({background:"var(--color-background-primary,#fff)",border:"0.5px solid var(--color-border-tertiary,#e4e4e0)",borderRadius:14,padding:"18px 22px",marginBottom:16,...x})
-const th    = (a="left")=>({padding:"9px 12px",textAlign:a,fontSize:18,fontWeight:600,color:"var(--color-text-secondary,#888)",background:"var(--color-background-secondary,#f8f8f6)",borderBottom:"1px solid var(--color-border-tertiary,#eee)",whiteSpace:"nowrap"})
-const td    = (a="left")=>({padding:"8px 12px",borderBottom:"0.5px solid var(--color-border-tertiary,#eee)",textAlign:a,fontSize:19.5,verticalAlign:"top"})
-const inp   = (w="100%")=>({width:w,padding:"7px 9px",border:"1px solid var(--color-border-secondary,#ccc)",borderRadius:8,fontSize:19.5,fontFamily:"inherit",background:"var(--color-background-primary,#fff)",color:"var(--color-text-primary,#333)",boxSizing:"border-box"})
-const btn   = (bg=C.navyM,fg="#fff")=>({padding:"7px 14px",background:bg,color:fg,border:"none",borderRadius:9,fontSize:19.5,fontWeight:600,cursor:"pointer",display:"inline-flex",alignItems:"center",gap:5})
-const lbl   = ()=>({display:"block",fontSize:16.5,color:C.gray,fontWeight:600,marginBottom:3})
-const badge = (bg,fg)=>({display:"inline-flex",padding:"2px 9px",borderRadius:9,fontSize:16.5,fontWeight:700,background:bg,color:fg})
+const th    = (a="left")=>({padding:"9px 12px",textAlign:a,fontSize:13.2,fontWeight:600,color:"var(--color-text-secondary,#888)",background:"var(--color-background-secondary,#f8f8f6)",borderBottom:"1px solid var(--color-border-tertiary,#eee)",whiteSpace:"nowrap"})
+const td    = (a="left")=>({padding:"8px 12px",borderBottom:"0.5px solid var(--color-border-tertiary,#eee)",textAlign:a,fontSize:14.3,verticalAlign:"top"})
+const inp   = (w="100%")=>({width:w,padding:"7px 9px",border:"1px solid var(--color-border-secondary,#ccc)",borderRadius:8,fontSize:14.3,fontFamily:"inherit",background:"var(--color-background-primary,#fff)",color:"var(--color-text-primary,#333)",boxSizing:"border-box"})
+const btn   = (bg=C.navyM,fg="#fff")=>({padding:"7px 14px",background:bg,color:fg,border:"none",borderRadius:9,fontSize:14.3,fontWeight:600,cursor:"pointer",display:"inline-flex",alignItems:"center",gap:5})
+const lbl   = ()=>({display:"block",fontSize:12,color:C.gray,fontWeight:600,marginBottom:3})
+const badge = (bg,fg)=>({display:"inline-flex",padding:"2px 9px",borderRadius:9,fontSize:12,fontWeight:700,background:bg,color:fg})
 
 const now = ()=>new Date().toISOString()
 const fDate = iso=>iso?iso.slice(0,10):""
@@ -77,7 +77,7 @@ export function WeeklyReportTab({proj, setProjects, canWrite, currentUser}) {
       <div style={{display:"flex",gap:3,marginBottom:14,flexWrap:"wrap"}}>
         {SUBS.map(s=>(
           <button key={s.id} onClick={()=>setSub(s.id)} style={{
-            padding:"8px 16px",border:"none",borderRadius:9,fontSize:19.5,fontWeight:700,cursor:"pointer",
+            padding:"8px 16px",border:"none",borderRadius:9,fontSize:14.3,fontWeight:700,cursor:"pointer",
             background:sub===s.id?C.navyM:"var(--color-background-secondary,#f0f0ee)",
             color:sub===s.id?"#fff":"var(--color-text-secondary,#777)",
             boxShadow:sub===s.id?"0 2px 8px rgba(12,68,124,.2)":"none",
@@ -166,39 +166,39 @@ function ScheduleLogSection({wr, save, canWrite, proj, currentUser}) {
   return (
     <div style={card()}>
       <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:4}}>
-        <div style={{fontSize:22.5,fontWeight:700}}>📅 주요일정 기록</div>
-        {canWrite&&<button onClick={()=>setShowCatMgr(v=>!v)} style={{...btn(C.grayL,C.gray),padding:"5px 12px",fontSize:18}}>
+        <div style={{fontSize:16.5,fontWeight:700}}>📅 주요일정 기록</div>
+        {canWrite&&<button onClick={()=>setShowCatMgr(v=>!v)} style={{...btn(C.grayL,C.gray),padding:"5px 12px",fontSize:13.2}}>
           ⚙ 구분 관리
         </button>}
       </div>
-      <div style={{fontSize:18,color:C.gray,marginBottom:14}}>
+      <div style={{fontSize:13.2,color:C.gray,marginBottom:14}}>
         날짜별 주요 사안을 기록합니다. 수정 시 수정자와 일시가 자동 기록됩니다.
       </div>
 
       {/* 구분 관리 패널 */}
       {showCatMgr && (
         <div style={{background:C.navyL,borderRadius:12,padding:"14px 16px",marginBottom:14,border:`1px solid ${C.navyM}22`}}>
-          <div style={{fontSize:21,fontWeight:700,color:C.navyM,marginBottom:10}}>⚙ 구분 항목 관리</div>
+          <div style={{fontSize:15.4,fontWeight:700,color:C.navyM,marginBottom:10}}>⚙ 구분 항목 관리</div>
           <div style={{display:"flex",flexDirection:"column",gap:6,marginBottom:10}}>
             {schedCats.map((c,i)=>(
               <div key={i} style={{display:"flex",gap:6,alignItems:"center"}}>
                 <div style={{display:"flex",flexDirection:"column",gap:2}}>
-                  <button onClick={()=>i>0&&moveCat(i,-1)} style={{...btn(C.navyL,C.navyM),padding:"1px 6px",fontSize:15,opacity:i===0?.3:1}}>▲</button>
-                  <button onClick={()=>i<schedCats.length-1&&moveCat(i,1)} style={{...btn(C.navyL,C.navyM),padding:"1px 6px",fontSize:15,opacity:i===schedCats.length-1?.3:1}}>▼</button>
+                  <button onClick={()=>i>0&&moveCat(i,-1)} style={{...btn(C.navyL,C.navyM),padding:"1px 6px",fontSize:11,opacity:i===0?.3:1}}>▲</button>
+                  <button onClick={()=>i<schedCats.length-1&&moveCat(i,1)} style={{...btn(C.navyL,C.navyM),padding:"1px 6px",fontSize:11,opacity:i===schedCats.length-1?.3:1}}>▼</button>
                 </div>
                 <div style={{width:10,height:10,borderRadius:"50%",background:getColor(c),flexShrink:0}}/>
                 {editCatIdx===i
                   ? <>
                       <input value={editCatVal} onChange={e=>setEditCatVal(e.target.value)}
                         onKeyDown={e=>{if(e.key==="Enter")saveCat(i);if(e.key==="Escape")setEditCatIdx(null)}}
-                        style={{...inp(),flex:1,padding:"5px 9px",fontSize:19.5}} autoFocus/>
-                      <button onClick={()=>saveCat(i)} style={{...btn(C.green),padding:"5px 10px",fontSize:18}}>저장</button>
-                      <button onClick={()=>setEditCatIdx(null)} style={{...btn(C.grayL,C.gray),padding:"5px 10px",fontSize:18}}>취소</button>
+                        style={{...inp(),flex:1,padding:"5px 9px",fontSize:14.3}} autoFocus/>
+                      <button onClick={()=>saveCat(i)} style={{...btn(C.green),padding:"5px 10px",fontSize:13.2}}>저장</button>
+                      <button onClick={()=>setEditCatIdx(null)} style={{...btn(C.grayL,C.gray),padding:"5px 10px",fontSize:13.2}}>취소</button>
                     </>
                   : <>
-                      <span style={{flex:1,fontSize:21,fontWeight:600}}>{c}</span>
-                      <button onClick={()=>{setEditCatIdx(i);setEditCatVal(c)}} style={{...btn(C.navyL,C.navyM),padding:"4px 9px",fontSize:18}}>수정</button>
-                      <button onClick={()=>removeCat(i)} style={{...btn(C.redL,C.red),padding:"4px 9px",fontSize:18}}>삭제</button>
+                      <span style={{flex:1,fontSize:15.4,fontWeight:600}}>{c}</span>
+                      <button onClick={()=>{setEditCatIdx(i);setEditCatVal(c)}} style={{...btn(C.navyL,C.navyM),padding:"4px 9px",fontSize:13.2}}>수정</button>
+                      <button onClick={()=>removeCat(i)} style={{...btn(C.redL,C.red),padding:"4px 9px",fontSize:13.2}}>삭제</button>
                     </>
                 }
               </div>
@@ -207,7 +207,7 @@ function ScheduleLogSection({wr, save, canWrite, proj, currentUser}) {
           <div style={{display:"flex",gap:7}}>
             <input value={newCat} onChange={e=>setNewCat(e.target.value)}
               onKeyDown={e=>e.key==="Enter"&&addCat()}
-              placeholder="새 구분 추가 (Enter)" style={{...inp(),flex:1,padding:"7px 10px",fontSize:19.5}}/>
+              placeholder="새 구분 추가 (Enter)" style={{...inp(),flex:1,padding:"7px 10px",fontSize:14.3}}/>
             <button onClick={addCat} style={{...btn(C.navyM),padding:"7px 14px"}}>+ 추가</button>
           </div>
         </div>
@@ -242,16 +242,16 @@ function ScheduleLogSection({wr, save, canWrite, proj, currentUser}) {
             </div>
             <button onClick={add} style={{...btn(C.navyM),padding:"10px 18px",flexShrink:0}}>+ 추가</button>
           </div>
-          <div style={{fontSize:16.5,color:C.gray,marginTop:6}}>Ctrl+Enter로도 추가 가능</div>
+          <div style={{fontSize:12,color:C.gray,marginTop:6}}>Ctrl+Enter로도 추가 가능</div>
         </div>
       )}
 
       {/* 필터 */}
       <div style={{display:"flex",gap:5,flexWrap:"wrap",marginBottom:14}}>
-        <button onClick={()=>setFilter("")} style={{...btn(filter?"#F3F4F6":""+C.navyM,filter?"#374151":"#fff"),padding:"5px 12px",fontSize:18,borderRadius:20}}>전체</button>
+        <button onClick={()=>setFilter("")} style={{...btn(filter?"#F3F4F6":""+C.navyM,filter?"#374151":"#fff"),padding:"5px 12px",fontSize:13.2,borderRadius:20}}>전체</button>
         {schedCats.map(c=>(
           <button key={c} onClick={()=>setFilter(f=>f===c?"":c)}
-            style={{...btn(filter===c?getColor(c):C.grayL,filter===c?"#fff":C.gray),padding:"5px 12px",fontSize:18,borderRadius:20}}>
+            style={{...btn(filter===c?getColor(c):C.grayL,filter===c?"#fff":C.gray),padding:"5px 12px",fontSize:13.2,borderRadius:20}}>
             {c}
           </button>
         ))}
@@ -259,14 +259,14 @@ function ScheduleLogSection({wr, save, canWrite, proj, currentUser}) {
 
       {/* 타임라인 */}
       {filtered.length===0
-        ? <div style={{padding:"24px",textAlign:"center",color:C.gray,fontSize:19.5}}>등록된 일정이 없습니다.</div>
+        ? <div style={{padding:"24px",textAlign:"center",color:C.gray,fontSize:14.3}}>등록된 일정이 없습니다.</div>
         : <div style={{position:"relative"}}>
             <div style={{position:"absolute",left:120,top:0,bottom:0,width:2,background:"#E5E7EB"}}/>
             {filtered.slice().reverse().map(e=>(
               <div key={e.id} style={{display:"flex",gap:14,marginBottom:12,alignItems:"flex-start"}}>
                 {/* 날짜 */}
                 <div style={{width:112,flexShrink:0,textAlign:"right",paddingTop:4}}>
-                  <div style={{fontSize:19.5,fontWeight:700,color:"#111827"}}>{e.date}</div>
+                  <div style={{fontSize:14.3,fontWeight:700,color:"#111827"}}>{e.date}</div>
                 </div>
                 {/* 도트 */}
                 <div style={{width:12,height:12,borderRadius:"50%",background:getColor(e.category),flexShrink:0,marginTop:4,zIndex:1,border:"2px solid #fff",boxShadow:`0 0 0 2px ${getColor(e.category)}`}}/>
@@ -291,23 +291,23 @@ function ScheduleLogSection({wr, save, canWrite, proj, currentUser}) {
                           </div>
                         </div>
                         <div style={{display:"flex",gap:6}}>
-                          <button onClick={saveEdit} style={{...btn(C.green),padding:"5px 12px",fontSize:18}}>저장</button>
-                          <button onClick={()=>setEditId(null)} style={{...btn(C.grayL,C.gray),padding:"5px 12px",fontSize:18}}>취소</button>
+                          <button onClick={saveEdit} style={{...btn(C.green),padding:"5px 12px",fontSize:13.2}}>저장</button>
+                          <button onClick={()=>setEditId(null)} style={{...btn(C.grayL,C.gray),padding:"5px 12px",fontSize:13.2}}>취소</button>
                         </div>
                       </div>
                     : <>
                         <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:e.memo?6:0,flexWrap:"wrap"}}>
-                          <span style={{...badge(getColor(e.category)+"22",getColor(e.category)),fontSize:16.5}}>{e.category}</span>
-                          <span style={{fontSize:21,fontWeight:700,color:"#111827",flex:1}}>{e.content}</span>
+                          <span style={{...badge(getColor(e.category)+"22",getColor(e.category)),fontSize:12}}>{e.category}</span>
+                          <span style={{fontSize:15.4,fontWeight:700,color:"#111827",flex:1}}>{e.content}</span>
                           <div style={{display:"flex",gap:5,marginLeft:"auto"}}>
-                            {canWrite&&<button onClick={()=>startEdit(e)} style={{...btn(C.navyL,C.navyM),padding:"3px 9px",fontSize:18}}>수정</button>}
-                            {canWrite&&<button onClick={()=>del(e.id)} style={{...btn(C.redL,C.red),padding:"3px 9px",fontSize:18}}>삭제</button>}
+                            {canWrite&&<button onClick={()=>startEdit(e)} style={{...btn(C.navyL,C.navyM),padding:"3px 9px",fontSize:13.2}}>수정</button>}
+                            {canWrite&&<button onClick={()=>del(e.id)} style={{...btn(C.redL,C.red),padding:"3px 9px",fontSize:13.2}}>삭제</button>}
                           </div>
                         </div>
-                        {e.memo&&<div style={{fontSize:19.5,color:"#6B7280",background:"#F8FAFC",borderRadius:8,padding:"6px 10px",marginBottom:4}}>
+                        {e.memo&&<div style={{fontSize:14.3,color:"#6B7280",background:"#F8FAFC",borderRadius:8,padding:"6px 10px",marginBottom:4}}>
                           📝 {e.memo}
                         </div>}
-                        <div style={{fontSize:16.5,color:"#9CA3AF",marginTop:4}}>
+                        <div style={{fontSize:12,color:"#9CA3AF",marginTop:4}}>
                           {e.createdBy&&`등록: ${e.createdBy} `}{fDT(e.createdAt)}
                           {e.updatedAt!==e.createdAt&&` · 수정: ${e.updatedBy||""} ${fDT(e.updatedAt)}`}
                         </div>
@@ -365,59 +365,59 @@ function StagesSection({wr, save, canWrite, proj}) {
       <div style={{...card(),background:C.navyL,padding:"16px 20px",marginBottom:12}}>
         <div style={{display:"flex",gap:20,flexWrap:"wrap",alignItems:"center"}}>
           <div>
-            <div style={{fontSize:16.5,color:C.navyM,fontWeight:600,marginBottom:2}}>용역비 (VAT 별도)</div>
-            <div style={{fontSize:33,fontWeight:800,color:C.navy}}>{(totalServiceFee/1e8).toFixed(2)}억</div>
+            <div style={{fontSize:12,color:C.navyM,fontWeight:600,marginBottom:2}}>용역비 (VAT 별도)</div>
+            <div style={{fontSize:24.2,fontWeight:800,color:C.navy}}>{(totalServiceFee/1e8).toFixed(2)}억</div>
           </div>
           <div>
-            <div style={{fontSize:16.5,color:C.green,fontWeight:600,marginBottom:2}}>누계 입금기성 (cashflowPlan 합산)</div>
-            <div style={{fontSize:33,fontWeight:800,color:C.green}}>{totalActual.toFixed(2)}억</div>
+            <div style={{fontSize:12,color:C.green,fontWeight:600,marginBottom:2}}>누계 입금기성 (cashflowPlan 합산)</div>
+            <div style={{fontSize:24.2,fontWeight:800,color:C.green}}>{totalActual.toFixed(2)}억</div>
           </div>
           <div>
-            <div style={{fontSize:16.5,color:C.amber,fontWeight:600,marginBottom:2}}>기성률</div>
-            <div style={{fontSize:33,fontWeight:800,color:C.amber}}>{achieveRate.toFixed(1)}%</div>
+            <div style={{fontSize:12,color:C.amber,fontWeight:600,marginBottom:2}}>기성률</div>
+            <div style={{fontSize:24.2,fontWeight:800,color:C.amber}}>{achieveRate.toFixed(1)}%</div>
           </div>
           <div style={{flex:1,minWidth:200}}>
-            <div style={{fontSize:16.5,color:C.navy,fontWeight:600,marginBottom:4}}>전체 진행 바</div>
+            <div style={{fontSize:12,color:C.navy,fontWeight:600,marginBottom:4}}>전체 진행 바</div>
             <div style={{height:10,background:"rgba(12,68,124,.15)",borderRadius:5,overflow:"hidden"}}>
               <div style={{width:`${Math.min(achieveRate,100).toFixed(1)}%`,height:"100%",background:C.navyM,borderRadius:5,transition:"width .4s"}}/>
             </div>
           </div>
         </div>
-        <div style={{fontSize:16.5,color:C.navyM,marginTop:8}}>※ 누계 입금기성은 "프로젝트 정보 → 연도별 월수금계획" 입금실적 합산값입니다.</div>
+        <div style={{fontSize:12,color:C.navyM,marginTop:8}}>※ 누계 입금기성은 "프로젝트 정보 → 연도별 월수금계획" 입금실적 합산값입니다.</div>
       </div>
 
       {/* 단계정의 관리 버튼 */}
       {canWrite && !editingDef && (
         <div style={{display:"flex",gap:8,marginBottom:12,alignItems:"center"}}>
-          <button onClick={startDefEdit} style={{...btn(C.navyL,C.navyM),padding:"6px 14px",fontSize:18}}>⚙ 설계단계 추가·수정·삭제</button>
-          <span style={{fontSize:16.5,color:C.gray}}>{stagesDef.length}단계 · 클릭해서 단계명 변경, 추가, 삭제</span>
+          <button onClick={startDefEdit} style={{...btn(C.navyL,C.navyM),padding:"6px 14px",fontSize:13.2}}>⚙ 설계단계 추가·수정·삭제</button>
+          <span style={{fontSize:12,color:C.gray}}>{stagesDef.length}단계 · 클릭해서 단계명 변경, 추가, 삭제</span>
         </div>
       )}
 
       {/* 단계정의 편집 패널 */}
       {editingDef && defDraft && (
         <div style={{...card(),border:`1.5px solid ${C.navyM}`,marginBottom:14}}>
-          <div style={{fontSize:21,fontWeight:700,marginBottom:12,color:C.navyM}}>⚙ 설계단계 구성 편집</div>
+          <div style={{fontSize:15.4,fontWeight:700,marginBottom:12,color:C.navyM}}>⚙ 설계단계 구성 편집</div>
           <div style={{display:"flex",flexDirection:"column",gap:8,marginBottom:12}}>
             {defDraft.map((s,i)=>(
               <div key={s.id} style={{display:"flex",gap:8,alignItems:"center"}}>
                 <div style={{display:"flex",flexDirection:"column",gap:2}}>
-                  <button onClick={()=>moveStage(i,-1)} disabled={i===0} style={{...btn(C.navyL,C.navyM),padding:"2px 6px",fontSize:15,opacity:i===0?.4:1}}>▲</button>
-                  <button onClick={()=>moveStage(i,1)} disabled={i===defDraft.length-1} style={{...btn(C.navyL,C.navyM),padding:"2px 6px",fontSize:15,opacity:i===defDraft.length-1?.4:1}}>▼</button>
+                  <button onClick={()=>moveStage(i,-1)} disabled={i===0} style={{...btn(C.navyL,C.navyM),padding:"2px 6px",fontSize:11,opacity:i===0?.4:1}}>▲</button>
+                  <button onClick={()=>moveStage(i,1)} disabled={i===defDraft.length-1} style={{...btn(C.navyL,C.navyM),padding:"2px 6px",fontSize:11,opacity:i===defDraft.length-1?.4:1}}>▼</button>
                 </div>
                 <div style={{width:18,height:18,borderRadius:4,background:s.color,flexShrink:0,border:"2px solid rgba(0,0,0,.1)"}}/>
                 <input value={s.label} onChange={e=>updateStageDef(i,"label",e.target.value)}
                   style={{...inp(140),fontWeight:600}} placeholder="단계명"/>
                 <input type="color" value={s.color} onChange={e=>updateStageDef(i,"color",e.target.value)}
                   style={{width:36,height:32,padding:2,border:"1px solid #ccc",borderRadius:6,cursor:"pointer"}}/>
-                <button onClick={()=>removeStage(i)} style={{...btn(C.redL,C.red),padding:"4px 10px",fontSize:18}}>삭제</button>
+                <button onClick={()=>removeStage(i)} style={{...btn(C.redL,C.red),padding:"4px 10px",fontSize:13.2}}>삭제</button>
               </div>
             ))}
           </div>
           <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
-            <button onClick={addStage} style={{...btn(C.green),padding:"6px 14px",fontSize:18}}>+ 단계 추가</button>
-            <button onClick={saveDefEdit} style={{...btn(C.navyM),padding:"6px 14px",fontSize:18}}>✓ 저장</button>
-            <button onClick={cancelDefEdit} style={{...btn(C.grayL,C.gray),padding:"6px 14px",fontSize:18}}>취소</button>
+            <button onClick={addStage} style={{...btn(C.green),padding:"6px 14px",fontSize:13.2}}>+ 단계 추가</button>
+            <button onClick={saveDefEdit} style={{...btn(C.navyM),padding:"6px 14px",fontSize:13.2}}>✓ 저장</button>
+            <button onClick={cancelDefEdit} style={{...btn(C.grayL,C.gray),padding:"6px 14px",fontSize:13.2}}>취소</button>
           </div>
         </div>
       )}
@@ -430,8 +430,8 @@ function StagesSection({wr, save, canWrite, proj}) {
           return (
             <div key={stage.id} style={{...card(),marginBottom:0,borderLeft:`4px solid ${stage.color}`}}>
               <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:8}}>
-                <span style={{fontSize:21,fontWeight:700,color:stage.color}}>{stage.label}</span>
-                {canWrite&&<button onClick={()=>startEdit(stage.id)} style={{...btn(C.grayL,C.gray),padding:"4px 10px",fontSize:16.5}}>편집</button>}
+                <span style={{fontSize:15.4,fontWeight:700,color:stage.color}}>{stage.label}</span>
+                {canWrite&&<button onClick={()=>startEdit(stage.id)} style={{...btn(C.grayL,C.gray),padding:"4px 10px",fontSize:12}}>편집</button>}
               </div>
 
               {editStage===stage.id
@@ -443,20 +443,20 @@ function StagesSection({wr, save, canWrite, proj}) {
                     <div>
                       <label style={lbl()}>진행률 {draft.progress||0}%</label>
                       <input type="range" min={0} max={100} step={5} value={draft.progress||0} onChange={e=>setDraft(p=>({...p,progress:+e.target.value}))} style={{width:"100%",accentColor:stage.color}}/>
-                      <div style={{display:"flex",justifyContent:"space-between",fontSize:15,color:C.gray}}><span>0%</span><span>50%</span><span>100%</span></div>
+                      <div style={{display:"flex",justifyContent:"space-between",fontSize:11,color:C.gray}}><span>0%</span><span>50%</span><span>100%</span></div>
                     </div>
                     <div>
                       <label style={lbl()}>현재일정 메모</label>
                       <textarea value={draft.currentNote||""} onChange={e=>setDraft(p=>({...p,currentNote:e.target.value}))} rows={2} style={{...inp(),resize:"vertical"}} placeholder="예: 실시설계 도서 작성중"/>
                     </div>
                     <div style={{display:"flex",gap:7}}>
-                      <button onClick={saveSt} style={{...btn(C.green),padding:"6px 14px",fontSize:18}}>저장</button>
-                      <button onClick={()=>setEditStage(null)} style={{...btn(C.grayL,C.gray),padding:"6px 14px",fontSize:18}}>취소</button>
+                      <button onClick={saveSt} style={{...btn(C.green),padding:"6px 14px",fontSize:13.2}}>저장</button>
+                      <button onClick={()=>setEditStage(null)} style={{...btn(C.grayL,C.gray),padding:"6px 14px",fontSize:13.2}}>취소</button>
                     </div>
                   </div>
                 : <>
                     <div style={{marginBottom:8}}>
-                      <div style={{display:"flex",justifyContent:"space-between",fontSize:16.5,color:C.gray,marginBottom:3}}>
+                      <div style={{display:"flex",justifyContent:"space-between",fontSize:12,color:C.gray,marginBottom:3}}>
                         <span>{st.startDate||"미정"} ~ {st.endDate||"미정"}</span>
                         <span style={{fontWeight:700,color:stage.color}}>{prog}%</span>
                       </div>
@@ -464,8 +464,8 @@ function StagesSection({wr, save, canWrite, proj}) {
                         <div style={{width:`${prog}%`,height:"100%",background:stage.color,borderRadius:4,transition:"width .3s"}}/>
                       </div>
                     </div>
-                    {st.currentNote&&<div style={{fontSize:18,color:"var(--color-text-primary)",background:"var(--color-background-secondary,#f8f8f6)",borderRadius:7,padding:"7px 10px",marginBottom:6}}>{st.currentNote}</div>}
-                    {st.updatedAt&&<div style={{fontSize:15.8,color:C.gray}}>수정: {fDT(st.updatedAt)}</div>}
+                    {st.currentNote&&<div style={{fontSize:13.2,color:"var(--color-text-primary)",background:"var(--color-background-secondary,#f8f8f6)",borderRadius:7,padding:"7px 10px",marginBottom:6}}>{st.currentNote}</div>}
+                    {st.updatedAt&&<div style={{fontSize:11.6,color:C.gray}}>수정: {fDT(st.updatedAt)}</div>}
                   </>
               }
             </div>
@@ -529,18 +529,18 @@ function AgendaSection({wr, save, canWrite}) {
     <div>
       {/* 주차 선택 */}
       <div style={{...card(),padding:"12px 16px",display:"flex",gap:10,flexWrap:"wrap",alignItems:"center",marginBottom:12}}>
-        <span style={{fontSize:19.5,fontWeight:700,color:C.navy}}>주차 선택:</span>
+        <span style={{fontSize:14.3,fontWeight:700,color:C.navy}}>주차 선택:</span>
         <input type="week" value={selWeek} onChange={e=>setSelWeek(e.target.value)} style={inp(180)}/>
-        <button onClick={()=>setSelWeek(getWeek())} style={{...btn(C.navyL,C.navyM),padding:"5px 12px",fontSize:18}}>이번 주</button>
-        <button onClick={()=>setShowAll(v=>!v)} style={{...btn(C.grayL,C.gray),padding:"5px 12px",fontSize:18}}>{showAll?"현재 주차만":"전체 주차 보기"}</button>
+        <button onClick={()=>setSelWeek(getWeek())} style={{...btn(C.navyL,C.navyM),padding:"5px 12px",fontSize:13.2}}>이번 주</button>
+        <button onClick={()=>setShowAll(v=>!v)} style={{...btn(C.grayL,C.gray),padding:"5px 12px",fontSize:13.2}}>{showAll?"현재 주차만":"전체 주차 보기"}</button>
       </div>
 
       {/* 현재 주차 AGENDA */}
       <div style={card()}>
         <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:14}}>
-          <div style={{fontSize:22.5,fontWeight:700}}>{selWeek} 주간 AGENDA</div>
-          <span style={{...badge(C.navyL,C.navyM),fontSize:18}}>{items.length}건</span>
-          <span style={{...badge(items.filter(i=>i.done).length===items.length&&items.length>0?C.greenL:C.amberL,items.filter(i=>i.done).length===items.length&&items.length>0?C.green:C.amber),fontSize:18}}>
+          <div style={{fontSize:16.5,fontWeight:700}}>{selWeek} 주간 AGENDA</div>
+          <span style={{...badge(C.navyL,C.navyM),fontSize:13.2}}>{items.length}건</span>
+          <span style={{...badge(items.filter(i=>i.done).length===items.length&&items.length>0?C.greenL:C.amberL,items.filter(i=>i.done).length===items.length&&items.length>0?C.green:C.amber),fontSize:13.2}}>
             완료 {items.filter(i=>i.done).length}/{items.length}
           </span>
         </div>
@@ -556,11 +556,11 @@ function AgendaSection({wr, save, canWrite}) {
         )}
 
         {items.length===0
-          ? <div style={{padding:"20px",textAlign:"center",color:C.gray,fontSize:19.5}}>이번 주 AGENDA가 없습니다.{canWrite?" 위에서 추가해주세요.":""}</div>
+          ? <div style={{padding:"20px",textAlign:"center",color:C.gray,fontSize:14.3}}>이번 주 AGENDA가 없습니다.{canWrite?" 위에서 추가해주세요.":""}</div>
           : <div style={{display:"flex",flexDirection:"column",gap:6}}>
               {items.map((item,idx)=>(
                 <div key={item.id} style={{display:"flex",gap:10,alignItems:"flex-start",padding:"10px 13px",borderRadius:9,background:item.done?"var(--color-background-secondary,#f0f0ee)":"var(--color-background-primary,#fff)",border:`0.5px solid ${item.done?C.green+"44":"var(--color-border-tertiary,#eee)"}`,opacity:item.done?.75:1}}>
-                  <span style={{fontSize:21,fontWeight:700,color:C.navy,flexShrink:0,paddingTop:1}}>{idx+1}.</span>
+                  <span style={{fontSize:15.4,fontWeight:700,color:C.navy,flexShrink:0,paddingTop:1}}>{idx+1}.</span>
                   {canWrite&&<input type="checkbox" checked={item.done} onChange={()=>toggleDone(item.id)} style={{marginTop:3,accentColor:C.green,cursor:"pointer",flexShrink:0}}/>}
                   {editAg?.itemId===item.id
                     ? <div style={{flex:1,display:"flex",flexDirection:"column",gap:7}}>
@@ -568,47 +568,47 @@ function AgendaSection({wr, save, canWrite}) {
                           onKeyDown={e=>{ if(e.key==="Enter"&&(e.ctrlKey||e.metaKey)){e.preventDefault();saveEditItem()} }}
                           rows={3} style={{...inp(),resize:"vertical",whiteSpace:"pre-wrap",lineHeight:1.6}}/>
                         <div style={{display:"flex",gap:6}}>
-                          <button onClick={saveEditItem} style={{...btn(C.green),padding:"4px 10px",fontSize:16.5}}>저장</button>
-                          <button onClick={()=>setEditAg(null)} style={{...btn(C.grayL,C.gray),padding:"4px 10px",fontSize:16.5}}>취소</button>
-                          <span style={{fontSize:15,color:C.gray,alignSelf:"center"}}>Ctrl+Enter로 저장</span>
+                          <button onClick={saveEditItem} style={{...btn(C.green),padding:"4px 10px",fontSize:12}}>저장</button>
+                          <button onClick={()=>setEditAg(null)} style={{...btn(C.grayL,C.gray),padding:"4px 10px",fontSize:12}}>취소</button>
+                          <span style={{fontSize:11,color:C.gray,alignSelf:"center"}}>Ctrl+Enter로 저장</span>
                         </div>
                       </div>
                     : <div style={{flex:1}}>
-                        <div style={{fontSize:20.2,fontWeight:500,textDecoration:item.done?"line-through":"none",color:item.done?C.gray:"var(--color-text-primary)",whiteSpace:"pre-wrap",lineHeight:1.7}}>{item.text}</div>
-                        <div style={{fontSize:15.8,color:C.gray,marginTop:2}}>
+                        <div style={{fontSize:14.8,fontWeight:500,textDecoration:item.done?"line-through":"none",color:item.done?C.gray:"var(--color-text-primary)",whiteSpace:"pre-wrap",lineHeight:1.7}}>{item.text}</div>
+                        <div style={{fontSize:11.6,color:C.gray,marginTop:2}}>
                           등록: {fDT(item.createdAt)}{item.updatedAt!==item.createdAt?` · 수정: ${fDT(item.updatedAt)}`:""}
                         </div>
                       </div>
                   }
                   {canWrite&&editAg?.itemId!==item.id&&(
                     <div style={{display:"flex",gap:4,flexShrink:0}}>
-                      <button onClick={()=>setEditAg({agWeek:selWeek,itemId:item.id,text:item.text})} style={{...btn(C.navyL,C.navyM),padding:"3px 8px",fontSize:16.5}}>수정</button>
-                      <button onClick={()=>delItem(item.id)} style={{...btn(C.redL,C.red),padding:"3px 8px",fontSize:16.5}}>삭제</button>
+                      <button onClick={()=>setEditAg({agWeek:selWeek,itemId:item.id,text:item.text})} style={{...btn(C.navyL,C.navyM),padding:"3px 8px",fontSize:12}}>수정</button>
+                      <button onClick={()=>delItem(item.id)} style={{...btn(C.redL,C.red),padding:"3px 8px",fontSize:12}}>삭제</button>
                     </div>
                   )}
                 </div>
               ))}
             </div>
         }
-        {thisAg?.updatedAt&&<div style={{fontSize:15.8,color:C.gray,marginTop:8}}>최종 수정: {fDT(thisAg.updatedAt)}</div>}
+        {thisAg?.updatedAt&&<div style={{fontSize:11.6,color:C.gray,marginTop:8}}>최종 수정: {fDT(thisAg.updatedAt)}</div>}
       </div>
 
       {/* 전체 주차 이력 */}
       {showAll && agendas.length>0 && (
         <div style={card()}>
-          <div style={{fontSize:21,fontWeight:700,marginBottom:12}}>📋 전체 주차 AGENDA 이력</div>
+          <div style={{fontSize:15.4,fontWeight:700,marginBottom:12}}>📋 전체 주차 AGENDA 이력</div>
           {agendas.map(ag=>(
             <div key={ag.id} style={{marginBottom:16,borderBottom:"0.5px solid var(--color-border-tertiary,#eee)",paddingBottom:12}}>
               <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:6}}>
-                <button onClick={()=>{setSelWeek(ag.week);setShowAll(false)}} style={{...btn(C.navyL,C.navyM),padding:"3px 10px",fontSize:18}}>{ag.week}</button>
-                <span style={{fontSize:18,color:C.gray}}>안건 {ag.items.length}건 · 완료 {ag.items.filter(i=>i.done).length}건</span>
+                <button onClick={()=>{setSelWeek(ag.week);setShowAll(false)}} style={{...btn(C.navyL,C.navyM),padding:"3px 10px",fontSize:13.2}}>{ag.week}</button>
+                <span style={{fontSize:13.2,color:C.gray}}>안건 {ag.items.length}건 · 완료 {ag.items.filter(i=>i.done).length}건</span>
               </div>
               <div style={{display:"flex",flexDirection:"column",gap:3}}>
                 {ag.items.map((item,idx)=>(
-                  <div key={item.id} style={{display:"flex",gap:8,fontSize:19.5,color:item.done?C.gray:"var(--color-text-primary)",textDecoration:item.done?"line-through":"none"}}>
+                  <div key={item.id} style={{display:"flex",gap:8,fontSize:14.3,color:item.done?C.gray:"var(--color-text-primary)",textDecoration:item.done?"line-through":"none"}}>
                     <span style={{color:C.navyM,fontWeight:700,flexShrink:0}}>{idx+1}.</span>
                     <span style={{whiteSpace:"pre-wrap",lineHeight:1.6}}>{item.text}</span>
-                    {item.done&&<span style={{...badge(C.greenL,C.green),fontSize:15,flexShrink:0}}>완료</span>}
+                    {item.done&&<span style={{...badge(C.greenL,C.green),fontSize:11,flexShrink:0}}>완료</span>}
                   </div>
                 ))}
               </div>
@@ -672,7 +672,7 @@ function ContactsSection({wr, save, canWrite}) {
       {/* 입력/수정 폼 */}
       {showForm&&draft&&(
         <div style={{...card(),borderLeft:`4px solid ${C.navyM}`,marginBottom:12}}>
-          <div style={{fontSize:21,fontWeight:700,marginBottom:12}}>{editId?"담당자 수정":"새 담당자 등록"}</div>
+          <div style={{fontSize:15.4,fontWeight:700,marginBottom:12}}>{editId?"담당자 수정":"새 담당자 등록"}</div>
           <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:10,marginBottom:10}}>
             <div>
               <label style={lbl()}>구분</label>
@@ -699,25 +699,25 @@ function ContactsSection({wr, save, canWrite}) {
 
       {/* 담당자 목록 */}
       {filtered.length===0
-        ? <div style={{...card(),padding:"30px",textAlign:"center",color:C.gray,fontSize:19.5}}>등록된 담당자가 없습니다.{canWrite?" \"+ 담당자 추가\"로 등록하세요.":""}</div>
+        ? <div style={{...card(),padding:"30px",textAlign:"center",color:C.gray,fontSize:14.3}}>등록된 담당자가 없습니다.{canWrite?" \"+ 담당자 추가\"로 등록하세요.":""}</div>
         : <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(300px,1fr))",gap:10}}>
             {filtered.map(c=>(
               <div key={c.id} style={{...card(),marginBottom:0,borderLeft:`4px solid ${typeColor[c.orgType]||C.gray}`}}>
                 <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:6}}>
                   <div>
                     <span style={badge(typeColor[c.orgType]+"22",typeColor[c.orgType]||C.gray)}>{c.orgType}</span>
-                    {c.org&&<div style={{fontSize:18,color:C.gray,marginTop:3}}>{c.org}</div>}
+                    {c.org&&<div style={{fontSize:13.2,color:C.gray,marginTop:3}}>{c.org}</div>}
                   </div>
                   {canWrite&&<div style={{display:"flex",gap:4}}>
-                    <button onClick={()=>openEdit(c)} style={{...btn(C.navyL,C.navyM),padding:"3px 8px",fontSize:16.5}}>수정</button>
-                    <button onClick={()=>del(c.id)} style={{...btn(C.redL,C.red),padding:"3px 8px",fontSize:16.5}}>삭제</button>
+                    <button onClick={()=>openEdit(c)} style={{...btn(C.navyL,C.navyM),padding:"3px 8px",fontSize:12}}>수정</button>
+                    <button onClick={()=>del(c.id)} style={{...btn(C.redL,C.red),padding:"3px 8px",fontSize:12}}>삭제</button>
                   </div>}
                 </div>
-                <div style={{fontSize:22.5,fontWeight:700,color:"var(--color-text-primary)",marginBottom:2}}>{c.name}{c.title&&<span style={{fontSize:18,fontWeight:400,color:C.gray,marginLeft:6}}>{c.title}</span>}</div>
-                {c.phone&&<div style={{fontSize:19.5,color:C.navyM,fontWeight:600,marginBottom:1}}>📞 {c.phone}</div>}
-                {c.email&&<div style={{fontSize:18,color:C.green}}>✉ {c.email}</div>}
-                {c.note&&<div style={{fontSize:18,color:C.gray,marginTop:5,padding:"5px 8px",background:"var(--color-background-secondary,#f8f8f6)",borderRadius:6}}>{c.note}</div>}
-                <div style={{fontSize:15.8,color:C.gray,marginTop:6}}>
+                <div style={{fontSize:16.5,fontWeight:700,color:"var(--color-text-primary)",marginBottom:2}}>{c.name}{c.title&&<span style={{fontSize:13.2,fontWeight:400,color:C.gray,marginLeft:6}}>{c.title}</span>}</div>
+                {c.phone&&<div style={{fontSize:14.3,color:C.navyM,fontWeight:600,marginBottom:1}}>📞 {c.phone}</div>}
+                {c.email&&<div style={{fontSize:13.2,color:C.green}}>✉ {c.email}</div>}
+                {c.note&&<div style={{fontSize:13.2,color:C.gray,marginTop:5,padding:"5px 8px",background:"var(--color-background-secondary,#f8f8f6)",borderRadius:6}}>{c.note}</div>}
+                <div style={{fontSize:11.6,color:C.gray,marginTop:6}}>
                   등록: {fDT(c.createdAt)}{c.updatedAt!==c.createdAt?` · 수정: ${fDT(c.updatedAt)}`:""}
                 </div>
               </div>
