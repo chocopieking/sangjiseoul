@@ -4365,7 +4365,7 @@ function ProjectsTab({projects,setProjects,selProjId,setSelProjId,selVerIdx,setS
                   </div>
 
                   {/* ── 회차별 비교 분석 ── */}
-                  <VersionCompareCard proj={selProj} selVerIdx={selVerIdx}/>
+                  <VersionCompareCard proj={selProj} selVerIdx={selVerIdx} setProjects={setProjects}/>
 
                   {/* 협력업체 비용 + 실행계획서 작성 워크플로우 */}
                   <PlanWorkflow
@@ -4503,7 +4503,7 @@ function ProjectsTab({projects,setProjects,selProjId,setSelProjId,selVerIdx,setS
 }
 
 // ── 회차별 실행계획서 비교 분석 ──────────────────────────────
-function VersionCompareCard({proj,selVerIdx}) {
+function VersionCompareCard({proj,selVerIdx,setProjects}) {
   // fE는 이미 억 단위 값을 받는 함수이므로, 원 단위 값은 /1e8 후 전달
   const fMoney = n => n != null ? fE((+n/1e8).toFixed(2)*1) : "-"
 
@@ -4668,22 +4668,50 @@ function VersionCompareCard({proj,selVerIdx}) {
 
       {/* 외주비 분야별 회차 비교 */}
       {versions.some(v=>(v.vendors||[]).length>0) && (
-        <VendorVersionCompare versions={versions} proj={proj}/>
+        <VendorVersionCompare versions={versions} proj={proj} setProjects={setProjects}/>
       )}
     </Card>
   )
 }
 
 // 협력업체(외주비) 분야별 회차 비교
-function VendorVersionCompare({versions,proj}) {
+function VendorVersionCompare({versions,proj,setProjects}) {
   const allCats = useMemo(()=>[...new Set(versions.flatMap(v=>(v.vendors||[]).map(x=>x.cat)))].sort(),[versions])
   const svc = proj.serviceFee||0
   const pyF = (proj.floorArea||0)/3.3058
   const pyS = (proj.siteArea||0)/3.3058
+  const fMoney = n => n != null ? fE((+n/1e8).toFixed(2)*1) : "-"
+
+  // 셀 클릭으로 바로 수정 — editKey: "분야|원본회차인덱스"
+  const [editKey,setEditKey] = useState(null)
+  const [editVal,setEditVal] = useState("")
+  const canEdit = typeof setProjects === "function"
+
+  const commitEdit = (cat, origIdx) => {
+    const num = parseInt(String(editVal).replace(/[,원\s]/g,""))||0
+    setProjects(prev=>prev.map(p=>{
+      if(p.id!==proj.id) return p
+      return {...p, versions:(p.versions||[]).map((ver,vi)=>{
+        if(vi!==origIdx) return ver
+        const vendors=(ver.vendors||[]).map(x=>{
+          if(x.cat!==cat) return x
+          // 화면에 표시되던 필드(2차NEGO>1차NEGO>원가견적 우선순위)를 그대로 갱신
+          if(x.nego2) return {...x,nego2:num}
+          if(x.nego1) return {...x,nego1:num}
+          return {...x,contract:num}
+        })
+        return {...ver,vendors}
+      })}
+    }))
+    setEditKey(null)
+  }
 
   return (
     <div style={{marginTop:16}}>
-      <div style={{fontSize:18,color:C.gray,fontWeight:600,marginBottom:8,borderTop:`1px solid ${C.navyL}`,paddingTop:10}}>외주비 분야별 회차 비교</div>
+      <div style={{fontSize:18,color:C.gray,fontWeight:600,marginBottom:8,borderTop:`1px solid ${C.navyL}`,paddingTop:10,display:"flex",alignItems:"center",gap:8}}>
+        외주비 분야별 회차 비교
+        {canEdit&&<span style={{fontSize:12,color:"#94A3B8",fontWeight:400}}>· 금액 칸을 클릭하면 바로 수정할 수 있습니다</span>}
+      </div>
       <div style={{overflowX:"auto"}}>
         <table style={{width:"100%",borderCollapse:"collapse",minWidth:560}}>
           <thead>
@@ -4710,15 +4738,33 @@ function VendorVersionCompare({versions,proj}) {
                 <tr key={cat} style={{background:ci%2===0?"var(--color-background-primary,#fff)":"var(--color-background-secondary,#f8f8f6)"}}>
                   <td style={{...S.td("left")}}>
                     <div style={{display:"flex",flexDirection:"column",gap:3}}>
-                      <span style={{...S.bdg(C.navyL,C.navyM),fontSize:16.5,alignSelf:"flex-start"}}>{cat}</span>
-                      {vendorName&&<span style={{fontSize:13,color:"#64748B",fontWeight:500}}>{vendorName}</span>}
+                      <span style={{...S.bdg(C.navyL,C.navyM),fontSize:13,alignSelf:"flex-start"}}>{cat}</span>
+                      {vendorName&&<span style={{fontSize:16.5,color:"#334155",fontWeight:600}}>{vendorName}</span>}
                     </div>
                   </td>
-                  {vals.map((v,i)=>(
-                    <td key={i} style={S.td("right")}>
-                      {v>0?fW(v):<span style={{color:C.gray}}>-</span>}
-                    </td>
-                  ))}
+                  {versions.map((v,i)=>{
+                    const val=vals[i]
+                    const key=`${cat}|${v._origIdx}`
+                    const isEditing=editKey===key
+                    return (
+                      <td key={i} style={{...S.td("right"),cursor:canEdit?"pointer":"default",background:isEditing?"#F0FBF9":undefined}}
+                        onClick={()=>{ if(!canEdit||isEditing) return; setEditKey(key); setEditVal(val||"") }}>
+                        {isEditing ? (
+                          <input autoFocus type="number" value={editVal}
+                            onChange={e=>setEditVal(e.target.value)}
+                            onBlur={()=>commitEdit(cat,v._origIdx)}
+                            onKeyDown={e=>{
+                              if(e.key==="Enter") commitEdit(cat,v._origIdx)
+                              if(e.key==="Escape") setEditKey(null)
+                            }}
+                            onClick={e=>e.stopPropagation()}
+                            style={{width:120,padding:"4px 7px",fontSize:15,border:"1.5px solid #0E9C8C",borderRadius:5,textAlign:"right",outline:"none"}}/>
+                        ) : (
+                          val>0?fW(val):<span style={{color:C.gray}}>-</span>
+                        )}
+                      </td>
+                    )
+                  })}
                   {versions.length>=2&&<td style={{...S.td("right"),fontWeight:700,color:diff==null?C.gray:diff>0?C.red:diff<0?C.green:C.gray}}>
                     {diff!=null&&diff!==0?(diff>=0?"+":"")+fW(diff):"-"}
                   </td>}
@@ -4733,7 +4779,7 @@ function VendorVersionCompare({versions,proj}) {
               <td style={{...S.td("left")}}>외주비 합계</td>
               {versions.map((v,i)=>{
                 const total=(v.vendors||[]).reduce((s,x)=>s+(x.nego2||x.nego1||x.contract||0),0)
-                return <td key={i} style={{...S.td("right"),color:C.amber}}>{fE(total)}</td>
+                return <td key={i} style={{...S.td("right"),color:C.amber}}>{fMoney(total)}</td>
               })}
               {versions.length>=2&&(()=>{
                 const t0=(versions[0].vendors||[]).reduce((s,x)=>s+(x.nego2||x.nego1||x.contract||0),0)
