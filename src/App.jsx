@@ -4716,22 +4716,40 @@ function VendorVersionCompare({versions,proj,setProjects}) {
     setEditKey(null)
   }
 
-  // 새 외주업체 추가 — 가장 최근 회차에 추가 (지난 회차는 이미 확정된 실행계획서이므로 건드리지 않음)
+  // 새 외주업체 추가 — 회차 선택 가능(기본값: 최신 회차)
   const [showAdd,setShowAdd] = useState(false)
-  const [newV,setNewV] = useState({cat:"",name:"",contract:""})
+  const [newV,setNewV] = useState({cat:"",name:"",contract:"",targetOrigIdx:latestOrigIdx})
+  useEffect(()=>{ setNewV(v=>({...v,targetOrigIdx:latestOrigIdx})) },[latestOrigIdx])
   const addVendorRow = () => {
     if(!newV.cat.trim()) return
+    const targetIdx = newV.targetOrigIdx!=null?newV.targetOrigIdx:latestOrigIdx
     setProjects(prev=>prev.map(p=>{
       if(p.id!==proj.id) return p
       return {...p, versions:(p.versions||[]).map((ver,vi)=>{
-        if(vi!==latestOrigIdx) return ver
+        if(vi!==targetIdx) return ver
         return {...ver, vendors:[...(ver.vendors||[]), {
           cat:newV.cat.trim(), name:newV.name.trim(),
           contract:parseInt(String(newV.contract).replace(/[,원\s]/g,""))||0, nego1:0, nego2:0
         }]}
       })}
     }))
-    setNewV({cat:"",name:"",contract:""}); setShowAdd(false)
+    setNewV({cat:"",name:"",contract:"",targetOrigIdx:latestOrigIdx}); setShowAdd(false)
+  }
+
+  // 분야 이름 자체를 수정 — 해당 이름을 쓰는 모든 회차의 항목을 한번에 바꿔야 회차간 비교가 계속 같은 줄로 이어짐
+  const [editCatKey,setEditCatKey] = useState(null) // 수정 중인 원래 분야명
+  const [editCatVal,setEditCatVal] = useState("")
+  const commitCatRename = (oldCat) => {
+    const newCat = editCatVal.trim()
+    setEditCatKey(null)
+    if(!newCat || newCat===oldCat) return
+    setProjects(prev=>prev.map(p=>{
+      if(p.id!==proj.id) return p
+      return {...p, versions:(p.versions||[]).map(ver=>({
+        ...ver,
+        vendors:(ver.vendors||[]).map(x=>x.cat===oldCat?{...x,cat:newCat}:x)
+      }))}
+    }))
   }
 
   // 최신 회차에서 해당 분야 삭제
@@ -4766,7 +4784,7 @@ function VendorVersionCompare({versions,proj,setProjects}) {
     <div style={{marginTop:16}}>
       <div style={{fontSize:13.2,color:C.gray,fontWeight:600,marginBottom:8,borderTop:`1px solid ${C.navyL}`,paddingTop:10,display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}>
         외주비 분야별 회차 비교
-        {canEdit&&<span style={{fontSize:8.8,color:"#94A3B8",fontWeight:400}}>· 금액 칸을 클릭하면 바로 수정할 수 있습니다</span>}
+        {canEdit&&<span style={{fontSize:8.8,color:"#94A3B8",fontWeight:400}}>· 금액과 분야명을 클릭하면 바로 수정할 수 있습니다</span>}
         {canEdit&&<button onClick={()=>setShowAdd(v=>!v)} style={{marginLeft:"auto",padding:"5px 11px",background:showAdd?"#F8FAFC":"#0E9C8C",color:showAdd?"#64748B":"#fff",border:showAdd?"1px solid #E5E7EB":"none",borderRadius:6,fontSize:8.8,fontWeight:700,cursor:"pointer"}}>
           {showAdd?"✕ 취소":"+ 외주업체 추가"}
         </button>}
@@ -4774,13 +4792,24 @@ function VendorVersionCompare({versions,proj,setProjects}) {
       {showAdd && (
         <div style={{display:"flex",gap:8,flexWrap:"wrap",alignItems:"flex-end",background:"#F0FBF9",border:"1px solid #CCFBF1",borderRadius:8,padding:"10px 12px",marginBottom:10}}>
           <div><label style={{display:"block",fontSize:8,color:"#64748B",marginBottom:3}}>분야</label>
-            <input value={newV.cat} onChange={e=>setNewV(v=>({...v,cat:e.target.value}))} placeholder="예: 조경" style={{padding:"6px 9px",fontSize:9.5,border:"1px solid #E5E7EB",borderRadius:5,width:100}}/></div>
+            <input list="vendor-cat-suggestions" value={newV.cat} onChange={e=>setNewV(v=>({...v,cat:e.target.value}))} placeholder="예: 인테리어" style={{padding:"6px 9px",fontSize:9.5,border:"1px solid #E5E7EB",borderRadius:5,width:100}}/>
+            <datalist id="vendor-cat-suggestions">
+              {allCats.map(c=><option key={c} value={c}/>)}
+            </datalist>
+          </div>
           <div><label style={{display:"block",fontSize:8,color:"#64748B",marginBottom:3}}>업체명</label>
             <input value={newV.name} onChange={e=>setNewV(v=>({...v,name:e.target.value}))} placeholder="업체명" style={{padding:"6px 9px",fontSize:9.5,border:"1px solid #E5E7EB",borderRadius:5,width:160}}/></div>
           <div><label style={{display:"block",fontSize:8,color:"#64748B",marginBottom:3}}>금액(원)</label>
             <input type="number" value={newV.contract} onChange={e=>setNewV(v=>({...v,contract:e.target.value}))} placeholder="0" style={{padding:"6px 9px",fontSize:9.5,border:"1px solid #E5E7EB",borderRadius:5,width:130,textAlign:"right"}}/></div>
+          <div><label style={{display:"block",fontSize:8,color:"#64748B",marginBottom:3}}>추가할 회차</label>
+            <select value={newV.targetOrigIdx ?? ""} onChange={e=>setNewV(v=>({...v,targetOrigIdx:parseInt(e.target.value)}))}
+              style={{padding:"6px 9px",fontSize:9.5,border:"1px solid #E5E7EB",borderRadius:5}}>
+              {versions.map(v=>(
+                <option key={v._origIdx} value={v._origIdx}>{v.round?`${v.round}차`:v.ver}{v._origIdx===latestOrigIdx?" (최신)":""}</option>
+              ))}
+            </select>
+          </div>
           <button onClick={addVendorRow} style={{padding:"7px 14px",background:"#0E9C8C",color:"#fff",border:"none",borderRadius:6,fontSize:9.5,fontWeight:700,cursor:"pointer"}}>추가</button>
-          <span style={{fontSize:8,color:"#94A3B8"}}>최신 회차({versions[versions.length-1]?.round?`${versions[versions.length-1].round}차`:versions[versions.length-1]?.ver})에 추가됩니다</span>
         </div>
       )}
       <div style={{overflowX:"auto"}}>
@@ -4810,7 +4839,20 @@ function VendorVersionCompare({versions,proj,setProjects}) {
                 <tr key={cat} style={{background:ci%2===0?"var(--color-background-primary,#fff)":"var(--color-background-secondary,#f8f8f6)"}}>
                   <td style={{...S.td("left")}}>
                     <div style={{display:"flex",flexDirection:"column",gap:3}}>
-                      <span style={{...S.bdg(C.navyL,C.navyM),fontSize:9.5,alignSelf:"flex-start"}}>{cat}</span>
+                      {editCatKey===cat ? (
+                        <input autoFocus value={editCatVal}
+                          onChange={e=>setEditCatVal(e.target.value)}
+                          onBlur={()=>commitCatRename(cat)}
+                          onKeyDown={e=>{
+                            if(e.key==="Enter") commitCatRename(cat)
+                            if(e.key==="Escape") setEditCatKey(null)
+                          }}
+                          style={{fontSize:9.5,padding:"3px 7px",border:"1.5px solid #0E9C8C",borderRadius:5,width:90}}/>
+                      ) : (
+                        <span onClick={()=>{ if(!canEdit) return; setEditCatKey(cat); setEditCatVal(cat) }}
+                          style={{...S.bdg(C.navyL,C.navyM),fontSize:9.5,alignSelf:"flex-start",cursor:canEdit?"pointer":"default"}}
+                          title={canEdit?"클릭해서 분야명 수정":undefined}>{cat}</span>
+                      )}
                       {vendorName&&<span style={{fontSize:12,color:"#334155",fontWeight:600}}>{vendorName}</span>}
                     </div>
                   </td>
