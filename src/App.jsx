@@ -3498,7 +3498,9 @@ function ProjectsTab({projects,setProjects,selProjId,setSelProjId,selVerIdx,setS
   const toast = useToast()
   const {DEPTS, DEPT_COLORS} = React.useContext(DeptContext)
   const [manualFillVer, setManualFillVer] = useState(null)  // 미인식 수동 입력 팝업
-  const [view, setView] = useState("list")
+  // 다른 탭(예: 실행계획서 전체 모아보기)에서 특정 프로젝트를 선택한 채로 들어오면
+  // 목록이 아니라 바로 상세 화면이 보이도록 함
+  const [view, setView] = useState(()=>selProjId?"detail":"list")
   const [deptFilter,     setDeptFilter]     = useState("")
   const [typeFilter,     setTypeFilter]     = useState("")
   const [searchQuery,    setSearchQuery]    = useState("")
