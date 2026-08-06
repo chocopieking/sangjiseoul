@@ -1710,220 +1710,151 @@ export default function App() {
         />
       )}
 
-      {/* ── 사이드바 레이아웃 ── */}
-      <div style={{display:"flex",minHeight:"100vh"}}>
+      {/* ── 상단 통합 헤더 (나무위키 스타일) — 로고·검색·전체 메뉴·사용자 정보를 한 줄/두 줄로 ── */}
+      <div style={{background:"#fff",borderBottom:"1px solid #E2E8F0",position:"sticky",top:0,zIndex:100,boxShadow:"0 1px 4px rgba(0,0,0,.04)"}}>
 
-      {/* ── 모바일 오버레이 배경 ── */}
-      {isMobile&&sideOpen&&<div onClick={()=>setSideOpen(false)} style={{position:"fixed",inset:0,background:"rgba(0,0,0,.45)",zIndex:99}}/>}
-
-      {/* ── 사이드바 ── */}
-      <div style={{width:220,flexShrink:0,background:"#fff",borderRight:"1px solid #E2E8F0",display:"flex",flexDirection:"column",position:"fixed",top:0,left:0,bottom:0,zIndex:100,
-        transform:(!isMobile||sideOpen)?"translateX(0)":"translateX(-220px)",
-        transition:"transform .22s cubic-bezier(.4,0,.2,1)",
-        boxShadow: isMobile&&sideOpen?"4px 0 24px rgba(0,0,0,.10)":"none"}}>
-        {/* 로고 */}
-        <div onClick={()=>setTabAndClose("analysis")} style={{padding:"18px 16px 16px",cursor:"pointer",borderBottom:"1px solid #E2E8F0"}}>
-          <div style={{display:"flex",alignItems:"center",gap:10}}>
-            <div style={{width:32,height:32,background:"linear-gradient(135deg,#0E9C8C,#0B8577)",borderRadius:8,display:"flex",alignItems:"center",justifyContent:"center",fontSize:15,flexShrink:0}}>📐</div>
-            <div style={{flex:1}}>
-              <div style={{fontSize:13,fontWeight:700,color:"#0F172A",letterSpacing:"-0.02em",lineHeight:1.3}}>상지서울</div>
-              <div style={{fontSize:11,color:"#94A3B8",fontWeight:400,lineHeight:1.3}}>통합경영시스템</div>
-            </div>
-
+        {/* Row 1 — 로고 · 검색 · 퀵액션 · 사용자 */}
+        <div style={{display:"flex",alignItems:"center",gap:14,padding:isMobile?"9px 12px":"9px 22px",borderBottom:"1px solid #F1F5F9",flexWrap:"wrap"}}>
+          <div onClick={()=>setTab("analysis")} style={{display:"flex",alignItems:"center",gap:8,cursor:"pointer",flexShrink:0}}>
+            <div style={{width:30,height:30,background:"linear-gradient(135deg,#0E9C8C,#0B8577)",borderRadius:8,display:"flex",alignItems:"center",justifyContent:"center",fontSize:14,flexShrink:0}}>📐</div>
+            {!isMobile&&<div style={{lineHeight:1.15}}>
+              <div style={{fontSize:14,fontWeight:800,color:"#0F172A",letterSpacing:"-0.02em"}}>상지서울</div>
+              <div style={{fontSize:10,color:"#94A3B8",fontWeight:400}}>통합경영시스템</div>
+            </div>}
           </div>
-        </div>
 
-        {/* 퀵액션 — 프로젝트 관련 3개 버튼 묶음 */}
-        <div style={{padding:"12px 10px",borderBottom:"1px solid #F3F4F6"}}>
-          <div style={{background:"#E3F6F3",borderRadius:8,padding:"8px",border:"1px solid #6366F122"}}>
-            <div style={{fontSize:11,fontWeight:800,color:"#0E9C8C",letterSpacing:".06em",marginBottom:7,paddingLeft:2}}>프로젝트</div>
+          {/* 검색창 */}
+          <div onClick={()=>setShowGlobalSearch(true)}
+            style={{flex:1,display:"flex",alignItems:"center",gap:9,
+              background:"#F8FAFC",border:"1.5px solid #E2E8F0",borderRadius:10,
+              padding:"7px 13px",cursor:"pointer",transition:"border-color .15s",
+              maxWidth:isMobile?undefined:480,minWidth:0}}
+            onMouseEnter={e=>e.currentTarget.style.borderColor="#0E9C8C"}
+            onMouseLeave={e=>e.currentTarget.style.borderColor="#E2E8F0"}>
+            <span style={{fontSize:15,flexShrink:0}}>🔍</span>
+            <span style={{fontSize:13,color:"#94A3B8",flex:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
+              {isMobile?"검색...":"프로젝트·계약·기성입금일·담당자 검색..."}
+            </span>
+            {!isMobile&&<kbd style={{fontSize:10,color:"#CBD5E1",background:"#F1F5F9",border:"1px solid #E2E8F0",borderRadius:5,padding:"2px 6px",flexShrink:0,fontFamily:"inherit"}}>Ctrl K</kbd>}
+          </div>
+
+          {/* 퀵액션 — 프로젝트 개설·업로드·양식다운로드 */}
+          {!isMobile&&<div style={{display:"flex",gap:6,flexShrink:0}}>
             <button onClick={()=>setShowNewProj(true)}
-              style={{width:"100%",padding:"9px 10px",background:"#0E9C8C",color:"#fff",border:"none",borderRadius:6,fontSize:13,fontWeight:800,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:6,marginBottom:5,boxShadow:"0 2px 8px rgba(99,102,241,.3)"}}>
-              <i className="ti ti-plus" style={{fontSize:13}}/> 프로젝트 개설
+              style={{padding:"8px 12px",background:"#0E9C8C",color:"#fff",border:"none",borderRadius:7,fontSize:12,fontWeight:800,cursor:"pointer",display:"flex",alignItems:"center",gap:5,whiteSpace:"nowrap"}}>
+              <i className="ti ti-plus" style={{fontSize:12}}/> 프로젝트 개설
             </button>
-            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:4}}>
-              <button onClick={()=>uploadRef.current?.click()}
-                style={{padding:"7px 4px",background:"#fff",color:"#334155",border:"1px solid #E5E7EB",borderRadius:8,fontSize:12,fontWeight:700,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:4}}>
-                <i className="ti ti-upload" style={{fontSize:11}}/> 업로드
-              </button>
-              <button onClick={downloadTemplate}
-                style={{padding:"7px 4px",background:"#fff",color:"#334155",border:"1px solid #E5E7EB",borderRadius:8,fontSize:12,fontWeight:700,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:4}}>
-                <i className="ti ti-file-download" style={{fontSize:11}}/> 양식 다운로드
-              </button>
-            </div>
-          </div>
+            <button onClick={()=>uploadRef.current?.click()}
+              style={{padding:"8px 10px",background:"#fff",color:"#334155",border:"1px solid #E5E7EB",borderRadius:7,fontSize:12,fontWeight:700,cursor:"pointer",display:"flex",alignItems:"center",gap:4,whiteSpace:"nowrap"}}>
+              <i className="ti ti-upload" style={{fontSize:11}}/> 업로드
+            </button>
+            <button onClick={downloadTemplate}
+              style={{padding:"8px 10px",background:"#fff",color:"#334155",border:"1px solid #E5E7EB",borderRadius:7,fontSize:12,fontWeight:700,cursor:"pointer",display:"flex",alignItems:"center",gap:4,whiteSpace:"nowrap"}}>
+              <i className="ti ti-file-download" style={{fontSize:11}}/> 양식
+            </button>
+          </div>}
           <input ref={uploadRef} type="file" accept=".xlsx,.xls,.csv" style={{display:"none"}} onChange={handleUpload}/>
-          {uploadMsg&&<div style={{marginTop:6,fontSize:11,color:uploadMsg.startsWith("✓")?"#059669":C.red,padding:"4px 8px",background:uploadMsg.startsWith("✓")?"#D1FAE5":"#FEE2E2",borderRadius:7}}>{uploadMsg}</div>}
+
+          {/* DB 상태 · 알림 · 사용자 · 로그아웃 */}
+          <div style={{display:"flex",alignItems:"center",gap:8,flexShrink:0,marginLeft:"auto"}}>
+            {!isMobile&&<div style={{display:"flex",alignItems:"center",gap:5,padding:"5px 9px",background:"#F8FAFC",borderRadius:8,border:"1px solid #E5E7EB"}}>
+              <div style={{width:6,height:6,borderRadius:"50%",background:dbStatus==="ok"?"#059669":dbStatus==="error"?"#DC2626":"#D97706",flexShrink:0}}/>
+              <span style={{fontSize:11,color:"#64748B",fontWeight:600,whiteSpace:"nowrap"}}>
+                {dbStatus==="ok"?"DB 연결됨":dbStatus==="error"?"DB 오류":dbStatus==="local"?"로컬 저장":"연결 중…"}
+              </span>
+            </div>}
+            <button onClick={()=>setShowAlerts(o=>!o)} style={{position:"relative",padding:"7px",background:"#F8FAFC",border:"1px solid #E5E7EB",borderRadius:8,cursor:"pointer",display:"flex"}}>
+              <i className="ti ti-bell" aria-label="알람" style={{fontSize:15,color:"#334155"}}/>
+              {totalBadge>0&&<span style={{position:"absolute",top:-3,right:-3,minWidth:16,height:16,background:C.red,borderRadius:8,fontSize:9,fontWeight:700,color:"#fff",display:"flex",alignItems:"center",justifyContent:"center",padding:"0 3px"}}>{totalBadge}</span>}
+            </button>
+            {!isMobile&&<div style={{display:"flex",alignItems:"center",gap:7}}>
+              <div style={{width:28,height:28,borderRadius:"50%",background:"linear-gradient(135deg,#0E9C8C,#0B6E63)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:11,fontWeight:700,color:"#fff",flexShrink:0}}>
+                {currentUser.avatar}
+              </div>
+              <div style={{lineHeight:1.15}}>
+                <div style={{fontSize:12,color:"#0F172A",fontWeight:700,whiteSpace:"nowrap"}}>{currentUser.name}</div>
+                <div style={{fontSize:10,color:"#64748B"}}>{ROLE_BADGE[currentUser.role]?.label}</div>
+              </div>
+            </div>}
+            <button onClick={doLogout} style={{padding:"7px 12px",background:"#F8FAFC",color:"#334155",border:"1px solid #E5E7EB",borderRadius:8,fontSize:12,fontWeight:700,cursor:"pointer",whiteSpace:"nowrap"}}>로그아웃</button>
+            {showAlerts&&<div style={{position:"absolute",top:"100%",right:0,zIndex:200}}><AlertPanel {...{alerts,readAlert,readAll,setTab,setShowAlerts,schedules,upcomingCount}}/></div>}
+          </div>
         </div>
 
-        {/* 네비게이션 — 그룹별 */}
-        <nav style={{flex:1,padding:"8px 8px",overflowY:"auto"}}>
-          {/* 메뉴 편집 버튼 */}
-          <div style={{display:"flex",justifyContent:"flex-end",marginBottom:4}}>
-            <button onClick={()=>setShowMenuEdit(v=>!v)}
-              style={{padding:"3px 8px",background:"none",border:"1px solid #E5E7EB",borderRadius:6,fontSize:11,color:"#94A3B8",cursor:"pointer",display:"flex",alignItems:"center",gap:3}}
-              title="메뉴 순서·그룹 편집">
-              ⚙ 메뉴편집
-            </button>
-          </div>
-
-          {/* 메뉴 편집 패널 */}
-          {showMenuEdit && (
-            <div style={{background:"#FEF9EE",borderRadius:8,padding:"10px",marginBottom:8,border:"1px solid #D9770633"}}>
-              <div style={{fontSize:12,fontWeight:800,color:"#D97706",marginBottom:8}}>⚙ 메뉴 순서 편집</div>
-              <div style={{display:"flex",flexDirection:"column",gap:3,maxHeight:300,overflowY:"auto"}}>
-                {tabOrder.filter(t=>t.id!=="auth_mgmt"||currentUser.role==="admin").map((t,i,arr)=>(
-                  <div key={t.id} style={{display:"flex",gap:4,alignItems:"center",background:"#fff",borderRadius:7,padding:"4px 6px",border:"1px solid #E5E7EB"}}>
-                    <div style={{display:"flex",flexDirection:"column",gap:1}}>
-                      <button onClick={()=>{if(i>0){const a=[...tabOrder];[a[i-1],a[i]]=[a[i],a[i-1]];setTabOrder(a)}}} disabled={i===0}
-                        style={{background:"none",border:"none",cursor:"pointer",color:"#94A3B8",fontSize:9,lineHeight:1,opacity:i===0?.3:1}}>▲</button>
-                      <button onClick={()=>{if(i<arr.length-1){const a=[...tabOrder];[a[i],a[i+1]]=[a[i+1],a[i]];setTabOrder(a)}}} disabled={i===arr.length-1}
-                        style={{background:"none",border:"none",cursor:"pointer",color:"#94A3B8",fontSize:9,lineHeight:1,opacity:i===arr.length-1?.3:1}}>▼</button>
-                    </div>
-                    <span style={{flex:1,fontSize:12,color:"#334155",fontWeight:500}}>{t.label}</span>
-                    <select value={t.group||""} onChange={e=>{const a=[...tabOrder];a[i]={...a[i],group:e.target.value};setTabOrder(a)}}
-                      style={{padding:"2px 4px",border:"1px solid #E5E7EB",borderRadius:5,fontSize:10,background:"#F8FAFC"}}>
-                      {tabGroups.map(g=><option key={g} value={g}>{g}</option>)}
-                    </select>
-                  </div>
-                ))}
-              </div>
-              <button onClick={()=>setTabOrder(TAB_DEFAULTS)} style={{marginTop:6,width:"100%",padding:"5px",background:"#F8FAFC",color:"#64748B",border:"none",borderRadius:7,fontSize:11,cursor:"pointer"}}>
-                기본값 복원
-              </button>
-            </div>
-          )}
-
-          {/* 그룹별 메뉴 렌더링 */}
+        {/* Row 2 — 전체 메뉴, 그룹별로 가로 스크롤 (나무위키 상단 탭처럼) */}
+        <div style={{display:"flex",alignItems:"center",gap:2,padding:isMobile?"0 10px":"0 18px",overflowX:"auto",whiteSpace:"nowrap",scrollbarWidth:"thin"}}>
           {tabGroups.map(grp=>{
             const grpTabs = tabOrder.filter(t=>{
-            if((t.group||"기타")!==grp) return false
-            if(t.id==="auth_mgmt" && currentUser.role!=="admin") return false
-            // hidden 권한이면 메뉴에서 숨김 (admin은 항상 표시)
-            if(currentUser.role!=="admin" && currentUser?.tabPerms?.[t.id]==="hidden") return false
-            return true
-          })
+              if((t.group||"기타")!==grp) return false
+              if(t.id==="auth_mgmt" && currentUser.role!=="admin") return false
+              if(currentUser.role!=="admin" && currentUser?.tabPerms?.[t.id]==="hidden") return false
+              return true
+            })
             if(!grpTabs.length) return null
             return (
-              <div key={grp} style={{marginBottom:6}}>
-                <div style={{fontSize:11,fontWeight:600,color:"#94A3B8",letterSpacing:".06em",padding:"14px 10px 4px",textTransform:"uppercase"}}>{grp}</div>
+              <div key={grp} style={{display:"flex",alignItems:"center",gap:2,flexShrink:0}}>
+                <span style={{fontSize:10,fontWeight:700,color:"#CBD5E1",letterSpacing:".06em",textTransform:"uppercase",padding:"0 6px",flexShrink:0}}>{grp}</span>
                 {grpTabs.map(t=>{
                   const active=tab===t.id
                   return (
-                    <button key={t.id} onClick={()=>setTabAndClose(t.id)} style={{
-                      width:"100%",textAlign:"left",padding:"7px 10px",border:"none",borderRadius:6,
-                      marginBottom:1,cursor:"pointer",fontSize:13,fontWeight:active?600:400,
-                      background:active?"#E3F6F3":"transparent",color:active?"#0E9C8C":"#475569",
-                      display:"flex",alignItems:"center",gap:7,transition:"all .1s"
+                    <button key={t.id} onClick={()=>setTab(t.id)} style={{
+                      padding:"11px 12px",border:"none",background:"transparent",cursor:"pointer",
+                      fontSize:13,fontWeight:active?800:500,whiteSpace:"nowrap",flexShrink:0,
+                      color:active?"#0E9C8C":"#475569",
+                      borderBottom:active?"2.5px solid #0E9C8C":"2.5px solid transparent",
+                      transition:"all .12s"
                     }}
-                    onMouseEnter={e=>{if(!active)e.currentTarget.style.background="#F8FAFC"}}
-                    onMouseLeave={e=>{if(!active)e.currentTarget.style.background="transparent"}}>
+                    onMouseEnter={e=>{if(!active)e.currentTarget.style.color="#0E9C8C"}}
+                    onMouseLeave={e=>{if(!active)e.currentTarget.style.color="#475569"}}>
                       {t.label}
                     </button>
                   )
                 })}
+                <span style={{width:1,height:16,background:"#E5E7EB",margin:"0 4px",flexShrink:0}}/>
               </div>
             )
           })}
-        </nav>
-
-        {/* 하단 사용자 영역 */}
-        <div style={{padding:"14px 12px",borderTop:"1px solid #F3F4F6"}}>
-          {/* 데이터관리 빠른링크 — 탭 목록 무관하게 항상 표시 */}
-          {currentUser?.role==="admin" && (
-            <div style={{display:"flex",gap:5,marginBottom:8}}>
-              <button onClick={()=>{setTab("datahub");if(isMobile)setSideOpen(false)}}
-                style={{flex:1,padding:"7px 6px",background:tab==="datahub"?"#0B8577":"#E3F6F3",
-                  color:tab==="datahub"?"#fff":"#0B8577",border:"none",borderRadius:8,
-                  fontSize:12,fontWeight:700,cursor:"pointer"}}>
-                🗄️ 데이터관리
-              </button>
-              <button onClick={()=>{
-                const which = window.prompt("리셋할 항목 입력:\n1 = 프로젝트 목록\n2 = 월수금계획\n3 = 계약현황\n4 = 지출현황\n5 = 전체","1")
-                if(!which) return
-                const map = {
-                  "1":["sjs_projects"],
-                  "2":["sjs_cash_items"],
-                  "3":["sjs_contract_items"],
-                  "4":["sjs_sale_items"],
-                  "5":["sjs_projects","sjs_cash_items","sjs_contract_items","sjs_sale_items"]
-                }
-                const keys = map[which]
-                if(!keys){alert("잘못된 입력");return}
-                const labels = {"1":"프로젝트 목록","2":"월수금계획","3":"계약현황","4":"지출현황","5":"전체"}
-                if(!window.confirm(`⚠️ ${labels[which]} 데이터를 전부 삭제합니까?\n\n이 작업은 되돌릴 수 없습니다.`)) return
-                keys.forEach(k=>localStorage.removeItem(k))
-                // 프로젝트 리셋 시 초기 데이터 재로드 방지 플래그
-                if(keys.includes("sjs_projects")) {
-                  localStorage.setItem("sjs_projects_reset","1")
-                  localStorage.setItem("sjs_projects","[]")
-                }
-                setTimeout(()=>window.location.reload(),300)
-              }}
-                style={{flex:1,padding:"7px 6px",background:"#FEE2E2",color:"#DC2626",
-                  border:"none",borderRadius:8,fontSize:12,fontWeight:700,cursor:"pointer"}}>
-                🗑 데이터리셋
-              </button>
-            </div>
-          )}
-          {/* DB 상태 */}
-          <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:10,padding:"6px 10px",background:"#F8FAFC",borderRadius:8,border:"1px solid #E5E7EB"}}>
-            <div style={{width:7,height:7,borderRadius:"50%",background:dbStatus==="ok"?"#059669":dbStatus==="error"?"#DC2626":"#D97706",flexShrink:0}}/>
-            <span style={{fontSize:12,color:"#64748B",fontWeight:600}}>
-              {dbStatus==="ok"?"DB 연결됨":dbStatus==="error"?"DB 오류":dbStatus==="local"?"로컬 저장":"연결 중…"}
-            </span>
-          </div>
-          <div style={{display:"flex",alignItems:"center",gap:8}}>
-            <div style={{width:34,height:34,borderRadius:"50%",background:"linear-gradient(135deg,#0E9C8C,#0B6E63)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:13,fontWeight:700,color:"#fff",flexShrink:0}}>
-              {currentUser.avatar}
-            </div>
-            <div style={{flex:1,minWidth:0}}>
-              <div style={{fontSize:13,color:"#0F172A",fontWeight:700,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{currentUser.name}</div>
-              <div style={{fontSize:11,color:"#64748B"}}>{ROLE_BADGE[currentUser.role]?.label}</div>
-            </div>
-          </div>
-          <div style={{display:"flex",gap:6,marginTop:10}}>
-            <button onClick={()=>setShowAlerts(o=>!o)} style={{...S.btn(C.grayL,"#334155"),flex:1,justifyContent:"center",padding:"7px",position:"relative",borderRadius:8}}>
-              <i className="ti ti-bell" aria-label="알람" style={{fontSize:15}}/>
-              {totalBadge>0&&<span style={{position:"absolute",top:2,right:8,minWidth:16,height:16,background:C.red,borderRadius:8,fontSize:10,fontWeight:700,color:"#fff",display:"flex",alignItems:"center",justifyContent:"center",padding:"0 3px"}}>{totalBadge}</span>}
-            </button>
-            <button onClick={doLogout} style={{...S.btn(C.grayL,"#334155"),flex:1,justifyContent:"center",padding:"7px",borderRadius:8,fontSize:12}}>로그아웃</button>
-          </div>
-          {showAlerts&&<AlertPanel {...{alerts,readAlert,readAll,setTab,setShowAlerts,schedules,upcomingCount}}/>}
+          <button onClick={()=>setShowMenuEdit(v=>!v)}
+            style={{padding:"5px 9px",background:"none",border:"1px solid #E5E7EB",borderRadius:6,fontSize:11,color:"#94A3B8",cursor:"pointer",display:"flex",alignItems:"center",gap:3,flexShrink:0,marginLeft:4}}
+            title="메뉴 순서·그룹 편집">
+            ⚙ 메뉴편집
+          </button>
         </div>
+
+        {/* 메뉴 편집 패널 */}
+        {showMenuEdit && (
+          <div style={{background:"#FEF9EE",padding:"10px 18px",borderTop:"1px solid #D9770633"}}>
+            <div style={{fontSize:12,fontWeight:800,color:"#D97706",marginBottom:8}}>⚙ 메뉴 순서 편집</div>
+            <div style={{display:"flex",flexWrap:"wrap",gap:6,maxHeight:220,overflowY:"auto"}}>
+              {tabOrder.filter(t=>t.id!=="auth_mgmt"||currentUser.role==="admin").map((t,i,arr)=>(
+                <div key={t.id} style={{display:"flex",gap:4,alignItems:"center",background:"#fff",borderRadius:7,padding:"4px 6px",border:"1px solid #E5E7EB"}}>
+                  <div style={{display:"flex",flexDirection:"column",gap:1}}>
+                    <button onClick={()=>{if(i>0){const a=[...tabOrder];[a[i-1],a[i]]=[a[i],a[i-1]];setTabOrder(a)}}} disabled={i===0}
+                      style={{background:"none",border:"none",cursor:"pointer",color:"#94A3B8",fontSize:9,lineHeight:1,opacity:i===0?.3:1}}>▲</button>
+                    <button onClick={()=>{if(i<arr.length-1){const a=[...tabOrder];[a[i],a[i+1]]=[a[i+1],a[i]];setTabOrder(a)}}} disabled={i===arr.length-1}
+                      style={{background:"none",border:"none",cursor:"pointer",color:"#94A3B8",fontSize:9,lineHeight:1,opacity:i===arr.length-1?.3:1}}>▼</button>
+                  </div>
+                  <span style={{fontSize:12,color:"#334155",fontWeight:500}}>{t.label}</span>
+                  <select value={t.group||""} onChange={e=>{const a=[...tabOrder];a[i]={...a[i],group:e.target.value};setTabOrder(a)}}
+                    style={{padding:"2px 4px",border:"1px solid #E5E7EB",borderRadius:5,fontSize:10,background:"#F8FAFC"}}>
+                    {tabGroups.map(g=><option key={g} value={g}>{g}</option>)}
+                  </select>
+                </div>
+              ))}
+            </div>
+            <button onClick={()=>setTabOrder(TAB_DEFAULTS)} style={{marginTop:6,padding:"5px 10px",background:"#F8FAFC",color:"#64748B",border:"none",borderRadius:7,fontSize:11,cursor:"pointer"}}>
+              기본값 복원
+            </button>
+          </div>
+        )}
       </div>
 
-      {/* ── 메인 콘텐츠 ── */}
-      <div style={{marginLeft:isMobile?0:220,flex:1,minWidth:0,transition:"margin .25s"}}>
-        {/* 탑바 */}
-        <div style={{background:"#fff",borderBottom:"1px solid #E2E8F0",padding:isMobile?"10px 14px":"10px 24px",display:"flex",alignItems:"center",gap:12,position:"sticky",top:0,zIndex:90}}>
-          {/* 모바일 햄버거 */}
-          {isMobile&&<button onClick={()=>setSideOpen(v=>!v)}
-            style={{padding:"6px",background:"none",border:"none",cursor:"pointer",color:"#334155",flexShrink:0,fontSize:22,lineHeight:1,display:"flex",alignItems:"center"}}>
-            ☰
-          </button>}
-          {/* 탭 제목 */}
-          {!isMobile&&<div style={{minWidth:0,flexShrink:0}}>
-            <div style={{fontSize:18,fontWeight:800,color:"#0F172A",letterSpacing:"-0.03em",whiteSpace:"nowrap"}}>
-              {TABS.find(t=>t.id===tab)?.label || "대시보드"}
-            </div>
-          </div>}
-          {/* 🔍 검색창 — 항상 표시 */}
-          <div onClick={()=>setShowGlobalSearch(true)}
-            style={{flex:1,display:"flex",alignItems:"center",gap:10,
-              background:"#F8FAFC",border:"1.5px solid #E2E8F0",borderRadius:10,
-              padding:"8px 14px",cursor:"pointer",transition:"border-color .15s",
-              maxWidth:isMobile?undefined:520,
-              minWidth:0}}
-            onMouseEnter={e=>e.currentTarget.style.borderColor="#6366F1"}
-            onMouseLeave={e=>e.currentTarget.style.borderColor="#E2E8F0"}>
-            <span style={{fontSize:16,flexShrink:0}}>🔍</span>
-            <span style={{fontSize:13,color:"#94A3B8",flex:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
-              {isMobile?"검색...":"프로젝트·계약·기성입금일·담당자 검색..."}
-            </span>
-            {!isMobile&&<kbd style={{fontSize:11,color:"#CBD5E1",background:"#F1F5F9",border:"1px solid #E2E8F0",borderRadius:5,padding:"2px 7px",flexShrink:0,fontFamily:"inherit"}}>
-              Ctrl K
-            </kbd>}
+      {/* ── 메인 콘텐츠 — 사이드바가 없어져서 전체 폭 사용 ── */}
+      <div style={{flex:1,minWidth:0}}>
+        {/* 현재 메뉴 제목 — 나무위키 문서 제목처럼 본문 상단에 크게 표시 */}
+        <div style={{padding:isMobile?"16px 12px 0":"22px 28px 0",maxWidth:1600}}>
+          <div style={{fontSize:26,fontWeight:800,color:"#0F172A",letterSpacing:"-0.02em",borderBottom:"3px solid #0E9C8C",paddingBottom:10,marginBottom:4}}>
+            {TABS.find(t=>t.id===tab)?.label || "대시보드"}
           </div>
         </div>
 
@@ -1997,7 +1928,6 @@ export default function App() {
         {tab==="manual"    && <ManualTab currentUser={currentUser}/>}
         {tab==="auth_mgmt"&& currentUser.role==="admin" && <AuthTab users={users} saveUsers={saveUsers} currentUser={currentUser} hashPw={hashPw}/>}
         </div>
-      </div>
       </div>
 
       {showNewProj&&<NewProjModal onClose={()=>setShowNewProj(false)} onSave={p=>{setProjects(prev=>[...prev,normalizeProject({...p,id:`P${Date.now()}`,versions:[]})]);setShowNewProj(false)}}/>}
@@ -3879,7 +3809,7 @@ function ProjectsTab({projects,setProjects,selProjId,setSelProjId,selVerIdx,setS
                       onClick={()=>{setSelProjId(p.id);setSelVerIdx(p.versions.length-1);setView("detail")}}>
                       <td style={PTD("center")} onClick={e=>e.stopPropagation()}><input type="checkbox" checked={cmpIds.includes(p.id)} onChange={e=>setCmpIds(prev=>e.target.checked?[...prev,p.id]:prev.filter(id=>id!==p.id))}/></td>
                       <td style={{...PTD("center"),color:"#94A3B8",fontWeight:600}}>{globalIdx+1}</td>
-                      <td style={PTD("left")}><span style={S.bdg(tb.bg,tb.fg)}>{p.type}</span></td>
+                      <td style={PTD("left")}><span style={{display:"inline-flex",alignItems:"center",padding:"4px 10px",borderRadius:14,fontSize:13,fontWeight:700,background:tb.bg,color:tb.fg,whiteSpace:"nowrap"}}>{p.type}</span></td>
                       <td style={{...PTD("left"),maxWidth:320,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}} title={p.name}>
                         {inlineEditId===p.id ? (
                           <div style={{display:"flex",gap:4}} onClick={e=>e.stopPropagation()}>
