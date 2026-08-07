@@ -1487,6 +1487,7 @@ function BackupSection({allData, restoreAllData, isAdmin, cashItems=[], setCashI
     const timeStr = new Date().toISOString().slice(11,16).replace(":","")
     a.download = `상지서울_전체백업_${dateStr}_${timeStr}.json`
     a.click(); URL.revokeObjectURL(url)
+    try{ localStorage.setItem("sjs_last_backup_at", new Date().toISOString()) }catch{}
     flash(`✅ 전체 백업 완료! (${count}개 항목, ${(size/1024).toFixed(1)}KB)\n안전한 곳(NAS, 구글드라이브 등)에 보관하세요.`)
   }
 
@@ -1530,6 +1531,7 @@ function BackupSection({allData, restoreAllData, isAdmin, cashItems=[], setCashI
     if(sheetCount===0){ flash("내보낼 데이터가 없습니다.", false); return }
     const dateStr = new Date().toISOString().slice(0,10)
     XLSX.writeFile(wb, `상지서울_전체데이터_${dateStr}.xlsx`)
+    try{ localStorage.setItem("sjs_last_backup_at", new Date().toISOString()) }catch{}
     flash(`✅ 엑셀 다운로드 완료! (${sheetCount}개 시트)`)
   }
 
@@ -1608,6 +1610,21 @@ function BackupSection({allData, restoreAllData, isAdmin, cashItems=[], setCashI
               현재 시스템의 <b>모든 데이터</b>를 JSON 파일로 저장합니다.<br/>
               데이터가 초기화되거나 브라우저를 바꿀 때 이 파일로 복구할 수 있습니다.
             </div>
+            {(()=>{
+              let lastAt=null
+              try{ lastAt = localStorage.getItem("sjs_last_backup_at") }catch{}
+              const days = lastAt ? Math.floor((Date.now()-new Date(lastAt).getTime())/86400000) : null
+              const urgent = days===null || days>=3
+              return (
+                <div style={{marginTop:10,padding:"8px 12px",borderRadius:8,background:urgent?"#FEF3C7":"#F0FDF4",border:`1px solid ${urgent?"#F59E0B":"#86EFAC"}`,display:"inline-flex",alignItems:"center",gap:7}}>
+                  <span style={{fontSize:13}}>{urgent?"⚠️":"✅"}</span>
+                  <span style={{fontSize:13.2,color:urgent?"#92400E":"#166534",fontWeight:700}}>
+                    {lastAt ? `마지막 백업: ${days===0?"오늘":`${days}일 전`}` : "아직 백업한 적이 없습니다"}
+                  </span>
+                  {urgent && <span style={{fontSize:12.5,color:"#92400E"}}>— 코드 업데이트나 새 배포 전에는 꼭 먼저 백업하세요</span>}
+                </div>
+              )
+            })()}
             {/* 현재 데이터 현황 */}
             <div style={{display:"flex",gap:8,flexWrap:"wrap",marginTop:12}}>
               {[

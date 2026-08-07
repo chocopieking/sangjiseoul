@@ -217,7 +217,13 @@ export const normalizeProject = p => ({
   orderType:"민간", bidType:"민간수의", cashflowPlan:[], cashflowOpening:{}, contractType:"민간",
   type:"추진",  // 기본값 - contractYear 설정 시 업로드된 type으로 덮어씀
   versions:[],  // 실행계획서 버전 기본값
+  shareRatio:0, // 기본값 - 없으면 NaN% 로 보이는 문제 방지
   ...p,
+  // 이름 앞에 "[E26010-VSG]" 같은 코드가 그대로 붙어 들어온 경우, code 필드가 비어있다면 여기서 분리
+  ...(!p.code && /^\[[^\]]+\]\s*/.test(p.name||"") ? (()=>{
+    const m = (p.name||"").match(/^\[([^\]]+)\]\s*(.*)$/)
+    return m ? { code: m[1], name: m[2] } : {}
+  })() : {}),
   deptShares: getDeptShares(p),
 })
 

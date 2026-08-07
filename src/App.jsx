@@ -1770,6 +1770,22 @@ export default function App() {
                 {dbStatus==="ok"?"DB 연결됨":dbStatus==="error"?"DB 오류":dbStatus==="local"?"로컬 저장":"연결 중…"}
               </span>
             </div>}
+            {!isMobile&&(()=>{
+              let lastAt=null
+              try{ lastAt = localStorage.getItem("sjs_last_backup_at") }catch{}
+              const days = lastAt ? Math.floor((Date.now()-new Date(lastAt).getTime())/86400000) : null
+              const urgent = days===null || days>=3
+              if(!urgent) return null
+              return (
+                <button onClick={()=>setTab("datahub")} title="새 배포/업데이트 전에는 꼭 먼저 백업하세요"
+                  style={{display:"flex",alignItems:"center",gap:5,padding:"5px 9px",background:"#FEF3C7",borderRadius:8,border:"1px solid #F59E0B",cursor:"pointer"}}>
+                  <span style={{fontSize:11}}>⚠️</span>
+                  <span style={{fontSize:11,color:"#92400E",fontWeight:700,whiteSpace:"nowrap"}}>
+                    {lastAt?`백업 ${days}일 전`:"백업 안 함"}
+                  </span>
+                </button>
+              )
+            })()}
             <button onClick={()=>setShowAlerts(o=>!o)} style={{position:"relative",padding:"7px",background:"#F8FAFC",border:"1px solid #E5E7EB",borderRadius:8,cursor:"pointer",display:"flex"}}>
               <i className="ti ti-bell" aria-label="알람" style={{fontSize:15,color:"#334155"}}/>
               {totalBadge>0&&<span style={{position:"absolute",top:-3,right:-3,minWidth:16,height:16,background:C.red,borderRadius:8,fontSize:9,fontWeight:700,color:"#fff",display:"flex",alignItems:"center",justifyContent:"center",padding:"0 3px"}}>{totalBadge}</span>}
@@ -3858,7 +3874,7 @@ function ProjectsTab({projects,setProjects,selProjId,setSelProjId,selVerIdx,setS
                       <td style={PTD("left")}>{p.pm}</td>
                       <td style={{...PTD("right"),fontWeight:500}}>{fE((p.serviceFee||0)/1e8)}</td>
                       <td style={{...PTD("right"),color:"#0E9C8C",fontWeight:600}}>{p.floorArea>0&&p.serviceFee>0?`${Math.round(p.serviceFee/toPy(p.floorArea)).toLocaleString()}원`:"-"}</td>
-                      <td style={PTD("right")}>{(p.shareRatio*100).toFixed(0)}%</td>
+                      <td style={PTD("right")}>{p.shareRatio>0?(p.shareRatio*100).toFixed(0)+"%":"-"}</td>
                       <td style={PTD("right")}>{p.floorArea?.toLocaleString()}</td>
                       <td style={PTD("right")}><div style={{display:"flex",alignItems:"center",gap:5,justifyContent:"flex-end"}}><div style={{width:44,height:6,background:"var(--color-background-secondary,#f0f0ee)",borderRadius:3,overflow:"hidden"}}><div style={{width:`${p.prog}%`,height:6,background:bc,borderRadius:3}}/></div><span style={{fontWeight:500,color:bc}}>{p.prog}%</span></div></td>
                       <td style={PTD("center")} onClick={e=>e.stopPropagation()}>
@@ -3867,7 +3883,7 @@ function ProjectsTab({projects,setProjects,selProjId,setSelProjId,selVerIdx,setS
                           const wb=XLSX.utils.book_new()
                           const pyF2=toPy(p.floorArea||0), pyS2=toPy(p.siteArea||0)
                           const pnl=calcPnlTotals(ver)
-                          XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet([["프로젝트코드",p.code,"","작성일",ver.date],["프로젝트명",p.name],["주관본부",p.depts.join(", "),"","PM",p.pm],["발주처",p.client],["계약일",p.contractDate,"","수주일",p.orderDate||"미수주"],["총설계비",p.totalFee,"","상지지분",(p.shareRatio*100).toFixed(0)+"%"],["용역비",p.serviceFee],["대지면적",`${(p.siteArea||0).toLocaleString()}㎡(${pyS2}평)`,"","연면적",`${(p.floorArea||0).toLocaleString()}㎡(${pyF2}평)`],["세대수",p.units||"-"],[""],["직접인건비",ver.laborCost],["직접경비",ver.directExp],["외주용역비",ver.subContract],["간접비",pnl.indirect],["이윤",pnl.profit],["합계",pnl.total]]),"기본정보")
+                          XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet([["프로젝트코드",p.code,"","작성일",ver.date],["프로젝트명",p.name],["주관본부",p.depts.join(", "),"","PM",p.pm],["발주처",p.client],["계약일",p.contractDate,"","수주일",p.orderDate||"미수주"],["총설계비",p.totalFee,"","상지지분",p.shareRatio>0?(p.shareRatio*100).toFixed(0)+"%":"-"],["용역비",p.serviceFee],["대지면적",`${(p.siteArea||0).toLocaleString()}㎡(${pyS2}평)`,"","연면적",`${(p.floorArea||0).toLocaleString()}㎡(${pyF2}평)`],["세대수",p.units||"-"],[""],["직접인건비",ver.laborCost],["직접경비",ver.directExp],["외주용역비",ver.subContract],["간접비",pnl.indirect],["이윤",pnl.profit],["합계",pnl.total]]),"기본정보")
                           XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet([
                             ["프로젝트코드",p.code,"","버전",ver.ver,"","회차",ver.round||""],
                             ["연면적(평)",pyF2,"","대지면적(평)",pyS2],
@@ -4018,7 +4034,7 @@ function ProjectsTab({projects,setProjects,selProjId,setSelProjId,selVerIdx,setS
                 <div style={S.grid(4,9)}>
                   {[["연도",selProj.year],["주관본부·지분",getDeptShares(selProj).map(s=>`${s.dept} ${s.share}%`).join(" / ")],["담당PM",selProj.pm],["담당본부장",selProj.director],
                     ["프로젝트유형",selProj.projType],["수주유형",selProj.contractType||"-"],["용도",selProj.usage],["규모",selProj.scale],["발주처",selProj.client],
-                    ["발주처담당자",selProj.clientPm||"-"],["발주구분",selProj.orderType||"민간"],["총설계비",fW(selProj.totalFee)],["상지지분(발주처대비)",(selProj.shareRatio*100).toFixed(0)+"%"],["세대수",selProj.units?selProj.units.toLocaleString()+"세대":"-"]
+                    ["발주처담당자",selProj.clientPm||"-"],["발주구분",selProj.orderType||"민간"],["총설계비",fW(selProj.totalFee)],["상지지분(발주처대비)",selProj.shareRatio>0?(selProj.shareRatio*100).toFixed(0)+"%":"-"],["세대수",selProj.units?selProj.units.toLocaleString()+"세대":"-"]
                   ].map(([k,v])=>(
                     <div key={k} style={{display:"flex",justifyContent:"space-between",padding:"5px 0",borderBottom:"0.5px solid var(--color-border-tertiary,#eee)",fontSize:13.2}}>
                       <span style={{color:C.gray,fontWeight:500,flexShrink:0,marginRight:6}}>{k}</span>
