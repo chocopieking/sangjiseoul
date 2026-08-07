@@ -7120,7 +7120,7 @@ function ContractTab({projects, currentUser}) {
   }
 
   return (
-    <div style={{maxWidth:900,margin:"0 auto"}}>
+    <div style={{maxWidth:1400}}>
       {/* 헤더 */}
       <div style={{...card2,background:"linear-gradient(135deg,#0B6E63,#0E9C8C)",color:"#fff"}}>
         <div style={{fontSize:24.2,fontWeight:800,marginBottom:4}}>📄 설계용역 표준계약서 생성</div>
@@ -7791,7 +7791,7 @@ function ProjectHistoryPage({projects, currentUser, cashItems=[]}) {
   if(!proj) return <div style={{padding:60,textAlign:"center",color:"#94A3B8"}}>프로젝트를 선택하세요.</div>
 
   return (
-    <div style={{maxWidth:960,margin:"0 auto"}}>
+    <div style={{maxWidth:1400}}>
       {/* 헤더 */}
       <div style={{background:"#fff",borderRadius:8,border:"1px solid #E5E7EB",padding:"16px 20px",marginBottom:14,display:"flex",gap:12,alignItems:"center",flexWrap:"wrap"}}>
         <div style={{fontSize:18.7,fontWeight:800,color:"#0F172A"}}>📜 프로젝트 히스토리</div>
@@ -8230,7 +8230,7 @@ function StatsTab({projects}) {
   const maxDay = Math.max(...last7.map(d=>d.cnt),1)
 
   return (
-    <div style={{maxWidth:960,margin:"0 auto"}}>
+    <div style={{maxWidth:1400}}>
       <div style={{background:"linear-gradient(135deg,#0B6E63,#0E9C8C)",borderRadius:16,padding:"20px 26px",marginBottom:16,color:"#fff"}}>
         <div style={{fontSize:24.2,fontWeight:800,marginBottom:4}}>📈 시스템 사용 통계</div>
         <div style={{fontSize:14.3,opacity:.8}}>메뉴별 조회·수정 횟수 · 일별 접속 추이 · 시스템 개선 기초 데이터</div>
@@ -8337,7 +8337,7 @@ function GamifyTab({projects, currentUser}) {
   const me = data[currentUser?.name]
 
   return (
-    <div style={{maxWidth:960,margin:"0 auto"}}>
+    <div style={{maxWidth:1400}}>
       {/* 헤더 */}
       <div style={{background:"linear-gradient(135deg,#4F46E5,#6366F1)",borderRadius:16,padding:"16px 20px",marginBottom:16,color:"#fff"}}>
         <div style={{fontSize:24.2,fontWeight:800,marginBottom:4}}>🎮 포인트 & 랭킹</div>
