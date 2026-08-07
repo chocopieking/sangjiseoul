@@ -3546,6 +3546,10 @@ function ProjectsTab({projects,setProjects,selProjId,setSelProjId,selVerIdx,setS
   // 다른 탭(예: 실행계획서 전체 모아보기)에서 특정 프로젝트를 선택한 채로 들어오면
   // 목록이 아니라 바로 상세 화면이 보이도록 함
   const [view, setView] = useState(()=>selProjId?"detail":"list")
+  // 전체 프로젝트에서 지금까지 등록된 협력업체 이름 목록 — "외주업체 추가" 시 비슷한 이름이 이미 있는지 확인하는 데 사용
+  const allVendorNames = useMemo(()=>[...new Set(
+    projects.flatMap(p=>(p.versions||[]).flatMap(v=>(v.vendors||[]).map(x=>x.name)))
+  )].filter(Boolean),[projects])
   const [deptFilter,     setDeptFilter]     = useState("")
   const [typeFilter,     setTypeFilter]     = useState("")
   const [searchQuery,    setSearchQuery]    = useState("")
@@ -4383,7 +4387,7 @@ function ProjectsTab({projects,setProjects,selProjId,setSelProjId,selVerIdx,setS
                   </div>
 
                   {/* ── 회차별 비교 분석 ── */}
-                  <VersionCompareCard proj={selProj} selVerIdx={selVerIdx} setProjects={setProjects}/>
+                  <VersionCompareCard proj={selProj} selVerIdx={selVerIdx} setProjects={setProjects} allVendorNames={allVendorNames}/>
 
                   {/* 협력업체 비용 + 실행계획서 작성 워크플로우 */}
                   <PlanWorkflow
@@ -4521,7 +4525,7 @@ function ProjectsTab({projects,setProjects,selProjId,setSelProjId,selVerIdx,setS
 }
 
 // ── 회차별 실행계획서 비교 분석 ──────────────────────────────
-function VersionCompareCard({proj,selVerIdx,setProjects}) {
+function VersionCompareCard({proj,selVerIdx,setProjects,allVendorNames}) {
   // fE는 이미 억 단위 값을 받는 함수이므로, 원 단위 값은 /1e8 후 전달
   const fMoney = n => n != null ? fE((+n/1e8).toFixed(2)*1) : "-"
 
@@ -4688,17 +4692,33 @@ function VersionCompareCard({proj,selVerIdx,setProjects}) {
 
       {/* 외주비 분야별 회차 비교 */}
       {versions.some(v=>(v.vendors||[]).length>0) && (
-        <VendorVersionCompare versions={versions} proj={proj} setProjects={setProjects}/>
+        <VendorVersionCompare versions={versions} proj={proj} setProjects={setProjects} allVendorNames={allVendorNames}/>
       )}
     </Card>
   )
 }
 
 // 협력업체(외주비) 분야별 회차 비교
-function VendorVersionCompare({versions,proj,setProjects}) {
+function VendorVersionCompare({versions,proj,setProjects,allVendorNames=[]}) {
   const latestVer = versions[versions.length-1]
   const latestOrigIdx = latestVer?._origIdx
   const canEdit = typeof setProjects === "function"
+
+  // 업체명 표기 차이(㈜/（주）/주식회사, 우선순위 접두어, 공백)를 지우고 비교하기 위한 정규화
+  // — "㈜한양TEC"와 "3순위_(주)한양TEC"처럼 실제로는 같은 회사인데 표기만 다른 경우를 잡아내기 위함
+  const normalizeVendorName = name => String(name||"")
+    .replace(/^[0-9]+순위\s*[_\-:]*\s*/,"")
+    .replace(/\[.*?\]/g,"")
+    .replace(/\(.*?\)/g,"")
+    .replace(/㈜|\(주\)|（주）|주식회사|㈱/g,"")
+    .replace(/\s+/g,"")
+    .toLowerCase()
+  // 입력한 이름과 "표기만 다르고 사실상 같아 보이는" 기존 업체명을 찾아 반환 (완전히 같은 이름은 제외)
+  const findSimilarVendorName = newName => {
+    const norm = normalizeVendorName(newName)
+    if(!norm) return null
+    return allVendorNames.find(n => n!==newName && normalizeVendorName(n)===norm) || null
+  }
 
   // 같은 분야명이 여러 개(예: "CG"가 두 건) 있어도 전부 각자 한 줄로 보이도록,
   // "분야명 + 그 분야 안에서 몇 번째로 등장했는지"를 조합한 키로 각 항목을 구분한다.
@@ -4804,6 +4824,12 @@ function VendorVersionCompare({versions,proj,setProjects}) {
   const addVendorRow = () => {
     if(!newV.cat.trim()) return
     const cat=newV.cat.trim()
+    const vendorName=newV.name.trim()
+    // 비슷한 이름의 기존 업체가 있으면 확인 — 취소하면 추가하지 않고 이름을 고칠 기회를 줌
+    if(vendorName){
+      const similar = findSimilarVendorName(vendorName)
+      if(similar && !window.confirm(`"${vendorName}"(으)로 입력하셨는데, 이미 등록된 "${similar}"와 같은 업체 아닌가요?\n\n같은 업체라면 [취소]를 누르고 "${similar}"로 다시 입력해주세요.\n다른 업체가 맞으면 [확인]을 눌러 그대로 추가합니다.`)) return
+    }
     const targetIdx = newV.targetOrigIdx!=null?newV.targetOrigIdx:latestOrigIdx
     const targetVer = versions.find(v=>v._origIdx===targetIdx)
     const occ = ((targetVer?.vendors||[]).filter(x=>x.cat===cat).length) + 1
@@ -4817,7 +4843,7 @@ function VendorVersionCompare({versions,proj,setProjects}) {
         versions:(p.versions||[]).map((ver,vi)=>{
           if(vi!==targetIdx) return ver
           return recomputeSub({...ver, vendors:[...(ver.vendors||[]), {
-            cat, name:newV.name.trim(),
+            cat, name:vendorName,
             contract:parseInt(String(newV.contract).replace(/[,원\s]/g,""))||0, nego1:0, nego2:0
           }]})
         })
@@ -4857,6 +4883,10 @@ function VendorVersionCompare({versions,proj,setProjects}) {
   const commitNameRename = (rowKey) => {
     const newName = editNameVal.trim()
     setEditNameKey(null)
+    if(newName){
+      const similar = findSimilarVendorName(newName)
+      if(similar && !window.confirm(`"${newName}"(으)로 바꾸시는데, 이미 등록된 "${similar}"와 같은 업체 아닌가요?\n\n같은 업체라면 [취소]를 누르고 "${similar}"로 다시 입력해주세요.\n다른 업체가 맞으면 [확인]을 눌러 그대로 저장합니다.`)) return
+    }
     setProjects(prev=>prev.map(p=>{
       if(p.id!==proj.id) return p
       return {...p, versions:(p.versions||[]).map(ver=>{
@@ -8951,6 +8981,7 @@ function CashItemsView({cashItems, setCashItems, projects, setProjects, DEPTS, c
           onClose={()=>setShowBulk(false)}
         />
       )}
+      {(showForm||editId) && (
         <div style={{background:"#E3F6F3",borderRadius:8,border:"1.5px solid #6366F133",padding:"14px 18px",marginBottom:14}}>
           <div style={{fontSize:16.5,fontWeight:800,color:"#0E9C8C",marginBottom:14}}>{editId?"✏ 수정":"+ 추가"}</div>
           <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:10,marginBottom:10}}>
