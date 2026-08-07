@@ -34,7 +34,7 @@ export default async function handler(req, res) {
     parts: [{ text: String(m.content ?? "") }],
   }))
 
-  const model = "gemini-2.0-flash" // 무료 한도가 넉넉한 모델
+  const model = "gemini-2.5-flash" // 무료 한도가 정상적으로 열려있는 최신 모델 (2.0-flash는 무료 할당량이 0으로 막혀있는 경우가 많음)
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`
 
   try {
