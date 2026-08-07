@@ -12494,6 +12494,56 @@ function EventDashboard({setTab, currentUser, projects=[], cashItems=[], contrac
       )}
 
       <div style={{padding:"16px 20px 0"}}>
+        {/* ── 포털 스타일 요약 위젯 — 빈 캘린더만 보이지 않도록 주요 정보를 먼저 보여줌 ── */}
+        {(()=>{
+          const activeProjects = projects.filter(p=>p.type!=="계약").length
+          const thisMonthCash = cashItems.filter(i=>i.expectedDate&&fDate(i.expectedDate).slice(0,7)===todayStr.slice(0,7)).reduce((s,i)=>s+(i.amount||0),0)
+          const yearOrders = projects.filter(p=>(p.contractDate||"").slice(0,4)===todayStr.slice(0,4)).reduce((s,p)=>s+(p.serviceFee||0),0)
+          const recentProjects = [...projects].sort((a,b)=>(b.contractDate||"").localeCompare(a.contractDate||"")).slice(0,5)
+          return (
+            <>
+              <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(160px,1fr))",gap:10,marginBottom:14}}>
+                {[
+                  {label:"전체 프로젝트",value:`${projects.length}건`,sub:`진행중 ${activeProjects}건`,color:"#0E9C8C",icon:"🏗"},
+                  {label:"이번달 수금 예정",value:fA(thisMonthCash),sub:`${today.getMonth()+1}월 기준`,color:"#059669",icon:"💧"},
+                  {label:"올해 수주 누계",value:fA(yearOrders),sub:`${today.getFullYear()}년`,color:"#D97706",icon:"📝"},
+                  {label:"30일 이내 일정",value:`${urgent.length}건`,sub:"준공·매출·계약 등",color:"#7C3AED",icon:"⏰"},
+                ].map(k=>(
+                  <div key={k.label} style={{background:"#fff",border:"1px solid #E2E8F0",borderRadius:10,padding:"12px 14px",borderLeft:`4px solid ${k.color}`}}>
+                    <div style={{fontSize:12,color:"#64748B",fontWeight:600,marginBottom:4}}>{k.icon} {k.label}</div>
+                    <div style={{fontSize:19.5,fontWeight:800,color:"#0F172A"}}>{k.value}</div>
+                    <div style={{fontSize:11,color:"#94A3B8",marginTop:2}}>{k.sub}</div>
+                  </div>
+                ))}
+              </div>
+              <div style={{display:"grid",gridTemplateColumns:"1.3fr 1fr",gap:12,marginBottom:16}}>
+                <div style={{background:"#fff",border:"1px solid #E2E8F0",borderRadius:10,padding:"14px 16px"}}>
+                  <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
+                    <div style={{fontSize:13.8,fontWeight:800,color:"#0F172A"}}>📋 최근 등록·계약 프로젝트</div>
+                    <span onClick={()=>setTab("projects")} style={{fontSize:12,color:"#0E9C8C",cursor:"pointer",fontWeight:600}}>전체 →</span>
+                  </div>
+                  {recentProjects.length===0
+                    ? <div style={{fontSize:13,color:"#94A3B8",padding:"10px 0"}}>등록된 프로젝트가 없습니다.</div>
+                    : recentProjects.map(p=>(
+                      <div key={p.id} onClick={()=>{setSelProjId(p.id);setTab("projects")}}
+                        style={{display:"flex",alignItems:"center",gap:8,padding:"7px 0",borderBottom:"1px solid #F1F5F9",cursor:"pointer"}}>
+                        <span style={{fontSize:11,color:"#94A3B8",width:82,flexShrink:0}}>{p.contractDate||"-"}</span>
+                        <span style={{fontSize:13,fontWeight:600,color:"#334155",flex:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{p.name}</span>
+                        <span style={{fontSize:11,color:"#0E9C8C",flexShrink:0}}>{fA(p.serviceFee||0)}</span>
+                      </div>
+                    ))}
+                </div>
+                <div style={{background:"#fff",border:"1px solid #E2E8F0",borderRadius:10,padding:"14px 16px"}}>
+                  <div style={{fontSize:13.8,fontWeight:800,color:"#0F172A",marginBottom:10}}>⏰ 다가오는 일정 (전체)</div>
+                  {urgent.length===0
+                    ? <div style={{fontSize:13,color:"#94A3B8",padding:"10px 0"}}>30일 이내 예정된 일정이 없습니다.</div>
+                    : urgent.slice(0,6).map(e=><EventRow key={e.id} e={e}/>)}
+                </div>
+              </div>
+            </>
+          )
+        })()}
+
         {/* 툴바 */}
         <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:12,flexWrap:"wrap"}}>
           {/* 뷰 전환 */}
