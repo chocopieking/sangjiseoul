@@ -20,7 +20,7 @@ import { DataHubTab } from "./DataHub.jsx"
 import { VendorsTab } from "./Vendors.jsx"
 import { WeeklyReportTab } from "./WeeklyReport.jsx"
 // AI 기능 — 추후 ANTHROPIC_API_KEY 설정 시 활성화 가능
-// import { SmartSearch, AIAssistant, AIFloatButton, WeeklyBriefing } from "./AIAssistant.jsx"
+import { AIAssistant, AIFloatButton } from "./AIAssistant.jsx"
 import { ManualTab } from "./ManualTab.jsx"
 import { DeptContext, useDepts } from "./DeptContext.jsx"
 import { StaffMgmtPage } from "./StaffMgmt.jsx"
@@ -1357,6 +1357,7 @@ export default function App() {
     return ()=>clearInterval(timer)
   },[schedules])
   const [showAlerts, setShowAlerts] = useState(false)
+  const [showAiPanel, setShowAiPanel] = useState(false)
   const [selProjId, setSelProjId] = useState(null)
   const [selVerIdx, setSelVerIdx] = useState(0)
   const [cmpIds, setCmpIds]       = useState([])
@@ -1966,7 +1967,17 @@ export default function App() {
 
       {showNewProj&&<NewProjModal onClose={()=>setShowNewProj(false)} onSave={p=>{setProjects(prev=>[...prev,normalizeProject({...p,id:`P${Date.now()}`,versions:[]})]);setShowNewProj(false)}}/>}
 
-      {/* AI 어시스턴트: ANTHROPIC_API_KEY 설정 후 AIAssistant.jsx 활성화 */}
+      {/* AI 어시스턴트 — Vercel 환경변수 ANTHROPIC_API_KEY 설정 후 동작 (미설정 시 챗에서 안내 문구 표시) */}
+      <AIFloatButton onClick={()=>setShowAiPanel(v=>!v)}/>
+      <AIAssistant
+        isOpen={showAiPanel}
+        onClose={()=>setShowAiPanel(false)}
+        data={{projects, cashflow, years, vendorPayments}}
+        onNavigate={(t,id)=>{ setTab(t); if(id) setSelProjId(id) }}
+        onApplyChange={(projectId, fieldValues)=>{
+          setProjects(prev=>prev.map(p=>p.id===projectId?{...p,...fieldValues}:p))
+        }}
+      />
     </div>
     </DeptContext.Provider>
     </ToastProvider>
@@ -3976,37 +3987,19 @@ function ProjectsTab({projects,setProjects,selProjId,setSelProjId,selVerIdx,setS
               {/* ── 위키 스타일: 목차 + 섹션 나열 ── */}
               <div style={{display:"flex",gap:20,alignItems:"flex-start"}}>
 
-                {/* 좌측 목차 (sticky) */}
-                <div style={{width:160,flexShrink:0,position:"sticky",top:70,
-                  background:"#F8FAFC",borderRadius:10,border:"1px solid #E2E8F0",
-                  padding:"12px 0",fontSize:13.2,maxHeight:"calc(100vh - 120px)",overflowY:"auto"}}>
-                  <div style={{fontWeight:800,color:"#334155",padding:"0 14px 8px",fontSize:12,
-                    borderBottom:"1px solid #E2E8F0",marginBottom:6,letterSpacing:.5}}>
-                    목 차
-                  </div>
-                  {[
-                    ["sec-info",     "📐 프로젝트 정보"],
-                    ["sec-weekly",   "📋 주간보고"],
-                    ["sec-cashflow", "💧 월수금"],
-                    ["sec-contract", "📝 계약현황"],
-                    ["sec-expense",  "💸 지출"],
-                    ["sec-completion","🏁 준공"],
-                    ["sec-award",    "🏆 수상내역"],
-                    ["sec-media",    "📰 언론보도"],
-                    ["sec-archive",  "📦 자료이관"],
-                    ["sec-memo",     "📋 히스토리"],
-                  ].map(([id,label])=>(
-                    <a key={id} href={`#${id}`}
-                      onClick={e=>{e.preventDefault();document.getElementById(id)?.scrollIntoView({behavior:"smooth",block:"start"})}}
-                      style={{display:"block",padding:"6px 14px",color:"#64748B",textDecoration:"none",
-                        fontSize:12.6,fontWeight:500,cursor:"pointer",lineHeight:1.4,
-                        borderLeft:"2px solid transparent",transition:"all .15s"}}
-                      onMouseEnter={e=>{e.currentTarget.style.color="#0E9C8C";e.currentTarget.style.borderLeftColor="#0E9C8C";e.currentTarget.style.background="#E3F6F3"}}
-                      onMouseLeave={e=>{e.currentTarget.style.color="#64748B";e.currentTarget.style.borderLeftColor="transparent";e.currentTarget.style.background="transparent"}}>
-                      {label}
-                    </a>
-                  ))}
-                </div>
+                {/* 좌측 목차 (sticky) — 나무위키 느낌으로: 번호 매기기 + 접기/펼치기 + 스크롤 위치에 따라 현재 항목 강조 */}
+                <TocBox sections={[
+                  ["sec-info",     "프로젝트 정보"],
+                  ["sec-weekly",   "주간보고"],
+                  ["sec-cashflow", "월수금"],
+                  ["sec-contract", "계약현황"],
+                  ["sec-expense",  "지출"],
+                  ["sec-completion","준공"],
+                  ["sec-award",    "수상내역"],
+                  ["sec-media",    "언론보도"],
+                  ["sec-archive",  "자료이관"],
+                  ["sec-memo",     "히스토리"],
+                ]} projId={selProj.id}/>
 
                 {/* 우측 섹션 나열 */}
                 <div style={{flex:1,minWidth:0,display:"flex",flexDirection:"column",gap:20}}>
@@ -4201,53 +4194,44 @@ function ProjectsTab({projects,setProjects,selProjId,setSelProjId,selVerIdx,setS
                 }}/>
               </label>}
                 {canWrite&&<button onClick={()=>{
-                  // 실행계획서 입력 양식 다운로드
+                  // 실행계획서 입력 양식 다운로드 — 간소화판: 단계별(제안공모/계약시/기본설계…) 세부 입력 없이
+                  // 직접인건비·직접경비는 합계만, 외주용역비는 분야·업체·금액 한 줄씩만 입력하면 되도록 구성.
+                  // (기존 업로드 파서가 라벨 텍스트를 찾아 읽는 방식이라, 아래 항목명들은 그대로 유지해야 인식됩니다)
                   const wb2=XLSX.utils.book_new()
                   const ws_main=XLSX.utils.aoa_to_sheet([
-                    ["■ 상지서울 실행계획서 업로드 양식 — 이 파일을 작성 후 업로드하세요"],
-                    ["※ 총괄표 섹션(하단)의 금액을 반드시 입력하세요"],
+                    ["■ 상지서울 실행계획서 업로드 양식 (간소화) — 이 파일을 작성 후 업로드하세요"],
+                    ["※ 노란 칸만 채우면 됩니다. 프로젝트명은 매번 새로 입력해주세요(자동으로 채워지지 않습니다)"],
                     [],
-                    ["프로젝트명", selProj?.name||"", "", "", "", "", "", "", "", "", "작성일 :", new Date().toISOString().slice(0,10)],
-                    ["주관부서",   (selProj?.depts||[]).join(", ")||"", "", "", "", "담당PM", "", selProj?.pm||""],
-                    ["발주처",     selProj?.client||"", "", "", "", "담당자", "", ""],
-                    ["예상용역금액(①)", `${(selProj?.serviceFee||0).toLocaleString()}원(VAT별도)`],
+                    ["프로젝트명", "", "", "", "", "", "", "", "", "", "작성일 :", new Date().toISOString().slice(0,10)],
+                    ["주관부서",   "", "", "", "", "담당PM", "", ""],
+                    ["발주처",     "", "", "", "", "담당자", "", ""],
+                    ["예상용역금액(①)", ""],
                     [],
-                    // 직접인건비 섹션 헤더
-                    ["직접인건비"],
-                    ["직급","기준일급여","","제안공모","","계약시(선금42%)","","기본설계완료(12%)","","중간설계완료(17%)","","실시설계완료(29%)","","현장관리","","소계(②)","비율","메모"],
-                    ["","년도","금액(원)","인원수","투여일","인원수","투여일","인원수","투여일","인원수","투여일","인원수","투여일","인원수","투여일","","(②/①)",""],
-                    ["사장","","470000"],["전무","","270000"],["이사대우","",""],["부장","",""],["차장","",""],
-                    ["과장","",""],["대리","",""],["사원","",""],
-                    ["직접인건비 합계"],
+                    ["직접비용 — 합계만 입력"],
+                    ["항목","금액(원)"],
+                    ["직접인건비",""],
+                    ["직접경비",""],
                     [],
-                    // 직접경비 섹션
-                    ["직접경비"],
-                    ["항목","","","제안공모","","계약시(선금42%)","","기본설계완료(12%)","","중간설계완료(17%)","","실시설계완료(29%)","","현장관리","","소계(③)","비율","메모"],
-                    ["여비교통비 - 국내"],["기타경비(소모품/운반비등)"],["제본/복사/출력비"],["업무추진비"],
-                    ["인증수수료"],["특근비"],["국내출장비"],
-                    ["직접경비 합계"],
-                    [],
-                    // 외주용역비 섹션
-                    ["외주용역비"],
-                    ["부문","업체","","제안공모","","계약시(선금42%)","","기본설계완료(12%)","","중간설계완료(17%)","","실시설계완료(29%)","","현장관리","","소계(④)","비율","메모"],
-                    ["조경",""],["구조",""],["토목",""],["조경2",""],["기계",""],["통신",""],
-                    ["견적",""],["친환경",""],["BIM",""],["기타",""],
+                    ["외주용역비 — 분야·업체·금액을 한 줄씩 입력"],
+                    ["부문","업체","금액(원)"],
+                    ["구조",""],["토목",""],["조경",""],["기계",""],["통신",""],
+                    ["견적",""],["친환경",""],["BIM",""],["",""],["",""],
                     ["외주용역비 합계"],
                     [],
-                    // ★ 총괄표 (파서가 이 섹션에서 금액 읽음)
+                    // ★ 총괄표 (파서가 이 섹션에서 금액 읽음 — 라벨/열 순서 유지 필요)
                     ["실행계획총괄표","","","","","","비고"],
                     ["지출항목","","지출금액(⑤)","","비율(⑤/①)"],
-                    ["직접비","직접인건비(⑥)","← 여기에 직접인건비 합계 입력 (원)","",""],
-                    ["","직접경비","← 여기에 직접경비 합계 입력 (원)","",""],
-                    ["","외주용역비","← 여기에 외주용역비 합계 입력 (원)","",""],
+                    ["직접비","직접인건비(⑥)","← 위 직접인건비 합계와 같은 값 입력","",""],
+                    ["","직접경비","← 위 직접경비 합계와 같은 값 입력","",""],
+                    ["","외주용역비","← 위 외주용역비 합계와 같은 값 입력","",""],
                     ["","직접비소계","← 자동계산 (위 3항목 합계)","",""],
                     ["간접비(⑥×110%)","","← 자동: 직접인건비×1.1","",""],
                     ["이 윤","","← 직접 입력","",""],
                     ["합계(예상용역금액)","","← 자동계산","","1"],
                   ])
-                  ws_main["!cols"]=[{wch:20},{wch:12},{wch:14},{wch:8},{wch:8},{wch:8},{wch:8},{wch:8},{wch:8},{wch:8},{wch:8},{wch:8},{wch:14},{wch:8},{wch:8},{wch:12},{wch:7},{wch:20}]
+                  ws_main["!cols"]=[{wch:20},{wch:16},{wch:14},{wch:8},{wch:8},{wch:10},{wch:8},{wch:16},{wch:8},{wch:8},{wch:12},{wch:16}]
                   XLSX.utils.book_append_sheet(wb2,ws_main,"실행계획서")
-                  XLSX.writeFile(wb2,`실행계획서_입력양식_${selProj?.code||"신규"}.xlsx`)
+                  XLSX.writeFile(wb2,`실행계획서_입력양식_간소화.xlsx`)
                 }} style={{padding:"7px 14px",background:"#EDE9FE",color:"#7C3AED",border:"none",borderRadius:6,fontSize:14.3,fontWeight:700,cursor:"pointer"}}>
                   ⬇ 양식 다운로드
                 </button>}
@@ -6777,6 +6761,57 @@ function NewVerModal({proj,onClose,onSave,initial}) {
 }
 
 // ── 공통 컴포넌트 ────────────────────────────────────────────
+// 나무위키 스타일 목차 — 번호 매기기 + 접기/펼치기 + 스크롤 위치에 따라 현재 항목 자동 강조
+function TocBox({sections, projId}) {
+  const [open,setOpen] = useState(true)
+  const [activeId,setActiveId] = useState(sections[0]?.[0])
+
+  useEffect(()=>{
+    const els = sections.map(([id])=>document.getElementById(id)).filter(Boolean)
+    if(!els.length) return
+    const io = new IntersectionObserver(entries=>{
+      // 화면 상단에 가장 가까이 걸쳐있는 섹션을 "현재 위치"로 판단
+      const visible = entries.filter(e=>e.isIntersecting)
+      if(visible.length){
+        const top = visible.reduce((a,b)=>a.boundingClientRect.top<b.boundingClientRect.top?a:b)
+        setActiveId(top.target.id)
+      }
+    }, {rootMargin:"-80px 0px -70% 0px", threshold:0})
+    els.forEach(el=>io.observe(el))
+    return ()=>io.disconnect()
+  },[projId]) // 프로젝트가 바뀌면(=섹션 DOM이 다시 그려지면) 옵저버 재등록
+
+  return (
+    <div style={{width:open?170:44,flexShrink:0,position:"sticky",top:70,
+      background:"#F8FAFC",borderRadius:10,border:"1px solid #E2E8F0",
+      padding:"10px 0",fontSize:13.2,maxHeight:"calc(100vh - 120px)",overflowY:"auto",
+      transition:"width .15s"}}>
+      <div onClick={()=>setOpen(o=>!o)} style={{fontWeight:800,color:"#334155",padding:"0 12px 8px",fontSize:12,
+        borderBottom:"1px solid #E2E8F0",marginBottom:6,letterSpacing:.5,
+        display:"flex",alignItems:"center",justifyContent:"space-between",cursor:"pointer",userSelect:"none"}}>
+        {open && <span>목 차</span>}
+        <span style={{color:"#94A3B8",fontSize:11}}>{open?"◀":"▶"}</span>
+      </div>
+      {open && sections.map(([id,label],i)=>{
+        const isActive = activeId===id
+        return (
+          <a key={id} href={`#${id}`}
+            onClick={e=>{e.preventDefault();document.getElementById(id)?.scrollIntoView({behavior:"smooth",block:"start"})}}
+            style={{display:"flex",gap:6,padding:"6px 12px",color:isActive?"#0E9C8C":"#64748B",textDecoration:"none",
+              fontSize:12.6,fontWeight:isActive?800:500,cursor:"pointer",lineHeight:1.4,
+              borderLeft:isActive?"2px solid #0E9C8C":"2px solid transparent",
+              background:isActive?"#E3F6F3":"transparent",transition:"all .15s"}}
+            onMouseEnter={e=>{if(!isActive){e.currentTarget.style.color="#0E9C8C";e.currentTarget.style.background="#F0FBF9"}}}
+            onMouseLeave={e=>{if(!isActive){e.currentTarget.style.color="#64748B";e.currentTarget.style.background="transparent"}}}>
+            <span style={{color:isActive?"#0E9C8C":"#CBD5E1",flexShrink:0}}>{i+1}.</span>
+            <span>{label}</span>
+          </a>
+        )
+      })}
+    </div>
+  )
+}
+
 function Card({title,note,actions,children,style={},defaultOpen=true}) {
   const [open,setOpen]=useState(defaultOpen)
   return <div style={{...S.card(),padding:0,overflow:"hidden",...style}}>

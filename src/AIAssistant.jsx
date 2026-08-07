@@ -1,6 +1,6 @@
 // ══════════════════════════════════════════════════════════════
 // 🤖 AI 어시스턴트 + ⚡ 스마트 검색
-// Anthropic API (claude-sonnet-4-6) 연동
+// Google Gemini API(무료 티어) 연동 — 서버(api/chat.js)에서 실제 모델 호출
 // 시스템 데이터를 컨텍스트로 주입하여 맞춤형 답변 생성
 // ══════════════════════════════════════════════════════════════
 import { useState, useRef, useEffect, useMemo } from "react"
@@ -160,25 +160,46 @@ const QUICK_QUESTIONS = [
   "2026년 수주·매출 목표 달성률은 어떻게 돼?",
   "외주비 비중이 높은 프로젝트 상위 3개는?",
   "본부별 수주금액 현황을 요약해줘",
-  "최근 변경 계약이 있는 프로젝트는?",
+  "수원남부경찰서 계약일을 10월 27일로 변경해줘",
 ]
 
-export function AIAssistant({ data, onNavigate, isOpen, onClose }) {
+export function AIAssistant({ data, onNavigate, isOpen, onClose, onApplyChange }) {
   const [messages, setMessages] = useState([
-    { role:"assistant", text:"안녕하세요! 저는 상지서울 통합경영시스템 AI 어시스턴트입니다. 프로젝트, 수금, 이윤, 협력업체 등 궁금한 것을 물어보세요. 시스템의 실제 데이터를 기반으로 답변해 드립니다." }
+    { role:"assistant", text:"안녕하세요! 저는 상지서울 통합경영시스템 AI 어시스턴트입니다. 프로젝트, 수금, 이윤, 협력업체 등 궁금한 것을 물어보세요.\n\n일정·매출금액·상지지분 변경도 말씀하시면 됩니다. 예: \"수원남부경찰서 계약일을 10월로 변경해줘\"\n(바로 반영되지 않고, 먼저 변경 내용을 보여드리고 확인 후에만 반영됩니다.)" }
   ])
   const [input, setInput] = useState("")
   const [loading, setLoading] = useState(false)
+  const [pendingChange, setPendingChange] = useState(null) // {projectId, projectName, changes:[{field,label,oldDisplay,newDisplay,newValue}], summary}
+  const [lastApplied, setLastApplied] = useState(null) // 되돌리기용 — {projectId, changes:[{field, prevValue}]}
   const scrollRef = useRef(null)
   const ctx = useMemo(()=>buildContext(data),[data])
+  const canWrite = typeof onApplyChange === "function"
 
-  useEffect(()=>{ scrollRef.current?.scrollTo({top:9999,behavior:"smooth"}) },[messages])
+  useEffect(()=>{ scrollRef.current?.scrollTo({top:9999,behavior:"smooth"}) },[messages,pendingChange])
+
+  // 프로젝트 이름/코드 일부만 말해도 찾을 수 있게 — 여러 개 걸리면 가장 먼저 매칭된 것
+  const findProject = (query) => {
+    if(!query) return null
+    const q = query.trim().toLowerCase()
+    const projects = data.projects||[]
+    return projects.find(p=>(p.name||"").toLowerCase().includes(q) || (p.code||"").toLowerCase().includes(q))
+      || projects.find(p=>q.split(/\s+/).some(tok=>tok.length>=2 && (p.name||"").toLowerCase().includes(tok)))
+  }
+
+  const FIELD_LABELS = { contractDate:"계약일", orderDate:"수주일", serviceFee:"용역비(매출)", shareRatio:"상지 지분율" }
+  const fmtFieldValue = (field, v) => {
+    if(v==null) return "-"
+    if(field==="shareRatio") return `${Math.round(v*100)}%`
+    if(field==="serviceFee") return `${Math.round(v).toLocaleString()}원`
+    return String(v)
+  }
 
   const send = async (text) => {
     const q = (text||input).trim()
     if(!q||loading) return
     setInput("")
     setMessages(prev=>[...prev,{role:"user",text:q}])
+    setPendingChange(null)
     setLoading(true)
 
     const history = messages.filter(m=>m.role!=="assistant"||messages.indexOf(m)>0).slice(-6)
@@ -189,14 +210,28 @@ export function AIAssistant({ data, onNavigate, isOpen, onClose }) {
         method:"POST",
         headers:{"Content-Type":"application/json"},
         body: JSON.stringify({
-          model:"claude-sonnet-4-6",
-          max_tokens:1000,
           system:`당신은 상지서울건축사사무소의 통합경영시스템 전담 AI 어시스턴트입니다.
 아래 시스템 데이터를 바탕으로 정확하고 실용적인 답변을 한국어로 제공하세요.
 숫자는 억원 단위로, 간결하게 핵심만 답변하되 필요하면 목록으로 정리하세요.
 시스템에 없는 데이터는 "데이터가 없습니다"라고 솔직하게 말하세요.
 
-${ctx}`,
+${ctx}
+
+=== 명령 실행 모드 (중요) ===
+사용자 메시지가 아래 3가지 중 하나에 해당하는 "프로젝트 데이터 변경 요청"이면, 절대 직접 데이터를 바꾸지 말고
+아래 형식 그대로 맨 앞에 <<SJS_ACTION>> 마커와 함께 JSON만 응답하세요 (다른 텍스트 섞지 말 것):
+1. 계약일/수주일 등 "일정" 변경 → field:"contractDate" 또는 "orderDate"
+2. "매출금액"/"용역비" 변경 → field:"serviceFee" (숫자는 원 단위 정수)
+3. "상지 지분(율)" 변경 → field:"shareRatio" (예: 60% → 0.6)
+
+형식:
+<<SJS_ACTION>>{"project_query":"프로젝트명에서 추출한 검색어","changes":[{"field":"contractDate","new":"2026-10-27"}],"summary":"사람이 읽을 한국어 한 줄 설명"}
+
+- 날짜는 YYYY-MM-DD 형식으로 변환하세요 (연도가 없으면 데이터의 현재 회차 연도나 문맥상 가장 가까운 연도를 쓰고, summary에 "연도는 추정했습니다"라고 밝히세요).
+- 한 메시지에 여러 필드를 동시에 바꾸려 하면 changes 배열에 여러 항목을 넣으세요.
+- 어느 프로젝트인지, 어떤 값으로 바꿀지 애매하면 JSON을 만들지 말고 대신 "OO 프로젝트가 맞나요? 어떤 값으로 바꿀까요?" 처럼 되물어보는 일반 텍스트로 답하세요.
+- 이 3가지 항목이 아닌 다른 필드 변경 요청(예: PM 교체, 협력업체 정보 등)은 "죄송하지만 지금은 일정·매출금액·지분율 변경만 지원합니다"라고 답하세요.
+- 위 3가지에 해당하지 않는 일반 질문은 평소처럼 마커 없이 답변하세요.`,
           messages:[
             ...history.map(m=>({role:m.role==="user"?"user":"assistant",content:m.text})),
             {role:"user",content:q}
@@ -204,18 +239,64 @@ ${ctx}`,
         })
       })
       const json = await res.json()
-      const reply = json.content?.[0]?.text || "응답을 가져오지 못했습니다."
-      setMessages(prev=>[...prev,{role:"assistant",text:reply}])
+      const reply = json.content?.[0]?.text || json.error || "응답을 가져오지 못했습니다."
+
+      const marker = "<<SJS_ACTION>>"
+      if(reply.includes(marker)){
+        try{
+          const jsonStr = reply.slice(reply.indexOf(marker)+marker.length).trim()
+          const parsed = JSON.parse(jsonStr)
+          const proj = findProject(parsed.project_query)
+          if(!proj){
+            setMessages(prev=>[...prev,{role:"assistant",text:`"${parsed.project_query}"에 해당하는 프로젝트를 찾지 못했습니다. 프로젝트명을 좀 더 정확히 말씀해주세요.`}])
+          } else if(!canWrite){
+            setMessages(prev=>[...prev,{role:"assistant",text:"지금 화면에서는 변경사항을 반영할 수 없습니다. 프로젝트 화면에서 다시 시도해주세요."}])
+          } else {
+            const changes = (parsed.changes||[]).map(c=>({
+              field:c.field, label:FIELD_LABELS[c.field]||c.field,
+              oldDisplay: fmtFieldValue(c.field, proj[c.field]),
+              newValue: c.field==="serviceFee"||c.field==="shareRatio" ? Number(c.new) : c.new,
+              newDisplay: fmtFieldValue(c.field, c.field==="serviceFee"||c.field==="shareRatio" ? Number(c.new) : c.new),
+            })).filter(c=>c.field && FIELD_LABELS[c.field])
+            if(changes.length===0){
+              setMessages(prev=>[...prev,{role:"assistant",text:"변경할 항목을 이해하지 못했습니다. 다시 한번 구체적으로 말씀해주세요."}])
+            } else {
+              setPendingChange({projectId:proj.id, projectName:proj.name, changes, summary:parsed.summary||""})
+            }
+          }
+        }catch(e){
+          setMessages(prev=>[...prev,{role:"assistant",text:"변경 요청을 이해했지만 형식을 해석하는 데 실패했습니다. 다시 한번 말씀해주시겠어요?"}])
+        }
+      } else {
+        setMessages(prev=>[...prev,{role:"assistant",text:reply}])
+      }
     } catch(e) {
       const msg = e.message?.includes("Failed to fetch")
-        ? "⚠ 서버 연결 오류입니다.\n\nVercel 환경변수에 ANTHROPIC_API_KEY가 설정되어 있는지 확인하세요.\n\nVercel 대시보드 → Settings → Environment Variables → ANTHROPIC_API_KEY 추가"
+        ? "⚠ 서버 연결 오류입니다.\n\nVercel 환경변수에 GEMINI_API_KEY가 설정되어 있는지 확인하세요.\n\nVercel 대시보드 → Settings → Environment Variables → GEMINI_API_KEY 추가"
         : `⚠ 오류: ${e.message}`
       setMessages(prev=>[...prev,{role:"assistant",text:msg}])
     }
     setLoading(false)
   }
 
+  const applyPending = () => {
+    if(!pendingChange || !canWrite) return
+    const prevValues = {}
+    pendingChange.changes.forEach(c=>{ prevValues[c.field] = data.projects.find(p=>p.id===pendingChange.projectId)?.[c.field] })
+    onApplyChange(pendingChange.projectId, Object.fromEntries(pendingChange.changes.map(c=>[c.field,c.newValue])))
+    setLastApplied({projectId:pendingChange.projectId, projectName:pendingChange.projectName, prevValues, changes:pendingChange.changes})
+    setMessages(prev=>[...prev,{role:"assistant",text:`✅ "${pendingChange.projectName}"에 반영했습니다.\n${pendingChange.changes.map(c=>`· ${c.label}: ${c.oldDisplay} → ${c.newDisplay}`).join("\n")}`}])
+    setPendingChange(null)
+  }
+  const undoLast = () => {
+    if(!lastApplied || !canWrite) return
+    onApplyChange(lastApplied.projectId, lastApplied.prevValues)
+    setMessages(prev=>[...prev,{role:"assistant",text:`↩️ "${lastApplied.projectName}" 변경을 되돌렸습니다.`}])
+    setLastApplied(null)
+  }
+
   if(!isOpen) return null
+
 
   return (
     <div style={{position:"fixed",inset:0,zIndex:600,display:"flex",alignItems:"flex-end",justifyContent:"flex-end",padding:"20px",pointerEvents:"none"}}>
@@ -249,6 +330,34 @@ ${ctx}`,
               <div style={{padding:"12px 16px",borderRadius:"4px 14px 14px 14px",background:"#F8FAFC",border:"1px solid #E5E7EB",display:"flex",gap:4,alignItems:"center"}}>
                 {[0,1,2].map(j=><div key={j} style={{width:7,height:7,borderRadius:"50%",background:C.navyM,animation:`bounce 1.2s ${j*0.2}s infinite`}}/>)}
               </div>
+            </div>
+          )}
+          {pendingChange && (
+            <div style={{marginLeft:38,padding:"14px 16px",borderRadius:12,background:"#FFFBEB",border:"1.5px solid #F59E0B"}}>
+              <div style={{fontSize:13,fontWeight:800,color:"#92400E",marginBottom:8}}>📝 변경 제안 — 확인 후 반영됩니다</div>
+              <div style={{fontSize:13.5,fontWeight:700,color:"#111827",marginBottom:6}}>{pendingChange.projectName}</div>
+              <div style={{display:"flex",flexDirection:"column",gap:4,marginBottom:10}}>
+                {pendingChange.changes.map((c,i)=>(
+                  <div key={i} style={{fontSize:13,color:"#78350F",display:"flex",gap:6,alignItems:"center"}}>
+                    <span style={{fontWeight:700}}>{c.label}</span>
+                    <span style={{color:"#B45309"}}>{c.oldDisplay}</span>
+                    <span>→</span>
+                    <span style={{fontWeight:800,color:"#92400E"}}>{c.newDisplay}</span>
+                  </div>
+                ))}
+              </div>
+              {pendingChange.summary && <div style={{fontSize:12,color:"#92400E",marginBottom:10,fontStyle:"italic"}}>{pendingChange.summary}</div>}
+              <div style={{display:"flex",gap:8}}>
+                <button onClick={applyPending} style={{padding:"7px 16px",background:"#F59E0B",color:"#fff",border:"none",borderRadius:8,fontSize:13,fontWeight:700,cursor:"pointer"}}>✓ 적용</button>
+                <button onClick={()=>setPendingChange(null)} style={{padding:"7px 16px",background:"#fff",color:"#92400E",border:"1px solid #F59E0B",borderRadius:8,fontSize:13,fontWeight:700,cursor:"pointer"}}>취소</button>
+              </div>
+            </div>
+          )}
+          {lastApplied && !pendingChange && (
+            <div style={{marginLeft:38,display:"flex"}}>
+              <button onClick={undoLast} style={{padding:"5px 12px",background:"#F8FAFC",color:"#64748B",border:"1px solid #E5E7EB",borderRadius:20,fontSize:11.5,fontWeight:700,cursor:"pointer"}}>
+                ↩️ 방금 반영한 "{lastApplied.projectName}" 변경 되돌리기
+              </button>
             </div>
           )}
         </div>
