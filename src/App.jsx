@@ -4682,60 +4682,106 @@ function VersionCompareCard({proj,selVerIdx,setProjects}) {
 function VendorVersionCompare({versions,proj,setProjects}) {
   const latestVer = versions[versions.length-1]
   const latestOrigIdx = latestVer?._origIdx
-  // 표시 순서 — proj.vendorCatOrder(직접 저장된 순서)가 있으면 그걸 우선 쓰고, 없으면 최신 회차 순서로 시작.
-  // 어느 회차에도 아직 없는 분야는 발견되는 대로 끝에 덧붙임.
-  const allCats = useMemo(()=>{
+  const canEdit = typeof setProjects === "function"
+
+  // 같은 분야명이 여러 개(예: "CG"가 두 건) 있어도 전부 각자 한 줄로 보이도록,
+  // "분야명 + 그 분야 안에서 몇 번째로 등장했는지"를 조합한 키로 각 항목을 구분한다.
+  // (예전엔 분야명만으로 찾다 보니 같은 이름의 두 번째 항목이 화면에서 통째로 사라져 합계와 안 맞는 문제가 있었음)
+  const KEY_SEP = "\u0001"
+  const keyOf = (cat, occ) => `${cat}${KEY_SEP}${occ}`
+  const splitKey = key => {
+    const i = key.lastIndexOf(KEY_SEP)
+    return { cat: key.slice(0,i), occ: parseInt(key.slice(i+1)) }
+  }
+  const findByKey = (ver, key) => {
+    const {cat,occ} = splitKey(key)
+    let n=0
+    for(const v of (ver.vendors||[])){ if(v.cat===cat){ n++; if(n===occ) return v } }
+    return null
+  }
+  // vi번째 회차의 vendors 배열에서, key가 가리키는 그 항목 하나만 갱신/삭제
+  const updateByKey = (vendorsArr, key, fn) => {
+    const {cat,occ} = splitKey(key)
+    let n=0
+    return vendorsArr.map(v=>{
+      if(v.cat!==cat) return v
+      n++
+      return n===occ ? fn(v) : v
+    })
+  }
+  const removeByKey = (vendorsArr, key) => {
+    const {cat,occ} = splitKey(key)
+    let n=0
+    return vendorsArr.filter(v=>{
+      if(v.cat!==cat) return true
+      n++
+      return n!==occ
+    })
+  }
+
+  // 표시 순서(키 목록) — proj.vendorRowOrder(저장된 순서)가 있으면 그걸 우선 쓰고, 없으면 최신 회차 순서로 시작.
+  // 어느 회차에도 없는 키는 발견되는 대로 끝에 덧붙임. 이 목록이 "숨겨지는 셀 없이 전부" 나오게 하는 핵심.
+  const allKeys = useMemo(()=>{
     const seen=new Set(), ordered=[]
-    const savedOrder = proj.vendorCatOrder
-    if(Array.isArray(savedOrder)&&savedOrder.length){
-      for(const c of savedOrder){ if(!seen.has(c)){seen.add(c);ordered.push(c)} }
-    } else {
-      for(const v of (latestVer?.vendors||[])){ if(!seen.has(v.cat)){seen.add(v.cat);ordered.push(v.cat)} }
+    const addFromVendors = vendorsArr => {
+      const counter={}
+      for(const v of (vendorsArr||[])){
+        const n = counter[v.cat] = (counter[v.cat]||0)+1
+        const k = keyOf(v.cat,n)
+        if(!seen.has(k)){ seen.add(k); ordered.push(k) }
+      }
     }
-    for(const v of versions.flatMap(x=>x.vendors||[])){ if(!seen.has(v.cat)){seen.add(v.cat);ordered.push(v.cat)} }
+    const savedOrder = proj.vendorRowOrder
+    if(Array.isArray(savedOrder)&&savedOrder.length){
+      for(const k of savedOrder){ if(!seen.has(k)){seen.add(k);ordered.push(k)} }
+    } else {
+      addFromVendors(latestVer?.vendors)
+    }
+    for(const v of versions) addFromVendors(v.vendors)
     return ordered
-  },[versions,proj.vendorCatOrder])
+  },[versions,proj.vendorRowOrder])
+
   const svc = proj.serviceFee||0
   const pyF = (proj.floorArea||0)/3.3058
   const pyS = (proj.siteArea||0)/3.3058
   const fMoney = n => n != null ? fE((+n/1e8).toFixed(2)*1) : "-"
-  const canEdit = typeof setProjects === "function"
 
   // 협력업체 배열이 바뀔 때마다 해당 회차의 외주용역비(subContract) 합계도 같이 갱신 —
   // 이걸 안 하면 위 "비용 구성 요약"/"회차별 비교" 카드가 옛날 값을 계속 보여주는 문제가 생김
   const recomputeSub = ver => ({...ver, subContract:(ver.vendors||[]).reduce((s,x)=>s+(x.nego2||x.nego1||x.contract||0),0)})
 
-  // 셀 클릭으로 바로 수정 — editKey: "분야|원본회차인덱스"
-  const [editKey,setEditKey] = useState(null)
+  // 셀 클릭으로 바로 수정 — editKey: "행키|원본회차인덱스"
+  const [editCellKey,setEditCellKey] = useState(null)
   const [editVal,setEditVal] = useState("")
 
-  // 금액 수정 — 해당 회차에 이미 항목이 있으면 갱신, 없으면(예: 이 분야가 다른 회차에만 있던 경우) 새로 만들어서 추가
-  const commitEdit = (cat, origIdx) => {
+  // 금액 수정 — 해당 회차에 이미 이 항목(키)이 있으면 갱신, 없으면(다른 회차에만 있던 분야) 새로 만들어서 추가
+  const commitEdit = (rowKey, origIdx) => {
     const num = parseInt(String(editVal).replace(/[,원\s]/g,""))||0
+    const {cat} = splitKey(rowKey)
     setProjects(prev=>prev.map(p=>{
       if(p.id!==proj.id) return p
       return {...p, versions:(p.versions||[]).map((ver,vi)=>{
         if(vi!==origIdx) return ver
-        const exists=(ver.vendors||[]).some(x=>x.cat===cat)
+        const existing = findByKey(ver, rowKey)
         let vendors
-        if(exists){
-          vendors=(ver.vendors||[]).map(x=>{
-            if(x.cat!==cat) return x
+        if(existing){
+          vendors = updateByKey(ver.vendors||[], rowKey, x=>{
             if(x.nego2) return {...x,nego2:num}
             if(x.nego1) return {...x,nego1:num}
             return {...x,contract:num}
           })
         } else {
-          const nameGuess=[...versions].reverse().map(v=>(v.vendors||[]).find(x=>x.cat===cat)).find(Boolean)?.name||""
+          const nameGuess=[...versions].reverse().map(v=>findByKey(v,rowKey)).find(Boolean)?.name||""
           vendors=[...(ver.vendors||[]), {cat,name:nameGuess,contract:num,nego1:0,nego2:0}]
         }
         return recomputeSub({...ver,vendors})
       })}
     }))
-    setEditKey(null)
+    setEditCellKey(null)
   }
 
-  // 새 외주업체 추가 — 회차 선택 가능(기본값: 최신 회차)
+  // 새 외주업체 추가 — 회차 선택 가능(기본값: 최신 회차). 같은 분야명이 이미 있어도 새 항목(키)으로 별도 등록되어
+  // 더 이상 화면에서 사라지지 않는다.
   const [showAdd,setShowAdd] = useState(false)
   const [newV,setNewV] = useState({cat:"",name:"",contract:"",targetOrigIdx:latestOrigIdx})
   useEffect(()=>{ setNewV(v=>({...v,targetOrigIdx:latestOrigIdx})) },[latestOrigIdx])
@@ -4744,18 +4790,14 @@ function VendorVersionCompare({versions,proj,setProjects}) {
     const cat=newV.cat.trim()
     const targetIdx = newV.targetOrigIdx!=null?newV.targetOrigIdx:latestOrigIdx
     const targetVer = versions.find(v=>v._origIdx===targetIdx)
-    // 같은 회차에 같은 분야명이 이미 있으면, 화면은 분야당 한 줄만 보여주는 구조라서 새로 추가해도 "먼저 있던 항목"에 가려져
-    // 보이지 않게 됨(합계에는 반영되지만 화면엔 안 나타나 "적용 안 됨"처럼 보임) → 미리 막고 안내
-    if(targetVer && (targetVer.vendors||[]).some(x=>x.cat===cat)){
-      alert(`"${cat}" 분야는 이 회차에 이미 있습니다.\n\n기존 항목의 금액을 고치려면 표에서 해당 금액 칸을 클릭해 바로 수정하세요.\n같은 분야의 업체를 하나 더 추가하려면 "${cat}(2)"처럼 다른 분야명을 사용해주세요.`)
-      return
-    }
+    const occ = ((targetVer?.vendors||[]).filter(x=>x.cat===cat).length) + 1
+    const newKey = keyOf(cat,occ)
     setProjects(prev=>prev.map(p=>{
       if(p.id!==proj.id) return p
-      const baseOrder=(Array.isArray(p.vendorCatOrder)&&p.vendorCatOrder.length)?p.vendorCatOrder:allCats
+      const baseOrder=(Array.isArray(p.vendorRowOrder)&&p.vendorRowOrder.length)?p.vendorRowOrder:allKeys
       return {
         ...p,
-        vendorCatOrder: baseOrder.includes(cat)?baseOrder:[...baseOrder,cat],
+        vendorRowOrder: baseOrder.includes(newKey)?baseOrder:[...baseOrder,newKey],
         versions:(p.versions||[]).map((ver,vi)=>{
           if(vi!==targetIdx) return ver
           return recomputeSub({...ver, vendors:[...(ver.vendors||[]), {
@@ -4768,90 +4810,93 @@ function VendorVersionCompare({versions,proj,setProjects}) {
     setNewV({cat:"",name:"",contract:"",targetOrigIdx:latestOrigIdx}); setShowAdd(false)
   }
 
-  // 분야 이름 자체를 수정 — 해당 이름을 쓰는 모든 회차의 항목 + 표시 순서 목록을 한번에 바꿔야
-  // 이름을 바꿔도 회차간 비교(같은 줄)와 정렬 순서가 계속 유지됨
-  const [editCatKey,setEditCatKey] = useState(null)
+  // 분야 이름 수정 — 이 행(키)에 해당하는 항목만 모든 회차에서 바꾸고, 표시 순서 키도 새 이름으로 갱신
+  const [editCatKey,setEditCatKey] = useState(null) // 수정 중인 rowKey
   const [editCatVal,setEditCatVal] = useState("")
-  const commitCatRename = (oldCat) => {
+  const commitCatRename = (rowKey) => {
     const newCat = editCatVal.trim()
+    const {cat:oldCat} = splitKey(rowKey)
     setEditCatKey(null)
     if(!newCat || newCat===oldCat) return
     setProjects(prev=>prev.map(p=>{
       if(p.id!==proj.id) return p
-      const baseOrder=(Array.isArray(p.vendorCatOrder)&&p.vendorCatOrder.length)?p.vendorCatOrder:allCats
+      const baseOrder=(Array.isArray(p.vendorRowOrder)&&p.vendorRowOrder.length)?p.vendorRowOrder:allKeys
+      const versionsNext=(p.versions||[]).map(ver=>{
+        if(!findByKey(ver, rowKey)) return ver
+        const vendors = updateByKey(ver.vendors||[], rowKey, x=>({...x,cat:newCat}))
+        return {...ver, vendors}
+      })
+      // 새 이름이 원래 유일한 이름이라면(가장 흔한 경우) occurrence는 1번이 됨
       return {
         ...p,
-        vendorCatOrder: baseOrder.map(c=>c===oldCat?newCat:c),
-        versions:(p.versions||[]).map(ver=>({
-          ...ver,
-          vendors:(ver.vendors||[]).map(x=>x.cat===oldCat?{...x,cat:newCat}:x)
-        }))
+        vendorRowOrder: baseOrder.map(k=>k===rowKey?keyOf(newCat,1):k),
+        versions: versionsNext
       }
     }))
   }
 
-  // 업체명 수정 — 같은 분야를 쓰는 모든 회차의 업체명을 한번에 갱신
-  const [editNameKey,setEditNameKey] = useState(null)
+  // 업체명 수정 — 이 행(키)에 해당하는 항목만 모든 회차에서 업체명 갱신
+  const [editNameKey,setEditNameKey] = useState(null) // 수정 중인 rowKey
   const [editNameVal,setEditNameVal] = useState("")
-  const commitNameRename = (cat) => {
+  const commitNameRename = (rowKey) => {
     const newName = editNameVal.trim()
     setEditNameKey(null)
     setProjects(prev=>prev.map(p=>{
       if(p.id!==proj.id) return p
-      return {...p, versions:(p.versions||[]).map(ver=>({
-        ...ver,
-        vendors:(ver.vendors||[]).map(x=>x.cat===cat?{...x,name:newName}:x)
-      }))}
+      return {...p, versions:(p.versions||[]).map(ver=>{
+        if(!findByKey(ver, rowKey)) return ver
+        return {...ver, vendors: updateByKey(ver.vendors||[], rowKey, x=>({...x,name:newName}))}
+      })}
     }))
   }
 
-  // 분야 삭제 — 어느 회차에 있든 상관없이 그 분야를 쓰는 모든 회차에서 제거 (그래서 항상 클릭 가능함)
-  const deleteVendorCat = (cat) => {
-    if(!window.confirm(`"${cat}" 분야를 모든 회차에서 삭제할까요?\n(이 작업은 되돌릴 수 없습니다)`)) return
+  // 행 삭제 — 이 항목(키)만 모든 회차에서 제거 (같은 분야의 다른 항목은 영향 없음)
+  const deleteVendorRow = (rowKey) => {
+    const {cat} = splitKey(rowKey)
+    if(!window.confirm(`"${cat}" 항목을 모든 회차에서 삭제할까요?\n(이 작업은 되돌릴 수 없습니다)`)) return
     setProjects(prev=>prev.map(p=>{
       if(p.id!==proj.id) return p
-      const baseOrder=(Array.isArray(p.vendorCatOrder)&&p.vendorCatOrder.length)?p.vendorCatOrder:allCats
+      const baseOrder=(Array.isArray(p.vendorRowOrder)&&p.vendorRowOrder.length)?p.vendorRowOrder:allKeys
       return {
         ...p,
-        vendorCatOrder: baseOrder.filter(c=>c!==cat),
+        vendorRowOrder: baseOrder.filter(k=>k!==rowKey),
         versions:(p.versions||[]).map(ver=>{
-          const vendors=(ver.vendors||[]).filter(x=>x.cat!==cat)
-          if(vendors.length===(ver.vendors||[]).length) return ver
-          return recomputeSub({...ver, vendors})
+          if(!findByKey(ver, rowKey)) return ver
+          return recomputeSub({...ver, vendors: removeByKey(ver.vendors||[], rowKey)})
         })
       }
     }))
   }
 
-  // 분야 순서를 위/아래로 이동 — 어느 회차에 있는지와 무관하게 표시 순서 목록 자체를 바꾸므로 항상 클릭 가능함
-  const moveVendorCat = (cat, dir) => {
+  // 행 순서를 위/아래로 이동 — 키 목록 자체를 바꾸므로 어느 회차에 있는지와 무관하게 항상 동작함
+  const moveVendorRow = (rowKey, dir) => {
     setProjects(prev=>prev.map(p=>{
       if(p.id!==proj.id) return p
-      const order=(Array.isArray(p.vendorCatOrder)&&p.vendorCatOrder.length?p.vendorCatOrder:allCats).slice()
-      const idx=order.indexOf(cat)
+      const order=(Array.isArray(p.vendorRowOrder)&&p.vendorRowOrder.length?p.vendorRowOrder:allKeys).slice()
+      const idx=order.indexOf(rowKey)
       const swapIdx=idx+dir
       if(idx<0||swapIdx<0||swapIdx>=order.length) return p
       ;[order[idx],order[swapIdx]]=[order[swapIdx],order[idx]]
-      return {...p, vendorCatOrder:order}
+      return {...p, vendorRowOrder:order}
     }))
   }
 
-  // 드래그앤드롭으로 순서 이동 — dragCat을 targetCat 자리로 옮김
-  const [dragCat,setDragCat] = useState(null)
-  const [dragOverCat,setDragOverCat] = useState(null)
-  const dropReorder = (targetCat) => {
-    setDragOverCat(null)
-    if(!dragCat || dragCat===targetCat){ setDragCat(null); return }
+  // 드래그앤드롭으로 순서 이동
+  const [dragKey,setDragKey] = useState(null)
+  const [dragOverKey,setDragOverKey] = useState(null)
+  const dropReorder = (targetKey) => {
+    setDragOverKey(null)
+    if(!dragKey || dragKey===targetKey){ setDragKey(null); return }
     setProjects(prev=>prev.map(p=>{
       if(p.id!==proj.id) return p
-      const order=(Array.isArray(p.vendorCatOrder)&&p.vendorCatOrder.length?p.vendorCatOrder:allCats).slice()
-      const from=order.indexOf(dragCat), to=order.indexOf(targetCat)
+      const order=(Array.isArray(p.vendorRowOrder)&&p.vendorRowOrder.length?p.vendorRowOrder:allKeys).slice()
+      const from=order.indexOf(dragKey), to=order.indexOf(targetKey)
       if(from<0||to<0) return p
       order.splice(from,1)
-      order.splice(to,0,dragCat)
-      return {...p, vendorCatOrder:order}
+      order.splice(to,0,dragKey)
+      return {...p, vendorRowOrder:order}
     }))
-    setDragCat(null)
+    setDragKey(null)
   }
 
   return (
@@ -4868,7 +4913,7 @@ function VendorVersionCompare({versions,proj,setProjects}) {
           <div><label style={{display:"block",fontSize:8,color:"#64748B",marginBottom:3}}>분야</label>
             <input list="vendor-cat-suggestions" value={newV.cat} onChange={e=>setNewV(v=>({...v,cat:e.target.value}))} placeholder="예: 인테리어" style={{padding:"6px 9px",fontSize:9.5,border:"1px solid #E5E7EB",borderRadius:5,width:100}}/>
             <datalist id="vendor-cat-suggestions">
-              {allCats.map(c=><option key={c} value={c}/>)}
+              {[...new Set(allKeys.map(k=>splitKey(k).cat))].map(c=><option key={c} value={c}/>)}
             </datalist>
           </div>
           <div><label style={{display:"block",fontSize:8,color:"#64748B",marginBottom:3}}>업체명</label>
@@ -4900,59 +4945,60 @@ function VendorVersionCompare({versions,proj,setProjects}) {
             </tr>
           </thead>
           <tbody>
-            {allCats.map((cat,ci)=>{
-              const vals=versions.map(v=>{const vd=(v.vendors||[]).find(x=>x.cat===cat);return vd?(vd.nego2||vd.nego1||vd.contract||0):0})
+            {allKeys.map((rowKey,ci)=>{
+              const {cat} = splitKey(rowKey)
+              const vals=versions.map(v=>{const vd=findByKey(v,rowKey);return vd?(vd.nego2||vd.nego1||vd.contract||0):0})
               const diff=vals.length>=2?vals[vals.length-1]-vals[0]:null
               const basis=getAreaBasis(cat)
               const py=basis==="대지"?pyS:basis==="연면적"?pyF:0
               const latestAmt=vals[vals.length-1]
               const up=py>0&&latestAmt>0?Math.round(latestAmt/py):null
-              // 최신 회차부터 역순으로 찾아 해당 분야의 업체명을 표시 (분야만으로는 어느 업체인지 구분이 안 되던 문제)
-              const vendorName=[...versions].reverse().map(v=>(v.vendors||[]).find(x=>x.cat===cat)).find(Boolean)?.name||""
+              // 최신 회차부터 역순으로 찾아 이 항목의 업체명을 표시
+              const vendorName=[...versions].reverse().map(v=>findByKey(v,rowKey)).find(Boolean)?.name||""
               return (
-                <tr key={cat}
+                <tr key={rowKey}
                   draggable={canEdit}
-                  onDragStart={()=>setDragCat(cat)}
-                  onDragOver={e=>{ if(canEdit){ e.preventDefault(); if(dragOverCat!==cat) setDragOverCat(cat) } }}
-                  onDragLeave={()=>{ if(dragOverCat===cat) setDragOverCat(null) }}
-                  onDrop={e=>{ e.preventDefault(); dropReorder(cat) }}
-                  onDragEnd={()=>{ setDragCat(null); setDragOverCat(null) }}
+                  onDragStart={()=>setDragKey(rowKey)}
+                  onDragOver={e=>{ if(canEdit){ e.preventDefault(); if(dragOverKey!==rowKey) setDragOverKey(rowKey) } }}
+                  onDragLeave={()=>{ if(dragOverKey===rowKey) setDragOverKey(null) }}
+                  onDrop={e=>{ e.preventDefault(); dropReorder(rowKey) }}
+                  onDragEnd={()=>{ setDragKey(null); setDragOverKey(null) }}
                   style={{
-                    background:dragOverCat===cat?"#F0FBF9":ci%2===0?"var(--color-background-primary,#fff)":"var(--color-background-secondary,#f8f8f6)",
-                    opacity:dragCat===cat?0.4:1,
-                    outline:dragOverCat===cat?"2px dashed #0E9C8C":"none",
+                    background:dragOverKey===rowKey?"#F0FBF9":ci%2===0?"var(--color-background-primary,#fff)":"var(--color-background-secondary,#f8f8f6)",
+                    opacity:dragKey===rowKey?0.4:1,
+                    outline:dragOverKey===rowKey?"2px dashed #0E9C8C":"none",
                     outlineOffset:-2
                   }}>
                   <td style={{...S.td("left")}}>
                     <div style={{display:"flex",alignItems:"flex-start",gap:6}}>
                       {canEdit && <span title="드래그해서 순서 이동" style={{cursor:"grab",color:"#CBD5E1",fontSize:13,paddingTop:2,userSelect:"none"}}>⠿</span>}
                       <div style={{display:"flex",flexDirection:"column",gap:3}}>
-                        {editCatKey===cat ? (
+                        {editCatKey===rowKey ? (
                           <input autoFocus value={editCatVal}
                             onChange={e=>setEditCatVal(e.target.value)}
-                            onBlur={()=>commitCatRename(cat)}
+                            onBlur={()=>commitCatRename(rowKey)}
                             onKeyDown={e=>{
-                              if(e.key==="Enter") commitCatRename(cat)
+                              if(e.key==="Enter") commitCatRename(rowKey)
                               if(e.key==="Escape") setEditCatKey(null)
                             }}
                             style={{fontSize:9.5,padding:"3px 7px",border:"1.5px solid #0E9C8C",borderRadius:5,width:90}}/>
                         ) : (
-                          <span onClick={()=>{ if(!canEdit) return; setEditCatKey(cat); setEditCatVal(cat) }}
+                          <span onClick={()=>{ if(!canEdit) return; setEditCatKey(rowKey); setEditCatVal(cat) }}
                             style={{...S.bdg(C.navyL,C.navyM),fontSize:9.5,alignSelf:"flex-start",cursor:canEdit?"pointer":"default"}}
                             title={canEdit?"클릭해서 분야명 수정":undefined}>{cat}</span>
                         )}
-                        {editNameKey===cat ? (
+                        {editNameKey===rowKey ? (
                           <input autoFocus value={editNameVal}
                             onChange={e=>setEditNameVal(e.target.value)}
-                            onBlur={()=>commitNameRename(cat)}
+                            onBlur={()=>commitNameRename(rowKey)}
                             onKeyDown={e=>{
-                              if(e.key==="Enter") commitNameRename(cat)
+                              if(e.key==="Enter") commitNameRename(rowKey)
                               if(e.key==="Escape") setEditNameKey(null)
                             }}
                             style={{fontSize:15,padding:"3px 7px",border:"1.5px solid #0E9C8C",borderRadius:5,width:150}}/>
                       ) : (
                         (vendorName || canEdit) &&
-                        <span onClick={()=>{ if(!canEdit) return; setEditNameKey(cat); setEditNameVal(vendorName) }}
+                        <span onClick={()=>{ if(!canEdit) return; setEditNameKey(rowKey); setEditNameVal(vendorName) }}
                           style={{fontSize:15,color:"#334155",fontWeight:700,cursor:canEdit?"pointer":"default"}}
                           title={canEdit?"클릭해서 업체명 수정":undefined}>{vendorName||"(업체명 없음)"}</span>
                       )}
@@ -4961,18 +5007,18 @@ function VendorVersionCompare({versions,proj,setProjects}) {
                   </td>
                   {versions.map((v,i)=>{
                     const val=vals[i]
-                    const key=`${cat}|${v._origIdx}`
-                    const isEditing=editKey===key
+                    const cellKey=`${rowKey}|${v._origIdx}`
+                    const isEditing=editCellKey===cellKey
                     return (
                       <td key={i} style={{...S.td("right"),cursor:canEdit?"pointer":"default",background:isEditing?"#F0FBF9":undefined}}
-                        onClick={()=>{ if(!canEdit||isEditing) return; setEditKey(key); setEditVal(val||"") }}>
+                        onClick={()=>{ if(!canEdit||isEditing) return; setEditCellKey(cellKey); setEditVal(val||"") }}>
                         {isEditing ? (
                           <input autoFocus type="number" value={editVal}
                             onChange={e=>setEditVal(e.target.value)}
-                            onBlur={()=>commitEdit(cat,v._origIdx)}
+                            onBlur={()=>commitEdit(rowKey,v._origIdx)}
                             onKeyDown={e=>{
-                              if(e.key==="Enter") commitEdit(cat,v._origIdx)
-                              if(e.key==="Escape") setEditKey(null)
+                              if(e.key==="Enter") commitEdit(rowKey,v._origIdx)
+                              if(e.key==="Escape") setEditCellKey(null)
                             }}
                             onClick={e=>e.stopPropagation()}
                             style={{width:120,padding:"4px 7px",fontSize:11,border:"1.5px solid #0E9C8C",borderRadius:5,textAlign:"right",outline:"none"}}/>
@@ -4991,13 +5037,13 @@ function VendorVersionCompare({versions,proj,setProjects}) {
                   {canEdit && (
                     <td style={{...S.td("center")}}>
                       <div style={{display:"flex",gap:3,justifyContent:"center"}}>
-                        <button onClick={()=>moveVendorCat(cat,-1)} disabled={ci===0}
+                        <button onClick={()=>moveVendorRow(rowKey,-1)} disabled={ci===0}
                           title="위로 이동"
                           style={{padding:"3px 6px",background:"#F8FAFC",border:"1px solid #E5E7EB",borderRadius:5,fontSize:10,cursor:ci===0?"not-allowed":"pointer",opacity:ci===0?.35:1,color:"#334155"}}>▲</button>
-                        <button onClick={()=>moveVendorCat(cat,1)} disabled={ci===allCats.length-1}
+                        <button onClick={()=>moveVendorRow(rowKey,1)} disabled={ci===allKeys.length-1}
                           title="아래로 이동"
-                          style={{padding:"3px 6px",background:"#F8FAFC",border:"1px solid #E5E7EB",borderRadius:5,fontSize:10,cursor:ci===allCats.length-1?"not-allowed":"pointer",opacity:ci===allCats.length-1?.35:1,color:"#334155"}}>▼</button>
-                        <button onClick={()=>deleteVendorCat(cat)}
+                          style={{padding:"3px 6px",background:"#F8FAFC",border:"1px solid #E5E7EB",borderRadius:5,fontSize:10,cursor:ci===allKeys.length-1?"not-allowed":"pointer",opacity:ci===allKeys.length-1?.35:1,color:"#334155"}}>▼</button>
+                        <button onClick={()=>deleteVendorRow(rowKey)}
                           title="모든 회차에서 삭제"
                           style={{padding:"3px 7px",background:"#FEE2E2",border:"none",borderRadius:5,fontSize:10,cursor:"pointer",color:"#DC2626",fontWeight:700}}>✕</button>
                       </div>
