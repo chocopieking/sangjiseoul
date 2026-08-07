@@ -789,11 +789,18 @@ export default function App() {
   const [dbReady, setDbReady]     = useState(!USE_DB)
   const [dbStatus, setDbStatus]   = useState(USE_DB ? "connecting" : "local")
 
+  const [usingSeedData, setUsingSeedData] = useState(false) // 저장된 실데이터가 없어 샘플/초기데이터로 채워진 상태인지
   const [projectsRaw, setProjectsRaw]   = useState(()=>{
     const saved = lsGet("sjs_projects", null)
     if(saved && saved.length > 0) return saved.map(normalizeProject)
     return PROJECTS_INIT.map(normalizeProject) // 추가 초기데이터는 useEffect에서 lazy load
   })
+  // 새로고침/새 배포 등으로 이 브라우저·이 주소에 저장된 프로젝트 데이터가 하나도 없을 때 —
+  // 조용히 샘플 데이터로 채우면 사용자가 "내 데이터가 사라졌다"고 오해하기 쉬우므로 반드시 배너로 알림
+  useEffect(()=>{
+    const saved = lsGet("sjs_projects", null)
+    if(!saved || saved.length === 0) setUsingSeedData(true)
+  },[])
   // 프로젝트 초기 데이터 lazy load (144KB 번들 분리)
   useEffect(()=>{
     const saved = lsGet("sjs_projects", null)
@@ -1851,6 +1858,17 @@ export default function App() {
 
       {/* ── 메인 콘텐츠 — 사이드바가 없어져서 전체 폭 사용 ── */}
       <div style={{flex:1,minWidth:0}}>
+        {usingSeedData && (
+          <div style={{margin:isMobile?"10px 12px 0":"14px 28px 0",padding:"12px 18px",background:"#FEF3C7",border:"1.5px solid #F59E0B",borderRadius:10,display:"flex",alignItems:"center",gap:12,flexWrap:"wrap"}}>
+            <span style={{fontSize:18,flexShrink:0}}>⚠️</span>
+            <div style={{flex:1,minWidth:200}}>
+              <div style={{fontSize:14,fontWeight:800,color:"#92400E"}}>이 브라우저·이 주소에는 저장된 실제 데이터가 없어, 샘플/초기 데이터를 보여주고 있습니다</div>
+              <div style={{fontSize:12,color:"#92400E",marginTop:2}}>배포 주소가 바뀌었거나 저장소가 비어있을 때 나타납니다. 원래 쓰시던 데이터가 있다면 <b>이전 주소(URL)의 탭</b>을 다시 열어 백업을 받은 뒤, 이 화면의 "데이터관리 → 백업·복구"에서 복구해주세요.</div>
+            </div>
+            <button onClick={()=>{ setTab("datahub"); setUsingSeedData(false) }} style={{padding:"7px 14px",background:"#F59E0B",color:"#fff",border:"none",borderRadius:7,fontSize:12,fontWeight:700,cursor:"pointer",flexShrink:0}}>백업·복구로 이동</button>
+            <button onClick={()=>setUsingSeedData(false)} style={{padding:"7px 10px",background:"transparent",color:"#92400E",border:"1px solid #F59E0B",borderRadius:7,fontSize:12,fontWeight:700,cursor:"pointer",flexShrink:0}}>닫기</button>
+          </div>
+        )}
         {/* 현재 메뉴 제목 — 나무위키 문서 제목처럼 본문 상단에 크게 표시 */}
         <div style={{padding:isMobile?"16px 12px 0":"22px 28px 0",maxWidth:1600}}>
           <div style={{fontSize:26,fontWeight:800,color:"#0F172A",letterSpacing:"-0.02em",borderBottom:"3px solid #0E9C8C",paddingBottom:10,marginBottom:4}}>
