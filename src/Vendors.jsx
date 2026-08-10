@@ -275,8 +275,8 @@ function VendorList({directory,search,setSearch,vendorsDB,onSelect}) {
         contact: v.contact||v.contactName||"", contactTel: v.contactTel||v.contactPhone||"",
         projects: v.projects||[],
         paymentHistory: v.paymentHistory||[],
-        // directory에서 계산된 실행계획서 참여 정보
-        dirEntry: null
+        // directory에서 계산된 실행계획서 참여 정보 — 아직 실행계획서에 한 번도 안 나온 업체는 이 값들이 항상 빈 상태로 유지됨
+        dirEntry: null, cats:[], total:0, items:[]
       }
     })
     // directory (실행계획서 기반) 병합
@@ -546,14 +546,15 @@ function VendorDetail({entry,vendorsDB,setVendorsDB,vendorPayments,setVendorPaym
   }
 
   // 지급 추가
-  const [pProj,setPProj] = useState(entry.items[0]?.projId||"")
+  const items = entry.items||[]  // 실행계획서에 아직 한 번도 안 나온 업체는 items가 없을 수 있어 방어적으로 처리
+  const [pProj,setPProj] = useState(items[0]?.projId||"")
   const [pCat,setPCat]   = useState("")
   const [pAmt,setPAmt]   = useState(0)
   const [pDate,setPDate] = useState(new Date().toISOString().slice(0,10))
   const [pNote,setPNote] = useState("")
   const addPayment = ()=>{
     if(!pProj||!pAmt) return
-    const projName = entry.items.find(it=>it.projId===pProj)?.projName||""
+    const projName = items.find(it=>it.projId===pProj)?.projName||""
     setVendorPayments(prev=>[...(prev||[]),{id:`PAY${Date.now()}`,vendor:entry.name,projectId:pProj,projName,cat:pCat,amount:num(pAmt),date:pDate,note:pNote,by:currentUser?.name}])
     setPAmt(0); setPNote("")
   }
@@ -577,7 +578,7 @@ function VendorDetail({entry,vendorsDB,setVendorsDB,vendorPayments,setVendorPaym
           <button onClick={()=>setRenaming(false)} style={{...S.btn(C.grayL,C.gray),padding:"6px 13px",fontSize:13.2}}>취소</button>
         </div>
       )}
-      <SCard title={`🏢 ${entry.name}`} note={`참여 프로젝트 ${entry.items.length}건 · 누적 계약액 ${fE(entry.total/1e8)}`}
+      <SCard title={`🏢 ${entry.name}`} note={`참여 프로젝트 ${items.length}건 · 누적 계약액 ${fE((entry.total||0)/1e8)}`}
         actions={canWrite&&(!editing
           ?<div style={{display:"flex",gap:8}}>
             {!renaming && <button onClick={()=>{setRenameVal(entry.name);setRenaming(true)}} style={{...S.btn(C.amberL,C.amber),padding:"6px 13px",fontSize:13.2}}>✎ 이름 변경</button>}
@@ -626,7 +627,7 @@ function VendorDetail({entry,vendorsDB,setVendorsDB,vendorPayments,setVendorPaym
                 <th style={S.th("right")}>지급액</th><th style={S.th("right")}>잔여</th>
               </tr></thead>
               <tbody>
-                {entry.items.map((it,i)=>{
+                {items.map((it,i)=>{
                   const paid = (vendorPayments||[]).filter(p=>p.vendor===entry.name&&p.projectId===it.projId).reduce((s,p)=>s+num(p.amount),0)
                   const applied = it.nego2||it.nego1||it.contract||0
                   return (
@@ -838,9 +839,9 @@ function VendorDetail({entry,vendorsDB,setVendorsDB,vendorPayments,setVendorPaym
 
           {/* 수동 지급 등록 */}
           <SCard title="📝 수동 지급 등록" note="직접 입력한 지급 내역">
-            {canWrite&&entry.items.length>0&&(
+            {canWrite&&items.length>0&&(
               <div style={{background:"#F8FAFC",borderRadius:10,padding:"12px 14px",marginBottom:12,border:"1px solid #E5E7EB",display:"flex",gap:7,flexWrap:"wrap",alignItems:"flex-end"}}>
-                <div><label style={S.lbl()}>프로젝트</label><select value={pProj} onChange={e=>setPProj(e.target.value)} style={S.inp(160)}>{entry.items.map(it=><option key={it.projId} value={it.projId}>{it.projName?.slice(0,14)}</option>)}</select></div>
+                <div><label style={S.lbl()}>프로젝트</label><select value={pProj} onChange={e=>setPProj(e.target.value)} style={S.inp(160)}>{items.map(it=><option key={it.projId} value={it.projId}>{it.projName?.slice(0,14)}</option>)}</select></div>
                 <div><label style={S.lbl()}>공종</label><input value={pCat} onChange={e=>setPCat(e.target.value)} style={S.inp(90)} placeholder="구조"/></div>
                 <div><label style={S.lbl()}>금액(원)</label><input type="number" value={pAmt} onChange={e=>setPAmt(e.target.value)} style={S.inp(130)}/></div>
                 <div><label style={S.lbl()}>지급일</label><input type="date" value={pDate} onChange={e=>setPDate(e.target.value)} style={S.inp(140)}/></div>
