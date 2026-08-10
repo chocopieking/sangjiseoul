@@ -7,17 +7,18 @@ const STATUS_COLOR   = {재직:"#059669",휴직:"#D97706",파견:"#0E9C8C",퇴�
 const STATUS_BG      = {재직:"#D1FAE5",휴직:"#FEF3C7",파견:"#E3F6F3",퇴사:"#FEE2E2",계약직:"#E0F7FA",비카운트:"#F3F4F6"}
 // 인원 집계 제외 상태 (본부별 현황에 반영 안 됨)
 const EXCLUDE_FROM_COUNT = new Set(["퇴사","계약직","비카운트"])
-const RANK_ORDER = ["회장","부회장","사장","부사장","전무","전무보","상무","상무보","이사","이사대우","부장","차장","과장","대리","주임","사원","연구원",""]
+const RANK_ORDER = ["회장","고문","부회장","사장","부사장","전무","전무보","상무","상무보","이사","이사대우","부장","차장","과장","대리","주임","사원","연구원",""]
 
 const DEPT_MAP = {
   "설계1본부":"설계1본부","설계1":"설계1본부",
   "설계2본부":"설계2본부","설계2":"설계2본부",
   "주거디자인본부":"주거디자인본부","주거":"주거디자인본부","주거디자인":"주거디자인본부",
   "디자인본부":"디자인본부","디자인":"디자인본부","디본":"디자인본부",
-  "디자인인랩실":"디자인인랩실","인랩실":"디자인인랩실","인랩":"디자인인랩실",
+  "디자인인랩실":"디자인인랩실","인랩실":"디자인인랩실","인랩":"디자인인랩실","디자인랩실":"디자인인랩실",
   "운영지원본부":"운영지원본부","운영지원":"운영지원본부","경영진":"경영진",
   "전략기획본부":"전략기획본부","전략기획":"전략기획본부",
-  "감리단":"감리단","파트장":"파트장","파트":"파트장",
+  "감리단":"감리단",
+  "설계파트":"설계파트","디자인파트":"디자인파트","파트장":"파트장","파트":"파트장",
   "고문":"경영진","부회장":"경영진",
 }
 const normDept = d => DEPT_MAP[d?.trim()]||d?.trim()||""
@@ -82,8 +83,9 @@ const DEFAULT_ORG = {
     },
     { id:"ceo", title:"강순일", role:"사장/부장장", color:"#0E9C8C",
       children:[
-        { id:"design_part", title:"설계파트(28명)", role:"홍성필 전무보 / 설계·디자인파트장", color:"#059669",
+        { id:"design_part", title:"설계파트(28명)", role:"", color:"#059669",
           children:[
+            { id:"design_part_head", title:"홍성필", role:"전무보/설계파트장", color:"#047857", children:[] },
             { id:"d1", title:"설계1본부(9명)", role:"", color:"#10B981",
               children:[
                 { id:"d1_head", title:"박희태", role:"상무보/본부장(75)", color:"#34D399", children:[] },
@@ -120,18 +122,11 @@ const DEFAULT_ORG = {
                 { id:"d2_hm",   title:"허성무", role:"사원(00/3)",       color:"#FFF7ED", children:[] },
               ]
             },
-            { id:"sup", title:"감리단(3명)", role:"", color:"#64748B",
-              children:[
-                { id:"sup_kg",  title:"김헌구", role:"이사(78)/KRA·현장", color:"#94A3B8", children:[] },
-                { id:"sup_kh",  title:"이경호", role:"이사대우(56)/PM:김헌준·홍성필", color:"#CBD5E1", children:[] },
-                { id:"sup_jk",  title:"정경호", role:"이사대우(71)",      color:"#CBD5E1", children:[] },
-                { id:"sup_jy",  title:"이지영", role:"과장(84)",          color:"#E2E8F0", children:[] },
-              ]
-            },
           ]
         },
-        { id:"viz_part", title:"디자인파트(16명)", role:"김한준 전무 / 디자인파트장", color:"#7C3AED",
+        { id:"viz_part", title:"디자인파트(16명)", role:"", color:"#7C3AED",
           children:[
+            { id:"viz_part_head", title:"김한준", role:"전무/디자인파트장", color:"#6D28D9", children:[] },
             { id:"d4", title:"디자인본부(8명)", role:"", color:"#8B5CF6",
               children:[
                 { id:"d4_head", title:"천용화", role:"상무보(77)/수퍼바이저", color:"#A78BFA", children:[] },
@@ -159,14 +154,22 @@ const DEFAULT_ORG = {
                 { id:"d3_pc",   title:"박찬희", role:"사원(97/2)",            color:"#EDE9FE", children:[] },
               ]
             },
-            { id:"d_lab", title:"디자인인랩실(4명)", role:"", color:"#DB2777",
-              children:[
-                { id:"lab_head", title:"김흥수", role:"이사/본부장",          color:"#EC4899", children:[] },
-                { id:"lab1",     title:"이가영", role:"대리(99/4)",           color:"#F9A8D4", children:[] },
-                { id:"lab2",     title:"안서현", role:"사원(99/2)",           color:"#FBCFE8", children:[] },
-                { id:"lab3",     title:"오샘",   role:"사원(98/1)",           color:"#FBCFE8", children:[] },
-              ]
-            },
+          ]
+        },
+        { id:"d_lab", title:"디자인인랩실(4명)", role:"", color:"#DB2777",
+          children:[
+            { id:"lab_head", title:"김흥수", role:"이사/본부장",          color:"#EC4899", children:[] },
+            { id:"lab1",     title:"이가영", role:"대리(99/4)",           color:"#F9A8D4", children:[] },
+            { id:"lab2",     title:"안서현", role:"사원(99/2)",           color:"#FBCFE8", children:[] },
+            { id:"lab3",     title:"오샘",   role:"사원(98/1)",           color:"#FBCFE8", children:[] },
+          ]
+        },
+        { id:"sup", title:"감리단(3명)", role:"", color:"#64748B",
+          children:[
+            { id:"sup_kg",  title:"김헌구", role:"이사(78)/KRA·현장", color:"#94A3B8", children:[] },
+            { id:"sup_kh",  title:"이경호", role:"이사대우(56)/PM:김헌준·홍성필", color:"#CBD5E1", children:[] },
+            { id:"sup_jk",  title:"정경호", role:"이사대우(71)",      color:"#CBD5E1", children:[] },
+            { id:"sup_jy",  title:"이지영", role:"과장(84)",          color:"#E2E8F0", children:[] },
           ]
         },
       ]
