@@ -240,6 +240,7 @@ export function VendorsTab({projects,setProjects,vendorsDB,setVendorsDB,vendorPa
         <VendorDetail entry={directory.find(d=>d.name===selVendor.name)||selVendor}
           vendorsDB={vendorsDB} setVendorsDB={setVendorsDB}
           vendorPayments={vendorPayments} setVendorPayments={setVendorPayments}
+          projects={projects} setProjects={setProjects}
           canWrite={canWrite} currentUser={currentUser}
           onBack={()=>{setView("list");setSelVendor(null)}}/>
       )}
@@ -457,7 +458,7 @@ function VendorList({directory,search,setSearch,vendorsDB,onSelect}) {
 // ════════════════════════════════════════════════════════════
 // 2) 업체 상세 — 기본정보 / 수행 프로젝트 / 지급내역
 // ════════════════════════════════════════════════════════════
-function VendorDetail({entry,vendorsDB,setVendorsDB,vendorPayments,setVendorPayments,canWrite,currentUser,onBack}) {
+function VendorDetail({entry,vendorsDB,setVendorsDB,vendorPayments,setVendorPayments,projects,setProjects,canWrite,currentUser,onBack}) {
   // vendorsDB에서 이름 또는 id로 매칭
   const info = useMemo(()=>{
     if(!vendorsDB) return VENDOR_EMPTY
@@ -475,6 +476,35 @@ function VendorDetail({entry,vendorsDB,setVendorsDB,vendorPayments,setVendorPaym
   const start  = ()=>{ setDraft({...VENDOR_EMPTY,...info}); setEditing(true) }
   const save   = ()=>{ setVendorsDB(prev=>({...prev,[entry.name]:draft})); setEditing(false) }
   const cancel = ()=>{ setEditing(false); setDraft({...VENDOR_EMPTY,...info}) }
+
+  // 업체명 변경 — 이 업체명을 쓰는 모든 프로젝트의 모든 회차 실행계획서에 한번에 반영
+  const [renaming,setRenaming] = useState(false)
+  const [renameVal,setRenameVal] = useState(entry.name)
+  const renameVendor = () => {
+    const newName = renameVal.trim()
+    if(!newName || newName===entry.name){ setRenaming(false); return }
+    if(!window.confirm(`"${entry.name}" → "${newName}"(으)로 변경합니다.\n\n이 이름을 쓰는 모든 프로젝트의 실행계획서에 한번에 반영됩니다. 계속할까요?`)) return
+    setProjects?.(prev=>prev.map(p=>({
+      ...p,
+      versions:(p.versions||[]).map(ver=>({
+        ...ver,
+        vendors:(ver.vendors||[]).map(v=>v.name===entry.name?{...v,name:newName}:v)
+      }))
+    })))
+    setVendorsDB(prev=>{
+      const next = {...prev}
+      const idKey = Object.keys(next).find(k=>next[k]?.name===entry.name)
+      if(idKey) next[idKey] = {...next[idKey], name:newName}
+      if(next[entry.name]){
+        next[newName] = {...next[entry.name], name:newName}
+        delete next[entry.name]
+      }
+      return next
+    })
+    setVendorPayments?.(prev=>(prev||[]).map(p=>p.vendor===entry.name?{...p,vendor:newName}:p))
+    setRenaming(false)
+    onBack()
+  }
 
   const myPayments = (vendorPayments||[]).filter(p=>p.vendor===entry.name)
 
@@ -537,9 +567,22 @@ function VendorDetail({entry,vendorsDB,setVendorsDB,vendorPayments,setVendorPaym
       <button onClick={onBack} style={{...S.btn(C.grayL,"#555"),marginBottom:12,padding:"7px 14px",fontSize:13.2}}>← 목록으로</button>
 
       {/* 헤더 */}
+      {renaming && (
+        <div style={{background:"#FFFBEB",border:"1.5px solid #F59E0B",borderRadius:10,padding:"12px 16px",marginBottom:10,display:"flex",gap:8,alignItems:"center",flexWrap:"wrap"}}>
+          <span style={{fontSize:13.2,fontWeight:700,color:"#92400E"}}>새 업체명:</span>
+          <input value={renameVal} onChange={e=>setRenameVal(e.target.value)} autoFocus
+            onKeyDown={e=>{ if(e.key==="Enter") renameVendor(); if(e.key==="Escape") setRenaming(false) }}
+            style={{...S.inp(240)}}/>
+          <button onClick={renameVendor} style={{...S.btn("#F59E0B"),padding:"6px 13px",fontSize:13.2}}>✓ 변경 (모든 프로젝트에 반영)</button>
+          <button onClick={()=>setRenaming(false)} style={{...S.btn(C.grayL,C.gray),padding:"6px 13px",fontSize:13.2}}>취소</button>
+        </div>
+      )}
       <SCard title={`🏢 ${entry.name}`} note={`참여 프로젝트 ${entry.items.length}건 · 누적 계약액 ${fE(entry.total/1e8)}`}
         actions={canWrite&&(!editing
-          ?<button onClick={start} style={{...S.btn(C.navyL,C.navyM),padding:"6px 13px",fontSize:13.2}}>✏ 정보 수정</button>
+          ?<div style={{display:"flex",gap:8}}>
+            {!renaming && <button onClick={()=>{setRenameVal(entry.name);setRenaming(true)}} style={{...S.btn(C.amberL,C.amber),padding:"6px 13px",fontSize:13.2}}>✎ 이름 변경</button>}
+            <button onClick={start} style={{...S.btn(C.navyL,C.navyM),padding:"6px 13px",fontSize:13.2}}>✏ 정보 수정</button>
+          </div>
           :<div style={{display:"flex",gap:8}}>
             <button onClick={save} style={{...S.btn(C.green),padding:"6px 13px",fontSize:13.2}}>저장</button>
             <button onClick={cancel} style={{...S.btn(C.grayL,C.gray),padding:"6px 13px",fontSize:13.2}}>취소</button>
