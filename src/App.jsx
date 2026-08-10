@@ -2356,6 +2356,10 @@ function SimplePieChart({data=[], total=0}) {
   const isAdmin = currentUser?.role==="admin"
   const toast   = useToast()
 
+  // ── 월수금 집계 (당해연도 필터) — targets 계산에 필요해서 여기로 올림 (원래는 훨씬 아래에 있어서
+  // "초기화 전 접근" 오류가 나고 있었음)
+  const [viewYear, setViewYear] = useState(YR)
+
   const targets   = yearTargets[viewYear] || (viewYear===YR ? {salesTarget:145, contractTarget:170} : {salesTarget:0, contractTarget:0})
   const tSales    = targets.salesTarget    || 0
   const tContract = targets.contractTarget || 0
@@ -2388,7 +2392,6 @@ function SimplePieChart({data=[], total=0}) {
   const pct = (a,b) => b>0?Math.round(a/b*100):0
 
   // ── 월수금 집계 (당해연도 필터) ──────────────────────────
-  const [viewYear, setViewYear] = useState(YR)
   const availYears = useMemo(()=>{
     const ys = new Set()
     cashItems.forEach(i=>{ const d=fixDate(i.paidDate||i.expectedDate||""); if(d) ys.add(d.slice(0,4)) })
@@ -3601,6 +3604,7 @@ function ProjectsTab({projects,setProjects,selProjId,setSelProjId,selVerIdx,setS
   const [dateFromFilter, setDateFromFilter] = useState("")
   const [dateToFilter,   setDateToFilter]   = useState("")
   const [areaMinFilter,  setAreaMinFilter]  = useState("")
+  const [deptMultiFilter,setDeptMultiFilter] = useState([]) // 상세검색용 본부 다중선택
   const [showAdvFilter,  setShowAdvFilter]  = useState(false)
   const [projPage,       setProjPage]       = useState(1)
   const PROJ_PER_PAGE = 30
@@ -3624,11 +3628,15 @@ function ProjectsTab({projects,setProjects,selProjId,setSelProjId,selVerIdx,setS
   const selVer  = selProj?.versions?.[selVerIdx]
   const allCats = useMemo(()=>[...new Set(projects.flatMap(p=>(p.versions||[]).flatMap(v=>(v.vendors||[]).map(vd=>vd.cat))))].sort(),[projects])
 
+  // 프로젝트 목록 표에 실제로 등장하는 본부 전체 (상세검색 다중선택용)
+  const allDepts = useMemo(()=>[...new Set(projects.flatMap(p=>p.depts||[]))].sort(),[projects])
+
   // 상세 필터링
   const filtered = useMemo(()=>{
     const q = searchQuery.toLowerCase().trim()
     return projects.filter(p=>{
       if(deptFilter && !p.depts?.some(d=>d.includes(deptFilter))) return false
+      if(deptMultiFilter.length && !p.depts?.some(d=>deptMultiFilter.includes(d))) return false
       if(typeFilter && p.type!==typeFilter) return false
       if(pmFilter && !(p.pm||"").toLowerCase().includes(pmFilter.toLowerCase())) return false
       if(dateFromFilter && (p.contractDate||"") < dateFromFilter) return false
@@ -3640,13 +3648,24 @@ function ProjectsTab({projects,setProjects,selProjId,setSelProjId,selVerIdx,setS
       if(q && !`${p.name||""} ${p.code||""} ${p.pm||""} ${(p.depts||[]).join(" ")} ${p.clientName||p.client||""}`.toLowerCase().includes(q)) return false
       return true
     })
-  },[projects,deptFilter,typeFilter,searchQuery,pmFilter,dateFromFilter,dateToFilter,areaMinFilter])
+  },[projects,deptFilter,deptMultiFilter,typeFilter,searchQuery,pmFilter,dateFromFilter,dateToFilter,areaMinFilter])
 
-  const totalProjPages = Math.ceil(filtered.length / PROJ_PER_PAGE)
-  const pagedProjects  = filtered.slice((projPage-1)*PROJ_PER_PAGE, projPage*PROJ_PER_PAGE)
+  // 표 헤더 클릭 정렬 — 평당단가처럼 계산이 필요한 항목은 미리 계산해서 넣어둠
+  const {sortKey:projSortKey, sortFn:projSortFn, SortTh:ProjSortTh} = useSortTable("name","asc")
+  const sortedProjects = useMemo(()=>{
+    const withComputed = filtered.map(p=>({
+      ...p,
+      _upy: (p.floorArea>0 && p.serviceFee>0) ? Math.round(p.serviceFee/toPy(p.floorArea)) : 0,
+      _deptStr: (p.depts||[]).join(", "),
+    }))
+    return projSortKey ? [...withComputed].sort(projSortFn) : withComputed
+  },[filtered, projSortKey, projSortFn])
+
+  const totalProjPages = Math.ceil(sortedProjects.length / PROJ_PER_PAGE)
+  const pagedProjects  = sortedProjects.slice((projPage-1)*PROJ_PER_PAGE, projPage*PROJ_PER_PAGE)
 
   const resetFilters = () => {
-    setDeptFilter(""); setTypeFilter(""); setSearchQuery(""); setPmFilter("")
+    setDeptFilter(""); setDeptMultiFilter([]); setTypeFilter(""); setSearchQuery(""); setPmFilter("")
     setDateFromFilter(""); setDateToFilter(""); setAreaMinFilter(""); setProjPage(1)
   }
 
@@ -3822,7 +3841,7 @@ function ProjectsTab({projects,setProjects,selProjId,setSelProjId,selVerIdx,setS
                 style={{padding:"8px 14px",background:showAdvFilter?"#0E9C8C":"#F8FAFC",color:showAdvFilter?"#fff":"#64748B",border:"none",borderRadius:8,fontSize:14.3,fontWeight:600,cursor:"pointer"}}>
                 {showAdvFilter?"▲ 간단":"▼ 상세검색"}
               </button>
-              {(searchQuery||deptFilter||typeFilter||pmFilter||dateFromFilter||dateToFilter||areaMinFilter)&&(
+              {(searchQuery||deptFilter||deptMultiFilter.length||typeFilter||pmFilter||dateFromFilter||dateToFilter||areaMinFilter)&&(
                 <button onClick={resetFilters}
                   style={{padding:"8px 12px",background:"#FEE2E2",color:"#DC2626",border:"none",borderRadius:8,fontSize:14.3,fontWeight:700,cursor:"pointer"}}>
                   ✕ 초기화
@@ -3833,7 +3852,8 @@ function ProjectsTab({projects,setProjects,selProjId,setSelProjId,selVerIdx,setS
               </span>
             </div>
             {showAdvFilter&&(
-              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr 1fr",gap:8,paddingTop:8,borderTop:"1px solid #F3F4F6"}}>
+              <div style={{paddingTop:8,borderTop:"1px solid #F3F4F6"}}>
+              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr 1fr",gap:8,marginBottom:10}}>
                 <div>
                   <label style={{fontSize:12,fontWeight:700,color:"#0E9C8C",display:"block",marginBottom:3}}>PM / 본부장</label>
                   <input value={pmFilter} onChange={e=>{setPmFilter(e.target.value);setProjPage(1)}}
@@ -3854,6 +3874,25 @@ function ProjectsTab({projects,setProjects,selProjId,setSelProjId,selVerIdx,setS
                   <input type="number" value={areaMinFilter} onChange={e=>{setAreaMinFilter(e.target.value);setProjPage(1)}}
                     placeholder="예: 500" style={{width:"100%",padding:"7px 10px",border:"1px solid #E5E7EB",borderRadius:7,fontSize:14.3,fontFamily:"inherit",outline:"none",boxSizing:"border-box"}}/>
                 </div>
+              </div>
+              <div>
+                <label style={{fontSize:12,fontWeight:700,color:"#0E9C8C",display:"block",marginBottom:5}}>본부 (여러 개 선택 가능)</label>
+                <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+                  {allDepts.map(d=>{
+                    const on = deptMultiFilter.includes(d)
+                    return (
+                      <button key={d} type="button"
+                        onClick={()=>{ setDeptMultiFilter(prev=>on?prev.filter(x=>x!==d):[...prev,d]); setProjPage(1) }}
+                        style={{padding:"5px 12px",borderRadius:20,fontSize:13,fontWeight:700,cursor:"pointer",
+                          border:on?"1.5px solid #0E9C8C":"1.5px solid #E5E7EB",
+                          background:on?"#E3F6F3":"#fff", color:on?"#0E9C8C":"#64748B"}}>
+                        {d}
+                      </button>
+                    )
+                  })}
+                  {allDepts.length===0 && <span style={{fontSize:13,color:"#94A3B8"}}>등록된 본부가 없습니다.</span>}
+                </div>
+              </div>
               </div>
             )}
           </div>
@@ -3890,7 +3929,16 @@ function ProjectsTab({projects,setProjects,selProjId,setSelProjId,selVerIdx,setS
                 <thead><tr>
                   <th style={PTH("center")}>비교</th>
                   <th style={PTH("center")}>연번</th>
-                  {["구분","프로젝트명","본부","PM","용역비(억)","평당단가","지분%","연면적㎡","진행%","다운"].map((h,i)=><th key={h+i} style={PTH(i>=4&&i<=8?"right":"left")}>{h}</th>)}
+                  <ProjSortTh label="구분" skey="type" align="left" style={{padding:"8px 10px",fontSize:14}}/>
+                  <ProjSortTh label="프로젝트명" skey="name" align="left" style={{padding:"8px 10px",fontSize:14}}/>
+                  <ProjSortTh label="본부" skey="_deptStr" align="left" style={{padding:"8px 10px",fontSize:14}}/>
+                  <ProjSortTh label="PM" skey="pm" align="left" style={{padding:"8px 10px",fontSize:14}}/>
+                  <ProjSortTh label="용역비(억)" skey="serviceFee" align="right" style={{padding:"8px 10px",fontSize:14}}/>
+                  <ProjSortTh label="평당단가" skey="_upy" align="right" style={{padding:"8px 10px",fontSize:14}}/>
+                  <ProjSortTh label="지분%" skey="shareRatio" align="right" style={{padding:"8px 10px",fontSize:14}}/>
+                  <ProjSortTh label="연면적㎡" skey="floorArea" align="right" style={{padding:"8px 10px",fontSize:14}}/>
+                  <ProjSortTh label="진행%" skey="prog" align="right" style={{padding:"8px 10px",fontSize:14}}/>
+                  <th style={PTH("left")}>다운</th>
                   {canWrite&&<th style={PTH("center")}>편집</th>}
                 </tr></thead>
                 <tbody>
