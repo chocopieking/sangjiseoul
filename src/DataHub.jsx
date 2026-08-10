@@ -132,8 +132,9 @@ export function DataHubTab({
 const STAFF_GROUPS = [
   {label:"설계파트", headDept:"설계파트장", depts:["설계1본부","설계2본부"], color:"#059669"},
   {label:"디자인파트", headDept:"디자인파트장", depts:["디자인본부","주거디자인본부"], color:"#7C3AED"},
-  {label:"경영진", headDept:null, depts:["고문","부회장"], color:"#0C447C"},
+  {label:"경영진", headDept:null, depts:["부문장","고문","부회장"], color:"#0C447C"},
 ]
+const STAFF_ORDER_KEY = "sjs_staff_row_order"
 
 function StaffSection({deptStaff,setDeptStaff,staffTarget,setStaffTarget,staffMonthly,setStaffMonthly,years,STAFF_DEPTS,DEPT_COLORS,canEditDept,currentUser,saveVersion}) {
   const [editing,setEditing] = useState(false)
@@ -150,9 +151,34 @@ function StaffSection({deptStaff,setDeptStaff,staffTarget,setStaffTarget,staffMo
   const upd   = (dept,field,v)=>setDraft(p=>({...p,[dept]:{...p[dept],[field]:num(v)}}))
   const editableAny = STAFF_DEPTS.some(canEditDept)
 
-  // 그룹에 속한 본부(+파트장 항목)를 먼저 그룹 단위로 묶고, 그룹에 안 속한 나머지 본부는 원래 순서 그대로 뒤에 붙임
+  // 그룹에 속한 본부(+파트장/부문장 항목)를 먼저 그룹 단위로 묶고, 그룹에 안 속한 나머지 본부는 순서 목록 뒤에 붙임
   const groupedDeptSet = new Set(STAFF_GROUPS.flatMap(g=>[g.headDept,...g.depts]))
   const ungroupedDepts = STAFF_DEPTS.filter(d=>!groupedDeptSet.has(d))
+
+  // 맨 위 줄(그룹 또는 그룹에 안 속한 본부)의 표시 순서 — 드래그로 바꾼 순서를 저장해뒀다가 그대로 씀
+  const [rowOrder,setRowOrder] = useState(()=>{
+    try{ const s=JSON.parse(localStorage.getItem(STAFF_ORDER_KEY)||"null"); if(Array.isArray(s)&&s.length) return s }catch{}
+    return null
+  })
+  const defaultTopKeys = [...STAFF_GROUPS.map(g=>`group:${g.label}`), ...ungroupedDepts.map(d=>`dept:${d}`)]
+  const topKeys = (()=>{
+    const base=(rowOrder||[]).filter(k=>defaultTopKeys.includes(k))
+    defaultTopKeys.forEach(k=>{ if(!base.includes(k)) base.push(k) })
+    return base
+  })()
+  const persistOrder = order => { setRowOrder(order); try{ localStorage.setItem(STAFF_ORDER_KEY, JSON.stringify(order)) }catch{} }
+  const [dragKey,setDragKey] = useState(null)
+  const [dragOverKey,setDragOverKey] = useState(null)
+  const dropReorder = targetKey => {
+    setDragOverKey(null)
+    if(!dragKey || dragKey===targetKey){ setDragKey(null); return }
+    const order = topKeys.slice()
+    const from=order.indexOf(dragKey), to=order.indexOf(targetKey)
+    if(from<0||to<0) return
+    order.splice(from,1); order.splice(to,0,dragKey)
+    persistOrder(order)
+    setDragKey(null)
+  }
 
   const renderDeptRow = (dept,i,indent=false) => {
     const st = work[dept]||{total:0}
@@ -177,6 +203,14 @@ function StaffSection({deptStaff,setDeptStaff,staffTarget,setStaffTarget,staffMo
   }
 
   let rowIdx = 0
+  const dragProps = key => ({
+    draggable:true,
+    onDragStart:()=>setDragKey(key),
+    onDragOver:e=>{ e.preventDefault(); if(dragOverKey!==key) setDragOverKey(key) },
+    onDragLeave:()=>{ if(dragOverKey===key) setDragOverKey(null) },
+    onDrop:e=>{ e.preventDefault(); dropReorder(key) },
+    onDragEnd:()=>{ setDragKey(null); setDragOverKey(null) },
+  })
 
   return (
     <>
@@ -184,7 +218,7 @@ function StaffSection({deptStaff,setDeptStaff,staffTarget,setStaffTarget,staffMo
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",flexWrap:"wrap",gap:10,marginBottom:4}}>
         <div>
           <div style={cardTitle}>👥 본부별 인원현황</div>
-          
+          <div style={{fontSize:12.1,color:"#94A3B8"}}>⠿ 를 드래그하면 그룹·본부 표시 순서를 바꿀 수 있습니다.</div>
         </div>
         {editableAny && (!editing
           ? <button onClick={start} style={S.btn(C.navyL,C.navyM)}><i className="ti ti-edit" aria-hidden="true"/> 인원 입력</button>
@@ -199,39 +233,65 @@ function StaffSection({deptStaff,setDeptStaff,staffTarget,setStaffTarget,staffMo
           <thead><tr>
             <th style={S.th()}>본부</th>
             {STAFF_FIELDS.map(([k,l])=><th key={k} style={S.th("right")}>{l}(명)</th>)}
-            
             <th style={S.th("center")}>권한</th>
           </tr></thead>
           <tbody>
-            {STAFF_GROUPS.map(group=>{
-              const present = group.depts.filter(d=>STAFF_DEPTS.includes(d))
-              const hasHead = STAFF_DEPTS.includes(group.headDept)
-              if(present.length===0 && !hasHead) return null
-              const groupTotal = present.reduce((s,d)=>s+num(work[d]?.total),0) + (hasHead?num(work[group.headDept]?.total):0)
-              return (
-                <Fragment key={group.label}>
-                  <tr style={{background:group.color+"14"}}>
-                    <td style={{...S.td("left"),fontWeight:800,color:group.color}}>
-                      <span style={{display:"inline-block",width:11,height:11,borderRadius:3,background:group.color,marginRight:8,verticalAlign:"middle"}}/>
-                      {group.label} <span style={{fontWeight:400,fontSize:12.1,color:"#94A3B8"}}>({[hasHead?group.headDept:null,...present].filter(Boolean).join("+")})</span>
-                    </td>
-                    <td style={{...S.td(),fontWeight:800,color:group.color}}>{groupTotal.toFixed(1)}</td>
-                    <td/>
-                  </tr>
-                  {hasHead && renderDeptRow(group.headDept, rowIdx++, true)}
-                  {present.map(d=>renderDeptRow(d, rowIdx++, true))}
-                  {!hasHead && group.headDept && (
-                    <tr>
-                      <td style={{...S.td("left"),paddingLeft:34,color:"#CBD5E1",fontStyle:"italic"}}>
-                        + {group.headDept} <span style={{fontSize:12}}>(아직 본부 목록에 없음 — "본부 관리"에서 "{group.headDept}"를 추가하면 여기서 인원 입력 가능)</span>
+            {topKeys.map(key=>{
+              if(key.startsWith("group:")){
+                const label = key.slice(6)
+                const group = STAFF_GROUPS.find(g=>g.label===label)
+                if(!group) return null
+                const present = group.depts.filter(d=>STAFF_DEPTS.includes(d))
+                const hasHead = STAFF_DEPTS.includes(group.headDept)
+                if(present.length===0 && !hasHead) return null
+                const groupTotal = present.reduce((s,d)=>s+num(work[d]?.total),0) + (hasHead?num(work[group.headDept]?.total):0)
+                return (
+                  <Fragment key={key}>
+                    <tr {...dragProps(key)} style={{background:dragOverKey===key?group.color+"30":group.color+"14",opacity:dragKey===key?0.4:1,outline:dragOverKey===key?`2px dashed ${group.color}`:"none",outlineOffset:-2,cursor:"grab"}}>
+                      <td style={{...S.td("left"),fontWeight:800,color:group.color}}>
+                        <span style={{color:"#CBD5E1",marginRight:6,fontSize:12}}>⠿</span>
+                        <span style={{display:"inline-block",width:11,height:11,borderRadius:3,background:group.color,marginRight:8,verticalAlign:"middle"}}/>
+                        {group.label} <span style={{fontWeight:400,fontSize:12.1,color:"#94A3B8"}}>({[hasHead?group.headDept:null,...present].filter(Boolean).join("+")})</span>
                       </td>
-                      <td/><td/>
+                      <td style={{...S.td(),fontWeight:800,color:group.color}}>{groupTotal.toFixed(1)}</td>
+                      <td/>
                     </tr>
-                  )}
-                </Fragment>
+                    {hasHead && renderDeptRow(group.headDept, rowIdx++, true)}
+                    {present.map(d=>renderDeptRow(d, rowIdx++, true))}
+                    {!hasHead && group.headDept && (
+                      <tr>
+                        <td style={{...S.td("left"),paddingLeft:34,color:"#CBD5E1",fontStyle:"italic"}}>
+                          + {group.headDept} <span style={{fontSize:12}}>(아직 본부 목록에 없음 — "본부 관리"에서 "{group.headDept}"를 추가하면 여기서 인원 입력 가능)</span>
+                        </td>
+                        <td/><td/>
+                      </tr>
+                    )}
+                  </Fragment>
+                )
+              }
+              const dept = key.slice(5)
+              if(!STAFF_DEPTS.includes(dept)) return null
+              const st = work[dept]||{total:0}
+              const editableHere = editing && canEditDept(dept)
+              return (
+                <tr key={key} {...dragProps(key)} style={{background:dragOverKey===key?"#F0FBF9":(rowIdx%2===0?"var(--color-background-primary,#fff)":"var(--color-background-secondary,#f8f8f6)"),opacity:dragKey===key?0.4:1,outline:dragOverKey===key?"2px dashed #0E9C8C":"none",outlineOffset:-2,cursor:"grab"}}>
+                  <td style={{...S.td("left"),fontWeight:700}}>
+                    <span style={{color:"#CBD5E1",marginRight:6,fontSize:12}}>⠿</span>
+                    <span style={{display:"inline-block",width:11,height:11,borderRadius:3,background:DEPT_COLORS[dept]||C.gray,marginRight:8,verticalAlign:"middle"}}/>{dept}
+                  </td>
+                  {STAFF_FIELDS.map(([k])=>(
+                    <td key={k} style={S.td()}>
+                      {editableHere
+                        ? <input type="number" step="0.1" value={st[k]} onChange={e=>upd(dept,k,e.target.value)} style={S.inp()}/>
+                        : <span style={{fontWeight:k==="total"?700:400,fontSize:k==="total"?16:14}}>{num(st[k]).toFixed(1)}</span>}
+                    </td>
+                  ))}
+                  <td style={S.td("center")}>{canEditDept(dept)
+                    ? <span style={{...S.bdg(C.greenL,"#27500A"),fontSize:12}}>입력가능</span>
+                    : <span style={{...S.bdg(C.grayL,C.gray),fontSize:12}}>조회</span>}</td>
+                </tr>
               )
             })}
-            {ungroupedDepts.map(d=>renderDeptRow(d, rowIdx++))}
             <tr style={{background:"var(--color-background-secondary,#f0f0ee)",fontWeight:700}}>
               <td style={S.td("left")}>전사 합계</td>
               <td style={{...S.td(),fontSize:17.6,color:C.navyM,fontWeight:800}}>{STAFF_DEPTS.reduce((s,d)=>s+num(work[d]?.total),0).toFixed(1)}명</td>
