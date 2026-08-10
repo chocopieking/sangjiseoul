@@ -130,8 +130,8 @@ export function DataHubTab({
 // 인원현황 표에서 "설계파트/디자인파트"로 시각적으로 묶어 보여주기 위한 그룹 정의.
 // 실제 본부 데이터(STAFF_DEPTS)는 그대로 두고, 표시할 때만 묶어서 소계를 같이 보여줌 — 본부별 숫자는 그대로 따로 관리됨.
 const STAFF_GROUPS = [
-  {label:"설계파트", depts:["설계1본부","설계2본부"], color:"#059669"},
-  {label:"디자인파트", depts:["디자인본부","주거디자인본부"], color:"#7C3AED"},
+  {label:"설계파트", headDept:"설계파트장", depts:["설계1본부","설계2본부"], color:"#059669"},
+  {label:"디자인파트", headDept:"디자인파트장", depts:["디자인본부","주거디자인본부"], color:"#7C3AED"},
 ]
 
 function StaffSection({deptStaff,setDeptStaff,staffTarget,setStaffTarget,staffMonthly,setStaffMonthly,years,STAFF_DEPTS,DEPT_COLORS,canEditDept,currentUser,saveVersion}) {
@@ -149,8 +149,8 @@ function StaffSection({deptStaff,setDeptStaff,staffTarget,setStaffTarget,staffMo
   const upd   = (dept,field,v)=>setDraft(p=>({...p,[dept]:{...p[dept],[field]:num(v)}}))
   const editableAny = STAFF_DEPTS.some(canEditDept)
 
-  // 그룹에 속한 본부를 먼저 그룹 단위로 묶고, 그룹에 안 속한 나머지 본부는 원래 순서 그대로 뒤에 붙임
-  const groupedDeptSet = new Set(STAFF_GROUPS.flatMap(g=>g.depts))
+  // 그룹에 속한 본부(+파트장 항목)를 먼저 그룹 단위로 묶고, 그룹에 안 속한 나머지 본부는 원래 순서 그대로 뒤에 붙임
+  const groupedDeptSet = new Set(STAFF_GROUPS.flatMap(g=>[g.headDept,...g.depts]))
   const ungroupedDepts = STAFF_DEPTS.filter(d=>!groupedDeptSet.has(d))
 
   const renderDeptRow = (dept,i,indent=false) => {
@@ -204,19 +204,29 @@ function StaffSection({deptStaff,setDeptStaff,staffTarget,setStaffTarget,staffMo
           <tbody>
             {STAFF_GROUPS.map(group=>{
               const present = group.depts.filter(d=>STAFF_DEPTS.includes(d))
-              if(present.length===0) return null
-              const groupTotal = present.reduce((s,d)=>s+num(work[d]?.total),0)
+              const hasHead = STAFF_DEPTS.includes(group.headDept)
+              if(present.length===0 && !hasHead) return null
+              const groupTotal = present.reduce((s,d)=>s+num(work[d]?.total),0) + (hasHead?num(work[group.headDept]?.total):0)
               return (
                 <Fragment key={group.label}>
                   <tr style={{background:group.color+"14"}}>
                     <td style={{...S.td("left"),fontWeight:800,color:group.color}}>
                       <span style={{display:"inline-block",width:11,height:11,borderRadius:3,background:group.color,marginRight:8,verticalAlign:"middle"}}/>
-                      {group.label} <span style={{fontWeight:400,fontSize:12.1,color:"#94A3B8"}}>({present.join("+")})</span>
+                      {group.label} <span style={{fontWeight:400,fontSize:12.1,color:"#94A3B8"}}>({[hasHead?group.headDept:null,...present].filter(Boolean).join("+")})</span>
                     </td>
                     <td style={{...S.td(),fontWeight:800,color:group.color}}>{groupTotal.toFixed(1)}</td>
                     <td/>
                   </tr>
+                  {hasHead && renderDeptRow(group.headDept, rowIdx++, true)}
                   {present.map(d=>renderDeptRow(d, rowIdx++, true))}
+                  {!hasHead && (
+                    <tr>
+                      <td style={{...S.td("left"),paddingLeft:34,color:"#CBD5E1",fontStyle:"italic"}}>
+                        + {group.headDept} <span style={{fontSize:12}}>(아직 본부 목록에 없음 — "본부 관리"에서 "{group.headDept}"를 추가하면 여기서 인원 입력 가능)</span>
+                      </td>
+                      <td/><td/>
+                    </tr>
+                  )}
                 </Fragment>
               )
             })}
