@@ -1,7 +1,7 @@
 // ══════════════════════════════════════════════════════════════
 // 데이터관리 탭 — 모든 운영 데이터를 한 곳에서, 본부별 권한으로 입력
 // ══════════════════════════════════════════════════════════════
-import { useState } from "react"
+import { useState, Fragment } from "react"
 import { fE, MONTHS } from "./data.js"
 import { useDepts } from "./DeptContext.jsx"
 
@@ -127,6 +127,13 @@ export function DataHubTab({
 // ════════════════════════════════════════════════════════════
 // 1) 본부 인원현황
 // ════════════════════════════════════════════════════════════
+// 인원현황 표에서 "설계파트/디자인파트"로 시각적으로 묶어 보여주기 위한 그룹 정의.
+// 실제 본부 데이터(STAFF_DEPTS)는 그대로 두고, 표시할 때만 묶어서 소계를 같이 보여줌 — 본부별 숫자는 그대로 따로 관리됨.
+const STAFF_GROUPS = [
+  {label:"설계파트", depts:["설계1본부","설계2본부"], color:"#059669"},
+  {label:"디자인파트", depts:["디자인본부","주거디자인본부"], color:"#7C3AED"},
+]
+
 function StaffSection({deptStaff,setDeptStaff,staffTarget,setStaffTarget,staffMonthly,setStaffMonthly,years,STAFF_DEPTS,DEPT_COLORS,canEditDept,currentUser,saveVersion}) {
   const [editing,setEditing] = useState(false)
   const [draft,setDraft]     = useState(null)
@@ -141,6 +148,34 @@ function StaffSection({deptStaff,setDeptStaff,staffTarget,setStaffTarget,staffMo
   const cancel= ()=>{ setEditing(false); setDraft(null); setNote("") }
   const upd   = (dept,field,v)=>setDraft(p=>({...p,[dept]:{...p[dept],[field]:num(v)}}))
   const editableAny = STAFF_DEPTS.some(canEditDept)
+
+  // 그룹에 속한 본부를 먼저 그룹 단위로 묶고, 그룹에 안 속한 나머지 본부는 원래 순서 그대로 뒤에 붙임
+  const groupedDeptSet = new Set(STAFF_GROUPS.flatMap(g=>g.depts))
+  const ungroupedDepts = STAFF_DEPTS.filter(d=>!groupedDeptSet.has(d))
+
+  const renderDeptRow = (dept,i,indent=false) => {
+    const st = work[dept]||{total:0}
+    const editableHere = editing && canEditDept(dept)
+    return (
+      <tr key={dept} style={{background:i%2===0?"var(--color-background-primary,#fff)":"var(--color-background-secondary,#f8f8f6)"}}>
+        <td style={{...S.td("left"),fontWeight:700,paddingLeft:indent?34:12}}>
+          <span style={{display:"inline-block",width:11,height:11,borderRadius:3,background:DEPT_COLORS[dept]||C.gray,marginRight:8,verticalAlign:"middle"}}/>{dept}
+        </td>
+        {STAFF_FIELDS.map(([k])=>(
+          <td key={k} style={S.td()}>
+            {editableHere
+              ? <input type="number" step="0.1" value={st[k]} onChange={e=>upd(dept,k,e.target.value)} style={S.inp()}/>
+              : <span style={{fontWeight:k==="total"?700:400,fontSize:k==="total"?16:14}}>{num(st[k]).toFixed(1)}</span>}
+          </td>
+        ))}
+        <td style={S.td("center")}>{canEditDept(dept)
+          ? <span style={{...S.bdg(C.greenL,"#27500A"),fontSize:12}}>입력가능</span>
+          : <span style={{...S.bdg(C.grayL,C.gray),fontSize:12}}>조회</span>}</td>
+      </tr>
+    )
+  }
+
+  let rowIdx = 0
 
   return (
     <>
@@ -167,29 +202,25 @@ function StaffSection({deptStaff,setDeptStaff,staffTarget,setStaffTarget,staffMo
             <th style={S.th("center")}>권한</th>
           </tr></thead>
           <tbody>
-            {STAFF_DEPTS.map((dept,i)=>{
-              const st = work[dept]||{total:0}
-              const editableHere = editing && canEditDept(dept)
-
+            {STAFF_GROUPS.map(group=>{
+              const present = group.depts.filter(d=>STAFF_DEPTS.includes(d))
+              if(present.length===0) return null
+              const groupTotal = present.reduce((s,d)=>s+num(work[d]?.total),0)
               return (
-                <tr key={dept} style={{background:i%2===0?"var(--color-background-primary,#fff)":"var(--color-background-secondary,#f8f8f6)"}}>
-                  <td style={{...S.td("left"),fontWeight:700}}>
-                    <span style={{display:"inline-block",width:11,height:11,borderRadius:3,background:DEPT_COLORS[dept]||C.gray,marginRight:8,verticalAlign:"middle"}}/>{dept}
-                  </td>
-                  {STAFF_FIELDS.map(([k])=>(
-                    <td key={k} style={S.td()}>
-                      {editableHere
-                        ? <input type="number" step="0.1" value={st[k]} onChange={e=>upd(dept,k,e.target.value)} style={S.inp()}/>
-                        : <span style={{fontWeight:k==="total"?700:400,fontSize:k==="total"?16:14}}>{num(st[k]).toFixed(1)}</span>}
+                <Fragment key={group.label}>
+                  <tr style={{background:group.color+"14"}}>
+                    <td style={{...S.td("left"),fontWeight:800,color:group.color}}>
+                      <span style={{display:"inline-block",width:11,height:11,borderRadius:3,background:group.color,marginRight:8,verticalAlign:"middle"}}/>
+                      {group.label} <span style={{fontWeight:400,fontSize:12.1,color:"#94A3B8"}}>({present.join("+")})</span>
                     </td>
-                  ))}
-
-                  <td style={S.td("center")}>{canEditDept(dept)
-                    ? <span style={{...S.bdg(C.greenL,"#27500A"),fontSize:12}}>입력가능</span>
-                    : <span style={{...S.bdg(C.grayL,C.gray),fontSize:12}}>조회</span>}</td>
-                </tr>
+                    <td style={{...S.td(),fontWeight:800,color:group.color}}>{groupTotal.toFixed(1)}</td>
+                    <td/>
+                  </tr>
+                  {present.map(d=>renderDeptRow(d, rowIdx++, true))}
+                </Fragment>
               )
             })}
+            {ungroupedDepts.map(d=>renderDeptRow(d, rowIdx++))}
             <tr style={{background:"var(--color-background-secondary,#f0f0ee)",fontWeight:700}}>
               <td style={S.td("left")}>전사 합계</td>
               <td style={{...S.td(),fontSize:17.6,color:C.navyM,fontWeight:800}}>{STAFF_DEPTS.reduce((s,d)=>s+num(work[d]?.total),0).toFixed(1)}명</td>
