@@ -1358,6 +1358,32 @@ export default function App() {
   },[schedules])
   const [showAlerts, setShowAlerts] = useState(false)
   const [showAiPanel, setShowAiPanel] = useState(false)
+
+  // 백업이 오래됐거나 한 번도 안 했으면: (1) 접속 시 팝업으로 한 번 안내, (2) 탭을 닫거나 새로고침할 때 브라우저 경고창
+  const [showBackupNudge, setShowBackupNudge] = useState(false)
+  const isBackupStale = () => {
+    let lastAt=null
+    try{ lastAt = localStorage.getItem("sjs_last_backup_at") }catch{}
+    if(!lastAt) return true
+    return (Date.now()-new Date(lastAt).getTime())/86400000 >= 3
+  }
+  useEffect(()=>{
+    let alreadyShown=false
+    try{ alreadyShown = sessionStorage.getItem("sjs_backup_nudge_shown")==="1" }catch{}
+    if(!alreadyShown && isBackupStale()){
+      setShowBackupNudge(true)
+      try{ sessionStorage.setItem("sjs_backup_nudge_shown","1") }catch{}
+    }
+    const handleBeforeUnload = (e) => {
+      if(isBackupStale()){
+        e.preventDefault()
+        e.returnValue = "" // 브라우저 기본 확인창을 띄우기 위한 값 (문구는 브라우저가 자체적으로 표시하며 커스터마이즈 불가)
+        return ""
+      }
+    }
+    window.addEventListener("beforeunload", handleBeforeUnload)
+    return ()=>window.removeEventListener("beforeunload", handleBeforeUnload)
+  },[])
   const [selProjId, setSelProjId] = useState(null)
   const [selVerIdx, setSelVerIdx] = useState(0)
   const [cmpIds, setCmpIds]       = useState([])
@@ -1966,6 +1992,24 @@ export default function App() {
       </div>
 
       {showNewProj&&<NewProjModal onClose={()=>setShowNewProj(false)} onSave={p=>{setProjects(prev=>[...prev,normalizeProject({...p,id:`P${Date.now()}`,versions:[]})]);setShowNewProj(false)}}/>}
+
+      {/* 백업 안내 팝업 — 접속 시 백업이 오래됐으면 한 번 표시 */}
+      {showBackupNudge && (
+        <div style={{position:"fixed",inset:0,background:"rgba(15,23,42,.5)",zIndex:300,display:"flex",alignItems:"center",justifyContent:"center",padding:16}}
+          onClick={()=>setShowBackupNudge(false)}>
+          <div onClick={e=>e.stopPropagation()} style={{background:"#fff",borderRadius:14,padding:"28px 26px",maxWidth:400,width:"100%",boxShadow:"0 20px 60px rgba(0,0,0,.25)"}}>
+            <div style={{fontSize:34,marginBottom:10}}>💾</div>
+            <div style={{fontSize:17,fontWeight:800,color:"#0F172A",marginBottom:8}}>백업하시겠습니까?</div>
+            <div style={{fontSize:13.5,color:"#64748B",lineHeight:1.6,marginBottom:20}}>
+              최근 백업한 기록이 없거나 3일 이상 지났습니다. 코드를 새로 배포하거나 브라우저 저장소가 초기화되면 지금까지 입력한 데이터를 잃을 수 있습니다.
+            </div>
+            <div style={{display:"flex",gap:8}}>
+              <button onClick={()=>setShowBackupNudge(false)} style={{flex:1,padding:"10px 0",background:"#F8FAFC",color:"#64748B",border:"1px solid #E5E7EB",borderRadius:8,fontSize:13.5,fontWeight:700,cursor:"pointer"}}>나중에</button>
+              <button onClick={()=>{ setTab("datahub"); setShowBackupNudge(false) }} style={{flex:1,padding:"10px 0",background:"#0E9C8C",color:"#fff",border:"none",borderRadius:8,fontSize:13.5,fontWeight:700,cursor:"pointer"}}>지금 백업하기</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* AI 어시스턴트 — Vercel 환경변수 ANTHROPIC_API_KEY 설정 후 동작 (미설정 시 챗에서 안내 문구 표시) */}
       <AIFloatButton onClick={()=>setShowAiPanel(v=>!v)}/>
