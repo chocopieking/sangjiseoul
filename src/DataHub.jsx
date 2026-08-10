@@ -132,6 +132,7 @@ export function DataHubTab({
 const STAFF_GROUPS = [
   {label:"설계파트", headDept:"설계파트장", depts:["설계1본부","설계2본부"], color:"#059669"},
   {label:"디자인파트", headDept:"디자인파트장", depts:["디자인본부","주거디자인본부"], color:"#7C3AED"},
+  {label:"경영진", headDept:null, depts:["고문","부회장"], color:"#0C447C"},
 ]
 
 function StaffSection({deptStaff,setDeptStaff,staffTarget,setStaffTarget,staffMonthly,setStaffMonthly,years,STAFF_DEPTS,DEPT_COLORS,canEditDept,currentUser,saveVersion}) {
@@ -219,7 +220,7 @@ function StaffSection({deptStaff,setDeptStaff,staffTarget,setStaffTarget,staffMo
                   </tr>
                   {hasHead && renderDeptRow(group.headDept, rowIdx++, true)}
                   {present.map(d=>renderDeptRow(d, rowIdx++, true))}
-                  {!hasHead && (
+                  {!hasHead && group.headDept && (
                     <tr>
                       <td style={{...S.td("left"),paddingLeft:34,color:"#CBD5E1",fontStyle:"italic"}}>
                         + {group.headDept} <span style={{fontSize:12}}>(아직 본부 목록에 없음 — "본부 관리"에서 "{group.headDept}"를 추가하면 여기서 인원 입력 가능)</span>
