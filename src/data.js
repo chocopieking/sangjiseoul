@@ -342,6 +342,26 @@ export const CERT_DOC_TYPES = [
 {"docNo":"정산번호 또는 O차 정산 표기(없으면 빈문자열)","amount":정산금액(숫자, 원 단위),"startDate":"정산기준일 YYYY-MM-DD(없으면 빈문자열)","endDate":"정산완료일 YYYY-MM-DD(없으면 빈문자열)","contractName":"정산 대상 참여사명","issuer":"정산서 작성사명","contactName":"담당자 이름(없으면 빈문자열)","contactPhone":"담당자 연락처(없으면 빈문자열)","contactEmail":"담당자 이메일(없으면 빈문자열)"}
 찾을 수 없는 값은 빈 문자열 또는 0으로 두세요.`,
   },
+  {
+    key:"contractApproval", label:"계약체결보고서(공공)", icon:"🖋️",
+    fields:[
+      {k:"docNo",   label:"계약번호"},
+      {k:"amount",  label:"상지 계약금액", type:"money"},
+      {k:"startDate", label:"계약일"},
+      {k:"orderDate", label:"착수일"},
+      {k:"endDate",   label:"계약기간 종료일(총완수일)"},
+      {k:"contractName", label:"용역명"},
+      {k:"issuer",  label:"발주처"},
+      {k:"consortium", label:"공동/분담 수급현황(참여사·지분율)"},
+      {k:"bondInfo", label:"계약보증금액/보증기간/보증처"},
+      {k:"specialTerms", label:"계약 특수조건"},
+      {k:"contactName",  label:"작성자"},
+      {k:"contactPhone", label:"작성자 소속/연락처"},
+    ],
+    prompt:`이 문서는 공공 발주 프로젝트의 내부결재용 "계약검토/체결 보고서"입니다. 아래 JSON 형식으로만 응답하세요(설명 없이 JSON만):
+{"docNo":"계약번호","amount":문서에 "상지" 또는 "상지엔지니어링/상지서울" 몫으로 표기된 계약금액(숫자, 원 단위 — 컨소시엄 합계금액이 아니라 우리 회사 몫만),"startDate":"계약일(최초) YYYY-MM-DD","orderDate":"착수일 YYYY-MM-DD(없으면 빈문자열)","endDate":"계약기간 종료일 또는 총완수일 YYYY-MM-DD(없으면 빈문자열)","contractName":"용역명","issuer":"발주처명","consortium":"공동이행/분담이행 참여사명과 지분율을 간단히 나열(예: 건원 50%, 해마 30%, 상지 10%, 삼우엠이피 10%)","bondInfo":"계약보증금액과 보증기간, 보증처(공제조합 등)를 한 줄로(없으면 빈문자열)","specialTerms":"용역범위·특수조건을 1~2줄로 요약(없으면 빈문자열)","contactName":"작성자 이름(없으면 빈문자열)","contactPhone":"작성자 소속(부서명, 없으면 빈문자열)"}
+찾을 수 없는 값은 빈 문자열 또는 0으로 두세요. amount는 반드시 상지(우리 회사) 몫 금액이어야 하며, 컨소시엄 전체 합계금액을 넣지 마세요.`,
+  },
 ]
 
 // ── 프로젝트별 협력업체 계약서 — 사용 안내: p.vendorDocs = [{vendorName, versions:[{docNo,amount,startDate,endDate,fileName,fileData,versionLabel,uploadedAt,...}]}]
