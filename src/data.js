@@ -235,6 +235,20 @@ export const normalizeProject = p => ({
 // AI 자동인식(문서 업로드) 프롬프트와 화면 라벨/필드 구성에 공용으로 사용
 export const CERT_DOC_TYPES = [
   {
+    key:"contract", label:"계약서", icon:"📄",
+    fields:[
+      {k:"docNo",   label:"계약번호"},
+      {k:"amount",  label:"계약금액", type:"money"},
+      {k:"startDate", label:"계약일"},
+      {k:"endDate",   label:"계약기간 종료일"},
+      {k:"contractName", label:"계약명"},
+      {k:"issuer",  label:"발주처"},
+    ],
+    prompt:`이 문서는 설계용역 등 "계약서"입니다. 아래 JSON 형식으로만 응답하세요(설명 없이 JSON만):
+{"docNo":"계약번호(없으면 빈문자열)","amount":계약금액(숫자, 원 단위, VAT 포함 총액 기준),"startDate":"계약일 YYYY-MM-DD","endDate":"계약기간 종료일 YYYY-MM-DD(없으면 빈문자열)","contractName":"계약명(용역명)","issuer":"발주처명"}
+찾을 수 없는 값은 빈 문자열 또는 0으로 두세요. 최초 계약서인지 변경계약서인지는 신경쓰지 마세요 — 업로드할 때마다 새 버전으로 기록됩니다.`,
+  },
+  {
     key:"perfBond", label:"계약이행보증서", icon:"📜",
     fields:[
       {k:"docNo",   label:"증권번호"},

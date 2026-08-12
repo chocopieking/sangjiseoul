@@ -6929,7 +6929,7 @@ function DocsOverviewPage({projects, setTab, setSelProjId}) {
   const goProj = (id) => { setSelProjId(id); setTab("projects") }
 
   const docType = CERT_DOC_TYPES.find(d=>d.key===viewType)
-  const hasExpiry = viewType==="perfBond" || viewType==="liabilityCert"
+  const hasExpiry = viewType==="perfBond" || viewType==="liabilityCert" || viewType==="contract"
 
   const rows = viewType==="completion"
     ? projects.filter(p=>p.completion?.completionDate||p.completion?.approvalDate)
@@ -6939,7 +6939,7 @@ function DocsOverviewPage({projects, setTab, setSelProjId}) {
     <div style={S.card()}>
       <div style={{fontSize:21,fontWeight:800,color:C.navy,marginBottom:4}}>📎 서류함 — 전체 프로젝트 모아보기</div>
       <div style={{fontSize:15.4,color:"#64748B",marginBottom:16}}>
-        문서 유형을 골라 전체 프로젝트의 최신 서류를 한 번에 확인합니다. (실행계획서는 "📋 실행계획서" 탭, 계약서는 "📄 계약서" 탭에서 모아볼 수 있습니다)
+        문서 유형을 골라 전체 프로젝트의 최신 서류를 한 번에 확인합니다. (실행계획서 회차 비교는 "📋 실행계획서" 탭, 새 계약서 초안 작성은 "📄 계약서" 탭을 이용하세요)
       </div>
       <div style={{display:"flex",gap:8,flexWrap:"wrap",marginBottom:18}}>
         {[...CERT_DOC_TYPES.map(d=>({key:d.key,label:`${d.icon} ${d.label}`})), {key:"completion",label:"🏁 준공건물"}].map(t=>(
@@ -7122,7 +7122,7 @@ function CertDocsCard({proj, setProjects, canWrite}) {
   const saveEdit = () => { addVersion(editKey, draft); setEditKey(null); setDraft(null) }
 
   return (
-    <Card title="📎 인허가·보증서류" note="계약이행보증서 · 손해배상공제증권 · 실적증명서 · 건축물대장 — 1차/2차 변경 이력 관리">
+    <Card title="📎 인허가·보증서류" note="계약서 · 계약이행보증서 · 손해배상공제증권 · 실적증명서 · 건축물대장 — 1차/2차 변경 이력 관리">
       <div style={{fontSize:13,color:"#94A3B8",marginBottom:14}}>
         PDF를 업로드하면 AI가 증권번호·기간·금액을 자동으로 읽어 채웁니다. 재발급·변경 시 새로 업로드하면 <b>이전 기록은 지워지지 않고 이력으로 남습니다</b>(실행계획서 회차와 같은 방식). 보증·공제 기간이 있는 서류는 만료 임박 시 아래에 경고가 표시됩니다.
       </div>
@@ -7131,7 +7131,7 @@ function CertDocsCard({proj, setProjects, canWrite}) {
           const group = getGroup(docType.key)
           const doc = getLatest(docType.key)
           const dl = doc?.endDate ? daysLeft(doc.endDate) : null
-          const hasExpiry = docType.key==="perfBond" || docType.key==="liabilityCert"
+          const hasExpiry = docType.key==="perfBond" || docType.key==="liabilityCert" || docType.key==="contract"
           const urgent = hasExpiry && dl!=null && dl<=90
           const expired = hasExpiry && dl!=null && dl<0
           const isEditing = editKey===docType.key
@@ -12892,11 +12892,14 @@ function EventDashboard({setTab, currentUser, projects=[], cashItems=[], contrac
       if(c.photoDate)      add({id:`phot_${p.id}`,cat:"completion",icon:"📷",color:"#9333EA",date:c.photoDate,     title:`준공촬영`,sub:p.name,proj:p,link:()=>{setSelProjId(p.id);setDetailTab("completion");setTab("projects")}})
       ;(p.awards||[]).forEach(a=>{ if(a.awardDate) add({id:`aw_${a.id}`,cat:"award",icon:"🏆",color:"#D97706",date:a.awardDate,title:`수상`,sub:a.awardName||p.name,proj:p,link:()=>{setSelProjId(p.id);setDetailTab("award");setTab("projects")}}) })
       ;(p.mediaItems||[]).forEach(m=>{ if(m.publishDate) add({id:`md_${m.id}`,cat:"media",icon:"📰",color:"#0891B2",date:m.publishDate,title:`언론보도`,sub:m.title||p.name,proj:p,link:()=>{setSelProjId(p.id);setDetailTab("media");setTab("projects")}}) })
-      // 보증서·공제증권 만료(연장 필요) 알림 — 계약이행보증서·손해배상공제증권만 대상
+      // 보증서·공제증권·계약서 만료(연장/갱신 필요) 알림 — 만료 개념이 있는 서류 유형만 대상
       ;(p.certDocs||[]).forEach(cd=>{
-        if((cd.key!=="perfBond"&&cd.key!=="liabilityCert")||!cd.endDate) return
-        const label = cd.key==="perfBond" ? "계약이행보증서 만료" : "손해배상공제증권 만료"
-        add({id:`cert_${p.id}_${cd.key}`,cat:"completion",icon:"📎",color:"#DC2626",date:cd.endDate,title:label,sub:p.name,proj:p,link:()=>{setSelProjId(p.id);setDetailTab("certs");setTab("projects")}})
+        if(cd.key!=="perfBond"&&cd.key!=="liabilityCert"&&cd.key!=="contract") return
+        const versions = Array.isArray(cd.versions) ? cd.versions : (cd.docNo!=null||cd.fileName ? [cd] : [])
+        const latest = versions[versions.length-1]
+        if(!latest?.endDate) return
+        const docType = CERT_DOC_TYPES.find(d=>d.key===cd.key)
+        add({id:`cert_${p.id}_${cd.key}`,cat:"completion",icon:"📎",color:"#DC2626",date:latest.endDate,title:`${docType?.label||cd.key} 만료`,sub:p.name,proj:p,link:()=>{setSelProjId(p.id);setDetailTab("certs");setTab("projects")}})
       })
     })
     // 기성
