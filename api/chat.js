@@ -21,7 +21,7 @@ export default async function handler(req, res) {
     return
   }
 
-  const { system, messages } = req.body || {}
+  const { system, messages, max_tokens } = req.body || {}
   if (!messages) {
     res.status(400).json({ error: "messages가 필요합니다." })
     return
@@ -29,9 +29,25 @@ export default async function handler(req, res) {
 
   // Anthropic 스타일 messages → Gemini 스타일 contents로 변환
   // (Gemini는 assistant 대신 "model" 이라는 role 이름을 씁니다)
+  // content는 문자열(텍스트만)일 수도 있고, Anthropic 문서/이미지 분석 형식의 배열
+  // [{type:"text",text}, {type:"document"|"image", source:{type:"base64", media_type, data}}] 일 수도 있음 —
+  // 후자는 Gemini의 inline_data 형식으로 변환해줘야 PDF/이미지 분석(문서보관소, 서류 자동인식 등)이 정상 동작함
+  const toGeminiParts = (content) => {
+    if (typeof content === "string") return [{ text: content }]
+    if (Array.isArray(content)) {
+      return content.map(block => {
+        if (block.type === "text") return { text: block.text || "" }
+        if ((block.type === "document" || block.type === "image") && block.source?.type === "base64") {
+          return { inline_data: { mime_type: block.source.media_type || "application/octet-stream", data: block.source.data } }
+        }
+        return { text: "" }
+      }).filter(p => p.text !== "" || p.inline_data)
+    }
+    return [{ text: String(content ?? "") }]
+  }
   const contents = messages.map(m => ({
     role: m.role === "assistant" ? "model" : "user",
-    parts: [{ text: String(m.content ?? "") }],
+    parts: toGeminiParts(m.content),
   }))
 
   const model = "gemini-2.5-flash" // 무료 한도가 정상적으로 열려있는 최신 모델 (2.0-flash는 무료 할당량이 0으로 막혀있는 경우가 많음)
@@ -44,7 +60,7 @@ export default async function handler(req, res) {
       body: JSON.stringify({
         ...(system ? { system_instruction: { parts: [{ text: system }] } } : {}),
         contents,
-        generationConfig: { maxOutputTokens: 1000 },
+        generationConfig: { maxOutputTokens: max_tokens || 1000 },
       }),
     })
 

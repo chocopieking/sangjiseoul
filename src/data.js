@@ -218,6 +218,7 @@ export const normalizeProject = p => ({
   type:"추진",  // 기본값 - contractYear 설정 시 업로드된 type으로 덮어씀
   versions:[],  // 실행계획서 버전 기본값
   shareRatio:0, // 기본값 - 없으면 NaN% 로 보이는 문제 방지
+  certDocs:[],  // 보증서·증권·실적증명서·건축물대장 등 첨부서류 (아래 CERT_DOC_TYPES 참고)
   ...p,
   // 이름 앞에 "[E26010-VSG]" 같은 코드가 그대로 붙어 들어온 경우, code 필드가 비어있다면 여기서 분리
   ...(!p.code && /^\[[^\]]+\]\s*/.test(p.name||"") ? (()=>{
@@ -226,6 +227,68 @@ export const normalizeProject = p => ({
   })() : {}),
   deptShares: getDeptShares(p),
 })
+
+// ── 프로젝트 첨부서류(보증/증권/실적/대장) 유형 정의 ──────────────
+// AI 자동인식(문서 업로드) 프롬프트와 화면 라벨/필드 구성에 공용으로 사용
+export const CERT_DOC_TYPES = [
+  {
+    key:"perfBond", label:"계약이행보증서", icon:"📜",
+    fields:[
+      {k:"docNo",   label:"증권번호"},
+      {k:"amount",  label:"보증금액", type:"money"},
+      {k:"startDate", label:"보증 시작일", type:"date"},
+      {k:"endDate",   label:"보증 종료일", type:"date"},
+      {k:"contractName", label:"계약명"},
+      {k:"issuer",  label:"발행기관"},
+    ],
+    prompt:`이 문서는 "계약이행보증서"입니다. 아래 JSON 형식으로만 응답하세요(설명 없이 JSON만):
+{"docNo":"증권번호","amount":보증금액(숫자,원 단위),"startDate":"YYYY-MM-DD","endDate":"YYYY-MM-DD","contractName":"계약명","issuer":"발행기관(예: 엔지니어링공제조합)"}
+날짜가 "2025 04 01" 같은 형식이면 "2025-04-01"로 변환하세요. 찾을 수 없는 값은 빈 문자열 또는 0으로 두세요.`,
+  },
+  {
+    key:"liabilityCert", label:"손해배상공제증권", icon:"🛡️",
+    fields:[
+      {k:"docNo",   label:"증권번호"},
+      {k:"certType", label:"공제종류"},
+      {k:"amount",  label:"공제가입금액", type:"money"},
+      {k:"startDate", label:"공제 시작일", type:"date"},
+      {k:"endDate",   label:"공제 종료일", type:"date"},
+      {k:"contractName", label:"계약명"},
+      {k:"issuer",  label:"발행기관"},
+    ],
+    prompt:`이 문서는 "손해배상공제증권"입니다. 아래 JSON 형식으로만 응답하세요(설명 없이 JSON만):
+{"docNo":"증권번호","certType":"공제종류(예: 실시설계)","amount":공제가입금액(숫자,원 단위),"startDate":"YYYY-MM-DD","endDate":"YYYY-MM-DD","contractName":"계약명","issuer":"발행기관(예: 엔지니어링공제조합)"}
+날짜가 "2026년 05월 20일" 같은 형식이면 "2026-05-20"로 변환하세요. 찾을 수 없는 값은 빈 문자열 또는 0으로 두세요.`,
+  },
+  {
+    key:"experienceCert", label:"실적증명서", icon:"📋",
+    fields:[
+      {k:"docNo",   label:"용역명/계약번호"},
+      {k:"amount",  label:"계약금액", type:"money"},
+      {k:"startDate", label:"계약기간 시작"},
+      {k:"endDate",   label:"계약기간 종료"},
+      {k:"contractName", label:"용역명"},
+      {k:"issuer",  label:"발급기관"},
+    ],
+    prompt:`이 문서는 "용역이행 실적증명서"입니다. 아래 JSON 형식으로만 응답하세요(설명 없이 JSON만):
+{"docNo":"계약번호(없으면 빈문자열)","amount":계약금액(숫자,원 단위),"startDate":"계약기간 시작일 YYYY-MM-DD","endDate":"계약기간 종료일 YYYY-MM-DD","contractName":"용역명","issuer":"증명서 발급기관명"}
+찾을 수 없는 값은 빈 문자열 또는 0으로 두세요. 이 서류는 만료일 개념이 없으니 endDate는 계약 종료일(이행기간 종료일)을 넣으세요.`,
+  },
+  {
+    key:"buildingReg", label:"건축물대장", icon:"🏢",
+    fields:[
+      {k:"docNo",   label:"고유번호"},
+      {k:"amount",  label:"연면적(㎡)", type:"number"},
+      {k:"startDate", label:"착공일"},
+      {k:"endDate",   label:"사용승인일"},
+      {k:"contractName", label:"건물명"},
+      {k:"issuer",  label:"대지위치"},
+    ],
+    prompt:`이 문서는 "건축물대장"입니다. 아래 JSON 형식으로만 응답하세요(설명 없이 JSON만):
+{"docNo":"고유번호","amount":연면적(숫자, ㎡ 단위, 소수점 가능),"startDate":"착공일 YYYY-MM-DD(없으면 빈문자열)","endDate":"사용승인일 YYYY-MM-DD(없으면 빈문자열)","contractName":"건물 명칭","issuer":"대지위치"}
+찾을 수 없는 값은 빈 문자열 또는 0으로 두세요. 이 서류는 만료일 개념이 없습니다.`,
+  },
+]
 
 export const PROJECTS_INIT = [
   {

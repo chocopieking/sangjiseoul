@@ -31,7 +31,8 @@ import {
   BIZ_2026, DEPT_STAFF_INIT, DEPT_BIZ, CF_2026, PNL_INIT, YEARS_DB_INIT,
   STAFF_TARGET_INIT, STAFF_MONTHLY_INIT,
   DEPARTMENTS_INIT, DEPT_COLOR_POOL, DEPT_BIZ_EMPTY, DEPT_STAFF_EMPTY,
-  PROJECTS_INIT, ALERTS_INIT, normalizeProject, getDeptShares, BID_TYPES, CONTRACT_TYPES_DEFAULT, PROJ_TYPES_DEFAULT, BID_TYPES_DEFAULT
+  PROJECTS_INIT, ALERTS_INIT, normalizeProject, getDeptShares, BID_TYPES, CONTRACT_TYPES_DEFAULT, PROJ_TYPES_DEFAULT, BID_TYPES_DEFAULT,
+  CERT_DOC_TYPES
 } from "./data.js"
 import { isConfigured, dbGet, dbSet, dbGetAll, dbSetAll, subscribeChanges } from "./supabase.js"
 
@@ -626,6 +627,112 @@ function GlobalSearchModal({onClose, projects=[], cashItems=[], contractItems=[]
     </div>
   )
 }
+
+
+  function downloadReport(proj) {
+    const ver = proj.versions?.[proj.versions.length-1]
+    const vendors = ver?.vendors || []
+    const toPy = m => m>0 ? `${(m/3.3058).toFixed(1)}평` : "-"
+        const W2 = 9360
+    const NAVY2="1E3F6E", NAVYL2="D6E4F0", GRAY2="F2F2F2", WHITE2="FFFFFF"
+    const BD = {style:BorderStyle.SINGLE,size:6,color:"999999"}
+    const BDS = {top:BD,bottom:BD,left:BD,right:BD}
+    const mkCell = (text,opts={})=>new DocxTableCell({
+      borders:BDS, verticalAlign:DocxVAlign.CENTER,
+      margins:{top:80,bottom:80,left:120,right:120},
+      shading:opts.shade?{fill:opts.shade,type:ShadingType.CLEAR}:undefined,
+      width:opts.w?{size:opts.w,type:WidthType.DXA}:undefined,
+      rowSpan:opts.rs, columnSpan:opts.cs,
+      children:[new DocxParagraph({
+        alignment:opts.align||DocxAlign.CENTER,
+        children:[new TextRun({text:String(text??"-"),font:"맑은 고딕",size:opts.sz||18,bold:!!opts.bold,color:opts.color||"000000"})]
+      })]
+    })
+    const hC=(t,o={})=>mkCell(t,{shade:NAVY2,color:WHITE2,bold:true,...o})
+    const gC=(t,o={})=>mkCell(t,{shade:GRAY2,bold:true,...o})
+    const sC=(t,o={})=>mkCell(t,{shade:NAVYL2,bold:true,...o})
+    const p2=(t,o={})=>new DocxParagraph({
+      spacing:{before:o.before||0,after:o.after||120},
+      alignment:o.align||DocxAlign.LEFT,
+      children:[new TextRun({text:String(t||""),font:"맑은 고딕",size:o.sz||19,bold:!!o.bold,color:o.color||"000000"})]
+    })
+    const g1 = vendors.filter(v=>v.cat&&["구조","토목","기계","전기","견적","조경","CG","건축외주","친환경","설계"].some(k=>v.cat.includes(k)))
+    const g2 = vendors.filter(v=>!g1.includes(v))
+    const g1t = g1.reduce((s,v)=>s+(v.nego2||v.nego1||v.contract||0),0)
+    const g2t = g2.reduce((s,v)=>s+(v.nego2||v.nego1||v.contract||0),0)
+    const tot = g1t+g2t
+    const sf  = proj.serviceFee||0
+    const round = ver?.round || proj.versions?.length || 1
+    const children2 = [
+      new DocxParagraph({alignment:DocxAlign.CENTER,spacing:{before:240,after:120},children:[new TextRun({text:"실 행 계 획 서 보 고",font:"맑은 고딕",size:36,bold:true,color:NAVY2})]}),
+      new DocxParagraph({alignment:DocxAlign.CENTER,spacing:{before:0,after:360},children:[new TextRun({text:`(${round}차 변경)`,font:"맑은 고딕",size:21,color:"555555"})]}),
+      p2("■ 기본정보",{bold:true,sz:21,color:NAVY2,before:120,after:60}),
+      new DocxTable({width:{size:W2,type:WidthType.DXA},columnWidths:[2200,7160],rows:[
+        new DocxTableRow({children:[gC("프로젝트명",{w:2200}),mkCell(proj.name,{w:7160,align:DocxAlign.LEFT})]}),
+        new DocxTableRow({children:[gC("담당PM",{w:2200}),mkCell(proj.pm||"-",{w:7160})]}),
+        new DocxTableRow({children:[gC("발주처",{w:2200}),mkCell(proj.client||"-",{w:7160,align:DocxAlign.LEFT})]}),
+        new DocxTableRow({children:[gC("대지위치",{w:2200}),mkCell(proj.address||"-",{w:7160,align:DocxAlign.LEFT})]}),
+      ]}),
+      p2(""),
+      p2("1. 과업내용",{bold:true,sz:21,color:NAVY2,before:200,after:60}),
+      p2("(단위 : 원 / VAT별도)",{sz:16,color:"666666",align:DocxAlign.RIGHT}),
+      new DocxTable({width:{size:W2,type:WidthType.DXA},columnWidths:[2200,5460,1700],rows:[
+        new DocxTableRow({children:[hC("구 분",{w:2200}),hC("내 용",{w:5460}),hC("비고",{w:1700})]}),
+        new DocxTableRow({children:[gC("용역금액",{w:2200}),mkCell(`₩${sf.toLocaleString()}원 (VAT별도)`,{w:5460,align:DocxAlign.LEFT}),mkCell("",{w:1700})]}),
+        new DocxTableRow({children:[gC("실행금액",{w:2200}),mkCell(`₩${sf.toLocaleString()}원 (VAT별도)`,{w:5460,align:DocxAlign.LEFT}),mkCell("",{w:1700})]}),
+        new DocxTableRow({children:[gC("대지면적",{w:2200}),mkCell(`${(proj.siteArea||0).toLocaleString()}㎡  (${toPy(proj.siteArea||0)})`,{w:5460}),mkCell("",{w:1700})]}),
+        new DocxTableRow({children:[gC("연면적",{w:2200}),mkCell(`${(proj.floorArea||0).toLocaleString()}㎡  (${toPy(proj.floorArea||0)})`,{w:5460}),mkCell("",{w:1700})]}),
+        new DocxTableRow({children:[gC("규모 및 용도",{w:2200}),mkCell(`${proj.scale||"-"} / ${proj.usage||"-"}`,{w:5460}),mkCell("",{w:1700})]}),
+      ]}),
+      p2(""),
+      p2("2. 계약금 대비 협력업체 외주금액 및 비율",{bold:true,sz:21,color:NAVY2,before:200,after:60}),
+      new DocxTable({width:{size:W2,type:WidthType.DXA},columnWidths:[2500,4260,1600,960],rows:[
+        new DocxTableRow({children:[hC("구 분",{w:2500}),hC("금 액",{w:4260}),hC("비 율",{w:1600}),hC("비 고",{w:960})]}),
+        new DocxTableRow({children:[gC(`외주비 (변경전)`,{w:2500}),mkCell(fW2(tot),{w:4260}),mkCell(fP2(tot,sf),{w:1600}),mkCell("",{w:960})]}),
+        new DocxTableRow({children:[gC(`외주비 (${round}차변경)`,{w:2500}),mkCell(fW2(tot),{w:4260}),mkCell(fP2(tot,sf),{w:1600}),mkCell("",{w:960})]}),
+      ]}),
+      new DocxParagraph({children:[],pageBreakBefore:true}),
+      p2("【첨부 1】 협력업체 선정 및 용역비 현황",{bold:true,sz:22,color:NAVY2,before:0,after:80}),
+      p2("(단위 : 원 / VAT별도)",{sz:16,color:"666666",align:DocxAlign.RIGHT}),
+      new DocxTable({width:{size:W2,type:WidthType.DXA},columnWidths:[480,1500,2580,1500,600,1600,600,500],rows:[
+        new DocxTableRow({children:[hC("구분",{w:480}),hC("분야",{w:1500}),hC("업체명",{w:2580}),hC("변경전 금액",{w:1500}),hC("비율",{w:600}),hC(`${round}차변경 금액`,{w:1600}),hC("비율",{w:600}),hC("비고",{w:500})]}),
+        ...g1.map((v,i)=>new DocxTableRow({children:[
+          ...(i===0?[sC("외\n주\n비\n1",{w:480,rs:g1.length+1})]:[]),
+          mkCell(v.cat,{w:1500}),mkCell(v.name,{w:2580,align:DocxAlign.LEFT}),
+          mkCell(v.contract>0?v.contract.toLocaleString():"-",{w:1500}),mkCell(fP2(v.contract,sf),{w:600}),
+          mkCell((v.nego2||v.nego1||v.contract||0).toLocaleString(),{w:1600}),mkCell(fP2(v.nego2||v.nego1||v.contract||0,sf),{w:600}),
+          mkCell(v.nego2||v.nego1?v.nego2?"2차NEGO":"1차NEGO":"",{w:500}),
+        ]})),
+        new DocxTableRow({children:[gC("외주비 1 소계",{w:1500+2580,cs:2}),gC(fW2(g1t),{w:1500}),gC(fP2(g1t,sf),{w:600}),gC(fW2(g1t),{w:1600}),gC(fP2(g1t,sf),{w:600}),mkCell("",{w:500})]}),
+        ...g2.map((v,i)=>new DocxTableRow({children:[
+          ...(i===0?[sC("외\n주\n비\n2",{w:480,rs:g2.length+1})]:[]),
+          mkCell(v.cat,{w:1500}),mkCell(v.name,{w:2580,align:DocxAlign.LEFT}),
+          mkCell(v.contract>0?v.contract.toLocaleString():"-",{w:1500}),mkCell(fP2(v.contract,sf),{w:600}),
+          mkCell((v.nego2||v.nego1||v.contract||0).toLocaleString(),{w:1600}),mkCell(fP2(v.nego2||v.nego1||v.contract||0,sf),{w:600}),
+          mkCell(v.nego2||v.nego1?v.nego2?"2차NEGO":"1차NEGO":"",{w:500}),
+        ]})),
+        ...(g2.length>0?[new DocxTableRow({children:[gC("외주비 2 소계",{w:1500+2580,cs:2}),gC(fW2(g2t),{w:1500}),gC(fP2(g2t,sf),{w:600}),gC(fW2(g2t),{w:1600}),gC(fP2(g2t,sf),{w:600}),mkCell("",{w:500})]})]:[]),
+        new DocxTableRow({children:[hC("외주비 합계",{w:480+1500+2580,cs:3}),hC(fW2(tot),{w:1500}),hC(fP2(tot,sf),{w:600}),hC(fW2(tot),{w:1600}),hC(fP2(tot,sf),{w:600}),hC("",{w:500})]}),
+      ]}),
+      p2(""),
+      new DocxParagraph({alignment:DocxAlign.RIGHT,spacing:{before:360,after:0},children:[new TextRun({text:"(주)상지서울건축사사무소  대표이사",font:"맑은 고딕",size:19})]}),
+    ]
+    const doc2 = new DocxDocument({
+      styles:{default:{document:{run:{font:"맑은 고딕",size:19}}}},
+      sections:[{
+        properties:{page:{size:{width:11906,height:16838},margin:{top:1134,right:1134,bottom:1134,left:1134}}},
+        headers:{default:new DocxHeader({children:[new DocxParagraph({alignment:DocxAlign.RIGHT,border:{bottom:{style:BorderStyle.SINGLE,size:4,color:"BBBBBB",space:1}},spacing:{after:80},children:[new TextRun({text:"상지서울건축사사무소  실행계획서 보고",font:"맑은 고딕",size:15,color:"888888"})]})]}),},
+        footers:{default:new DocxFooter({children:[new DocxParagraph({alignment:DocxAlign.CENTER,border:{top:{style:BorderStyle.SINGLE,size:4,color:"BBBBBB",space:1}},children:[new TextRun({text:"- ",font:"맑은 고딕",size:15,color:"888888"}),new TextRun({children:[PageNumber.CURRENT],font:"맑은 고딕",size:15,color:"888888"}),new TextRun({text:" -",font:"맑은 고딕",size:15,color:"888888"})]})]}),},
+        children:children2,
+      }]
+    })
+    Packer.toBlob(doc2).then(blob=>{
+      const url=URL.createObjectURL(blob)
+      const a=document.createElement("a"); a.href=url
+      a.download=`실행계획서_보고서_${proj.code||proj.name}_${round}차.docx`
+      a.click(); URL.revokeObjectURL(url)
+    })
+  }
 
 export default function App() {
   // ── 인증 — localStorage로 세션 유지 ──
@@ -1539,110 +1646,6 @@ export default function App() {
   },[])
 
   // ── 실행계획서 보고서 Word(.docx) 다운로드 ──────────────────
-  const downloadReport = useCallback((proj)=>{
-    const ver = proj.versions?.[proj.versions.length-1]
-    const vendors = ver?.vendors || []
-    const toPy = m => m>0 ? `${(m/3.3058).toFixed(1)}평` : "-"
-        const W2 = 9360
-    const NAVY2="1E3F6E", NAVYL2="D6E4F0", GRAY2="F2F2F2", WHITE2="FFFFFF"
-    const BD = {style:BorderStyle.SINGLE,size:6,color:"999999"}
-    const BDS = {top:BD,bottom:BD,left:BD,right:BD}
-    const mkCell = (text,opts={})=>new DocxTableCell({
-      borders:BDS, verticalAlign:DocxVAlign.CENTER,
-      margins:{top:80,bottom:80,left:120,right:120},
-      shading:opts.shade?{fill:opts.shade,type:ShadingType.CLEAR}:undefined,
-      width:opts.w?{size:opts.w,type:WidthType.DXA}:undefined,
-      rowSpan:opts.rs, columnSpan:opts.cs,
-      children:[new DocxParagraph({
-        alignment:opts.align||DocxAlign.CENTER,
-        children:[new TextRun({text:String(text??"-"),font:"맑은 고딕",size:opts.sz||18,bold:!!opts.bold,color:opts.color||"000000"})]
-      })]
-    })
-    const hC=(t,o={})=>mkCell(t,{shade:NAVY2,color:WHITE2,bold:true,...o})
-    const gC=(t,o={})=>mkCell(t,{shade:GRAY2,bold:true,...o})
-    const sC=(t,o={})=>mkCell(t,{shade:NAVYL2,bold:true,...o})
-    const p2=(t,o={})=>new DocxParagraph({
-      spacing:{before:o.before||0,after:o.after||120},
-      alignment:o.align||DocxAlign.LEFT,
-      children:[new TextRun({text:String(t||""),font:"맑은 고딕",size:o.sz||19,bold:!!o.bold,color:o.color||"000000"})]
-    })
-    const g1 = vendors.filter(v=>v.cat&&["구조","토목","기계","전기","견적","조경","CG","건축외주","친환경","설계"].some(k=>v.cat.includes(k)))
-    const g2 = vendors.filter(v=>!g1.includes(v))
-    const g1t = g1.reduce((s,v)=>s+(v.nego2||v.nego1||v.contract||0),0)
-    const g2t = g2.reduce((s,v)=>s+(v.nego2||v.nego1||v.contract||0),0)
-    const tot = g1t+g2t
-    const sf  = proj.serviceFee||0
-    const round = ver?.round || proj.versions?.length || 1
-    const children2 = [
-      new DocxParagraph({alignment:DocxAlign.CENTER,spacing:{before:240,after:120},children:[new TextRun({text:"실 행 계 획 서 보 고",font:"맑은 고딕",size:36,bold:true,color:NAVY2})]}),
-      new DocxParagraph({alignment:DocxAlign.CENTER,spacing:{before:0,after:360},children:[new TextRun({text:`(${round}차 변경)`,font:"맑은 고딕",size:21,color:"555555"})]}),
-      p2("■ 기본정보",{bold:true,sz:21,color:NAVY2,before:120,after:60}),
-      new DocxTable({width:{size:W2,type:WidthType.DXA},columnWidths:[2200,7160],rows:[
-        new DocxTableRow({children:[gC("프로젝트명",{w:2200}),mkCell(proj.name,{w:7160,align:DocxAlign.LEFT})]}),
-        new DocxTableRow({children:[gC("담당PM",{w:2200}),mkCell(proj.pm||"-",{w:7160})]}),
-        new DocxTableRow({children:[gC("발주처",{w:2200}),mkCell(proj.client||"-",{w:7160,align:DocxAlign.LEFT})]}),
-        new DocxTableRow({children:[gC("대지위치",{w:2200}),mkCell(proj.address||"-",{w:7160,align:DocxAlign.LEFT})]}),
-      ]}),
-      p2(""),
-      p2("1. 과업내용",{bold:true,sz:21,color:NAVY2,before:200,after:60}),
-      p2("(단위 : 원 / VAT별도)",{sz:16,color:"666666",align:DocxAlign.RIGHT}),
-      new DocxTable({width:{size:W2,type:WidthType.DXA},columnWidths:[2200,5460,1700],rows:[
-        new DocxTableRow({children:[hC("구 분",{w:2200}),hC("내 용",{w:5460}),hC("비고",{w:1700})]}),
-        new DocxTableRow({children:[gC("용역금액",{w:2200}),mkCell(`₩${sf.toLocaleString()}원 (VAT별도)`,{w:5460,align:DocxAlign.LEFT}),mkCell("",{w:1700})]}),
-        new DocxTableRow({children:[gC("실행금액",{w:2200}),mkCell(`₩${sf.toLocaleString()}원 (VAT별도)`,{w:5460,align:DocxAlign.LEFT}),mkCell("",{w:1700})]}),
-        new DocxTableRow({children:[gC("대지면적",{w:2200}),mkCell(`${(proj.siteArea||0).toLocaleString()}㎡  (${toPy(proj.siteArea||0)})`,{w:5460}),mkCell("",{w:1700})]}),
-        new DocxTableRow({children:[gC("연면적",{w:2200}),mkCell(`${(proj.floorArea||0).toLocaleString()}㎡  (${toPy(proj.floorArea||0)})`,{w:5460}),mkCell("",{w:1700})]}),
-        new DocxTableRow({children:[gC("규모 및 용도",{w:2200}),mkCell(`${proj.scale||"-"} / ${proj.usage||"-"}`,{w:5460}),mkCell("",{w:1700})]}),
-      ]}),
-      p2(""),
-      p2("2. 계약금 대비 협력업체 외주금액 및 비율",{bold:true,sz:21,color:NAVY2,before:200,after:60}),
-      new DocxTable({width:{size:W2,type:WidthType.DXA},columnWidths:[2500,4260,1600,960],rows:[
-        new DocxTableRow({children:[hC("구 분",{w:2500}),hC("금 액",{w:4260}),hC("비 율",{w:1600}),hC("비 고",{w:960})]}),
-        new DocxTableRow({children:[gC(`외주비 (변경전)`,{w:2500}),mkCell(fW2(tot),{w:4260}),mkCell(fP2(tot,sf),{w:1600}),mkCell("",{w:960})]}),
-        new DocxTableRow({children:[gC(`외주비 (${round}차변경)`,{w:2500}),mkCell(fW2(tot),{w:4260}),mkCell(fP2(tot,sf),{w:1600}),mkCell("",{w:960})]}),
-      ]}),
-      new DocxParagraph({children:[],pageBreakBefore:true}),
-      p2("【첨부 1】 협력업체 선정 및 용역비 현황",{bold:true,sz:22,color:NAVY2,before:0,after:80}),
-      p2("(단위 : 원 / VAT별도)",{sz:16,color:"666666",align:DocxAlign.RIGHT}),
-      new DocxTable({width:{size:W2,type:WidthType.DXA},columnWidths:[480,1500,2580,1500,600,1600,600,500],rows:[
-        new DocxTableRow({children:[hC("구분",{w:480}),hC("분야",{w:1500}),hC("업체명",{w:2580}),hC("변경전 금액",{w:1500}),hC("비율",{w:600}),hC(`${round}차변경 금액`,{w:1600}),hC("비율",{w:600}),hC("비고",{w:500})]}),
-        ...g1.map((v,i)=>new DocxTableRow({children:[
-          ...(i===0?[sC("외\n주\n비\n1",{w:480,rs:g1.length+1})]:[]),
-          mkCell(v.cat,{w:1500}),mkCell(v.name,{w:2580,align:DocxAlign.LEFT}),
-          mkCell(v.contract>0?v.contract.toLocaleString():"-",{w:1500}),mkCell(fP2(v.contract,sf),{w:600}),
-          mkCell((v.nego2||v.nego1||v.contract||0).toLocaleString(),{w:1600}),mkCell(fP2(v.nego2||v.nego1||v.contract||0,sf),{w:600}),
-          mkCell(v.nego2||v.nego1?v.nego2?"2차NEGO":"1차NEGO":"",{w:500}),
-        ]})),
-        new DocxTableRow({children:[gC("외주비 1 소계",{w:1500+2580,cs:2}),gC(fW2(g1t),{w:1500}),gC(fP2(g1t,sf),{w:600}),gC(fW2(g1t),{w:1600}),gC(fP2(g1t,sf),{w:600}),mkCell("",{w:500})]}),
-        ...g2.map((v,i)=>new DocxTableRow({children:[
-          ...(i===0?[sC("외\n주\n비\n2",{w:480,rs:g2.length+1})]:[]),
-          mkCell(v.cat,{w:1500}),mkCell(v.name,{w:2580,align:DocxAlign.LEFT}),
-          mkCell(v.contract>0?v.contract.toLocaleString():"-",{w:1500}),mkCell(fP2(v.contract,sf),{w:600}),
-          mkCell((v.nego2||v.nego1||v.contract||0).toLocaleString(),{w:1600}),mkCell(fP2(v.nego2||v.nego1||v.contract||0,sf),{w:600}),
-          mkCell(v.nego2||v.nego1?v.nego2?"2차NEGO":"1차NEGO":"",{w:500}),
-        ]})),
-        ...(g2.length>0?[new DocxTableRow({children:[gC("외주비 2 소계",{w:1500+2580,cs:2}),gC(fW2(g2t),{w:1500}),gC(fP2(g2t,sf),{w:600}),gC(fW2(g2t),{w:1600}),gC(fP2(g2t,sf),{w:600}),mkCell("",{w:500})]})]:[]),
-        new DocxTableRow({children:[hC("외주비 합계",{w:480+1500+2580,cs:3}),hC(fW2(tot),{w:1500}),hC(fP2(tot,sf),{w:600}),hC(fW2(tot),{w:1600}),hC(fP2(tot,sf),{w:600}),hC("",{w:500})]}),
-      ]}),
-      p2(""),
-      new DocxParagraph({alignment:DocxAlign.RIGHT,spacing:{before:360,after:0},children:[new TextRun({text:"(주)상지서울건축사사무소  대표이사",font:"맑은 고딕",size:19})]}),
-    ]
-    const doc2 = new DocxDocument({
-      styles:{default:{document:{run:{font:"맑은 고딕",size:19}}}},
-      sections:[{
-        properties:{page:{size:{width:11906,height:16838},margin:{top:1134,right:1134,bottom:1134,left:1134}}},
-        headers:{default:new DocxHeader({children:[new DocxParagraph({alignment:DocxAlign.RIGHT,border:{bottom:{style:BorderStyle.SINGLE,size:4,color:"BBBBBB",space:1}},spacing:{after:80},children:[new TextRun({text:"상지서울건축사사무소  실행계획서 보고",font:"맑은 고딕",size:15,color:"888888"})]})]}),},
-        footers:{default:new DocxFooter({children:[new DocxParagraph({alignment:DocxAlign.CENTER,border:{top:{style:BorderStyle.SINGLE,size:4,color:"BBBBBB",space:1}},children:[new TextRun({text:"- ",font:"맑은 고딕",size:15,color:"888888"}),new TextRun({children:[PageNumber.CURRENT],font:"맑은 고딕",size:15,color:"888888"}),new TextRun({text:" -",font:"맑은 고딕",size:15,color:"888888"})]})]}),},
-        children:children2,
-      }]
-    })
-    Packer.toBlob(doc2).then(blob=>{
-      const url=URL.createObjectURL(blob)
-      const a=document.createElement("a"); a.href=url
-      a.download=`실행계획서_보고서_${proj.code||proj.name}_${round}차.docx`
-      a.click(); URL.revokeObjectURL(url)
-    })
-  },[])
 
 
   // ── 메뉴 그룹·순서 — Hook이므로 반드시 조건부 return 이전에 위치 ──
@@ -3099,7 +3102,7 @@ function SimplePieChart({data=[], total=0}) {
           {(cashView==="list"||cashView==="monthly"||cashView==="dept")&&(
             <CashItemsView cashItems={cashItems} setCashItems={setCashItems} projects={projects} setProjects={setProjects}
               DEPTS={DEPTS} currentUser={currentUser} itemTotal={totalPaid+totalConf} itemPaid={totalPaid} itemExp={totalConf}
-              viewMode={cashView} setTab={setTab} setSelProjId={setSelProjId}/>
+              viewMode={cashView} setTab={setTab} setSelProjId={setSelProjId} setDetailTab={setDetailTab}/>
           )}
         </div>
       )}
@@ -3352,7 +3355,7 @@ function SimplePieChart({data=[], total=0}) {
           })()}
           <CashItemsView cashItems={cashItems} setCashItems={setCashItems} projects={projects} setProjects={setProjects}
             DEPTS={DEPTS} currentUser={currentUser} itemTotal={totalPaid} itemPaid={totalPaid} itemExp={totalConf}
-            viewMode="list" setTab={setTab} setSelProjId={setSelProjId}/>
+            viewMode="list" setTab={setTab} setSelProjId={setSelProjId} setDetailTab={setDetailTab}/>
         </div>
       )}
     </div>
@@ -4001,7 +4004,11 @@ function ProjectsTab({projects,setProjects,selProjId,setSelProjId,selVerIdx,setS
                           ]),"협력업체비용")
                           XLSX.writeFile(wb,`실행계획서_${p.code}_${ver.ver}.xlsx`)
                         }} style={{...S.btn(C.navyL,C.navyM),padding:"5px 11px",fontSize:14.3}}>↓ Excel</button>
-                        <button onClick={()=>downloadReport({...p,versions:[ver]})} style={{...S.btn(C.amberL,C.amber),padding:"5px 11px",fontSize:14.3}}>↓ Word</button>
+                        <button onClick={()=>{
+                          const wver=(p.versions||[])[(p.versions||[]).length-1]
+                          if(!wver){ toast&&toast("실행계획서 회차가 없습니다.","error"); return }
+                          downloadReport({...p,versions:[wver]})
+                        }} style={{...S.btn(C.amberL,C.amber),padding:"5px 11px",fontSize:14.3}}>↓ Word</button>
                       </td>
                       {currentUser?.role==="admin"&&(
                         <td style={PTD("center")} onClick={e=>e.stopPropagation()}>
@@ -4086,6 +4093,7 @@ function ProjectsTab({projects,setProjects,selProjId,setSelProjId,selVerIdx,setS
                 {/* 좌측 목차 (sticky) — 나무위키 느낌으로: 번호 매기기 + 접기/펼치기 + 스크롤 위치에 따라 현재 항목 강조 */}
                 <TocBox sections={[
                   ["sec-info",     "프로젝트 정보"],
+                  ["sec-certs",    "인허가·보증서류"],
                   ["sec-weekly",   "주간보고"],
                   ["sec-cashflow", "월수금"],
                   ["sec-contract", "계약현황"],
@@ -4497,6 +4505,10 @@ function ProjectsTab({projects,setProjects,selProjId,setSelProjId,selVerIdx,setS
                   </div>{/* /sec-info */}
 
                   {/* 섹션: 주간보고 */}
+                  <div id="sec-certs" style={{scrollMarginTop:70}}>
+                    <CertDocsCard proj={selProj} setProjects={setProjects} canWrite={canWrite}/>
+                  </div>
+
                   <div id="sec-weekly" style={{scrollMarginTop:70}}>
                     <div style={{display:"flex",alignItems:"center",gap:8,padding:"10px 0",borderBottom:"2px solid #E2E8F0",marginBottom:12}}>
                       <span style={{fontSize:19.8}}>📋</span>
@@ -6882,6 +6894,183 @@ function NewVerModal({proj,onClose,onSave,initial}) {
 
 // ── 공통 컴포넌트 ────────────────────────────────────────────
 // 나무위키 스타일 목차 — 번호 매기기 + 접기/펼치기 + 스크롤 위치에 따라 현재 항목 자동 강조
+// ── 프로젝트 첨부서류(계약이행보증서·손해배상공제증권·실적증명서·건축물대장) ──
+// PDF 업로드 → AI(Gemini, /api/chat)로 문서 내용을 읽어 자동으로 항목을 채워줌.
+// 보증/공제기간이 있는 문서는 만료 임박 시 상단 배지로 경고.
+function CertDocsCard({proj, setProjects, canWrite}) {
+  const [busyKey, setBusyKey] = useState(null)   // AI 분석 중인 문서 key
+  const [editKey, setEditKey] = useState(null)   // 수동 편집 중인 문서 key
+  const [draft, setDraft] = useState(null)
+  const fileInputs = useRef({})
+
+  const getDoc = key => (proj.certDocs||[]).find(d=>d.key===key)
+
+  const daysLeft = endDate => {
+    if(!endDate) return null
+    const d = Math.ceil((new Date(endDate+"T00:00:00") - new Date(new Date().toDateString())) / 86400000)
+    return Number.isFinite(d) ? d : null
+  }
+
+  const upsertDoc = (key, patch) => {
+    setProjects(prev=>prev.map(p=>{
+      if(p.id!==proj.id) return p
+      const list = p.certDocs||[]
+      const exists = list.some(d=>d.key===key)
+      const nextList = exists
+        ? list.map(d=>d.key===key?{...d,...patch}:d)
+        : [...list, {key, docNo:"", amount:0, startDate:"", endDate:"", contractName:"", issuer:"", fileName:"", fileData:"", updatedAt:new Date().toISOString(), ...patch}]
+      return {...p, certDocs: nextList}
+    }))
+  }
+  const deleteDoc = key => {
+    if(!window.confirm("이 서류 정보를 삭제할까요? (첨부한 파일도 함께 삭제됩니다)")) return
+    setProjects(prev=>prev.map(p=>p.id!==proj.id?p:{...p, certDocs:(p.certDocs||[]).filter(d=>d.key!==key)}))
+  }
+
+  const handleUpload = async (docType, file) => {
+    if(!file) return
+    if(file.size > 8*1024*1024){
+      alert("파일이 너무 큽니다(8MB 이하 권장). 용량이 큰 PDF는 자동인식이 느리거나 저장이 안 될 수 있습니다.")
+    }
+    setBusyKey(docType.key)
+    try{
+      const base64 = await new Promise((res,rej)=>{
+        const r=new FileReader(); r.onload=()=>res(r.result.split(",")[1]); r.onerror=rej; r.readAsDataURL(file)
+      })
+      const isPdf = file.type==="application/pdf"
+      const block = isPdf
+        ? {type:"document",source:{type:"base64",media_type:"application/pdf",data:base64}}
+        : {type:"image",source:{type:"base64",media_type:file.type||"image/jpeg",data:base64}}
+      let parsed = null
+      try{
+        const res = await fetch("/api/chat",{
+          method:"POST",headers:{"Content-Type":"application/json"},
+          body:JSON.stringify({
+            max_tokens:500,
+            system: docType.prompt,
+            messages:[{role:"user",content:[block,{type:"text",text:"이 문서를 분석하여 JSON으로 응답하세요."}]}]
+          })
+        })
+        if(res.ok){
+          const json = await res.json()
+          const text = json.content?.[0]?.text || ""
+          parsed = JSON.parse(text.replace(/```json|```/g,"").trim())
+        }
+      }catch(e){ console.warn("AI 자동인식 실패:", e) }
+
+      // 8MB 넘는 파일은 브라우저 저장공간(localStorage) 용량을 넘길 수 있어 파일 자체는 저장하지 않고 정보만 저장
+      const storeFile = file.size <= 8*1024*1024
+      upsertDoc(docType.key, {
+        ...(parsed||{}),
+        fileName: file.name, fileSize: file.size,
+        fileData: storeFile ? `data:${file.type};base64,${base64}` : "",
+        updatedAt: new Date().toISOString(),
+      })
+      if(!parsed) alert("파일은 첨부됐지만 자동 인식에 실패했습니다. 아래 \"직접 입력\"으로 정보를 채워주세요.")
+    }catch(e){
+      alert("업로드 중 오류가 발생했습니다: "+e.message)
+    }
+    setBusyKey(null)
+  }
+
+  const startEdit = (docType) => {
+    const d = getDoc(docType.key) || {}
+    setDraft({...d})
+    setEditKey(docType.key)
+  }
+  const saveEdit = () => { upsertDoc(editKey, draft); setEditKey(null); setDraft(null) }
+
+  return (
+    <Card title="📎 인허가·보증서류" note="계약이행보증서 · 손해배상공제증권 · 실적증명서 · 건축물대장">
+      <div style={{fontSize:13,color:"#94A3B8",marginBottom:14}}>
+        PDF를 업로드하면 AI가 증권번호·기간·금액을 자동으로 읽어 채웁니다. 보증·공제 기간이 있는 서류는 만료 임박 시 아래에 경고가 표시됩니다.
+      </div>
+      <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(280px,1fr))",gap:12}}>
+        {CERT_DOC_TYPES.map(docType=>{
+          const doc = getDoc(docType.key)
+          const dl = doc?.endDate ? daysLeft(doc.endDate) : null
+          const hasExpiry = docType.key==="perfBond" || docType.key==="liabilityCert"
+          const urgent = hasExpiry && dl!=null && dl<=90
+          const expired = hasExpiry && dl!=null && dl<0
+          const isEditing = editKey===docType.key
+          return (
+            <div key={docType.key} style={{
+              border:`1.5px solid ${expired?"#DC2626":urgent?"#F59E0B":"#E5E7EB"}`,
+              borderRadius:10, padding:"14px 16px",
+              background: expired?"#FEF2F2":urgent?"#FFFBEB":"#fff"
+            }}>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
+                <div style={{fontSize:14.3,fontWeight:800,color:"#0F172A"}}>{docType.icon} {docType.label}</div>
+                {hasExpiry && dl!=null && (
+                  <span style={{fontSize:11,fontWeight:700,padding:"3px 9px",borderRadius:12,
+                    background:expired?"#DC2626":urgent?"#F59E0B":"#D1FAE5",
+                    color:expired||urgent?"#fff":"#065F46"}}>
+                    {expired ? `만료됨 (${-dl}일 경과)` : `D-${dl}`}
+                  </span>
+                )}
+              </div>
+
+              {!doc && !isEditing && (
+                <div style={{fontSize:13,color:"#94A3B8",marginBottom:10}}>등록된 서류가 없습니다.</div>
+              )}
+
+              {doc && !isEditing && (
+                <div style={{fontSize:13,color:"#334155",lineHeight:1.9,marginBottom:10}}>
+                  {docType.fields.map(f=>{
+                    const v = doc[f.k]
+                    if(!v) return null
+                    const disp = f.type==="money" ? `${Math.round(v).toLocaleString()}원`
+                      : f.type==="number" ? `${v}`
+                      : v
+                    return <div key={f.k}><span style={{color:"#94A3B8"}}>{f.label}: </span><span style={{fontWeight:600}}>{disp}</span></div>
+                  })}
+                  {doc.fileName && (
+                    doc.fileData
+                      ? <a href={doc.fileData} download={doc.fileName} style={{color:"#0E9C8C",fontWeight:700,fontSize:12.5}}>📄 {doc.fileName} (열기/다운로드)</a>
+                      : <span style={{color:"#94A3B8",fontSize:12}}>📄 {doc.fileName} (용량이 커서 파일은 저장 안 됨 — 정보만 보관)</span>
+                  )}
+                </div>
+              )}
+
+              {isEditing && (
+                <div style={{display:"flex",flexDirection:"column",gap:6,marginBottom:10}}>
+                  {docType.fields.map(f=>(
+                    <div key={f.k}>
+                      <label style={{fontSize:11,color:"#94A3B8"}}>{f.label}</label>
+                      <input
+                        type={f.type==="date"?"date":f.type==="money"||f.type==="number"?"number":"text"}
+                        value={draft?.[f.k]??""}
+                        onChange={e=>setDraft(p=>({...p,[f.k]:f.type==="money"||f.type==="number"?parseFloat(e.target.value)||0:e.target.value}))}
+                        style={{width:"100%",padding:"6px 9px",fontSize:13,border:"1px solid #E5E7EB",borderRadius:6,boxSizing:"border-box"}}/>
+                    </div>
+                  ))}
+                  <div style={{display:"flex",gap:6,marginTop:4}}>
+                    <button onClick={saveEdit} style={{flex:1,padding:"6px 0",background:"#0E9C8C",color:"#fff",border:"none",borderRadius:6,fontSize:12.5,fontWeight:700,cursor:"pointer"}}>저장</button>
+                    <button onClick={()=>{setEditKey(null);setDraft(null)}} style={{flex:1,padding:"6px 0",background:"#F8FAFC",color:"#64748B",border:"1px solid #E5E7EB",borderRadius:6,fontSize:12.5,fontWeight:700,cursor:"pointer"}}>취소</button>
+                  </div>
+                </div>
+              )}
+
+              {canWrite && !isEditing && (
+                <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+                  <input ref={el=>fileInputs.current[docType.key]=el} type="file" accept=".pdf,.jpg,.jpeg,.png" style={{display:"none"}}
+                    onChange={e=>{ handleUpload(docType, e.target.files?.[0]); e.target.value="" }}/>
+                  <button onClick={()=>fileInputs.current[docType.key]?.click()} disabled={busyKey===docType.key}
+                    style={{padding:"6px 11px",background:"#E3F6F3",color:"#0E9C8C",border:"none",borderRadius:6,fontSize:12,fontWeight:700,cursor:busyKey===docType.key?"default":"pointer"}}>
+                    {busyKey===docType.key ? "⏳ 분석 중..." : "📤 PDF 업로드"}
+                  </button>
+                  <button onClick={()=>startEdit(docType)} style={{padding:"6px 11px",background:"#F8FAFC",color:"#64748B",border:"1px solid #E5E7EB",borderRadius:6,fontSize:12,fontWeight:700,cursor:"pointer"}}>✎ 직접 입력</button>
+                  {doc && <button onClick={()=>deleteDoc(docType.key)} style={{padding:"6px 11px",background:"#FEE2E2",color:"#DC2626",border:"none",borderRadius:6,fontSize:12,fontWeight:700,cursor:"pointer"}}>삭제</button>}
+                </div>
+              )}
+            </div>
+          )
+        })}
+      </div>
+    </Card>
+  )
+}
+
 function TocBox({sections, projId}) {
   const [open,setOpen] = useState(true)
   const [activeId,setActiveId] = useState(sections[0]?.[0])
@@ -8183,6 +8372,7 @@ function ProjectHistoryPage({projects, currentUser, cashItems=[]}) {
 }
 
 // ── 경영분석 탭 상단에 공지 5개 미리보기 삽입 (AnalysisNoticeBar) ──
+const loadNotices = () => { try{ return JSON.parse(localStorage.getItem("sjs_notices")||"[]") }catch{ return [] } }
 export function AnalysisNoticeBar() {
   const notices = loadNotices().slice(0,5)
   if(!notices.length) return null
@@ -8761,7 +8951,7 @@ function DeptDashTab({projects, vendorPayments, years}) {
 // 💧 건별 기성 내역 뷰
 // 본부, 발주구분, 신규/기성, 프로젝트명, 기성단계, 입금일/예상일, 금액
 // ══════════════════════════════════════════════════════════════
-function CashItemsView({cashItems, setCashItems, projects, setProjects, DEPTS, currentUser, itemTotal, itemPaid, itemExp, viewMode:extViewMode, isSale=false, setTab, setSelProjId}) {
+function CashItemsView({cashItems, setCashItems, projects, setProjects, DEPTS, currentUser, itemTotal, itemPaid, itemExp, viewMode:extViewMode, isSale=false, setTab, setSelProjId, setDetailTab}) {
   const MONTHS = ["1월","2월","3월","4월","5월","6월","7월","8월","9월","10월","11월","12월"]
   const EMPTY = {dept:"", orderType:"민간", itemType:isSale?"세금계산서":"기성", projectName:"", stage:"", paidDate:"", expectedDate:"", amount:0, memo:""}
 
@@ -12526,6 +12716,12 @@ function EventDashboard({setTab, currentUser, projects=[], cashItems=[], contrac
       if(c.photoDate)      add({id:`phot_${p.id}`,cat:"completion",icon:"📷",color:"#9333EA",date:c.photoDate,     title:`준공촬영`,sub:p.name,proj:p,link:()=>{setSelProjId(p.id);setDetailTab("completion");setTab("projects")}})
       ;(p.awards||[]).forEach(a=>{ if(a.awardDate) add({id:`aw_${a.id}`,cat:"award",icon:"🏆",color:"#D97706",date:a.awardDate,title:`수상`,sub:a.awardName||p.name,proj:p,link:()=>{setSelProjId(p.id);setDetailTab("award");setTab("projects")}}) })
       ;(p.mediaItems||[]).forEach(m=>{ if(m.publishDate) add({id:`md_${m.id}`,cat:"media",icon:"📰",color:"#0891B2",date:m.publishDate,title:`언론보도`,sub:m.title||p.name,proj:p,link:()=>{setSelProjId(p.id);setDetailTab("media");setTab("projects")}}) })
+      // 보증서·공제증권 만료(연장 필요) 알림 — 계약이행보증서·손해배상공제증권만 대상
+      ;(p.certDocs||[]).forEach(cd=>{
+        if((cd.key!=="perfBond"&&cd.key!=="liabilityCert")||!cd.endDate) return
+        const label = cd.key==="perfBond" ? "계약이행보증서 만료" : "손해배상공제증권 만료"
+        add({id:`cert_${p.id}_${cd.key}`,cat:"completion",icon:"📎",color:"#DC2626",date:cd.endDate,title:label,sub:p.name,proj:p,link:()=>{setSelProjId(p.id);setDetailTab("certs");setTab("projects")}})
+      })
     })
     // 기성
     cashItems.forEach(i=>{
@@ -13566,6 +13762,30 @@ function ContractStatusPage({contractItems=[], setContractItems, DEPTS, DEPT_COL
     toast && toast(`✅ "${draft.name?.slice(0,20)||"항목"}" 저장 완료`, "success")
   }
   const cancelEdit = () => { setEditId(null); setDraft(null) }
+
+  // 신규 항목 추가 — 빈 항목을 만들어 목록에 넣고 바로 인라인 편집 모드로 열어줌
+  // (버튼에서 호출하는 addItem 함수가 아예 정의되어 있지 않아서 클릭해도 아무 반응이 없던 문제 수정)
+  const addItem = (type) => {
+    const newItem = {
+      id: `C${Date.now()}_${Math.random().toString(36).slice(2,6)}`,
+      name: "", depts: [], deptShares: [],
+      orderType: "민간", type, bidType: "",
+      totalFeeExpect: 0, shareRatioExpect: 100, serviceFeeExpect: 0,
+      amount: 0, bizCompPct: 100, bizCompFee: 0,
+      execTime: "", contractTime: "", consortium: "", note: "",
+      contractYear: selContractYear!=="전체" ? parseInt(selContractYear)||YEAR : YEAR,
+      updatedAt: new Date().toISOString(), updatedBy: currentUser?.name||"",
+    }
+    setContractItems(prev=>[...(prev||[]), newItem])
+    startEdit(newItem)
+    toast && toast(`새 ${type} 항목을 추가했습니다. 내용을 입력하고 저장하세요.`, "info")
+  }
+
+  // 계약/확정/추진 단계 간 이동 — 위 버튼들이 호출하는 함수가 정의되어 있지 않아 클릭해도 반응이 없던 문제 수정
+  const moveType = (item, newType) => {
+    updateItem(item.id, {type:newType, updatedAt:new Date().toISOString()})
+    toast && toast(`"${item.name?.slice(0,20)||"항목"}"을(를) ${newType} 단계로 이동했습니다.`, "success")
+  }
   const deleteItem = (id) => {
     const item = (yearFilteredContracts||[]).find(i=>i.id===id)
     if(!window.confirm(`"${item?.name?.slice(0,25)||"이 항목"}"을 삭제하시겠습니까?\n\n삭제 후 복원할 수 없습니다.`)) return
