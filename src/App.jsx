@@ -7127,7 +7127,15 @@ function CertDocsCard({proj, setProjects, canWrite}) {
       const nextList = list.some(d=>d.key===key)
         ? list.map(d=>d.key===key?{key,versions:nextVersions}:d)
         : [...list, {key, versions:nextVersions}]
-      return {...p, certDocs: nextList}
+      // "계약서" 문서는 새 버전이 등록될 때마다(AI 자동인식이든 직접입력이든) 프로젝트 정보의
+      // 계약일·용역비에도 자동으로 반영 — 같은 정보를 두 군데서 따로 입력하지 않도록 함
+      const syncFields = {}
+      if(key==="contract"){
+        if(newVersion.startDate) syncFields.contractDate = newVersion.startDate
+        if(newVersion.orderDate) syncFields.orderDate     = newVersion.orderDate
+        if(newVersion.amount>0)  syncFields.serviceFee    = newVersion.amount
+      }
+      return {...p, certDocs: nextList, ...syncFields}
     }))
   }
   const deleteVersion = (key, idx) => {
@@ -7180,6 +7188,9 @@ function CertDocsCard({proj, setProjects, canWrite}) {
         fileData: storeFile ? `data:${file.type};base64,${base64}` : "",
       })
       if(!parsed) alert('파일은 첨부됐지만 자동 인식에 실패했습니다. "새 버전 직접 입력"으로 정보를 채워주세요.')
+      else if(docType.key==="contract" && (parsed.startDate||parsed.orderDate||parsed.amount>0)) {
+        alert("계약서를 인식해서 저장했습니다.\n계약일·수주일·용역비는 프로젝트 정보에도 자동으로 반영됩니다.")
+      }
     }catch(e){
       alert("업로드 중 오류가 발생했습니다: "+e.message)
     }
@@ -7190,7 +7201,13 @@ function CertDocsCard({proj, setProjects, canWrite}) {
     setDraft({}) // 빈 값에서 시작 — "변경"이므로 이전 값을 그대로 베끼지 않고 새로 입력받음
     setEditKey(docType.key)
   }
-  const saveEdit = () => { addVersion(editKey, draft); setEditKey(null); setDraft(null) }
+  const saveEdit = () => {
+    addVersion(editKey, draft)
+    if(editKey==="contract" && (draft?.startDate || draft?.orderDate || draft?.amount>0)){
+      alert("계약서 정보를 저장했습니다.\n입력하신 계약일·수주일·용역비는 프로젝트 정보에도 자동으로 반영됩니다.")
+    }
+    setEditKey(null); setDraft(null)
+  }
 
   return (
     <Card title="📎 인허가·보증서류" note="계약서 · 계약이행보증서 · 손해배상공제증권 · 실적증명서 · 건축물대장 — 1차/2차 변경 이력 관리">
