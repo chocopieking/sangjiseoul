@@ -4,7 +4,7 @@
 import { useState, useMemo, useRef, useEffect } from "react"
 import * as XLSX from "xlsx"
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, LabelList } from "./ReChartsFallback.jsx"
-import { fW, fE, fPy, getAreaBasis, calcUP, VENDOR_EMPTY, BID_TYPES } from "./data.js"
+import { fW, fE, fPy, getAreaBasis, calcUP, VENDOR_EMPTY, BID_TYPES, VENDOR_DOC_TYPES } from "./data.js"
 
 const C = {
   navy:"#0C447C",navyM:"#0B6E63",navyL:"#E6F1FB",
@@ -508,16 +508,6 @@ function VendorDetail({entry,vendorsDB,setVendorsDB,vendorPayments,setVendorPaym
 
   const myPayments = (vendorPayments||[]).filter(p=>p.vendor===entry.name)
 
-  // ── 문서 관리 ─────────────────────────────────────────────
-  const docs = info.docs || []
-  const DOC_CATS = ["사업자등록증","세금계산서","통장사본","계약서","견적서","기타서류"]
-  const addDoc = (docObj) => {
-    setVendorsDB(prev=>({...prev,[entry.name]:{...info,docs:[...docs,docObj]}}))
-  }
-  const removeDoc = (id) => {
-    setVendorsDB(prev=>({...prev,[entry.name]:{...info,docs:docs.filter(d=>d.id!==id)}}))
-  }
-
   // ── 히스토리 (날짜별 사안 기록) ──────────────────────────
   const history = info.history || []
   const HIST_CATS = ["계약","변경계약","대금지급","서류수취","미팅","기타"]
@@ -654,32 +644,8 @@ function VendorDetail({entry,vendorsDB,setVendorsDB,vendorPayments,setVendorPaym
         </SCard>
       )}
       {subTab==="docs"&&(
-        <SCard title="📎 문서 보관" note="사업자등록증·통장사본·계약서 등 협력업체 관련 문서를 보관합니다">
-          {canWrite&&(
-            <DocUploadForm onAdd={addDoc} cats={DOC_CATS}/>
-          )}
-          {docs.length===0
-            ?<div style={{padding:"30px",textAlign:"center",color:"#9CA3AF",fontSize:14.3}}>등록된 문서가 없습니다. 위에서 문서를 추가하세요.</div>
-            :<div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(240px,1fr))",gap:10,marginTop:12}}>
-              {docs.map(doc=>(
-                <div key={doc.id} style={{background:"#F8FAFC",borderRadius:12,border:"1px solid #E5E7EB",padding:"12px 14px"}}>
-                  <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:6}}>
-                    <span style={{fontSize:22}}>{doc.category==="사업자등록증"?"🏢":doc.category==="통장사본"?"💳":doc.category==="계약서"?"📄":"📎"}</span>
-                    <div style={{flex:1}}>
-                      <div style={{fontSize:14.8,fontWeight:700,color:"#111827"}}>{doc.title}</div>
-                      <div style={{fontSize:12,color:"#9CA3AF"}}>{doc.category} · {doc.date}</div>
-                    </div>
-                    {canWrite&&<button onClick={()=>removeDoc(doc.id)} style={{background:"none",border:"none",cursor:"pointer",color:"#EF4444",fontSize:15.4}}>✕</button>}
-                  </div>
-                  {doc.memo&&<div style={{fontSize:13.2,color:"#6B7280",marginBottom:6}}>{doc.memo}</div>}
-                  {doc.fileData
-                    ?<a href={doc.fileData} download={doc.fileName} style={{display:"inline-flex",alignItems:"center",gap:5,padding:"5px 11px",background:"#EEF3FF",color:"#3B72F6",borderRadius:8,fontSize:13.8,fontWeight:700,textDecoration:"none"}}>⬇ 다운로드</a>
-                    :<span style={{fontSize:13.2,color:"#9CA3AF"}}>파일 없음</span>}
-                  <div style={{fontSize:11.6,color:"#9CA3AF",marginTop:5}}>{doc.createdBy} · {fmtDT(doc.createdAt)}</div>
-                </div>
-              ))}
-            </div>
-          }
+        <SCard title="📎 문서 보관" note="협력업체 등록·자격 관련 서류를 종류별로 관리 — PDF 업로드 시 AI가 자동으로 읽고, 재발급·갱신될 때마다 이력이 쌓입니다">
+          <VendorDocsPanel entry={entry} vendorsDB={vendorsDB} setVendorsDB={setVendorsDB} canWrite={canWrite}/>
         </SCard>
       )}
 
@@ -877,6 +843,313 @@ function VendorDetail({entry,vendorsDB,setVendorsDB,vendorPayments,setVendorPaym
 }
 
 // ── 문서 업로드 폼 ───────────────────────────────────────────
+// ── 협력업체 등록서류 — 버전 이력 + AI 자동인식 (프로젝트 서류함의 CertDocsCard와 동일한 구조) ──
+function VendorDocsPanel({entry, vendorsDB, setVendorsDB, canWrite}) {
+  const [busyKey, setBusyKey] = useState(null)
+  const [editKey, setEditKey] = useState(null)
+  const [draft, setDraft] = useState(null)
+  const [historyKey, setHistoryKey] = useState(null)
+  const fileInputs = useRef({})
+
+  const info = vendorsDB[entry.name] || {}
+  const getGroupFor = (list, key) => {
+    const g = (list||[]).find(d=>d.key===key)
+    if(!g) return {key, versions:[]}
+    if(Array.isArray(g.versions)) return g
+    return {key, versions:[]}
+  }
+  const getGroup = key => getGroupFor(info.certDocs||[], key)
+  const getLatest = key => { const vs = getGroup(key).versions; return vs.length ? vs[vs.length-1] : null }
+
+  const daysLeft = endDate => {
+    if(!endDate) return null
+    const d = Math.ceil((new Date(endDate+"T00:00:00") - new Date(new Date().toDateString())) / 86400000)
+    return Number.isFinite(d) ? d : null
+  }
+
+  const addVersion = (key, patch) => {
+    setVendorsDB(prev=>{
+      const cur = prev[entry.name] || {}
+      const list = cur.certDocs || []
+      const group = getGroupFor(list, key)
+      const versionNo = group.versions.length + 1
+      const newVersion = {
+        docNo:"", amount:0, startDate:"", endDate:"", contractName:"", issuer:"", note:"",
+        contactName:"", contactPhone:"", contactEmail:"", fileName:"", fileData:"",
+        versionLabel: versionNo===1 ? "최초" : `${versionNo}차 갱신`,
+        uploadedAt: new Date().toISOString(),
+        ...patch,
+      }
+      const nextVersions = [...group.versions, newVersion]
+      const nextList = list.some(d=>d.key===key)
+        ? list.map(d=>d.key===key?{key,versions:nextVersions}:d)
+        : [...list, {key, versions:nextVersions}]
+      return {...prev, [entry.name]: {...cur, certDocs: nextList}}
+    })
+  }
+  const deleteVersion = (key, idx) => {
+    if(!window.confirm("이 버전 기록을 삭제할까요? (첨부한 파일도 함께 삭제되며, 되돌릴 수 없습니다)")) return
+    setVendorsDB(prev=>{
+      const cur = prev[entry.name] || {}
+      const list = cur.certDocs || []
+      const group = getGroupFor(list, key)
+      const nextVersions = group.versions.filter((_,i)=>i!==idx)
+      return {...prev, [entry.name]: {...cur, certDocs: list.map(d=>d.key===key?{key,versions:nextVersions}:d)}}
+    })
+  }
+
+  const handleUpload = async (docType, file) => {
+    if(!file) return
+    if(file.size > 8*1024*1024){
+      alert("파일이 너무 큽니다(8MB 이하 권장). 용량이 큰 PDF는 자동인식이 느리거나 저장이 안 될 수 있습니다.")
+    }
+    setBusyKey(docType.key)
+    try{
+      const base64 = await new Promise((res,rej)=>{
+        const r=new FileReader(); r.onload=()=>res(r.result.split(",")[1]); r.onerror=rej; r.readAsDataURL(file)
+      })
+      const isPdf = file.type==="application/pdf"
+      const block = isPdf
+        ? {type:"document",source:{type:"base64",media_type:"application/pdf",data:base64}}
+        : {type:"image",source:{type:"base64",media_type:file.type||"image/jpeg",data:base64}}
+      let parsed = null
+      try{
+        const res = await fetch("/api/chat",{
+          method:"POST",headers:{"Content-Type":"application/json"},
+          body:JSON.stringify({max_tokens:500, system:docType.prompt, messages:[{role:"user",content:[block,{type:"text",text:"이 문서를 분석하여 JSON으로 응답하세요."}]}]})
+        })
+        if(res.ok){
+          const json = await res.json()
+          const text = json.content?.[0]?.text || ""
+          parsed = JSON.parse(text.replace(/```json|```/g,"").trim())
+        }
+      }catch(e){ console.warn("AI 자동인식 실패:", e) }
+      const storeFile = file.size <= 8*1024*1024
+      addVersion(docType.key, {...(parsed||{}), fileName:file.name, fileSize:file.size, fileData: storeFile?`data:${file.type};base64,${base64}`:""})
+      if(!parsed) alert('파일은 첨부됐지만 자동 인식에 실패했습니다. "새 버전 직접 입력"으로 정보를 채워주세요.')
+    }catch(e){ alert("업로드 중 오류: "+e.message) }
+    setBusyKey(null)
+  }
+
+  // ── 여러 파일 한 번에 드래그&드롭 업로드 ──────────────────────
+  // 한 PDF 안에 여러 서류(예: 사업자등록증+통장사본+면허증)가 합쳐서 제출되는 경우가 많아서,
+  // 파일마다 먼저 "어떤 서류들이 들어있는지" AI로 분류한 뒤, 해당되는 종류마다 각각 인식해서 채워 넣음.
+  const [bulkBusy, setBulkBusy] = useState(false)
+  const [bulkProgress, setBulkProgress] = useState("")
+  const [dragOver, setDragOver] = useState(false)
+  const bulkInputRef = useRef(null)
+
+  const classifyAndFile = async (file) => {
+    const base64 = await new Promise((res,rej)=>{
+      const r=new FileReader(); r.onload=()=>res(r.result.split(",")[1]); r.onerror=rej; r.readAsDataURL(file)
+    })
+    const isPdf = file.type==="application/pdf"
+    const block = isPdf
+      ? {type:"document",source:{type:"base64",media_type:"application/pdf",data:base64}}
+      : {type:"image",source:{type:"base64",media_type:file.type||"image/jpeg",data:base64}}
+
+    const catList = VENDOR_DOC_TYPES.map(d=>`${d.key}:${d.label}`).join(", ")
+    let matchedKeys = []
+    try{
+      const res = await fetch("/api/chat",{
+        method:"POST",headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({
+          max_tokens:200,
+          system:`업로드된 문서를 확인하고, 아래 종류 목록 중 이 파일에 실제로 포함된 서류 종류를 모두 골라 JSON 배열로만 응답하세요(설명 없이). 한 파일에 여러 서류가 합쳐서 스캔되어 있을 수 있습니다.
+종류 목록(key:이름): ${catList}
+응답 형식: ["key1","key2"] — 해당하는 key만, 확실하지 않으면 빈 배열 [].`,
+          messages:[{role:"user",content:[block,{type:"text",text:"이 문서에 포함된 서류 종류를 모두 알려주세요."}]}]
+        })
+      })
+      if(res.ok){
+        const json = await res.json()
+        const text = json.content?.[0]?.text || ""
+        const arr = JSON.parse(text.replace(/```json|```/g,"").trim())
+        if(Array.isArray(arr)) matchedKeys = arr.filter(k=>VENDOR_DOC_TYPES.some(d=>d.key===k))
+      }
+    }catch(e){ console.warn("분류 실패:", e) }
+    if(matchedKeys.length===0) matchedKeys = ["etc"] // 분류 실패 시 기타서류로라도 보관
+
+    const storeFile = file.size <= 8*1024*1024
+    const fileData = storeFile ? `data:${file.type};base64,${base64}` : ""
+
+    for(const key of matchedKeys){
+      const docType = VENDOR_DOC_TYPES.find(d=>d.key===key)
+      let parsed = null
+      try{
+        const res2 = await fetch("/api/chat",{
+          method:"POST",headers:{"Content-Type":"application/json"},
+          body:JSON.stringify({max_tokens:500, system:docType.prompt, messages:[{role:"user",content:[block,{type:"text",text:"이 문서를 분석하여 JSON으로 응답하세요."}]}]})
+        })
+        if(res2.ok){
+          const json2 = await res2.json()
+          const text2 = json2.content?.[0]?.text || ""
+          parsed = JSON.parse(text2.replace(/```json|```/g,"").trim())
+        }
+      }catch(e){ console.warn("추출 실패:", e) }
+      addVersion(key, {...(parsed||{}), fileName:file.name, fileSize:file.size, fileData})
+    }
+    return matchedKeys
+  }
+
+  const handleBulkFiles = async (fileList) => {
+    const files = Array.from(fileList||[]).filter(f=>f.type==="application/pdf"||f.type.startsWith("image/"))
+    if(files.length===0) return
+    setBulkBusy(true)
+    const results = []
+    for(let i=0;i<files.length;i++){
+      setBulkProgress(`${i+1}/${files.length} 분석 중 — ${files[i].name}`)
+      try{
+        const keys = await classifyAndFile(files[i])
+        results.push(`${files[i].name} → ${keys.map(k=>VENDOR_DOC_TYPES.find(d=>d.key===k)?.label||k).join(", ")}`)
+      }catch(e){ results.push(`${files[i].name} → 실패(${e.message})`) }
+    }
+    setBulkProgress("")
+    setBulkBusy(false)
+    alert("일괄 업로드 완료\n\n"+results.join("\n"))
+  }
+
+  const startNewVersionManual = (docType) => { setDraft({}); setEditKey(docType.key) }
+  const saveEdit = () => { addVersion(editKey, draft); setEditKey(null); setDraft(null) }
+
+  return (
+    <div>
+      {canWrite && (
+        <div
+          onDragOver={e=>{e.preventDefault(); setDragOver(true)}}
+          onDragLeave={()=>setDragOver(false)}
+          onDrop={e=>{ e.preventDefault(); setDragOver(false); handleBulkFiles(e.dataTransfer.files) }}
+          onClick={()=>!bulkBusy && bulkInputRef.current?.click()}
+          style={{
+            border:`2px dashed ${dragOver?"#3B72F6":"#CBD5E1"}`, borderRadius:10, padding:"18px",
+            textAlign:"center", marginBottom:14, cursor:bulkBusy?"default":"pointer",
+            background:dragOver?"#EEF3FF":"#FAFBFF",
+          }}>
+          <input ref={bulkInputRef} type="file" multiple accept=".pdf,.jpg,.jpeg,.png" style={{display:"none"}}
+            onChange={e=>{ handleBulkFiles(e.target.files); e.target.value="" }}/>
+          {bulkBusy ? (
+            <div style={{fontSize:13,color:"#3B72F6",fontWeight:700}}>⏳ {bulkProgress||"분석 중..."}</div>
+          ) : (
+            <>
+              <div style={{fontSize:13.5,fontWeight:700,color:"#374151"}}>📥 여러 파일을 한 번에 끌어다 놓으세요 (또는 클릭해서 선택)</div>
+              <div style={{fontSize:11.5,color:"#9CA3AF",marginTop:3}}>
+                파일 하나에 사업자등록증·통장사본 등 여러 서류가 합쳐서 스캔되어 있어도, AI가 종류를 나눠서 각 항목에 자동으로 넣어줍니다
+              </div>
+            </>
+          )}
+        </div>
+      )}
+    <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(260px,1fr))",gap:12}}>
+      {VENDOR_DOC_TYPES.map(docType=>{
+        const group = getGroup(docType.key)
+        const doc = getLatest(docType.key)
+        const hasExpiry = docType.key==="techLicense" || docType.key==="newTech"
+        const dl = hasExpiry && doc?.endDate ? daysLeft(doc.endDate) : null
+        const urgent = dl!=null && dl<=90
+        const expired = dl!=null && dl<0
+        const isEditing = editKey===docType.key
+        const showHistory = historyKey===docType.key
+        const pastVersions = group.versions.slice(0,-1)
+        return (
+          <div key={docType.key} style={{
+            border:`1.5px solid ${expired?"#DC2626":urgent?"#F59E0B":"#E5E7EB"}`,
+            borderRadius:10, padding:"12px 14px",
+            background: expired?"#FEF2F2":urgent?"#FFFBEB":"#F8FAFC"
+          }}>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6}}>
+              <div style={{fontSize:13.8,fontWeight:800,color:"#111827"}}>{docType.icon} {docType.label}</div>
+              <div style={{display:"flex",gap:6,alignItems:"center"}}>
+                {doc && <span style={{fontSize:11,fontWeight:700,color:"#9CA3AF"}}>{doc.versionLabel||"최초"}</span>}
+                {hasExpiry && dl!=null && (
+                  <span style={{fontSize:11,fontWeight:700,padding:"3px 8px",borderRadius:12,
+                    background:expired?"#DC2626":urgent?"#F59E0B":"#D1FAE5", color:expired||urgent?"#fff":"#065F46"}}>
+                    {expired?`만료 ${-dl}일 경과`:`D-${dl}`}
+                  </span>
+                )}
+              </div>
+            </div>
+
+            {!doc && !isEditing && <div style={{fontSize:12.5,color:"#9CA3AF",marginBottom:8}}>등록된 서류가 없습니다.</div>}
+
+            {doc && !isEditing && (
+              <div style={{fontSize:12.5,color:"#374151",lineHeight:1.8,marginBottom:8}}>
+                {docType.fields.map(f=>{
+                  const v = doc[f.k]
+                  if(!v) return null
+                  const disp = f.type==="money" ? `${Math.round(v).toLocaleString()}원` : v
+                  return <div key={f.k}><span style={{color:"#9CA3AF"}}>{f.label}: </span><span style={{fontWeight:600}}>{disp}</span></div>
+                })}
+                {doc.fileName && (doc.fileData
+                  ? <a href={doc.fileData} download={doc.fileName} style={{color:"#3B72F6",fontWeight:700,fontSize:12}}>📄 {doc.fileName} (열기/다운로드)</a>
+                  : <span style={{color:"#9CA3AF",fontSize:11.5}}>📄 {doc.fileName} (용량 커서 파일 미저장)</span>)}
+              </div>
+            )}
+
+            {isEditing && (
+              <div style={{display:"flex",flexDirection:"column",gap:5,marginBottom:8}}>
+                <div style={{fontSize:11,color:"#3B72F6",fontWeight:700}}>새 버전({group.versions.length+1===1?"최초":`${group.versions.length+1}차 갱신`})으로 추가됩니다</div>
+                {docType.fields.map(f=>(
+                  <div key={f.k}>
+                    <label style={{fontSize:10.5,color:"#9CA3AF"}}>{f.label}</label>
+                    <input
+                      type={f.k.includes("Date")?"date":f.type==="money"?"number":"text"}
+                      value={draft?.[f.k]??""}
+                      onChange={e=>setDraft(p=>({...p,[f.k]:f.type==="money"?parseFloat(e.target.value)||0:e.target.value}))}
+                      style={{width:"100%",padding:"5px 8px",fontSize:12.5,border:"1px solid #E5E7EB",borderRadius:5,boxSizing:"border-box"}}/>
+                  </div>
+                ))}
+                <div style={{display:"flex",gap:6,marginTop:2}}>
+                  <button onClick={saveEdit} style={{flex:1,padding:"5px 0",background:"#3B72F6",color:"#fff",border:"none",borderRadius:5,fontSize:12,fontWeight:700,cursor:"pointer"}}>저장</button>
+                  <button onClick={()=>{setEditKey(null);setDraft(null)}} style={{flex:1,padding:"5px 0",background:"#fff",color:"#6B7280",border:"1px solid #E5E7EB",borderRadius:5,fontSize:12,fontWeight:700,cursor:"pointer"}}>취소</button>
+                </div>
+              </div>
+            )}
+
+            {canWrite && !isEditing && (
+              <div style={{display:"flex",gap:5,flexWrap:"wrap"}}>
+                <input ref={el=>fileInputs.current[docType.key]=el} type="file" accept=".pdf,.jpg,.jpeg,.png" style={{display:"none"}}
+                  onChange={e=>{ handleUpload(docType, e.target.files?.[0]); e.target.value="" }}/>
+                <button onClick={()=>fileInputs.current[docType.key]?.click()} disabled={busyKey===docType.key}
+                  style={{padding:"5px 9px",background:"#EEF3FF",color:"#3B72F6",border:"none",borderRadius:5,fontSize:11.5,fontWeight:700,cursor:"pointer"}}>
+                  {busyKey===docType.key?"⏳ 분석중":doc?"📤 갱신 업로드":"📤 업로드"}
+                </button>
+                <button onClick={()=>startNewVersionManual(docType)} style={{padding:"5px 9px",background:"#fff",color:"#6B7280",border:"1px solid #E5E7EB",borderRadius:5,fontSize:11.5,fontWeight:700,cursor:"pointer"}}>✎ 직접입력</button>
+                {pastVersions.length>0 && (
+                  <button onClick={()=>setHistoryKey(showHistory?null:docType.key)} style={{padding:"5px 9px",background:"#fff",color:"#7C3AED",border:"1px solid #E5E7EB",borderRadius:5,fontSize:11.5,fontWeight:700,cursor:"pointer"}}>
+                    {showHistory?"이력닫기":`이력(${pastVersions.length})`}
+                  </button>
+                )}
+              </div>
+            )}
+
+            {showHistory && pastVersions.length>0 && (
+              <div style={{marginTop:8,paddingTop:8,borderTop:"1px dashed #E5E7EB",display:"flex",flexDirection:"column",gap:6}}>
+                {pastVersions.slice().reverse().map((v,ri)=>{
+                  const idx = pastVersions.length-1-ri
+                  return (
+                    <div key={idx} style={{fontSize:11.5,color:"#6B7280",background:"#fff",borderRadius:5,padding:"6px 8px"}}>
+                      <div style={{display:"flex",justifyContent:"space-between"}}>
+                        <span style={{fontWeight:700,color:"#374151"}}>{v.versionLabel||"이전"}</span>
+                        <span>{(v.uploadedAt||"").slice(0,10)}</span>
+                      </div>
+                      {v.docNo && <div>번호: {v.docNo}</div>}
+                      <div style={{display:"flex",gap:6,marginTop:2}}>
+                        {v.fileData && <a href={v.fileData} download={v.fileName} style={{color:"#3B72F6",fontWeight:700}}>📄 파일보기</a>}
+                        {canWrite && <button onClick={()=>deleteVersion(docType.key, idx)} style={{color:"#EF4444",fontWeight:700,background:"none",border:"none",cursor:"pointer",padding:0,fontSize:11.5}}>삭제</button>}
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+          </div>
+        )
+      })}
+    </div>
+    </div>
+  )
+}
+
 function DocUploadForm({onAdd,cats}) {
   const [title,setTitle] = useState("")
   const [cat,  setCat  ] = useState(cats[0]||"기타")

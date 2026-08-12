@@ -32,7 +32,7 @@ import {
   STAFF_TARGET_INIT, STAFF_MONTHLY_INIT,
   DEPARTMENTS_INIT, DEPT_COLOR_POOL, DEPT_BIZ_EMPTY, DEPT_STAFF_EMPTY,
   PROJECTS_INIT, ALERTS_INIT, normalizeProject, getDeptShares, BID_TYPES, CONTRACT_TYPES_DEFAULT, PROJ_TYPES_DEFAULT, BID_TYPES_DEFAULT,
-  CERT_DOC_TYPES, VENDOR_DOC_PROMPT, BILLING_STAGE_OPTIONS, BILLING_PROMPT
+  CERT_DOC_TYPES, VENDOR_DOC_PROMPT, BILLING_STAGE_OPTIONS, BILLING_PROMPT, VENDOR_DOC_TYPES
 } from "./data.js"
 import { isConfigured, dbGet, dbSet, dbGetAll, dbSetAll, subscribeChanges } from "./supabase.js"
 
@@ -2013,7 +2013,7 @@ export default function App() {
           </div>
         )}
         {tab==="docsoverview" && canReadTab("projects") && (
-          <DocsOverviewPage projects={projects} setTab={setTab} setSelProjId={setSelProjId}/>
+          <DocsOverviewPage projects={projects} setTab={setTab} setSelProjId={setSelProjId} vendorsDB={vendorsDB}/>
         )}
         {tab==="vendors" && canReadTab("vendors") && <VendorsTab projects={projects} setProjects={setProjects} vendorsDB={vendorsDB} setVendorsDB={setVendorsDB} vendorPayments={vendorPayments} setVendorPayments={setVendorPayments} canWrite={canWrite&&canWriteTab("vendors")} currentUser={currentUser} setTab={setTab} setSelProjId={setSelProjId} setSelVerIdx={setSelVerIdx}/>}
         {tab==="pnl"      && canReadTab("pnl")      && <PnlTab pnlData={pnlData} setPnlData={setPnlData} canWrite={canWrite&&canWriteTab("pnl")}/>}
@@ -6944,7 +6944,7 @@ function NewVerModal({proj,onClose,onSave,initial}) {
 // PDF 업로드 → AI(Gemini, /api/chat)로 문서 내용을 읽어 자동으로 항목을 채워줌.
 // 보증/공제기간이 있는 문서는 만료 임박 시 상단 배지로 경고.
 // ── 서류함 — 전체 프로젝트의 인허가·보증서류 + 준공건물을 유형별로 모아보기 ──
-function DocsOverviewPage({projects, setTab, setSelProjId}) {
+function DocsOverviewPage({projects, setTab, setSelProjId, vendorsDB={}}) {
   const [viewType, setViewType] = useState(CERT_DOC_TYPES[0].key) // 문서유형 | "completion" | "vendorDocs" | "billing"
   const [search, setSearch] = useState("")
   const fA2 = n => n>=1e8?`${(n/1e8).toFixed(2)}억`:n>0?`${Math.round(n).toLocaleString()}원`:"-"
@@ -6986,9 +6986,23 @@ function DocsOverviewPage({projects, setTab, setSelProjId}) {
     return q ? sorted.filter(r=>r.proj.name.toLowerCase().includes(q)||(r.b.stage||"").toLowerCase().includes(q)||(r.b.clientBizName||"").toLowerCase().includes(q)) : sorted
   },[projects, q])
 
+  // 협력업체 등록서류 — 업체 단위(프로젝트 무관)로 전체 훑어서 검색
+  const vendorRegType = VENDOR_DOC_TYPES.find(d=>d.key===viewType)
+  const vendorRegRows = useMemo(()=>{
+    if(!vendorRegType) return []
+    const out = []
+    Object.entries(vendorsDB||{}).forEach(([name, info])=>{
+      const g = (info.certDocs||[]).find(d=>d.key===vendorRegType.key)
+      const vs = g?.versions||[]
+      if(!vs.length) return
+      out.push({vendorName:name, doc:vs[vs.length-1], histCount:vs.length-1})
+    })
+    return q ? out.filter(r=>r.vendorName.toLowerCase().includes(q)) : out
+  },[vendorsDB, vendorRegType, q])
+
   const rows = viewType==="completion"
     ? projects.filter(p=>(p.completion?.completionDate||p.completion?.approvalDate) && (!q||p.name.toLowerCase().includes(q)))
-    : viewType==="vendorDocs" || viewType==="billing" ? []
+    : viewType==="vendorDocs" || viewType==="billing" || vendorRegType ? []
     : projects.filter(p=>getLatestDoc(p, viewType) && (!q||p.name.toLowerCase().includes(q)))
 
   return (
@@ -6997,6 +7011,7 @@ function DocsOverviewPage({projects, setTab, setSelProjId}) {
       <div style={{fontSize:15.4,color:"#64748B",marginBottom:16}}>
         문서 유형을 골라 전체 프로젝트의 서류를 한 번에 확인·검색합니다. (실행계획서 회차 비교는 "📋 실행계획서" 탭, 새 계약서 초안 작성은 "📄 계약서" 탭을 이용하세요)
       </div>
+      <div style={{fontSize:12.5,fontWeight:800,color:"#94A3B8",marginBottom:6}}>프로젝트 서류</div>
       <div style={{display:"flex",gap:8,flexWrap:"wrap",marginBottom:12}}>
         {[...CERT_DOC_TYPES.map(d=>({key:d.key,label:`${d.icon} ${d.label}`})),
           {key:"vendorDocs",label:"🤝 협력업체 계약서"}, {key:"billing",label:"🧾 기성청구서"}, {key:"completion",label:"🏁 준공건물"}].map(t=>(
@@ -7008,10 +7023,46 @@ function DocsOverviewPage({projects, setTab, setSelProjId}) {
           </button>
         ))}
       </div>
+      <div style={{fontSize:12.5,fontWeight:800,color:"#94A3B8",marginBottom:6}}>협력업체 등록서류 (업체 단위, 프로젝트 무관)</div>
+      <div style={{display:"flex",gap:8,flexWrap:"wrap",marginBottom:12}}>
+        {VENDOR_DOC_TYPES.map(t=>(
+          <button key={t.key} onClick={()=>setViewType(t.key)}
+            style={{padding:"8px 16px",borderRadius:20,fontSize:14.3,fontWeight:700,cursor:"pointer",
+              border:viewType===t.key?"1.5px solid #7C3AED":"1.5px solid #E5E7EB",
+              background:viewType===t.key?"#EDE9FE":"#fff", color:viewType===t.key?"#7C3AED":"#64748B"}}>
+            {t.icon} {t.label}
+          </button>
+        ))}
+      </div>
       <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="프로젝트명·업체명·발주처 등으로 검색"
         style={{width:"100%",maxWidth:360,padding:"8px 12px",border:"1px solid #E5E7EB",borderRadius:8,fontSize:14,marginBottom:16,boxSizing:"border-box"}}/>
 
-      {viewType==="vendorDocs" ? (
+      {vendorRegType ? (
+        vendorRegRows.length===0 ? <div style={{padding:"40px 0",textAlign:"center",color:"#94A3B8",fontSize:16.5}}>등록된 서류가 없습니다.</div> : (
+          <div style={{overflowX:"auto"}}>
+            <table style={{width:"100%",borderCollapse:"collapse"}}>
+              <thead><tr>
+                <th style={S.th("left")}>협력업체</th>
+                {vendorRegType.fields.map(f=><th key={f.k} style={S.th("left")}>{f.label}</th>)}
+                <th style={S.th("left")}>버전</th>
+                <th style={S.th("left")}>첨부</th>
+              </tr></thead>
+              <tbody>
+                {vendorRegRows.map((r,i)=>(
+                  <tr key={i}>
+                    <td style={S.td("left")}>{r.vendorName}</td>
+                    {vendorRegType.fields.map(f=>(
+                      <td key={f.k} style={S.td("left")}>{f.type==="money"?fA2(r.doc[f.k]):(r.doc[f.k]||"-")}</td>
+                    ))}
+                    <td style={S.td("left")}>{r.doc.versionLabel||"최초"}{r.histCount>0?` (+이전 ${r.histCount}건)`:""}</td>
+                    <td style={S.td("left")}>{r.doc.fileData?<a href={r.doc.fileData} download={r.doc.fileName} style={{color:"#0E9C8C",fontWeight:700}}>📄 보기</a>:"-"}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )
+      ) : viewType==="vendorDocs" ? (
         vendorDocRows.length===0 ? <div style={{padding:"40px 0",textAlign:"center",color:"#94A3B8",fontSize:16.5}}>등록된 협력업체 계약서가 없습니다.</div> : (
           <div style={{overflowX:"auto"}}>
             <table style={{width:"100%",borderCollapse:"collapse"}}>

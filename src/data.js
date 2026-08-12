@@ -377,6 +377,123 @@ export const VENDOR_TAXINVOICE_PROMPT = `이 문서는 "세금계산서"입니�
 {"docNo":"세금계산서 승인번호(없으면 빈문자열)","amount":공급가액+세액 합계(숫자, 원 단위),"startDate":"작성일자 YYYY-MM-DD","issuer":"공급자(발행자) 상호","contractName":"품목/비고(간단히)"}
 찾을 수 없는 값은 빈 문자열 또는 0으로 두세요.`
 
+// ── 협력업체 등록 서류 — VendorDetail의 "문서 보관"에서 사용. certDocs와 완전히 같은 구조({key,versions:[...]})로
+//    vendorsDB[업체명].certDocs 에 저장 — 프로젝트 서류와 동일하게 AI 자동인식 + 버전이력 관리
+export const VENDOR_DOC_TYPES = [
+  {
+    key:"vendorApp", label:"협력업체 등록신청서", icon:"📝",
+    fields:[
+      {k:"docNo", label:"신청번호"}, {k:"startDate", label:"신청일"},
+      {k:"contractName", label:"신청 업체명"}, {k:"issuer", label:"신청 분야/업종"},
+      {k:"contactName", label:"담당자 성함"}, {k:"contactPhone", label:"담당자 연락처"}, {k:"contactEmail", label:"담당자 메일"},
+    ],
+    prompt:`이 문서는 "협력업체 등록신청서"입니다. 아래 JSON 형식으로만 응답하세요(설명 없이 JSON만):
+{"docNo":"신청번호(없으면 빈문자열)","startDate":"신청일 YYYY-MM-DD","contractName":"신청 업체명","issuer":"신청 분야/업종(간단히)","contactName":"담당자 이름(없으면 빈문자열)","contactPhone":"담당자 연락처(없으면 빈문자열)","contactEmail":"담당자 이메일(없으면 빈문자열)"}
+찾을 수 없는 값은 빈 문자열로 두세요.`,
+  },
+  {
+    key:"bizReg", label:"사업자등록증", icon:"🏢",
+    fields:[
+      {k:"docNo", label:"사업자등록번호"}, {k:"startDate", label:"개업일"},
+      {k:"contractName", label:"상호"}, {k:"issuer", label:"대표자명"},
+      {k:"note", label:"업태/종목"},
+    ],
+    prompt:`이 문서는 "사업자등록증"입니다. 아래 JSON 형식으로만 응답하세요(설명 없이 JSON만):
+{"docNo":"사업자등록번호","startDate":"개업일 YYYY-MM-DD(없으면 빈문자열)","contractName":"상호(회사명)","issuer":"대표자명","note":"업태/종목(간단히)"}
+찾을 수 없는 값은 빈 문자열로 두세요.`,
+  },
+  {
+    key:"techLicense", label:"관계기술자 면허증", icon:"🪪",
+    fields:[
+      {k:"docNo", label:"면허번호"}, {k:"startDate", label:"발급일"}, {k:"endDate", label:"만료일"},
+      {k:"contractName", label:"기술자 성명"}, {k:"issuer", label:"면허 종류/등급"},
+    ],
+    prompt:`이 문서는 협력업체 소속 "관계기술자 등록면허증"입니다. 아래 JSON 형식으로만 응답하세요(설명 없이 JSON만):
+{"docNo":"면허번호","startDate":"발급일 YYYY-MM-DD(없으면 빈문자열)","endDate":"만료일 YYYY-MM-DD(없으면 빈문자열)","contractName":"기술자 성명","issuer":"면허 종류/등급(간단히)"}
+찾을 수 없는 값은 빈 문자열로 두세요.`,
+  },
+  {
+    key:"corpReg", label:"법인등기부등본", icon:"📜",
+    fields:[
+      {k:"docNo", label:"법인등록번호"}, {k:"startDate", label:"발급일"},
+      {k:"contractName", label:"법인명"}, {k:"issuer", label:"대표이사"},
+    ],
+    prompt:`이 문서는 "법인등기부등본"입니다. 아래 JSON 형식으로만 응답하세요(설명 없이 JSON만):
+{"docNo":"법인등록번호","startDate":"발급일 YYYY-MM-DD(없으면 빈문자열)","contractName":"법인명","issuer":"대표이사명"}
+찾을 수 없는 값은 빈 문자열로 두세요.`,
+  },
+  {
+    key:"bankbook", label:"통장사본", icon:"💳",
+    fields:[
+      {k:"docNo", label:"계좌번호"}, {k:"contractName", label:"예금주"}, {k:"issuer", label:"은행명"},
+    ],
+    prompt:`이 문서는 "통장사본"입니다. 아래 JSON 형식으로만 응답하세요(설명 없이 JSON만):
+{"docNo":"계좌번호","contractName":"예금주명","issuer":"은행명"}
+찾을 수 없는 값은 빈 문자열로 두세요.`,
+  },
+  {
+    key:"newTech", label:"신기술 보유현황", icon:"💡",
+    fields:[
+      {k:"docNo", label:"인증번호"}, {k:"startDate", label:"인증일"}, {k:"endDate", label:"유효기간"},
+      {k:"contractName", label:"기술명"}, {k:"issuer", label:"인증기관"},
+    ],
+    prompt:`이 문서는 "신기술 보유현황(신기술 인증서 등)"입니다. 아래 JSON 형식으로만 응답하세요(설명 없이 JSON만):
+{"docNo":"인증번호(없으면 빈문자열)","startDate":"인증일 YYYY-MM-DD(없으면 빈문자열)","endDate":"유효기간 종료일 YYYY-MM-DD(없으면 빈문자열)","contractName":"기술명","issuer":"인증기관명"}
+찾을 수 없는 값은 빈 문자열로 두세요.`,
+  },
+  {
+    key:"patent", label:"특허기술 보유현황", icon:"🔬",
+    fields:[
+      {k:"docNo", label:"특허번호"}, {k:"startDate", label:"등록일"},
+      {k:"contractName", label:"발명의 명칭"}, {k:"issuer", label:"특허권자"},
+    ],
+    prompt:`이 문서는 "특허증(특허기술 보유현황)"입니다. 아래 JSON 형식으로만 응답하세요(설명 없이 JSON만):
+{"docNo":"특허번호","startDate":"등록일 YYYY-MM-DD(없으면 빈문자열)","contractName":"발명의 명칭","issuer":"특허권자명"}
+찾을 수 없는 값은 빈 문자열로 두세요.`,
+  },
+  {
+    key:"taxInvoice2", label:"세금계산서", icon:"🧾",
+    fields:[
+      {k:"docNo", label:"승인번호"}, {k:"amount", label:"공급대가(합계)", type:"money"}, {k:"startDate", label:"작성일자"},
+      {k:"contractName", label:"품목/비고"}, {k:"issuer", label:"공급자 상호"},
+    ],
+    prompt:`이 문서는 "세금계산서"입니다. 아래 JSON 형식으로만 응답하세요(설명 없이 JSON만):
+{"docNo":"세금계산서 승인번호(없으면 빈문자열)","amount":공급가액+세액 합계(숫자, 원 단위),"startDate":"작성일자 YYYY-MM-DD","issuer":"공급자(발행자) 상호","contractName":"품목/비고(간단히)"}
+찾을 수 없는 값은 빈 문자열 또는 0으로 두세요.`,
+  },
+  {
+    key:"vendorContract2", label:"계약서", icon:"📄",
+    fields:[
+      {k:"docNo", label:"계약번호"}, {k:"amount", label:"계약금액", type:"money"},
+      {k:"startDate", label:"계약일"}, {k:"endDate", label:"계약기간 종료일"},
+      {k:"contractName", label:"계약명"}, {k:"issuer", label:"발주(우리 회사)"},
+    ],
+    prompt:`이 문서는 협력업체(외주업체)와 체결한 "계약서"입니다. 아래 JSON 형식으로만 응답하세요(설명 없이 JSON만):
+{"docNo":"계약번호(없으면 빈문자열)","amount":계약금액(숫자, 원 단위),"startDate":"계약일 YYYY-MM-DD","endDate":"계약기간 종료일 YYYY-MM-DD(없으면 빈문자열)","contractName":"계약명","issuer":"발주처(우리 회사)"}
+찾을 수 없는 값은 빈 문자열 또는 0으로 두세요.`,
+  },
+  {
+    key:"quote", label:"견적서", icon:"🧮",
+    fields:[
+      {k:"docNo", label:"견적번호"}, {k:"amount", label:"견적금액", type:"money"}, {k:"startDate", label:"견적일"},
+      {k:"contractName", label:"견적 항목/공종"}, {k:"issuer", label:"견적처"},
+    ],
+    prompt:`이 문서는 "견적서"입니다. 아래 JSON 형식으로만 응답하세요(설명 없이 JSON만):
+{"docNo":"견적번호(없으면 빈문자열)","amount":견적금액(숫자, 원 단위),"startDate":"견적일 YYYY-MM-DD(없으면 빈문자열)","contractName":"견적 항목/공종(간단히)","issuer":"견적을 낸 업체명"}
+찾을 수 없는 값은 빈 문자열 또는 0으로 두세요.`,
+  },
+  {
+    key:"etc", label:"기타서류", icon:"📎",
+    fields:[
+      {k:"docNo", label:"문서번호"}, {k:"startDate", label:"작성일"},
+      {k:"contractName", label:"제목"}, {k:"issuer", label:"작성/발급처"},
+    ],
+    prompt:`이 문서의 종류를 파악해서 아래 JSON 형식으로만 응답하세요(설명 없이 JSON만):
+{"docNo":"문서번호(없으면 빈문자열)","startDate":"작성일/발급일 YYYY-MM-DD(없으면 빈문자열)","contractName":"문서 제목","issuer":"작성처 또는 발급처"}
+찾을 수 없는 값은 빈 문자열로 두세요.`,
+  },
+]
+
 // ── 기성청구서 발송내역 — 사용 안내: p.billingSubmissions = [{stage, date, amount, fileName, fileData,
 //    clientBizNo, clientBizName, taxContactName, taxContactPhone, taxContactEmail, note, createdAt}]
 export const BILLING_STAGE_OPTIONS = ["선금","1차 기성","2차 기성","3차 기성","4차 기성","5차 기성","중도금","잔금","정산"]
