@@ -991,6 +991,36 @@ export default function App() {
     setCashItemsRaw(next)
   }
 
+  // ── 민간 프로젝트 "계약(수주)" 자동 산입 — 계약 체결만으로는 수주로 잡지 않고,
+  // 첫 10% 기성(매출) 수금이 실제로 완료된 시점에 자동으로 type을 "계약"으로 승격시킴.
+  // (공공은 계약체결보고서/계약서 업로드 시점에 CertDocsCard에서 즉시 "계약"으로 반영됨 — 여기선 민간만 처리)
+  useEffect(()=>{
+    const normName = s => (s||"").replace(/[\s\-_·.()【】\[\]]/g,"").toLowerCase()
+    setProjects(prev=>{
+      let changed = false
+      const next = prev.map(p=>{
+        if((p.orderType||"민간")!=="공공" && p.type!=="계약" && p.serviceFee>0){
+          const projNorm = normName(p.name)
+          const paidSum = cashItems.filter(i=>{
+            if(!i.paidDate) return false
+            const a = normName(i.projectName)
+            if(!a) return false
+            if(a===projNorm) return true
+            if(p.code && i.projectCode && normName(p.code)===normName(i.projectCode)) return true
+            const minLen = Math.min(a.length, projNorm.length, 6)
+            return minLen>=4 && a.slice(0,minLen)===projNorm.slice(0,minLen)
+          }).reduce((s,i)=>s+(i.amount||0),0)
+          if(paidSum >= p.serviceFee*0.1){
+            changed = true
+            return {...p, type:"계약"}
+          }
+        }
+        return p
+      })
+      return changed ? next : prev
+    })
+  },[cashItems])
+
   // ── 건별 매출(세금계산서) 내역 ──────────────────────────────
   const [saleItems, setSaleItemsRaw] = useState(()=>lsGet("sjs_sale_items", []))
   const setSaleItems = (v) => {
@@ -1935,7 +1965,7 @@ export default function App() {
         {tab==="analysis"  && (canReadTab("analysis") ? <AnalysisHub deptStaff={deptStaff} setDeptStaff={setDeptStaff} years={years} setYears={setYears} canWrite={canWrite} isAdmin={currentUser?.role==="admin"} cashflow={effectiveCashflow} cashItems={cashItems} setCashItems={setCashItems} saleItems={saleItems} setSaleItems={setSaleItems} contractItems={contractItems} setContractItems={setContractItems} projects={projects} setProjects={setProjects} setTab={setTab} setSelProjId={setSelProjId} setDetailTab={setDetailTab} selProjId={selProjId} selVerIdx={selVerIdx} setSelVerIdx={setSelVerIdx} currentUser={currentUser} yearTargets={yearTargets} setYearTargets={setYearTargets} deptBiz={deptBiz} staffMonthly={staffMonthly} staffTarget={staffTarget}/> : <NoPermScreen tabId="analysis"/>)}
         {tab==="datahub" && canReadTab("datahub") && <DataHubTab currentUser={currentUser} deptStaff={deptStaff} setDeptStaff={setDeptStaff} staffTarget={staffTarget} setStaffTarget={setStaffTarget} staffMonthly={staffMonthly} setStaffMonthly={setStaffMonthly} pnlData={pnlData} setPnlData={setPnlData} cashflow={cashflow} setCashflow={setCashflow} years={years} setYears={setYears} projects={projects} setProjects={setProjects} setTab={setTab} setSelProjId={setSelProjId} setSelVerIdx={setSelVerIdx} setShowNewProj={setShowNewProj} versions={versions} saveVersion={saveVersion} restoreVersion={restoreVersion} deleteVersion={deleteVersion} contractTypes={contractTypes} setContractTypes={setContractTypes} projTypes={projTypes} setProjTypes={setProjTypes} bidTypes={bidTypes} setBidTypes={setBidTypes} allData={null} restoreAllData={(entries)=>dbSetAll(entries, userEmail.current)} dbStatus={dbStatus} vendorsDB={vendorsDB} setVendorsDB={setVendorsDB} vendorPayments={vendorPayments} setVendorPayments={setVendorPayments} cashItems={cashItems} setCashItems={setCashItems} saleItems={saleItems} setSaleItems={setSaleItems} contractItems={contractItems} setContractItems={setContractItems}/>}
         {tab==="cashflow" && canReadTab("cashflow") && <CashflowTab cashflow={effectiveCashflow} setCashflow={setCashflow} currentUser={currentUser} projects={projects} setProjects={setProjects} projectCashflowByDept={projectCashflowByDept} cashItems={cashItems} setCashItems={setCashItems} saleItems={saleItems} setSaleItems={setSaleItems} setTab={setTab} setSelProjId={setSelProjId} setDetailTab={setDetailTab} yearTargets={yearTargets} setYearTargets={setYearTargets} deptBiz={deptBiz} deptStaff={deptStaff} staffMonthly={staffMonthly} staffTarget={staffTarget} contractItems={contractItems} setContractItems={setContractItems}/>}
-        {tab==="projects" && canReadTab("projects") && <ProjectsTab projects={projects} setProjects={setProjects} selProjId={selProjId} setSelProjId={setSelProjId} selVerIdx={selVerIdx} setSelVerIdx={setSelVerIdx} cmpIds={cmpIds} setCmpIds={setCmpIds} showNewVer={showNewVer} setShowNewVer={setShowNewVer} canWrite={canWrite&&canWriteTab("projects")} contractTypes={contractTypes} currentUser={currentUser} setDetailTab={setDetailTab} detailTab={detailTab} cashItems={cashItems} setCashItems={setCashItems} vendorsDB={vendorsDB} projBaseline={projBaseline} setProjBaseline={setProjBaseline} contractItems={contractItems}/>}
+        {tab==="projects" && canReadTab("projects") && <ProjectsTab projects={projects} setProjects={setProjects} selProjId={selProjId} setSelProjId={setSelProjId} selVerIdx={selVerIdx} setSelVerIdx={setSelVerIdx} cmpIds={cmpIds} setCmpIds={setCmpIds} showNewVer={showNewVer} setShowNewVer={setShowNewVer} canWrite={canWrite&&canWriteTab("projects")} contractTypes={contractTypes} currentUser={currentUser} setDetailTab={setDetailTab} detailTab={detailTab} cashItems={cashItems} setCashItems={setCashItems} vendorsDB={vendorsDB} projBaseline={projBaseline} setProjBaseline={setProjBaseline} contractItems={contractItems} vendorPayments={vendorPayments}/>}
         {tab==="execplans" && canReadTab("projects") && (
           <div style={S.card()}>
             <div style={{fontSize:21,fontWeight:800,color:C.navy,marginBottom:4}}>📋 전체 프로젝트 실행계획서 현황</div>
@@ -3594,7 +3624,7 @@ const cardNote2 = {fontSize:14.3,color:C.gray,marginBottom:8}
 // ════════════════════════════════════════════════════════════
 // 프로젝트 탭
 // ════════════════════════════════════════════════════════════
-function ProjectsTab({projects,setProjects,selProjId,setSelProjId,selVerIdx,setSelVerIdx,cmpIds,setCmpIds,showNewVer,setShowNewVer,canWrite,contractTypes,currentUser,setDetailTab:_extSetDetailTab,detailTab:_extDetailTab,cashItems=[],setCashItems,vendorsDB={},projBaseline={},setProjBaseline,contractItems=[]}) {
+function ProjectsTab({projects,setProjects,selProjId,setSelProjId,selVerIdx,setSelVerIdx,cmpIds,setCmpIds,showNewVer,setShowNewVer,canWrite,contractTypes,currentUser,setDetailTab:_extSetDetailTab,detailTab:_extDetailTab,cashItems=[],setCashItems,vendorsDB={},projBaseline={},setProjBaseline,contractItems=[],vendorPayments=[]}) {
   const toast = useToast()
   const {DEPTS, DEPT_COLORS} = React.useContext(DeptContext)
   const [manualFillVer, setManualFillVer] = useState(null)  // 미인식 수동 입력 팝업
@@ -4521,7 +4551,7 @@ function ProjectsTab({projects,setProjects,selProjId,setSelProjId,selVerIdx,setS
                   {/* 섹션: 주간보고 */}
                   <div id="sec-certs" style={{scrollMarginTop:70}}>
                     <CertDocsCard proj={selProj} setProjects={setProjects} canWrite={canWrite}/>
-                    <VendorContractsCard proj={selProj} setProjects={setProjects} canWrite={canWrite}/>
+                    <VendorContractsCard proj={selProj} setProjects={setProjects} canWrite={canWrite} vendorPayments={vendorPayments}/>
                     <BillingCard proj={selProj} setProjects={setProjects} canWrite={canWrite}/>
                   </div>
 
@@ -7127,13 +7157,16 @@ function CertDocsCard({proj, setProjects, canWrite}) {
       const nextList = list.some(d=>d.key===key)
         ? list.map(d=>d.key===key?{key,versions:nextVersions}:d)
         : [...list, {key, versions:nextVersions}]
-      // "계약서"/"계약체결보고서(공공)" 문서는 새 버전이 등록될 때마다(AI 자동인식이든 직접입력이든) 프로젝트 정보의
+      // "계약서"/"계약체결보고서" 문서는 새 버전이 등록될 때마다(AI 자동인식이든 직접입력이든) 프로젝트 정보의
       // 계약일·수주일·용역비에도 자동으로 반영 — 같은 정보를 두 군데서 따로 입력하지 않도록 함
       const syncFields = {}
       if(key==="contract" || key==="contractApproval"){
         if(newVersion.startDate) syncFields.contractDate = newVersion.startDate
         if(newVersion.orderDate) syncFields.orderDate     = newVersion.orderDate
         if(newVersion.amount>0)  syncFields.serviceFee    = newVersion.amount
+        // 계약(수주) 산입 기준 — 공공은 계약 체결과 동시에 "계약"으로 산입.
+        // 민간은 계약만으로는 산입하지 않고, 10% 기성 수금 시점에 별도 로직(App 전역)에서 자동 반영됨.
+        if((p.orderType||"민간")==="공공") syncFields.type = "계약"
       }
       return {...p, certDocs: nextList, ...syncFields}
     }))
@@ -7336,7 +7369,7 @@ function CertDocsCard({proj, setProjects, canWrite}) {
 }
 
 // ── 협력업체 계약서 — 프로젝트별로 협력업체마다 계약서 버전 이력을 관리 ──
-function VendorContractsCard({proj, setProjects, canWrite}) {
+function VendorContractsCard({proj, setProjects, canWrite, vendorPayments=[]}) {
   const [busyKey, setBusyKey] = useState(null)
   const [historyKey, setHistoryKey] = useState(null)
   const [showAdd, setShowAdd] = useState(false)
@@ -7466,6 +7499,33 @@ function VendorContractsCard({proj, setProjects, canWrite}) {
                     ? <a href={doc.fileData} download={doc.fileName} style={{color:"#0E9C8C",fontWeight:700,fontSize:12.5}}>📄 {doc.fileName} (열기/다운로드)</a>
                     : <span style={{color:"#94A3B8",fontSize:12}}>📄 {doc.fileName} (용량 커서 파일 미저장)</span>)}
                 </div>
+                {(()=>{
+                  // 이 업체·이 프로젝트에 실제로 지급된 내역(협력업체 탭에서 기록된 vendorPayments)을
+                  // 계약금액에서 순차적으로 차감되는 형태로 보여줌 — 지출 발생 시 자동으로 여기 반영됨
+                  const payments = (vendorPayments||[])
+                    .filter(vp=>vp.projectId===proj.id && vp.vendor===group.vendorName)
+                    .slice().sort((a,b)=>(a.date||"").localeCompare(b.date||""))
+                  if(payments.length===0) return null
+                  const paidTotal = payments.reduce((s,p)=>s+(Number(p.amount)||0),0)
+                  const contractAmt = doc.amount||0
+                  return (
+                    <div style={{marginTop:2,marginBottom:10,background:"#F8FAFC",borderRadius:8,padding:"10px 12px"}}>
+                      <div style={{fontSize:12,fontWeight:700,color:"#334155",marginBottom:6}}>
+                        💸 지급 내역 — 누계 {paidTotal.toLocaleString()}원
+                        {contractAmt>0 && ` / 계약금액 ${contractAmt.toLocaleString()}원 (${Math.min(100,Math.round(paidTotal/contractAmt*100))}%)`}
+                      </div>
+                      {payments.map((p,i)=>{
+                        const running = payments.slice(0,i+1).reduce((s,x)=>s+(Number(x.amount)||0),0)
+                        return (
+                          <div key={p.id||i} style={{fontSize:12,color:"#64748B",display:"flex",justifyContent:"space-between",padding:"2px 0"}}>
+                            <span>{p.date||"-"} {p.note?`(${p.note})`:""}</span>
+                            <span>{Number(p.amount||0).toLocaleString()}원 <span style={{color:"#CBD5E1"}}>(누계 {running.toLocaleString()}원)</span></span>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  )
+                })()}
                 {canWrite && (
                   <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
                     <input ref={el=>fileInputs.current[group.vendorName]=el} type="file" accept=".pdf,.jpg,.jpeg,.png" style={{display:"none"}}
