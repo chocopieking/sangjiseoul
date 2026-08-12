@@ -218,13 +218,16 @@ export const normalizeProject = p => ({
   type:"추진",  // 기본값 - contractYear 설정 시 업로드된 type으로 덮어씀
   versions:[],  // 실행계획서 버전 기본값
   shareRatio:0, // 기본값 - 없으면 NaN% 로 보이는 문제 방지
-  certDocs:[],  // 보증서·증권·실적증명서·건축물대장 등 첨부서류 (아래 CERT_DOC_TYPES 참고)
+  certDocs:[],  // 보증서·증권·실적증명서·건축물대장 등 첨부서류 — 유형별로 여러 버전(1차/2차 변경 등)을 담는 배열의 배열 아님, {key,versions:[...]} 구조 (아래 CERT_DOC_TYPES 참고)
   ...p,
-  // 이름 앞에 "[E26010-VSG]" 같은 코드가 그대로 붙어 들어온 경우, code 필드가 비어있다면 여기서 분리
-  ...(!p.code && /^\[[^\]]+\]\s*/.test(p.name||"") ? (()=>{
+  // 이름 앞에 "[E26010-VSG]" 같은 코드가 그대로 붙어 들어온 경우 항상 분리해서 표시용 이름을 깨끗하게 만듦.
+  // code가 이미 있어도(다른 값이라도) 이름에 남아있는 대괄호 접두어는 제거 — 업로드 파일의 "코드" 열이
+  // 이름 속 코드와 다르거나 비어있을 때 코드가 이름에 그대로 남아버리던 문제의 근본 수정.
+  ...((() => {
     const m = (p.name||"").match(/^\[([^\]]+)\]\s*(.*)$/)
-    return m ? { code: m[1], name: m[2] } : {}
-  })() : {}),
+    if(!m) return {}
+    return { code: p.code || m[1], name: m[2] }
+  })()),
   deptShares: getDeptShares(p),
 })
 

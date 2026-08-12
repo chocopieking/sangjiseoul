@@ -1658,6 +1658,7 @@ export default function App() {
     {id:"deptdash",  label:"🏢 본부별 현황",  group:"경영"},
     {id:"projects",  label:"🏗 프로젝트",     group:"프로젝트"},
     {id:"execplans", label:"📋 실행계획서",   group:"프로젝트"},
+    {id:"docsoverview", label:"📎 서류함",    group:"프로젝트"},
     {id:"history",   label:"📜 히스토리",     group:"프로젝트"},
     {id:"calendar",  label:"📅 일정 캘린더",  group:"프로젝트"},
     {id:"vendors",   label:"🤝 협력업체",     group:"관리"},
@@ -1688,6 +1689,7 @@ export default function App() {
           deptdash:{id:"deptdash",label:"🏢 본부별 현황",group:"경영"},
           projects:{id:"projects",label:"🏗 프로젝트",group:"프로젝트"},
           execplans:{id:"execplans",label:"📋 실행계획서",group:"프로젝트"},
+          docsoverview:{id:"docsoverview",label:"📎 서류함",group:"프로젝트"},
           history:{id:"history",label:"📜 히스토리",group:"프로젝트"},
           calendar:{id:"calendar",label:"📅 일정 캘린더",group:"프로젝트"},
           vendors:{id:"vendors",label:"🤝 협력업체",group:"관리"},
@@ -1979,6 +1981,9 @@ export default function App() {
               )
             })()}
           </div>
+        )}
+        {tab==="docsoverview" && canReadTab("projects") && (
+          <DocsOverviewPage projects={projects} setTab={setTab} setSelProjId={setSelProjId}/>
         )}
         {tab==="vendors" && canReadTab("vendors") && <VendorsTab projects={projects} setProjects={setProjects} vendorsDB={vendorsDB} setVendorsDB={setVendorsDB} vendorPayments={vendorPayments} setVendorPayments={setVendorPayments} canWrite={canWrite&&canWriteTab("vendors")} currentUser={currentUser} setTab={setTab} setSelProjId={setSelProjId} setSelVerIdx={setSelVerIdx}/>}
         {tab==="pnl"      && canReadTab("pnl")      && <PnlTab pnlData={pnlData} setPnlData={setPnlData} canWrite={canWrite&&canWriteTab("pnl")}/>}
@@ -3792,7 +3797,9 @@ function ProjectsTab({projects,setProjects,selProjId,setSelProjId,selVerIdx,setS
                   const code=CI.code>=0?String(r[CI.code]).trim():""
                   if(!name)return
                   // 중복 체크: 코드 우선, 없으면 프로젝트명 정규화 비교
-                  const normStr = s => String(s||"").replace(/[\s\[\]()（）_\-]/g,"").toLowerCase()
+                  // 이름 앞 "[코드]" 접두어를 먼저 떼어내고 비교 — 코드가 서로 다르게 들어와도
+                  // 실제로는 같은 프로젝트인 경우를 최대한 잡아내서 중복 생성을 줄임
+                  const normStr = s => String(s||"").replace(/^\[[^\]]+\]\s*/,"").replace(/[\s\[\]()（）_\-]/g,"").toLowerCase()
                   const existing = next.find(p=>
                     (code && p.code && normStr(p.code)===normStr(code)) ||
                     normStr(p.name)===normStr(name)
@@ -3911,7 +3918,8 @@ function ProjectsTab({projects,setProjects,selProjId,setSelProjId,selVerIdx,setS
                 </span>
                 <div style={{display:"flex",gap:8}}>
                   <button onClick={()=>{
-                    if(!window.confirm(`선택한 ${cmpIds.length}개 프로젝트를 삭제합니까?\n\n이 작업은 되돌릴 수 없습니다.`)) return
+                    if(!window.confirm(`⚠️ 선택한 ${cmpIds.length}개 프로젝트를 완전히 삭제합니다.\n\n각 프로젝트에 딸린 실행계획서 회차·계약서·실적증명서·건축물대장·보증서류·히스토리·주간보고 등 모든 첨부 정보가 함께 영구 삭제되며, 되돌릴 수 없습니다.\n\n삭제 전 데이터관리에서 반드시 백업을 받아두셨는지 확인해주세요.\n\n정말 삭제하시겠습니까?`)) return
+                    if(!window.confirm(`마지막 확인입니다.\n\n"${cmpIds.length}개 프로젝트 삭제"를 진행할까요? 이 창을 취소하면 아무것도 삭제되지 않습니다.`)) return
                     setProjects(prev=>prev.filter(p=>!cmpIds.includes(p.id)))
                     const cnt2=cmpIds.length; setCmpIds([])
                     toast&&toast(`🗑 ${cnt2}개 프로젝트 삭제 완료`,"info")
@@ -3930,7 +3938,13 @@ function ProjectsTab({projects,setProjects,selProjId,setSelProjId,selVerIdx,setS
             <div style={{overflowX:"auto"}}>
               <table style={{width:"100%",borderCollapse:"collapse"}}>
                 <thead><tr>
-                  <th style={PTH("center")}>비교</th>
+                  <th style={PTH("center")}>
+                    <input type="checkbox"
+                      checked={sortedProjects.length>0 && sortedProjects.every(p=>cmpIds.includes(p.id))}
+                      onChange={e=>setCmpIds(e.target.checked ? sortedProjects.map(p=>p.id) : [])}
+                      title="전체 선택/해제 (현재 목록 기준)"/>
+                    <div style={{fontSize:10,color:"#94A3B8",marginTop:2}}>비교</div>
+                  </th>
                   <th style={PTH("center")}>연번</th>
                   <ProjSortTh label="구분" skey="type" align="left" style={{padding:"8px 10px",fontSize:14}}/>
                   <ProjSortTh label="프로젝트명" skey="name" align="left" style={{padding:"8px 10px",fontSize:14}}/>
@@ -6897,13 +6911,127 @@ function NewVerModal({proj,onClose,onSave,initial}) {
 // ── 프로젝트 첨부서류(계약이행보증서·손해배상공제증권·실적증명서·건축물대장) ──
 // PDF 업로드 → AI(Gemini, /api/chat)로 문서 내용을 읽어 자동으로 항목을 채워줌.
 // 보증/공제기간이 있는 문서는 만료 임박 시 상단 배지로 경고.
+// ── 서류함 — 전체 프로젝트의 인허가·보증서류 + 준공건물을 유형별로 모아보기 ──
+function DocsOverviewPage({projects, setTab, setSelProjId}) {
+  const [viewType, setViewType] = useState(CERT_DOC_TYPES[0].key) // 문서유형 or "completion"
+  const fA2 = n => n>=1e8?`${(n/1e8).toFixed(2)}억`:n>0?`${Math.round(n).toLocaleString()}원`:"-"
+  const daysLeft = endDate => {
+    if(!endDate) return null
+    const d = Math.ceil((new Date(endDate+"T00:00:00") - new Date(new Date().toDateString())) / 86400000)
+    return Number.isFinite(d) ? d : null
+  }
+  const getLatestDoc = (p, key) => {
+    const g = (p.certDocs||[]).find(d=>d.key===key)
+    if(!g) return null
+    const vs = Array.isArray(g.versions) ? g.versions : (g.docNo!=null||g.fileName ? [(({key:_k,...r})=>r)(g)] : [])
+    return vs.length ? vs[vs.length-1] : null
+  }
+  const goProj = (id) => { setSelProjId(id); setTab("projects") }
+
+  const docType = CERT_DOC_TYPES.find(d=>d.key===viewType)
+  const hasExpiry = viewType==="perfBond" || viewType==="liabilityCert"
+
+  const rows = viewType==="completion"
+    ? projects.filter(p=>p.completion?.completionDate||p.completion?.approvalDate)
+    : projects.filter(p=>getLatestDoc(p, viewType))
+
+  return (
+    <div style={S.card()}>
+      <div style={{fontSize:21,fontWeight:800,color:C.navy,marginBottom:4}}>📎 서류함 — 전체 프로젝트 모아보기</div>
+      <div style={{fontSize:15.4,color:"#64748B",marginBottom:16}}>
+        문서 유형을 골라 전체 프로젝트의 최신 서류를 한 번에 확인합니다. (실행계획서는 "📋 실행계획서" 탭, 계약서는 "📄 계약서" 탭에서 모아볼 수 있습니다)
+      </div>
+      <div style={{display:"flex",gap:8,flexWrap:"wrap",marginBottom:18}}>
+        {[...CERT_DOC_TYPES.map(d=>({key:d.key,label:`${d.icon} ${d.label}`})), {key:"completion",label:"🏁 준공건물"}].map(t=>(
+          <button key={t.key} onClick={()=>setViewType(t.key)}
+            style={{padding:"8px 16px",borderRadius:20,fontSize:14.3,fontWeight:700,cursor:"pointer",
+              border:viewType===t.key?"1.5px solid #0E9C8C":"1.5px solid #E5E7EB",
+              background:viewType===t.key?"#E3F6F3":"#fff", color:viewType===t.key?"#0E9C8C":"#64748B"}}>
+            {t.label}
+          </button>
+        ))}
+      </div>
+
+      {rows.length===0 ? (
+        <div style={{padding:"40px 0",textAlign:"center",color:"#94A3B8",fontSize:16.5}}>등록된 항목이 없습니다.</div>
+      ) : viewType==="completion" ? (
+        <div style={{overflowX:"auto"}}>
+          <table style={{width:"100%",borderCollapse:"collapse"}}>
+            <thead><tr>{["프로젝트","본부","사용승인일","준공예정일","준공촬영일"].map((h,i)=><th key={h} style={S.th(i===0?"left":"left")}>{h}</th>)}</tr></thead>
+            <tbody>
+              {rows.map(p=>(
+                <tr key={p.id} onClick={()=>goProj(p.id)} style={{cursor:"pointer"}} onMouseEnter={e=>e.currentTarget.style.background="#F8FAFC"} onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
+                  <td style={S.td("left")}>{p.name}</td>
+                  <td style={S.td("left")}>{(p.depts||[]).join(", ")}</td>
+                  <td style={S.td("left")}>{p.completion?.approvalDate||"-"}</td>
+                  <td style={S.td("left")}>{p.completion?.completionDate||"-"}</td>
+                  <td style={S.td("left")}>{p.completion?.photoDate||"-"}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      ) : (
+        <div style={{overflowX:"auto"}}>
+          <table style={{width:"100%",borderCollapse:"collapse"}}>
+            <thead><tr>
+              <th style={S.th("left")}>프로젝트</th>
+              {docType.fields.map(f=><th key={f.k} style={S.th("left")}>{f.label}</th>)}
+              <th style={S.th("left")}>버전</th>
+              {hasExpiry && <th style={S.th("left")}>만료</th>}
+            </tr></thead>
+            <tbody>
+              {rows.map(p=>{
+                const doc = getLatestDoc(p, viewType)
+                const dl = doc.endDate ? daysLeft(doc.endDate) : null
+                const expired = hasExpiry && dl!=null && dl<0
+                const urgent = hasExpiry && dl!=null && dl<=90
+                return (
+                  <tr key={p.id} onClick={()=>goProj(p.id)} style={{cursor:"pointer",background:expired?"#FEF2F2":urgent?"#FFFBEB":"transparent"}}
+                    onMouseEnter={e=>{if(!expired&&!urgent)e.currentTarget.style.background="#F8FAFC"}} onMouseLeave={e=>{if(!expired&&!urgent)e.currentTarget.style.background="transparent"}}>
+                    <td style={S.td("left")}>{p.name}</td>
+                    {docType.fields.map(f=>(
+                      <td key={f.k} style={S.td("left")}>
+                        {f.type==="money" ? fA2(doc[f.k]) : f.type==="number" ? (doc[f.k]||"-") : (doc[f.k]||"-")}
+                      </td>
+                    ))}
+                    <td style={S.td("left")}>{doc.versionLabel||"최초"}</td>
+                    {hasExpiry && (
+                      <td style={S.td("left")}>
+                        {dl==null ? "-" : expired
+                          ? <span style={{color:"#DC2626",fontWeight:700}}>만료 {-dl}일 경과</span>
+                          : urgent ? <span style={{color:"#D97706",fontWeight:700}}>D-{dl}</span>
+                          : <span style={{color:"#059669"}}>D-{dl}</span>}
+                      </td>
+                    )}
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  )
+}
+
 function CertDocsCard({proj, setProjects, canWrite}) {
-  const [busyKey, setBusyKey] = useState(null)   // AI 분석 중인 문서 key
-  const [editKey, setEditKey] = useState(null)   // 수동 편집 중인 문서 key
+  const [busyKey, setBusyKey] = useState(null)     // AI 분석 중인 문서 key
+  const [editKey, setEditKey] = useState(null)     // 수동 편집(새 버전 추가) 중인 문서 key
   const [draft, setDraft] = useState(null)
+  const [historyKey, setHistoryKey] = useState(null) // 이력(1차/2차 변경) 펼쳐진 문서 key
   const fileInputs = useRef({})
 
-  const getDoc = key => (proj.certDocs||[]).find(d=>d.key===key)
+  const getGroupFor = (list, key) => {
+    const g = list.find(d=>d.key===key)
+    if(!g) return {key, versions:[]}
+    if(Array.isArray(g.versions)) return g
+    const {key:_k, ...rest} = g
+    return {key, versions: rest.docNo!=null||rest.fileName ? [rest] : []}
+  }
+  // 예전(단일값) 구조로 저장된 데이터도 깨지지 않게 versions 배열로 항상 정규화해서 읽음
+  const getGroup = key => getGroupFor(proj.certDocs||[], key)
+  const getLatest = key => { const vs = getGroup(key).versions; return vs.length ? vs[vs.length-1] : null }
 
   const daysLeft = endDate => {
     if(!endDate) return null
@@ -6911,20 +7039,35 @@ function CertDocsCard({proj, setProjects, canWrite}) {
     return Number.isFinite(d) ? d : null
   }
 
-  const upsertDoc = (key, patch) => {
+  // 새 버전을 추가(항상 append) — 실행계획서의 1차/2차 변경처럼, 기존 버전은 이력으로 그대로 남고 최신 버전만 상단에 표시됨
+  const addVersion = (key, patch) => {
     setProjects(prev=>prev.map(p=>{
       if(p.id!==proj.id) return p
       const list = p.certDocs||[]
-      const exists = list.some(d=>d.key===key)
-      const nextList = exists
-        ? list.map(d=>d.key===key?{...d,...patch}:d)
-        : [...list, {key, docNo:"", amount:0, startDate:"", endDate:"", contractName:"", issuer:"", fileName:"", fileData:"", updatedAt:new Date().toISOString(), ...patch}]
+      const group = getGroupFor(list, key)
+      const versionNo = group.versions.length + 1
+      const newVersion = {
+        docNo:"", amount:0, startDate:"", endDate:"", contractName:"", issuer:"", fileName:"", fileData:"",
+        versionLabel: versionNo===1 ? "최초" : `${versionNo}차 변경`,
+        uploadedAt: new Date().toISOString(),
+        ...patch,
+      }
+      const nextVersions = [...group.versions, newVersion]
+      const nextList = list.some(d=>d.key===key)
+        ? list.map(d=>d.key===key?{key,versions:nextVersions}:d)
+        : [...list, {key, versions:nextVersions}]
       return {...p, certDocs: nextList}
     }))
   }
-  const deleteDoc = key => {
-    if(!window.confirm("이 서류 정보를 삭제할까요? (첨부한 파일도 함께 삭제됩니다)")) return
-    setProjects(prev=>prev.map(p=>p.id!==proj.id?p:{...p, certDocs:(p.certDocs||[]).filter(d=>d.key!==key)}))
+  const deleteVersion = (key, idx) => {
+    if(!window.confirm("이 버전 기록을 삭제할까요? (첨부한 파일도 함께 삭제되며, 되돌릴 수 없습니다)")) return
+    setProjects(prev=>prev.map(p=>{
+      if(p.id!==proj.id) return p
+      const list = p.certDocs||[]
+      const group = getGroupFor(list, key)
+      const nextVersions = group.versions.filter((_,i)=>i!==idx)
+      return {...p, certDocs: list.map(d=>d.key===key?{key,versions:nextVersions}:d)}
+    }))
   }
 
   const handleUpload = async (docType, file) => {
@@ -6960,39 +7103,40 @@ function CertDocsCard({proj, setProjects, canWrite}) {
 
       // 8MB 넘는 파일은 브라우저 저장공간(localStorage) 용량을 넘길 수 있어 파일 자체는 저장하지 않고 정보만 저장
       const storeFile = file.size <= 8*1024*1024
-      upsertDoc(docType.key, {
+      addVersion(docType.key, {
         ...(parsed||{}),
         fileName: file.name, fileSize: file.size,
         fileData: storeFile ? `data:${file.type};base64,${base64}` : "",
-        updatedAt: new Date().toISOString(),
       })
-      if(!parsed) alert("파일은 첨부됐지만 자동 인식에 실패했습니다. 아래 \"직접 입력\"으로 정보를 채워주세요.")
+      if(!parsed) alert('파일은 첨부됐지만 자동 인식에 실패했습니다. "새 버전 직접 입력"으로 정보를 채워주세요.')
     }catch(e){
       alert("업로드 중 오류가 발생했습니다: "+e.message)
     }
     setBusyKey(null)
   }
 
-  const startEdit = (docType) => {
-    const d = getDoc(docType.key) || {}
-    setDraft({...d})
+  const startNewVersionManual = (docType) => {
+    setDraft({}) // 빈 값에서 시작 — "변경"이므로 이전 값을 그대로 베끼지 않고 새로 입력받음
     setEditKey(docType.key)
   }
-  const saveEdit = () => { upsertDoc(editKey, draft); setEditKey(null); setDraft(null) }
+  const saveEdit = () => { addVersion(editKey, draft); setEditKey(null); setDraft(null) }
 
   return (
-    <Card title="📎 인허가·보증서류" note="계약이행보증서 · 손해배상공제증권 · 실적증명서 · 건축물대장">
+    <Card title="📎 인허가·보증서류" note="계약이행보증서 · 손해배상공제증권 · 실적증명서 · 건축물대장 — 1차/2차 변경 이력 관리">
       <div style={{fontSize:13,color:"#94A3B8",marginBottom:14}}>
-        PDF를 업로드하면 AI가 증권번호·기간·금액을 자동으로 읽어 채웁니다. 보증·공제 기간이 있는 서류는 만료 임박 시 아래에 경고가 표시됩니다.
+        PDF를 업로드하면 AI가 증권번호·기간·금액을 자동으로 읽어 채웁니다. 재발급·변경 시 새로 업로드하면 <b>이전 기록은 지워지지 않고 이력으로 남습니다</b>(실행계획서 회차와 같은 방식). 보증·공제 기간이 있는 서류는 만료 임박 시 아래에 경고가 표시됩니다.
       </div>
       <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(280px,1fr))",gap:12}}>
         {CERT_DOC_TYPES.map(docType=>{
-          const doc = getDoc(docType.key)
+          const group = getGroup(docType.key)
+          const doc = getLatest(docType.key)
           const dl = doc?.endDate ? daysLeft(doc.endDate) : null
           const hasExpiry = docType.key==="perfBond" || docType.key==="liabilityCert"
           const urgent = hasExpiry && dl!=null && dl<=90
           const expired = hasExpiry && dl!=null && dl<0
           const isEditing = editKey===docType.key
+          const showHistory = historyKey===docType.key
+          const pastVersions = group.versions.slice(0,-1) // 최신 제외 이전 이력들
           return (
             <div key={docType.key} style={{
               border:`1.5px solid ${expired?"#DC2626":urgent?"#F59E0B":"#E5E7EB"}`,
@@ -7001,13 +7145,16 @@ function CertDocsCard({proj, setProjects, canWrite}) {
             }}>
               <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
                 <div style={{fontSize:14.3,fontWeight:800,color:"#0F172A"}}>{docType.icon} {docType.label}</div>
-                {hasExpiry && dl!=null && (
-                  <span style={{fontSize:11,fontWeight:700,padding:"3px 9px",borderRadius:12,
-                    background:expired?"#DC2626":urgent?"#F59E0B":"#D1FAE5",
-                    color:expired||urgent?"#fff":"#065F46"}}>
-                    {expired ? `만료됨 (${-dl}일 경과)` : `D-${dl}`}
-                  </span>
-                )}
+                <div style={{display:"flex",gap:6,alignItems:"center"}}>
+                  {doc && <span style={{fontSize:11,fontWeight:700,color:"#94A3B8"}}>{doc.versionLabel||"최초"}</span>}
+                  {hasExpiry && dl!=null && (
+                    <span style={{fontSize:11,fontWeight:700,padding:"3px 9px",borderRadius:12,
+                      background:expired?"#DC2626":urgent?"#F59E0B":"#D1FAE5",
+                      color:expired||urgent?"#fff":"#065F46"}}>
+                      {expired ? `만료됨 (${-dl}일 경과)` : `D-${dl}`}
+                    </span>
+                  )}
+                </div>
               </div>
 
               {!doc && !isEditing && (
@@ -7034,6 +7181,9 @@ function CertDocsCard({proj, setProjects, canWrite}) {
 
               {isEditing && (
                 <div style={{display:"flex",flexDirection:"column",gap:6,marginBottom:10}}>
+                  <div style={{fontSize:11.5,color:"#0E9C8C",fontWeight:700,marginBottom:2}}>
+                    새 버전({group.versions.length+1===1?"최초":`${group.versions.length+1}차 변경`})으로 추가됩니다
+                  </div>
                   {docType.fields.map(f=>(
                     <div key={f.k}>
                       <label style={{fontSize:11,color:"#94A3B8"}}>{f.label}</label>
@@ -7057,10 +7207,36 @@ function CertDocsCard({proj, setProjects, canWrite}) {
                     onChange={e=>{ handleUpload(docType, e.target.files?.[0]); e.target.value="" }}/>
                   <button onClick={()=>fileInputs.current[docType.key]?.click()} disabled={busyKey===docType.key}
                     style={{padding:"6px 11px",background:"#E3F6F3",color:"#0E9C8C",border:"none",borderRadius:6,fontSize:12,fontWeight:700,cursor:busyKey===docType.key?"default":"pointer"}}>
-                    {busyKey===docType.key ? "⏳ 분석 중..." : "📤 PDF 업로드"}
+                    {busyKey===docType.key ? "⏳ 분석 중..." : doc ? "📤 변경분 업로드" : "📤 PDF 업로드"}
                   </button>
-                  <button onClick={()=>startEdit(docType)} style={{padding:"6px 11px",background:"#F8FAFC",color:"#64748B",border:"1px solid #E5E7EB",borderRadius:6,fontSize:12,fontWeight:700,cursor:"pointer"}}>✎ 직접 입력</button>
-                  {doc && <button onClick={()=>deleteDoc(docType.key)} style={{padding:"6px 11px",background:"#FEE2E2",color:"#DC2626",border:"none",borderRadius:6,fontSize:12,fontWeight:700,cursor:"pointer"}}>삭제</button>}
+                  <button onClick={()=>startNewVersionManual(docType)} style={{padding:"6px 11px",background:"#F8FAFC",color:"#64748B",border:"1px solid #E5E7EB",borderRadius:6,fontSize:12,fontWeight:700,cursor:"pointer"}}>✎ {doc?"새 버전 직접 입력":"직접 입력"}</button>
+                  {pastVersions.length>0 && (
+                    <button onClick={()=>setHistoryKey(showHistory?null:docType.key)} style={{padding:"6px 11px",background:"#F8FAFC",color:"#7C3AED",border:"1px solid #E5E7EB",borderRadius:6,fontSize:12,fontWeight:700,cursor:"pointer"}}>
+                      {showHistory?"이력 닫기":`이력 보기 (${pastVersions.length})`}
+                    </button>
+                  )}
+                </div>
+              )}
+
+              {showHistory && pastVersions.length>0 && (
+                <div style={{marginTop:10,paddingTop:10,borderTop:"1px dashed #E5E7EB",display:"flex",flexDirection:"column",gap:8}}>
+                  {pastVersions.slice().reverse().map((v,ri)=>{
+                    const idx = pastVersions.length-1-ri
+                    return (
+                      <div key={idx} style={{fontSize:12,color:"#64748B",background:"#F8FAFC",borderRadius:6,padding:"8px 10px"}}>
+                        <div style={{display:"flex",justifyContent:"space-between",marginBottom:3}}>
+                          <span style={{fontWeight:700,color:"#334155"}}>{v.versionLabel||"이전"}</span>
+                          <span>{(v.uploadedAt||"").slice(0,10)}</span>
+                        </div>
+                        {v.docNo && <div>증권/문서번호: {v.docNo}</div>}
+                        {v.endDate && <div>기간: {v.startDate||"-"} ~ {v.endDate}</div>}
+                        <div style={{display:"flex",gap:8,marginTop:4}}>
+                          {v.fileData && <a href={v.fileData} download={v.fileName} style={{color:"#0E9C8C",fontWeight:700}}>📄 파일 보기</a>}
+                          {canWrite && <button onClick={()=>deleteVersion(docType.key, idx)} style={{color:"#DC2626",fontWeight:700,background:"none",border:"none",cursor:"pointer",padding:0,fontSize:12}}>삭제</button>}
+                        </div>
+                      </div>
+                    )
+                  })}
                 </div>
               )}
             </div>
