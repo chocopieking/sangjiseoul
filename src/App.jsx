@@ -32,7 +32,7 @@ import {
   STAFF_TARGET_INIT, STAFF_MONTHLY_INIT,
   DEPARTMENTS_INIT, DEPT_COLOR_POOL, DEPT_BIZ_EMPTY, DEPT_STAFF_EMPTY,
   PROJECTS_INIT, ALERTS_INIT, normalizeProject, getDeptShares, BID_TYPES, CONTRACT_TYPES_DEFAULT, PROJ_TYPES_DEFAULT, BID_TYPES_DEFAULT,
-  CERT_DOC_TYPES
+  CERT_DOC_TYPES, VENDOR_DOC_PROMPT, BILLING_STAGE_OPTIONS, BILLING_PROMPT
 } from "./data.js"
 import { isConfigured, dbGet, dbSet, dbGetAll, dbSetAll, subscribeChanges } from "./supabase.js"
 
@@ -4521,6 +4521,8 @@ function ProjectsTab({projects,setProjects,selProjId,setSelProjId,selVerIdx,setS
                   {/* 섹션: 주간보고 */}
                   <div id="sec-certs" style={{scrollMarginTop:70}}>
                     <CertDocsCard proj={selProj} setProjects={setProjects} canWrite={canWrite}/>
+                    <VendorContractsCard proj={selProj} setProjects={setProjects} canWrite={canWrite}/>
+                    <BillingCard proj={selProj} setProjects={setProjects} canWrite={canWrite}/>
                   </div>
 
                   <div id="sec-weekly" style={{scrollMarginTop:70}}>
@@ -6913,7 +6915,8 @@ function NewVerModal({proj,onClose,onSave,initial}) {
 // 보증/공제기간이 있는 문서는 만료 임박 시 상단 배지로 경고.
 // ── 서류함 — 전체 프로젝트의 인허가·보증서류 + 준공건물을 유형별로 모아보기 ──
 function DocsOverviewPage({projects, setTab, setSelProjId}) {
-  const [viewType, setViewType] = useState(CERT_DOC_TYPES[0].key) // 문서유형 or "completion"
+  const [viewType, setViewType] = useState(CERT_DOC_TYPES[0].key) // 문서유형 | "completion" | "vendorDocs" | "billing"
+  const [search, setSearch] = useState("")
   const fA2 = n => n>=1e8?`${(n/1e8).toFixed(2)}억`:n>0?`${Math.round(n).toLocaleString()}원`:"-"
   const daysLeft = endDate => {
     if(!endDate) return null
@@ -6929,20 +6932,44 @@ function DocsOverviewPage({projects, setTab, setSelProjId}) {
   const goProj = (id) => { setSelProjId(id); setTab("projects") }
 
   const docType = CERT_DOC_TYPES.find(d=>d.key===viewType)
-  const hasExpiry = viewType==="perfBond" || viewType==="liabilityCert" || viewType==="contract"
+  const hasExpiry = viewType==="perfBond" || viewType==="liabilityCert" || viewType==="contract" || viewType==="jvMou"
+  const q = search.trim().toLowerCase()
+
+  // 협력업체 계약서 — 프로젝트마다 여러 업체가 있을 수 있어 (프로젝트,업체) 쌍으로 평평하게 펼침
+  const vendorDocRows = useMemo(()=>{
+    const out = []
+    projects.forEach(p=>{
+      ;(p.vendorDocs||[]).forEach(g=>{
+        const vs = g.versions||[]
+        if(!vs.length) return
+        out.push({proj:p, vendorName:g.vendorName, doc:vs[vs.length-1], histCount:vs.length-1})
+      })
+    })
+    return q ? out.filter(r=>r.vendorName.toLowerCase().includes(q)||r.proj.name.toLowerCase().includes(q)) : out
+  },[projects, q])
+
+  // 기성청구서 — 프로젝트마다 여러 건이 누적되므로 전부 펼침
+  const billingRows = useMemo(()=>{
+    const out = []
+    projects.forEach(p=>{ ;(p.billingSubmissions||[]).forEach(b=>out.push({proj:p, b})) })
+    const sorted = out.sort((a,b)=>(b.b.date||"").localeCompare(a.b.date||""))
+    return q ? sorted.filter(r=>r.proj.name.toLowerCase().includes(q)||(r.b.stage||"").toLowerCase().includes(q)||(r.b.clientBizName||"").toLowerCase().includes(q)) : sorted
+  },[projects, q])
 
   const rows = viewType==="completion"
-    ? projects.filter(p=>p.completion?.completionDate||p.completion?.approvalDate)
-    : projects.filter(p=>getLatestDoc(p, viewType))
+    ? projects.filter(p=>(p.completion?.completionDate||p.completion?.approvalDate) && (!q||p.name.toLowerCase().includes(q)))
+    : viewType==="vendorDocs" || viewType==="billing" ? []
+    : projects.filter(p=>getLatestDoc(p, viewType) && (!q||p.name.toLowerCase().includes(q)))
 
   return (
     <div style={S.card()}>
       <div style={{fontSize:21,fontWeight:800,color:C.navy,marginBottom:4}}>📎 서류함 — 전체 프로젝트 모아보기</div>
       <div style={{fontSize:15.4,color:"#64748B",marginBottom:16}}>
-        문서 유형을 골라 전체 프로젝트의 최신 서류를 한 번에 확인합니다. (실행계획서 회차 비교는 "📋 실행계획서" 탭, 새 계약서 초안 작성은 "📄 계약서" 탭을 이용하세요)
+        문서 유형을 골라 전체 프로젝트의 서류를 한 번에 확인·검색합니다. (실행계획서 회차 비교는 "📋 실행계획서" 탭, 새 계약서 초안 작성은 "📄 계약서" 탭을 이용하세요)
       </div>
-      <div style={{display:"flex",gap:8,flexWrap:"wrap",marginBottom:18}}>
-        {[...CERT_DOC_TYPES.map(d=>({key:d.key,label:`${d.icon} ${d.label}`})), {key:"completion",label:"🏁 준공건물"}].map(t=>(
+      <div style={{display:"flex",gap:8,flexWrap:"wrap",marginBottom:12}}>
+        {[...CERT_DOC_TYPES.map(d=>({key:d.key,label:`${d.icon} ${d.label}`})),
+          {key:"vendorDocs",label:"🤝 협력업체 계약서"}, {key:"billing",label:"🧾 기성청구서"}, {key:"completion",label:"🏁 준공건물"}].map(t=>(
           <button key={t.key} onClick={()=>setViewType(t.key)}
             style={{padding:"8px 16px",borderRadius:20,fontSize:14.3,fontWeight:700,cursor:"pointer",
               border:viewType===t.key?"1.5px solid #0E9C8C":"1.5px solid #E5E7EB",
@@ -6951,8 +6978,52 @@ function DocsOverviewPage({projects, setTab, setSelProjId}) {
           </button>
         ))}
       </div>
+      <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="프로젝트명·업체명·발주처 등으로 검색"
+        style={{width:"100%",maxWidth:360,padding:"8px 12px",border:"1px solid #E5E7EB",borderRadius:8,fontSize:14,marginBottom:16,boxSizing:"border-box"}}/>
 
-      {rows.length===0 ? (
+      {viewType==="vendorDocs" ? (
+        vendorDocRows.length===0 ? <div style={{padding:"40px 0",textAlign:"center",color:"#94A3B8",fontSize:16.5}}>등록된 협력업체 계약서가 없습니다.</div> : (
+          <div style={{overflowX:"auto"}}>
+            <table style={{width:"100%",borderCollapse:"collapse"}}>
+              <thead><tr>{["프로젝트","협력업체","계약번호","계약금액","계약기간","버전","첨부"].map(h=><th key={h} style={S.th("left")}>{h}</th>)}</tr></thead>
+              <tbody>
+                {vendorDocRows.map((r,i)=>(
+                  <tr key={i} onClick={()=>goProj(r.proj.id)} style={{cursor:"pointer"}} onMouseEnter={e=>e.currentTarget.style.background="#F8FAFC"} onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
+                    <td style={S.td("left")}>{r.proj.name}</td>
+                    <td style={S.td("left")}>{r.vendorName}</td>
+                    <td style={S.td("left")}>{r.doc.docNo||"-"}</td>
+                    <td style={S.td("left")}>{fA2(r.doc.amount)}</td>
+                    <td style={S.td("left")}>{r.doc.startDate?`${r.doc.startDate} ~ ${r.doc.endDate||"-"}`:"-"}</td>
+                    <td style={S.td("left")}>{r.doc.versionLabel||"최초"}{r.histCount>0?` (+이전 ${r.histCount}건)`:""}</td>
+                    <td style={S.td("left")}>{r.doc.fileData?<a href={r.doc.fileData} download={r.doc.fileName} onClick={e=>e.stopPropagation()} style={{color:"#0E9C8C",fontWeight:700}}>📄 보기</a>:"-"}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )
+      ) : viewType==="billing" ? (
+        billingRows.length===0 ? <div style={{padding:"40px 0",textAlign:"center",color:"#94A3B8",fontSize:16.5}}>등록된 기성청구 기록이 없습니다.</div> : (
+          <div style={{overflowX:"auto"}}>
+            <table style={{width:"100%",borderCollapse:"collapse"}}>
+              <thead><tr>{["프로젝트","단계","청구일","금액","발주처","세금계산서 담당자","첨부"].map(h=><th key={h} style={S.th("left")}>{h}</th>)}</tr></thead>
+              <tbody>
+                {billingRows.map((r,i)=>(
+                  <tr key={i} onClick={()=>goProj(r.proj.id)} style={{cursor:"pointer"}} onMouseEnter={e=>e.currentTarget.style.background="#F8FAFC"} onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
+                    <td style={S.td("left")}>{r.proj.name}</td>
+                    <td style={S.td("left")}>{r.b.stage||"-"}</td>
+                    <td style={S.td("left")}>{r.b.date||"-"}</td>
+                    <td style={S.td("left")}>{fA2(r.b.amount)}</td>
+                    <td style={S.td("left")}>{r.b.clientBizName||"-"}{r.b.clientBizNo?` (${r.b.clientBizNo})`:""}</td>
+                    <td style={S.td("left")}>{r.b.taxContactName?`${r.b.taxContactName} ${r.b.taxContactPhone||""}`:"-"}</td>
+                    <td style={S.td("left")}>{r.b.fileData?<a href={r.b.fileData} download={r.b.fileName} onClick={e=>e.stopPropagation()} style={{color:"#0E9C8C",fontWeight:700}}>📄 보기</a>:"-"}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )
+      ) : rows.length===0 ? (
         <div style={{padding:"40px 0",textAlign:"center",color:"#94A3B8",fontSize:16.5}}>등록된 항목이 없습니다.</div>
       ) : viewType==="completion" ? (
         <div style={{overflowX:"auto"}}>
@@ -7131,7 +7202,7 @@ function CertDocsCard({proj, setProjects, canWrite}) {
           const group = getGroup(docType.key)
           const doc = getLatest(docType.key)
           const dl = doc?.endDate ? daysLeft(doc.endDate) : null
-          const hasExpiry = docType.key==="perfBond" || docType.key==="liabilityCert" || docType.key==="contract"
+          const hasExpiry = docType.key==="perfBond" || docType.key==="liabilityCert" || docType.key==="contract" || docType.key==="jvMou"
           const urgent = hasExpiry && dl!=null && dl<=90
           const expired = hasExpiry && dl!=null && dl<0
           const isEditing = editKey===docType.key
@@ -7243,6 +7314,315 @@ function CertDocsCard({proj, setProjects, canWrite}) {
           )
         })}
       </div>
+    </Card>
+  )
+}
+
+// ── 협력업체 계약서 — 프로젝트별로 협력업체마다 계약서 버전 이력을 관리 ──
+function VendorContractsCard({proj, setProjects, canWrite}) {
+  const [busyKey, setBusyKey] = useState(null)
+  const [historyKey, setHistoryKey] = useState(null)
+  const [showAdd, setShowAdd] = useState(false)
+  const [newVendorName, setNewVendorName] = useState("")
+  const fileInputs = useRef({})
+
+  // 최신 실행계획서 회차에 등록된 협력업체 이름을 자동완성 후보로 제공
+  const knownVendors = useMemo(()=>{
+    const latest = (proj.versions||[])[(proj.versions||[]).length-1]
+    return [...new Set((latest?.vendors||[]).map(v=>v.name).filter(Boolean))]
+  },[proj.versions])
+
+  const groups = proj.vendorDocs||[]
+  const getGroupFor = (list, vendorName) => list.find(d=>d.vendorName===vendorName) || {vendorName, versions:[]}
+
+  const addVersion = (vendorName, patch) => {
+    setProjects(prev=>prev.map(p=>{
+      if(p.id!==proj.id) return p
+      const list = p.vendorDocs||[]
+      const group = getGroupFor(list, vendorName)
+      const versionNo = group.versions.length + 1
+      const newVersion = {
+        docNo:"", amount:0, startDate:"", endDate:"", workScope:"", fileName:"", fileData:"",
+        versionLabel: versionNo===1 ? "최초" : `${versionNo}차 변경`,
+        uploadedAt: new Date().toISOString(),
+        ...patch,
+      }
+      const nextVersions = [...group.versions, newVersion]
+      const nextList = list.some(d=>d.vendorName===vendorName)
+        ? list.map(d=>d.vendorName===vendorName?{vendorName,versions:nextVersions}:d)
+        : [...list, {vendorName, versions:nextVersions}]
+      return {...p, vendorDocs: nextList}
+    }))
+  }
+  const deleteVersion = (vendorName, idx) => {
+    if(!window.confirm("이 계약서 버전을 삭제할까요? 되돌릴 수 없습니다.")) return
+    setProjects(prev=>prev.map(p=>{
+      if(p.id!==proj.id) return p
+      const list = p.vendorDocs||[]
+      const group = getGroupFor(list, vendorName)
+      const nextVersions = group.versions.filter((_,i)=>i!==idx)
+      return {...p, vendorDocs: nextVersions.length ? list.map(d=>d.vendorName===vendorName?{vendorName,versions:nextVersions}:d) : list.filter(d=>d.vendorName!==vendorName)}
+    }))
+  }
+  const deleteVendor = (vendorName) => {
+    if(!window.confirm(`"${vendorName}"의 계약서 이력을 전부 삭제할까요? 되돌릴 수 없습니다.`)) return
+    setProjects(prev=>prev.map(p=>p.id!==proj.id?p:{...p, vendorDocs:(p.vendorDocs||[]).filter(d=>d.vendorName!==vendorName)}))
+  }
+
+  const handleUpload = async (vendorName, file) => {
+    if(!file || !vendorName) return
+    setBusyKey(vendorName)
+    try{
+      const base64 = await new Promise((res,rej)=>{
+        const r=new FileReader(); r.onload=()=>res(r.result.split(",")[1]); r.onerror=rej; r.readAsDataURL(file)
+      })
+      const isPdf = file.type==="application/pdf"
+      const block = isPdf
+        ? {type:"document",source:{type:"base64",media_type:"application/pdf",data:base64}}
+        : {type:"image",source:{type:"base64",media_type:file.type||"image/jpeg",data:base64}}
+      let parsed = null
+      try{
+        const res = await fetch("/api/chat",{
+          method:"POST",headers:{"Content-Type":"application/json"},
+          body:JSON.stringify({max_tokens:500, system:VENDOR_DOC_PROMPT, messages:[{role:"user",content:[block,{type:"text",text:"이 문서를 분석하여 JSON으로 응답하세요."}]}]})
+        })
+        if(res.ok){
+          const json = await res.json()
+          const text = json.content?.[0]?.text || ""
+          parsed = JSON.parse(text.replace(/```json|```/g,"").trim())
+          delete parsed.vendorName // 업체명은 사용자가 지정한 그룹명을 그대로 사용
+        }
+      }catch(e){ console.warn("AI 자동인식 실패:", e) }
+      const storeFile = file.size <= 8*1024*1024
+      addVersion(vendorName, {...(parsed||{}), fileName:file.name, fileSize:file.size, fileData: storeFile?`data:${file.type};base64,${base64}`:""})
+    }catch(e){ alert("업로드 중 오류: "+e.message) }
+    setBusyKey(null)
+  }
+
+  const startAdd = () => {
+    if(!newVendorName.trim()) return
+    fileInputs.current[newVendorName.trim()]?.click()
+  }
+
+  return (
+    <Card title="🤝 협력업체 계약서" note="프로젝트별로 협력업체마다 계약서 버전 이력을 관리합니다">
+      <div style={{fontSize:13,color:"#94A3B8",marginBottom:14}}>
+        협력업체별로 계약서를 업로드하면 AI가 계약번호·금액·기간을 자동으로 읽습니다. 변경계약이 생기면 같은 업체에 다시 업로드하세요 — 이전 계약서는 이력으로 남습니다.
+      </div>
+
+      {canWrite && (
+        <div style={{display:"flex",gap:8,alignItems:"center",marginBottom:14,flexWrap:"wrap"}}>
+          <input list="vendorNameList" value={newVendorName} onChange={e=>setNewVendorName(e.target.value)}
+            placeholder="협력업체명 입력 또는 선택" style={{padding:"7px 10px",fontSize:13,border:"1px solid #E5E7EB",borderRadius:6,width:220}}/>
+          <datalist id="vendorNameList">{knownVendors.map(v=><option key={v} value={v}/>)}</datalist>
+          <input ref={el=>{ if(newVendorName.trim()) fileInputs.current[newVendorName.trim()]=el }} type="file" accept=".pdf,.jpg,.jpeg,.png" style={{display:"none"}}
+            onChange={e=>{ handleUpload(newVendorName.trim(), e.target.files?.[0]); e.target.value=""; setNewVendorName("") }}/>
+          <button onClick={startAdd} disabled={!newVendorName.trim()}
+            style={{padding:"7px 14px",background:newVendorName.trim()?"#E3F6F3":"#F1F5F9",color:newVendorName.trim()?"#0E9C8C":"#CBD5E1",border:"none",borderRadius:6,fontSize:13,fontWeight:700,cursor:newVendorName.trim()?"pointer":"default"}}>
+            📤 계약서 업로드
+          </button>
+        </div>
+      )}
+
+      {groups.length===0 ? (
+        <div style={{fontSize:13,color:"#94A3B8"}}>등록된 협력업체 계약서가 없습니다.</div>
+      ) : (
+        <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(280px,1fr))",gap:12}}>
+          {groups.map(group=>{
+            const versions = group.versions||[]
+            const doc = versions[versions.length-1]
+            const pastVersions = versions.slice(0,-1)
+            const showHistory = historyKey===group.vendorName
+            if(!doc) return null
+            return (
+              <div key={group.vendorName} style={{border:"1.5px solid #E5E7EB",borderRadius:10,padding:"14px 16px"}}>
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
+                  <div style={{fontSize:14.3,fontWeight:800,color:"#0F172A"}}>{group.vendorName}</div>
+                  <span style={{fontSize:11,fontWeight:700,color:"#94A3B8"}}>{doc.versionLabel||"최초"}</span>
+                </div>
+                <div style={{fontSize:13,color:"#334155",lineHeight:1.9,marginBottom:10}}>
+                  {doc.docNo && <div><span style={{color:"#94A3B8"}}>계약번호: </span><span style={{fontWeight:600}}>{doc.docNo}</span></div>}
+                  {doc.amount>0 && <div><span style={{color:"#94A3B8"}}>계약금액: </span><span style={{fontWeight:600}}>{Math.round(doc.amount).toLocaleString()}원</span></div>}
+                  {doc.startDate && <div><span style={{color:"#94A3B8"}}>계약기간: </span><span style={{fontWeight:600}}>{doc.startDate} ~ {doc.endDate||"-"}</span></div>}
+                  {doc.workScope && <div><span style={{color:"#94A3B8"}}>용역범위: </span><span style={{fontWeight:600}}>{doc.workScope}</span></div>}
+                  {doc.fileName && (doc.fileData
+                    ? <a href={doc.fileData} download={doc.fileName} style={{color:"#0E9C8C",fontWeight:700,fontSize:12.5}}>📄 {doc.fileName} (열기/다운로드)</a>
+                    : <span style={{color:"#94A3B8",fontSize:12}}>📄 {doc.fileName} (용량 커서 파일 미저장)</span>)}
+                </div>
+                {canWrite && (
+                  <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+                    <input ref={el=>fileInputs.current[group.vendorName]=el} type="file" accept=".pdf,.jpg,.jpeg,.png" style={{display:"none"}}
+                      onChange={e=>{ handleUpload(group.vendorName, e.target.files?.[0]); e.target.value="" }}/>
+                    <button onClick={()=>fileInputs.current[group.vendorName]?.click()} disabled={busyKey===group.vendorName}
+                      style={{padding:"6px 11px",background:"#E3F6F3",color:"#0E9C8C",border:"none",borderRadius:6,fontSize:12,fontWeight:700,cursor:"pointer"}}>
+                      {busyKey===group.vendorName?"⏳ 분석 중...":"📤 변경분 업로드"}
+                    </button>
+                    {pastVersions.length>0 && (
+                      <button onClick={()=>setHistoryKey(showHistory?null:group.vendorName)} style={{padding:"6px 11px",background:"#F8FAFC",color:"#7C3AED",border:"1px solid #E5E7EB",borderRadius:6,fontSize:12,fontWeight:700,cursor:"pointer"}}>
+                        {showHistory?"이력 닫기":`이력 보기 (${pastVersions.length})`}
+                      </button>
+                    )}
+                    <button onClick={()=>deleteVendor(group.vendorName)} style={{padding:"6px 11px",background:"#FEE2E2",color:"#DC2626",border:"none",borderRadius:6,fontSize:12,fontWeight:700,cursor:"pointer"}}>삭제</button>
+                  </div>
+                )}
+                {showHistory && pastVersions.length>0 && (
+                  <div style={{marginTop:10,paddingTop:10,borderTop:"1px dashed #E5E7EB",display:"flex",flexDirection:"column",gap:8}}>
+                    {pastVersions.slice().reverse().map((v,ri)=>{
+                      const idx = pastVersions.length-1-ri
+                      return (
+                        <div key={idx} style={{fontSize:12,color:"#64748B",background:"#F8FAFC",borderRadius:6,padding:"8px 10px"}}>
+                          <div style={{display:"flex",justifyContent:"space-between",marginBottom:3}}>
+                            <span style={{fontWeight:700,color:"#334155"}}>{v.versionLabel||"이전"}</span>
+                            <span>{(v.uploadedAt||"").slice(0,10)}</span>
+                          </div>
+                          {v.docNo && <div>계약번호: {v.docNo}</div>}
+                          <div style={{display:"flex",gap:8,marginTop:4}}>
+                            {v.fileData && <a href={v.fileData} download={v.fileName} style={{color:"#0E9C8C",fontWeight:700}}>📄 파일 보기</a>}
+                            {canWrite && <button onClick={()=>deleteVersion(group.vendorName, idx)} style={{color:"#DC2626",fontWeight:700,background:"none",border:"none",cursor:"pointer",padding:0,fontSize:12}}>삭제</button>}
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
+              </div>
+            )
+          })}
+        </div>
+      )}
+    </Card>
+  )
+}
+
+// ── 기성청구서 발송내역 — 선금/1차기성/2차기성... 프로젝트 종료까지 누적되는 청구 이력 ──
+function BillingCard({proj, setProjects, canWrite}) {
+  const [busy, setBusy] = useState(false)
+  const [showAdd, setShowAdd] = useState(false)
+  const [draft, setDraft] = useState(null)
+  const fileInput = useRef(null)
+
+  const list = proj.billingSubmissions||[]
+  const fA2 = n => n>=1e8?`${(n/1e8).toFixed(2)}억`:n>0?`${Math.round(n).toLocaleString()}원`:"-"
+
+  const addEntry = (patch) => {
+    setProjects(prev=>prev.map(p=>p.id!==proj.id?p:{...p, billingSubmissions:[...(p.billingSubmissions||[]),
+      {stage:"", date:"", amount:0, fileName:"", fileData:"", clientBizNo:"", clientBizName:"", taxContactName:"", taxContactPhone:"", taxContactEmail:"", note:"", createdAt:new Date().toISOString(), ...patch}
+    ]}))
+  }
+  const deleteEntry = (idx) => {
+    if(!window.confirm("이 기성청구 기록을 삭제할까요? 되돌릴 수 없습니다.")) return
+    setProjects(prev=>prev.map(p=>p.id!==proj.id?p:{...p, billingSubmissions:(p.billingSubmissions||[]).filter((_,i)=>i!==idx)}))
+  }
+
+  const handleUpload = async (file) => {
+    if(!file) return
+    setBusy(true)
+    try{
+      const base64 = await new Promise((res,rej)=>{
+        const r=new FileReader(); r.onload=()=>res(r.result.split(",")[1]); r.onerror=rej; r.readAsDataURL(file)
+      })
+      const isPdf = file.type==="application/pdf"
+      const block = isPdf
+        ? {type:"document",source:{type:"base64",media_type:"application/pdf",data:base64}}
+        : {type:"image",source:{type:"base64",media_type:file.type||"image/jpeg",data:base64}}
+      let parsed = null
+      try{
+        const res = await fetch("/api/chat",{
+          method:"POST",headers:{"Content-Type":"application/json"},
+          body:JSON.stringify({max_tokens:500, system:BILLING_PROMPT, messages:[{role:"user",content:[block,{type:"text",text:"이 문서를 분석하여 JSON으로 응답하세요."}]}]})
+        })
+        if(res.ok){
+          const json = await res.json()
+          const text = json.content?.[0]?.text || ""
+          parsed = JSON.parse(text.replace(/```json|```/g,"").trim())
+        }
+      }catch(e){ console.warn("AI 자동인식 실패:", e) }
+      const storeFile = file.size <= 8*1024*1024
+      addEntry({...(parsed||{}), fileName:file.name, fileSize:file.size, fileData: storeFile?`data:${file.type};base64,${base64}`:""})
+      if(!parsed) alert("파일은 첨부됐지만 자동 인식에 실패했습니다. 목록에서 항목을 클릭해 직접 입력해주세요.")
+    }catch(e){ alert("업로드 중 오류: "+e.message) }
+    setBusy(false)
+  }
+
+  const startManual = () => { setDraft({}); setShowAdd(true) }
+  const saveManual = () => { addEntry(draft); setShowAdd(false); setDraft(null) }
+
+  return (
+    <Card title="🧾 기성청구서 발송내역" note="선금·1차/2차/3차 기성 등 프로젝트 종료까지 누적되는 청구 이력">
+      <div style={{fontSize:13,color:"#94A3B8",marginBottom:14}}>
+        기성청구서(세금계산서 포함)를 업로드하면 AI가 청구단계·금액·발주처 정보·세금계산서 담당자를 자동으로 읽습니다. 청구할 때마다 새로 추가하세요 — 이전 기록은 지워지지 않습니다.
+      </div>
+
+      {canWrite && (
+        <div style={{display:"flex",gap:8,marginBottom:14}}>
+          <input ref={fileInput} type="file" accept=".pdf,.jpg,.jpeg,.png" style={{display:"none"}} onChange={e=>{ handleUpload(e.target.files?.[0]); e.target.value="" }}/>
+          <button onClick={()=>fileInput.current?.click()} disabled={busy}
+            style={{padding:"7px 14px",background:"#E3F6F3",color:"#0E9C8C",border:"none",borderRadius:6,fontSize:13,fontWeight:700,cursor:"pointer"}}>
+            {busy?"⏳ 분석 중...":"📤 청구서 업로드"}
+          </button>
+          <button onClick={startManual} style={{padding:"7px 14px",background:"#F8FAFC",color:"#64748B",border:"1px solid #E5E7EB",borderRadius:6,fontSize:13,fontWeight:700,cursor:"pointer"}}>✎ 직접 입력</button>
+        </div>
+      )}
+
+      {showAdd && (
+        <div style={{background:"#FFFBEB",border:"1.5px solid #F59E0B",borderRadius:10,padding:"14px 16px",marginBottom:14}}>
+          <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(160px,1fr))",gap:8,marginBottom:8}}>
+            <div>
+              <label style={{fontSize:11,color:"#92400E"}}>청구단계</label>
+              <select value={draft?.stage||""} onChange={e=>setDraft(p=>({...p,stage:e.target.value}))} style={{width:"100%",padding:"6px 9px",fontSize:13,border:"1px solid #E5E7EB",borderRadius:6}}>
+                <option value="">선택</option>
+                {BILLING_STAGE_OPTIONS.map(s=><option key={s} value={s}>{s}</option>)}
+              </select>
+            </div>
+            <div><label style={{fontSize:11,color:"#92400E"}}>청구일</label>
+              <input type="date" value={draft?.date||""} onChange={e=>setDraft(p=>({...p,date:e.target.value}))} style={{width:"100%",padding:"6px 9px",fontSize:13,border:"1px solid #E5E7EB",borderRadius:6,boxSizing:"border-box"}}/></div>
+            <div><label style={{fontSize:11,color:"#92400E"}}>청구금액(원)</label>
+              <input type="number" value={draft?.amount||""} onChange={e=>setDraft(p=>({...p,amount:parseFloat(e.target.value)||0}))} style={{width:"100%",padding:"6px 9px",fontSize:13,border:"1px solid #E5E7EB",borderRadius:6,boxSizing:"border-box"}}/></div>
+            <div><label style={{fontSize:11,color:"#92400E"}}>발주처 사업자번호</label>
+              <input value={draft?.clientBizNo||""} onChange={e=>setDraft(p=>({...p,clientBizNo:e.target.value}))} style={{width:"100%",padding:"6px 9px",fontSize:13,border:"1px solid #E5E7EB",borderRadius:6,boxSizing:"border-box"}}/></div>
+            <div><label style={{fontSize:11,color:"#92400E"}}>발주처 상호</label>
+              <input value={draft?.clientBizName||""} onChange={e=>setDraft(p=>({...p,clientBizName:e.target.value}))} style={{width:"100%",padding:"6px 9px",fontSize:13,border:"1px solid #E5E7EB",borderRadius:6,boxSizing:"border-box"}}/></div>
+            <div><label style={{fontSize:11,color:"#92400E"}}>세금계산서 담당자</label>
+              <input value={draft?.taxContactName||""} onChange={e=>setDraft(p=>({...p,taxContactName:e.target.value}))} style={{width:"100%",padding:"6px 9px",fontSize:13,border:"1px solid #E5E7EB",borderRadius:6,boxSizing:"border-box"}}/></div>
+            <div><label style={{fontSize:11,color:"#92400E"}}>담당자 연락처</label>
+              <input value={draft?.taxContactPhone||""} onChange={e=>setDraft(p=>({...p,taxContactPhone:e.target.value}))} style={{width:"100%",padding:"6px 9px",fontSize:13,border:"1px solid #E5E7EB",borderRadius:6,boxSizing:"border-box"}}/></div>
+            <div><label style={{fontSize:11,color:"#92400E"}}>담당자 메일</label>
+              <input value={draft?.taxContactEmail||""} onChange={e=>setDraft(p=>({...p,taxContactEmail:e.target.value}))} style={{width:"100%",padding:"6px 9px",fontSize:13,border:"1px solid #E5E7EB",borderRadius:6,boxSizing:"border-box"}}/></div>
+          </div>
+          <div style={{display:"flex",gap:8}}>
+            <button onClick={saveManual} style={{padding:"7px 16px",background:"#F59E0B",color:"#fff",border:"none",borderRadius:8,fontSize:13,fontWeight:700,cursor:"pointer"}}>저장</button>
+            <button onClick={()=>{setShowAdd(false);setDraft(null)}} style={{padding:"7px 16px",background:"#fff",color:"#92400E",border:"1px solid #F59E0B",borderRadius:8,fontSize:13,fontWeight:700,cursor:"pointer"}}>취소</button>
+          </div>
+        </div>
+      )}
+
+      {list.length===0 ? (
+        <div style={{fontSize:13,color:"#94A3B8"}}>등록된 기성청구 기록이 없습니다.</div>
+      ) : (
+        <div style={{overflowX:"auto"}}>
+          <table style={{width:"100%",borderCollapse:"collapse"}}>
+            <thead><tr>
+              {["단계","청구일","금액","발주처","세금계산서 담당자","첨부",""].map((h,i)=><th key={h+i} style={S.th("left")}>{h}</th>)}
+            </tr></thead>
+            <tbody>
+              {list.slice().sort((a,b)=>(b.date||"").localeCompare(a.date||"")).map((it,i)=>{
+                const origIdx = list.indexOf(it)
+                return (
+                  <tr key={origIdx}>
+                    <td style={S.td("left")}>{it.stage||"-"}</td>
+                    <td style={S.td("left")}>{it.date||"-"}</td>
+                    <td style={S.td("left")}>{fA2(it.amount)}</td>
+                    <td style={S.td("left")}>{it.clientBizName||"-"}{it.clientBizNo?` (${it.clientBizNo})`:""}</td>
+                    <td style={S.td("left")}>{it.taxContactName?`${it.taxContactName} ${it.taxContactPhone||""}`:"-"}</td>
+                    <td style={S.td("left")}>{it.fileData?<a href={it.fileData} download={it.fileName} style={{color:"#0E9C8C",fontWeight:700}}>📄 보기</a>:(it.fileName||"-")}</td>
+                    <td style={S.td("left")}>{canWrite&&<button onClick={()=>deleteEntry(origIdx)} style={{color:"#DC2626",background:"none",border:"none",cursor:"pointer",fontWeight:700,fontSize:12}}>삭제</button>}</td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
     </Card>
   )
 }
@@ -12894,7 +13274,7 @@ function EventDashboard({setTab, currentUser, projects=[], cashItems=[], contrac
       ;(p.mediaItems||[]).forEach(m=>{ if(m.publishDate) add({id:`md_${m.id}`,cat:"media",icon:"📰",color:"#0891B2",date:m.publishDate,title:`언론보도`,sub:m.title||p.name,proj:p,link:()=>{setSelProjId(p.id);setDetailTab("media");setTab("projects")}}) })
       // 보증서·공제증권·계약서 만료(연장/갱신 필요) 알림 — 만료 개념이 있는 서류 유형만 대상
       ;(p.certDocs||[]).forEach(cd=>{
-        if(cd.key!=="perfBond"&&cd.key!=="liabilityCert"&&cd.key!=="contract") return
+        if(cd.key!=="perfBond"&&cd.key!=="liabilityCert"&&cd.key!=="contract"&&cd.key!=="jvMou") return
         const versions = Array.isArray(cd.versions) ? cd.versions : (cd.docNo!=null||cd.fileName ? [cd] : [])
         const latest = versions[versions.length-1]
         if(!latest?.endDate) return

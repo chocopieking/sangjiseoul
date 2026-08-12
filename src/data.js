@@ -218,7 +218,9 @@ export const normalizeProject = p => ({
   type:"추진",  // 기본값 - contractYear 설정 시 업로드된 type으로 덮어씀
   versions:[],  // 실행계획서 버전 기본값
   shareRatio:0, // 기본값 - 없으면 NaN% 로 보이는 문제 방지
-  certDocs:[],  // 보증서·증권·실적증명서·건축물대장 등 첨부서류 — 유형별로 여러 버전(1차/2차 변경 등)을 담는 배열의 배열 아님, {key,versions:[...]} 구조 (아래 CERT_DOC_TYPES 참고)
+  certDocs:[],  // 보증서·증권·실적증명서·건축물대장·계약서·합사서류 등 첨부서류 — {key,versions:[...]} 구조 (아래 CERT_DOC_TYPES 참고)
+  vendorDocs:[], // 협력업체별 계약서 — {vendorName,versions:[...]} 구조
+  billingSubmissions:[], // 기성청구서 발송내역 — 선금/1차기성/2차기성... 누적 로그
   ...p,
   // 이름 앞에 "[E26010-VSG]" 같은 코드가 그대로 붙어 들어온 경우 항상 분리해서 표시용 이름을 깨끗하게 만듦.
   // code가 이미 있어도(다른 값이라도) 이름에 남아있는 대괄호 접두어는 제거 — 업로드 파일의 "코드" 열이
@@ -305,7 +307,61 @@ export const CERT_DOC_TYPES = [
 {"docNo":"고유번호","amount":연면적(숫자, ㎡ 단위, 소수점 가능),"startDate":"착공일 YYYY-MM-DD(없으면 빈문자열)","endDate":"사용승인일 YYYY-MM-DD(없으면 빈문자열)","contractName":"건물 명칭","issuer":"대지위치"}
 찾을 수 없는 값은 빈 문자열 또는 0으로 두세요. 이 서류는 만료일 개념이 없습니다.`,
   },
+  {
+    key:"jvMou", label:"업무협약서(합동사무소)", icon:"🤝",
+    fields:[
+      {k:"docNo",   label:"협약번호"},
+      {k:"amount",  label:"지분율/분담비율(%)", type:"number"},
+      {k:"startDate", label:"협약일"},
+      {k:"endDate",   label:"협약기간 종료일"},
+      {k:"contractName", label:"참여사(합동사무소 구성사)"},
+      {k:"issuer",  label:"주관사"},
+      {k:"contactName",  label:"담당자 성함"},
+      {k:"contactPhone", label:"담당자 연락처"},
+      {k:"contactEmail", label:"담당자 메일"},
+    ],
+    prompt:`이 문서는 합동사무소(컨소시엄) 구성을 위한 "업무협약서(MOU)"입니다. 아래 JSON 형식으로만 응답하세요(설명 없이 JSON만):
+{"docNo":"협약번호(없으면 빈문자열)","amount":우리 회사(상지서울 등) 지분율(숫자, %, 없으면 0),"startDate":"협약일 YYYY-MM-DD","endDate":"협약기간 종료일 YYYY-MM-DD(없으면 빈문자열)","contractName":"참여사 목록(쉼표로 구분)","issuer":"주관사명","contactName":"문서에 담당자 이름이 있으면 채우고 없으면 빈문자열","contactPhone":"담당자 연락처(없으면 빈문자열)","contactEmail":"담당자 이메일(없으면 빈문자열)"}
+찾을 수 없는 값은 빈 문자열 또는 0으로 두세요.`,
+  },
+  {
+    key:"jvSettlement", label:"합사정산서", icon:"🧾",
+    fields:[
+      {k:"docNo",   label:"정산번호/차수"},
+      {k:"amount",  label:"정산금액", type:"money"},
+      {k:"startDate", label:"정산기준일"},
+      {k:"endDate",   label:"정산완료일"},
+      {k:"contractName", label:"정산 대상(참여사)"},
+      {k:"issuer",  label:"작성사"},
+      {k:"contactName",  label:"담당자 성함"},
+      {k:"contactPhone", label:"담당자 연락처"},
+      {k:"contactEmail", label:"담당자 메일"},
+    ],
+    prompt:`이 문서는 합동사무소(컨소시엄) "합사정산서"입니다. 아래 JSON 형식으로만 응답하세요(설명 없이 JSON만):
+{"docNo":"정산번호 또는 O차 정산 표기(없으면 빈문자열)","amount":정산금액(숫자, 원 단위),"startDate":"정산기준일 YYYY-MM-DD(없으면 빈문자열)","endDate":"정산완료일 YYYY-MM-DD(없으면 빈문자열)","contractName":"정산 대상 참여사명","issuer":"정산서 작성사명","contactName":"담당자 이름(없으면 빈문자열)","contactPhone":"담당자 연락처(없으면 빈문자열)","contactEmail":"담당자 이메일(없으면 빈문자열)"}
+찾을 수 없는 값은 빈 문자열 또는 0으로 두세요.`,
+  },
 ]
+
+// ── 프로젝트별 협력업체 계약서 — 사용 안내: p.vendorDocs = [{vendorName, versions:[{docNo,amount,startDate,endDate,fileName,fileData,versionLabel,uploadedAt,...}]}]
+export const VENDOR_DOC_PROMPT = `이 문서는 협력업체(외주업체)와 체결한 "계약서"입니다. 아래 JSON 형식으로만 응답하세요(설명 없이 JSON만):
+{"docNo":"계약번호(없으면 빈문자열)","amount":계약금액(숫자, 원 단위),"startDate":"계약일 YYYY-MM-DD","endDate":"계약기간 종료일 YYYY-MM-DD(없으면 빈문자열)","vendorName":"협력업체명","workScope":"용역범위/공종(간단히)"}
+찾을 수 없는 값은 빈 문자열 또는 0으로 두세요.`
+
+// ── 협력업체 사업자등록증 / 세금계산서 업로드용 AI 프롬프트 ──────────
+export const VENDOR_BIZREG_PROMPT = `이 문서는 협력업체의 "사업자등록증"입니다. 아래 JSON 형식으로만 응답하세요(설명 없이 JSON만):
+{"bizNo":"사업자등록번호","name":"상호(회사명)","rep":"대표자명","addr":"사업장 소재지","bizType":"업태/종목(간단히)"}
+찾을 수 없는 값은 빈 문자열로 두세요.`
+export const VENDOR_TAXINVOICE_PROMPT = `이 문서는 "세금계산서"입니다. 아래 JSON 형식으로만 응답하세요(설명 없이 JSON만):
+{"docNo":"세금계산서 승인번호(없으면 빈문자열)","amount":공급가액+세액 합계(숫자, 원 단위),"startDate":"작성일자 YYYY-MM-DD","issuer":"공급자(발행자) 상호","contractName":"품목/비고(간단히)"}
+찾을 수 없는 값은 빈 문자열 또는 0으로 두세요.`
+
+// ── 기성청구서 발송내역 — 사용 안내: p.billingSubmissions = [{stage, date, amount, fileName, fileData,
+//    clientBizNo, clientBizName, taxContactName, taxContactPhone, taxContactEmail, note, createdAt}]
+export const BILLING_STAGE_OPTIONS = ["선금","1차 기성","2차 기성","3차 기성","4차 기성","5차 기성","중도금","잔금","정산"]
+export const BILLING_PROMPT = `이 문서는 발주처에 보낸 "기성청구서" 또는 관련 세금계산서입니다. 아래 JSON 형식으로만 응답하세요(설명 없이 JSON만):
+{"stage":"청구 단계(선금/1차 기성/2차 기성/3차 기성/중도금/잔금/정산 중 가장 가까운 것, 모르면 빈문자열)","date":"청구일 YYYY-MM-DD","amount":청구금액(숫자, 원 단위),"clientBizNo":"발주처 사업자등록번호(문서에 있으면)","clientBizName":"발주처 상호","taxContactName":"세금계산서 발행 담당자 이름(있으면)","taxContactPhone":"담당자 연락처(있으면)","taxContactEmail":"담당자 이메일(있으면)"}
+찾을 수 없는 값은 빈 문자열 또는 0으로 두세요.`
 
 export const PROJECTS_INIT = [
   {

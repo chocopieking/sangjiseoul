@@ -510,7 +510,7 @@ function VendorDetail({entry,vendorsDB,setVendorsDB,vendorPayments,setVendorPaym
 
   // ── 문서 관리 ─────────────────────────────────────────────
   const docs = info.docs || []
-  const DOC_CATS = ["사업자등록증","통장사본","계약서","견적서","기타서류"]
+  const DOC_CATS = ["사업자등록증","세금계산서","통장사본","계약서","견적서","기타서류"]
   const addDoc = (docObj) => {
     setVendorsDB(prev=>({...prev,[entry.name]:{...info,docs:[...docs,docObj]}}))
   }
