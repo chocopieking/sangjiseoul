@@ -219,6 +219,7 @@ export const normalizeProject = p => ({
   versions:[],  // 실행계획서 버전 기본값
   shareRatio:0, // 기본값 - 없으면 NaN% 로 보이는 문제 방지
   certDocs:[],  // 보증서·증권·실적증명서·건축물대장·계약서·합사서류 등 첨부서류 — {key,versions:[...]} 구조 (아래 CERT_DOC_TYPES 참고)
+  linkedProjectId:null, // 제안단계(D)↔실시설계(W)처럼 이름이 같은 연결 프로젝트 — 목록/검색/상세에서 헷갈리지 않게 배지로 표시
   vendorDocs:[], // 협력업체별 계약서 — {vendorName,versions:[...]} 구조
   billingSubmissions:[], // 기성청구서 발송내역 — 선금/1차기성/2차기성... 누적 로그
   ...p,

@@ -4055,6 +4055,7 @@ function ProjectsTab({projects,setProjects,selProjId,setSelProjId,selVerIdx,setS
                               style={{padding:"2px 6px",background:"#F8FAFC",color:"#64748B",border:"none",borderRadius:5,fontSize:13.2,cursor:"pointer"}}>✕</button>
                           </div>
                         ) : <>
+                          {p.linkedProjectId && <span title="다른 단계(D/W 등)와 연결된 프로젝트입니다" style={{marginRight:4,fontSize:12}}>🔗</span>}
                           {p.name}
                           {p.updatedAt && <div style={{fontSize:10.5,color:"#CBD5E1",fontWeight:400,whiteSpace:"nowrap"}}>{relTime(p.updatedAt)}</div>}
                         </>}
@@ -4194,6 +4195,7 @@ function ProjectsTab({projects,setProjects,selProjId,setSelProjId,selVerIdx,setS
                 <button onClick={()=>downloadReport(selProj)} style={{...S.btn(C.navyL,C.navyM),padding:"5px 11px",fontSize:12}}><i className="ti ti-file-word" aria-hidden="true"/> 보고서 다운로드</button>
                 {canWrite&&<button onClick={()=>setEditProj(true)} style={{...S.btn(C.navyL,C.navyM),padding:"5px 11px",fontSize:12}}><i className="ti ti-edit" aria-hidden="true"/> 정보 수정</button>}
               </div>}>
+                <LinkedProjectBar proj={selProj} projects={projects} setProjects={setProjects} canWrite={canWrite} setSelProjId={setSelProjId}/>
                 {/* 계약·수주 배너 */}
                 <div style={{display:"flex",gap:8,marginBottom:14,flexWrap:"wrap"}}>
                   {[
@@ -7916,6 +7918,87 @@ function BillingCard({proj, setProjects, canWrite}) {
         </div>
       )}
     </Card>
+  )
+}
+
+// ── 제안단계(D)↔실시설계(W)처럼 이름이 같은 프로젝트를 서로 연결해서 배지로 보여줌 ──
+// 코드 끝이 -D/-W면 자동으로 "제안단계"/"실시설계단계" 라벨을 붙이고, 아니면 그냥 "연결됨"으로 표시
+function stageLabelFromCode(code) {
+  const c = String(code||"").toUpperCase()
+  if(c.endsWith("-D")) return "제안단계"
+  if(c.endsWith("-W")) return "실시설계단계"
+  return null
+}
+function LinkedProjectBar({proj, projects, setProjects, canWrite, setSelProjId}) {
+  const [showLink, setShowLink] = useState(false)
+  const [query, setQuery] = useState("")
+  const linked = proj.linkedProjectId ? projects.find(p=>p.id===proj.linkedProjectId) : null
+  const myStage = stageLabelFromCode(proj.code)
+  const otherStage = linked ? stageLabelFromCode(linked.code) : null
+
+  const candidates = query.trim().length>=2
+    ? projects.filter(p=>p.id!==proj.id && (p.name.includes(query)||((p.code||"").toLowerCase().includes(query.toLowerCase())))).slice(0,8)
+    : []
+
+  const doLink = (otherId) => {
+    setProjects(prev=>prev.map(p=>{
+      if(p.id===proj.id) return {...p, linkedProjectId:otherId}
+      if(p.id===otherId) return {...p, linkedProjectId:proj.id}
+      return p
+    }))
+    setShowLink(false); setQuery("")
+  }
+  const doUnlink = () => {
+    if(!window.confirm("연결을 해제할까요? (각 프로젝트의 자료는 그대로 유지됩니다)")) return
+    setProjects(prev=>prev.map(p=>{
+      if(p.id===proj.id) return {...p, linkedProjectId:null}
+      if(p.id===proj.linkedProjectId) return {...p, linkedProjectId:null}
+      return p
+    }))
+  }
+
+  if(linked){
+    return (
+      <div style={{display:"flex",alignItems:"center",gap:10,background:"#EEF3FF",border:"1.5px solid #3B72F6",borderRadius:10,padding:"10px 14px",marginBottom:14,flexWrap:"wrap"}}>
+        <span style={{fontSize:13,fontWeight:800,color:"#1A3B6E"}}>
+          🔗 연결된 프로젝트 {myStage&&`(지금 화면: ${myStage})`}
+        </span>
+        <button onClick={()=>setSelProjId(linked.id)}
+          style={{padding:"5px 12px",background:"#3B72F6",color:"#fff",border:"none",borderRadius:7,fontSize:12.5,fontWeight:700,cursor:"pointer"}}>
+          {otherStage?`${otherStage} → `:""}{linked.name} ({linked.code}) 로 이동
+        </button>
+        {canWrite && <button onClick={doUnlink} style={{padding:"5px 10px",background:"#fff",color:"#DC2626",border:"1px solid #DC2626",borderRadius:7,fontSize:12,fontWeight:700,cursor:"pointer"}}>연결 해제</button>}
+      </div>
+    )
+  }
+
+  return (
+    <div style={{marginBottom:14}}>
+      {!showLink ? (
+        canWrite && <button onClick={()=>setShowLink(true)}
+          style={{padding:"6px 12px",background:"#F8FAFC",color:"#64748B",border:"1px dashed #CBD5E1",borderRadius:8,fontSize:12.5,fontWeight:700,cursor:"pointer"}}>
+          🔗 제안단계(D)/실시설계(W)처럼 이름이 같은 다른 프로젝트와 연결하기
+        </button>
+      ) : (
+        <div style={{background:"#F8FAFC",border:"1px solid #E2E8F0",borderRadius:10,padding:"12px 14px"}}>
+          <div style={{fontSize:12.5,fontWeight:700,color:"#334155",marginBottom:6}}>연결할 프로젝트를 검색하세요 (이름 또는 코드)</div>
+          <input value={query} onChange={e=>setQuery(e.target.value)} placeholder="예: 서산시 시청사, E26006-PCG-W"
+            style={{width:"100%",maxWidth:360,padding:"7px 10px",border:"1px solid #E5E7EB",borderRadius:7,fontSize:13,boxSizing:"border-box"}}/>
+          {candidates.length>0 && (
+            <div style={{marginTop:8,display:"flex",flexDirection:"column",gap:4}}>
+              {candidates.map(c=>(
+                <div key={c.id} onClick={()=>doLink(c.id)}
+                  style={{padding:"7px 10px",background:"#fff",border:"1px solid #E5E7EB",borderRadius:7,cursor:"pointer",fontSize:13}}
+                  onMouseEnter={e=>e.currentTarget.style.background="#EEF3FF"} onMouseLeave={e=>e.currentTarget.style.background="#fff"}>
+                  <b>{c.name}</b> <span style={{color:"#94A3B8"}}>({c.code}{stageLabelFromCode(c.code)?` · ${stageLabelFromCode(c.code)}`:""})</span>
+                </div>
+              ))}
+            </div>
+          )}
+          <button onClick={()=>{setShowLink(false);setQuery("")}} style={{marginTop:8,padding:"5px 10px",background:"#fff",color:"#64748B",border:"1px solid #E5E7EB",borderRadius:7,fontSize:12,cursor:"pointer"}}>취소</button>
+        </div>
+      )}
+    </div>
   )
 }
 
