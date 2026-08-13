@@ -25,8 +25,25 @@ function buildContext(data) {
     const pnl = ver ? calcPnlTotals(ver) : null
     const cashTotal = (p.cashflowPlan||[]).reduce((s,e)=>s+(e.actual||0),0)
     const shares = getDeptShares(p).map(s=>`${s.dept}(${s.share}%)`).join(",")
-    return `[${p.code}] ${p.name} | 발주처:${p.client||"-"} | 본부:${shares||"-"} | 용역비:${fE(p.serviceFee)}억 | 수주유형:${p.contractType||"-"} | 진행:${p.prog||0}% | 회차:${ver?.round||"-"}차 | 입금누계:${cashTotal.toFixed(2)}억`
+    return `[${p.code}] ${p.name} | 발주처:${p.client||"-"} | 본부:${shares||"-"} | 용역비:${fE(p.serviceFee)}억 | 수주유형:${p.contractType||"-"} | 발주구분:${p.orderType||"민간"} | 진행:${p.prog||0}% | 회차:${ver?.round||"-"}차 | 입금누계:${cashTotal.toFixed(2)}억`
   }).join("\n")
+
+  // 프로젝트별 첨부서류 현황 (계약서/보증서/실적증명서/건축물대장 등) — 문서 검색·다운로드 질의에 사용
+  const DOC_LABELS = {
+    contract:"계약서", perfBond:"계약이행보증서", liabilityCert:"손해배상공제증권",
+    experienceCert:"실적증명서", buildingReg:"건축물대장", jvMou:"업무협약서",
+    jvSettlement:"합사정산서", contractApproval:"계약체결보고서",
+  }
+  const docSummary = projects.map(p=>{
+    const docs = (p.certDocs||[]).map(g=>{
+      const vs = Array.isArray(g.versions)?g.versions:[]
+      if(!vs.length) return null
+      const latest = vs[vs.length-1]
+      return `${DOC_LABELS[g.key]||g.key}(${latest.versionLabel||"최초"}${latest.endDate?","+latest.endDate+"만료":""})`
+    }).filter(Boolean)
+    if(!docs.length) return null
+    return `[${p.code}] ${p.name} (발주구분:${p.orderType||"민간"}): ${docs.join(", ")}`
+  }).filter(Boolean).join("\n")
 
   // 2026 수금 현황
   const cashSummary = cashflow.map((m,i)=>`${i+1}월:${(m.cash+m.note).toFixed(1)}억`).join(", ")
@@ -47,6 +64,9 @@ function buildContext(data) {
 
 === 프로젝트 현황 (총 ${projects.length}건) ===
 ${projSummary || "(없음)"}
+
+=== 프로젝트별 첨부서류 현황 ===
+${docSummary || "(등록된 서류 없음)"}
 
 === 2026년 월별 수금 실적 ===
 총 ${totalCash.toFixed(1)}억 | ${cashSummary}
@@ -160,16 +180,17 @@ const QUICK_QUESTIONS = [
   "2026년 수주·매출 목표 달성률은 어떻게 돼?",
   "외주비 비중이 높은 프로젝트 상위 3개는?",
   "본부별 수주금액 현황을 요약해줘",
-  "수원남부경찰서 계약일을 10월 27일로 변경해줘",
+  "공공 프로젝트 실적증명서 목록 보여줘",
 ]
 
 export function AIAssistant({ data, onNavigate, isOpen, onClose, onApplyChange }) {
   const [messages, setMessages] = useState([
-    { role:"assistant", text:"안녕하세요! 저는 상지서울 통합경영시스템 AI 어시스턴트입니다. 프로젝트, 수금, 이윤, 협력업체 등 궁금한 것을 물어보세요.\n\n일정·매출금액·상지지분 변경도 말씀하시면 됩니다. 예: \"수원남부경찰서 계약일을 10월로 변경해줘\"\n(바로 반영되지 않고, 먼저 변경 내용을 보여드리고 확인 후에만 반영됩니다.)" }
+    { role:"assistant", text:"안녕하세요! 저는 상지서울 통합경영시스템 AI 어시스턴트입니다. 프로젝트, 수금, 이윤, 협력업체 등 궁금한 것을 물어보세요.\n\n일정·매출금액·상지지분 변경도 말씀하시면 됩니다. 예: \"수원남부경찰서 계약일을 10월로 변경해줘\"\n(바로 반영되지 않고, 먼저 변경 내용을 보여드리고 확인 후에만 반영됩니다.)\n\n서류 찾기도 됩니다. 예: \"공공 프로젝트 실적증명서 목록 보여줘\" — 조건에 맞는 서류를 찾아 바로 다운로드할 수 있게 보여드립니다." }
   ])
   const [input, setInput] = useState("")
   const [loading, setLoading] = useState(false)
   const [pendingChange, setPendingChange] = useState(null) // {projectId, projectName, changes:[{field,label,oldDisplay,newDisplay,newValue}], summary}
+  const [docResults, setDocResults] = useState(null) // {docKey, docLabel, items:[{projectId,projectName,doc}], summary}
   const [lastApplied, setLastApplied] = useState(null) // 되돌리기용 — {projectId, changes:[{field, prevValue}]}
   const scrollRef = useRef(null)
   const ctx = useMemo(()=>buildContext(data),[data])
@@ -200,6 +221,7 @@ export function AIAssistant({ data, onNavigate, isOpen, onClose, onApplyChange }
     setInput("")
     setMessages(prev=>[...prev,{role:"user",text:q}])
     setPendingChange(null)
+    setDocResults(null)
     setLoading(true)
 
     const history = messages.filter(m=>m.role!=="assistant"||messages.indexOf(m)>0).slice(-6)
@@ -231,7 +253,17 @@ ${ctx}
 - 한 메시지에 여러 필드를 동시에 바꾸려 하면 changes 배열에 여러 항목을 넣으세요.
 - 어느 프로젝트인지, 어떤 값으로 바꿀지 애매하면 JSON을 만들지 말고 대신 "OO 프로젝트가 맞나요? 어떤 값으로 바꿀까요?" 처럼 되물어보는 일반 텍스트로 답하세요.
 - 이 3가지 항목이 아닌 다른 필드 변경 요청(예: PM 교체, 협력업체 정보 등)은 "죄송하지만 지금은 일정·매출금액·지분율 변경만 지원합니다"라고 답하세요.
-- 위 3가지에 해당하지 않는 일반 질문은 평소처럼 마커 없이 답변하세요.`,
+- 위 3가지에 해당하지 않는 일반 질문은 평소처럼 마커 없이 답변하세요.
+
+=== 서류 검색 모드 (중요) ===
+사용자가 특정 종류의 서류를 찾거나("실적증명서 목록 보여줘", "공공 프로젝트 계약서 다운받고 싶어" 등) 다운로드를 원하는 것 같으면,
+"프로젝트별 첨부서류 현황" 데이터를 참고해서 조건에 맞는 프로젝트를 찾고, 아래 형식 그대로 맨 앞에 <<SJS_DOCLIST>> 마커와 함께 JSON만 응답하세요 (다른 텍스트 섞지 말 것):
+<<SJS_DOCLIST>>{"docKey":"experienceCert","items":[{"project_query":"프로젝트명에서 추출한 검색어"}],"summary":"사람이 읽을 한국어 한 줄 설명"}
+
+- docKey는 다음 중 하나: contract(계약서), perfBond(계약이행보증서), liabilityCert(손해배상공제증권), experienceCert(실적증명서), buildingReg(건축물대장), jvMou(업무협약서), jvSettlement(합사정산서), contractApproval(계약체결보고서)
+- items에는 조건에 맞는 프로젝트를 전부 나열하세요(예: "공공 프로젝트"면 발주구분이 공공인 것만).
+- "첨부서류 현황"에 아예 그 문서가 없는 프로젝트는 items에 넣지 마세요.
+- 어떤 서류를 찾는지 불명확하면 JSON을 만들지 말고 일반 텍스트로 되물어보세요.`,
           messages:[
             ...history.map(m=>({role:m.role==="user"?"user":"assistant",content:m.text})),
             {role:"user",content:q}
@@ -242,7 +274,33 @@ ${ctx}
       const reply = json.content?.[0]?.text || json.error || "응답을 가져오지 못했습니다."
 
       const marker = "<<SJS_ACTION>>"
-      if(reply.includes(marker)){
+      const docMarker = "<<SJS_DOCLIST>>"
+      if(reply.includes(docMarker)){
+        try{
+          const jsonStr = reply.slice(reply.indexOf(docMarker)+docMarker.length).trim()
+          const parsed = JSON.parse(jsonStr)
+          const DOC_LABELS = {
+            contract:"계약서", perfBond:"계약이행보증서", liabilityCert:"손해배상공제증권",
+            experienceCert:"실적증명서", buildingReg:"건축물대장", jvMou:"업무협약서",
+            jvSettlement:"합사정산서", contractApproval:"계약체결보고서",
+          }
+          const items = (parsed.items||[]).map(it=>{
+            const proj = findProject(it.project_query)
+            if(!proj) return null
+            const g = (proj.certDocs||[]).find(d=>d.key===parsed.docKey)
+            const vs = Array.isArray(g?.versions) ? g.versions : []
+            if(!vs.length) return null
+            return {projectId:proj.id, projectName:proj.name, doc:vs[vs.length-1]}
+          }).filter(Boolean)
+          if(items.length===0){
+            setMessages(prev=>[...prev,{role:"assistant",text:"조건에 맞는 서류를 찾지 못했습니다. 다른 조건으로 다시 물어봐 주세요."}])
+          } else {
+            setDocResults({docKey:parsed.docKey, docLabel:DOC_LABELS[parsed.docKey]||parsed.docKey, items, summary:parsed.summary||""})
+          }
+        }catch(e){
+          setMessages(prev=>[...prev,{role:"assistant",text:"서류 검색 요청을 이해했지만 형식을 해석하는 데 실패했습니다. 다시 한번 말씀해주시겠어요?"}])
+        }
+      } else if(reply.includes(marker)){
         try{
           const jsonStr = reply.slice(reply.indexOf(marker)+marker.length).trim()
           const parsed = JSON.parse(jsonStr)
@@ -358,6 +416,25 @@ ${ctx}
               <button onClick={undoLast} style={{padding:"5px 12px",background:"#F8FAFC",color:"#64748B",border:"1px solid #E5E7EB",borderRadius:20,fontSize:11.5,fontWeight:700,cursor:"pointer"}}>
                 ↩️ 방금 반영한 "{lastApplied.projectName}" 변경 되돌리기
               </button>
+            </div>
+          )}
+          {docResults && (
+            <div style={{marginLeft:38,padding:"14px 16px",borderRadius:12,background:"#EEF3FF",border:"1.5px solid #3B72F6"}}>
+              <div style={{fontSize:13,fontWeight:800,color:"#1A3B6E",marginBottom:8}}>📎 {docResults.docLabel} 검색 결과 — {docResults.items.length}건</div>
+              {docResults.summary && <div style={{fontSize:12,color:"#3B72F6",marginBottom:10,fontStyle:"italic"}}>{docResults.summary}</div>}
+              <div style={{display:"flex",flexDirection:"column",gap:6}}>
+                {docResults.items.map((it,i)=>(
+                  <div key={i} style={{display:"flex",justifyContent:"space-between",alignItems:"center",background:"#fff",borderRadius:8,padding:"8px 12px"}}>
+                    <div>
+                      <div style={{fontSize:13,fontWeight:700,color:"#111827"}}>{it.projectName}</div>
+                      <div style={{fontSize:11.5,color:"#6B7280"}}>{it.doc.versionLabel||"최초"}{it.doc.endDate?` · ~${it.doc.endDate}`:""}{it.doc.docNo?` · ${it.doc.docNo}`:""}</div>
+                    </div>
+                    {it.doc.fileData
+                      ? <a href={it.doc.fileData} download={it.doc.fileName} style={{padding:"5px 12px",background:"#3B72F6",color:"#fff",borderRadius:6,fontSize:12,fontWeight:700,textDecoration:"none",flexShrink:0}}>⬇ 다운로드</a>
+                      : <span style={{fontSize:11.5,color:"#9CA3AF",flexShrink:0}}>파일 없음</span>}
+                  </div>
+                ))}
+              </div>
             </div>
           )}
         </div>

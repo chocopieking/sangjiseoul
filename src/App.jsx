@@ -945,7 +945,21 @@ export default function App() {
     }).catch(e=>console.warn("초기 프로젝트 로드 실패:", e))
     return ()=>{ cancelled = true }
   },[])
-  const setProjects = mkPersist(setProjectsRaw, "sjs_projects")
+  const setProjectsPersist = mkPersist(setProjectsRaw, "sjs_projects")
+  // 신규 생성되거나 실제로 내용이 바뀐 프로젝트에만 updatedAt을 자동으로 찍어줌 — 목록 화면에서
+  // "최근 수정된/새로 만든 프로젝트가 위로" 정렬하는 데 사용 (참조가 달라진 프로젝트 = 방금 수정된 것)
+  const setProjects = (updater) => {
+    setProjectsPersist(prev => {
+      const next = typeof updater==="function" ? updater(prev) : updater
+      const now = new Date().toISOString()
+      const prevMap = new Map(prev.map(p=>[p.id,p]))
+      return next.map(np=>{
+        const op = prevMap.get(np.id)
+        if(!op || op!==np) return {...np, updatedAt: now}
+        return np
+      })
+    })
+  }
   const projects = projectsRaw
 
   const [pnlDataRaw, setPnlDataRaw]     = useState(()=>lsGet("sjs_pnl", PNL_INIT))
@@ -1882,7 +1896,12 @@ export default function App() {
                 {grpTabs.map(t=>{
                   const active=tab===t.id
                   return (
-                    <button key={t.id} onClick={()=>setTab(t.id)} style={{
+                    <button key={t.id} onClick={()=>{
+                      // "프로젝트" 메뉴는 항상 목록 화면으로 이동 — 다른 화면(실행계획서 등)에서
+                      // 선택해뒀던 프로젝트가 남아있어서 상세 화면으로 바로 들어가 버리는 문제 방지
+                      if(t.id==="projects") setSelProjId(null)
+                      setTab(t.id)
+                    }} style={{
                       padding:"11px 12px",border:"none",background:"transparent",cursor:"pointer",
                       fontSize:13,fontWeight:active?800:500,whiteSpace:"nowrap",flexShrink:0,
                       color:active?"#0E9C8C":"#475569",
@@ -3689,12 +3708,13 @@ function ProjectsTab({projects,setProjects,selProjId,setSelProjId,selVerIdx,setS
   },[projects,deptFilter,deptMultiFilter,typeFilter,searchQuery,pmFilter,dateFromFilter,dateToFilter,areaMinFilter])
 
   // 표 헤더 클릭 정렬 — 평당단가처럼 계산이 필요한 항목은 미리 계산해서 넣어둠
-  const {sortKey:projSortKey, sortFn:projSortFn, SortTh:ProjSortTh} = useSortTable("name","asc")
+  const {sortKey:projSortKey, sortFn:projSortFn, SortTh:ProjSortTh} = useSortTable("_updatedAt","desc")
   const sortedProjects = useMemo(()=>{
     const withComputed = filtered.map(p=>({
       ...p,
       _upy: (p.floorArea>0 && p.serviceFee>0) ? Math.round(p.serviceFee/toPy(p.floorArea)) : 0,
       _deptStr: (p.depts||[]).join(", "),
+      _updatedAt: p.updatedAt || p.contractDate || "",
     }))
     return projSortKey ? [...withComputed].sort(projSortFn) : withComputed
   },[filtered, projSortKey, projSortFn])
@@ -13957,7 +13977,7 @@ function EventDashboard({setTab, currentUser, projects=[], cashItems=[], contrac
 }
 
 
-function MobileHub({setTab, tabOrder=[], currentUser, projects=[], cashItems=[]}) {
+function MobileHub({setTab, tabOrder=[], currentUser, projects=[], cashItems=[], setSelProjId}) {
   const [search, setSearch] = useState("")
   const [favorites, setFavorites] = useState(()=>{
     try{ return JSON.parse(localStorage.getItem("sjs_hub_favorites")||"[]") }catch{ return [] }
@@ -14202,7 +14222,7 @@ function MobileHub({setTab, tabOrder=[], currentUser, projects=[], cashItems=[]}
           {id:"history",  icon:"📜", label:"히스토리"},
           {id:"manual",   icon:"📚", label:"매뉴얼"},
         ].map(({id,icon,label})=>(
-          <button key={id} onClick={()=>setTab(id)}
+          <button key={id} onClick={()=>{ if(id==="projects") setSelProjId?.(null); setTab(id) }}
             style={{flex:1,border:"none",background:"none",cursor:"pointer",padding:"4px 0",
               display:"flex",flexDirection:"column",alignItems:"center",gap:2}}>
             <span style={{fontSize:24.2}}>{icon}</span>
