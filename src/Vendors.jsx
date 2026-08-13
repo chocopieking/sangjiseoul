@@ -83,6 +83,20 @@ export function VendorsTab({projects,setProjects,vendorsDB,setVendorsDB,vendorPa
   // 예전 시드 데이터에 섞여 있던 "V1024" 같은 코드성 업체명을 한 번에 정리하는 기능.
   // (실제 업체명 인식에 실패해서 자동생성 코드가 그대로 이름으로 들어간 항목들 — 상세 정보나
   //  지급이력이 거의 비어있는 경우가 대부분이라 삭제해도 실질적인 손실은 크지 않음)
+  // "통합_외주비.xlsx" 파서가 예전에 "외주비율"·"발주처"·"1차"~"8차" 같은 항목명을 프로젝트명으로
+  // 잘못 인식하던 버그가 있었음(지금은 수정됨). 그때 잘못 들어간 지급이력을 한 번에 지우는 기능.
+  const resetPaymentHistory = () => {
+    const cnt = Object.values(vendorsDB||{}).reduce((s,v)=>s+(v.paymentHistory?.length||0),0)
+    if(cnt===0){ alert("삭제할 외주비 지급이력이 없습니다."); return }
+    if(!window.confirm(`전체 협력업체의 외주비 지급이력 ${cnt}건을 모두 삭제합니다.\n\n(업체 기본정보·문서·사안기록 등 다른 정보는 그대로 유지됩니다)\n\n예전 버전에서 잘못 들어간 데이터를 정리하기 위한 기능입니다. 삭제 후 "통합_외주비.xlsx"를 다시 업로드해서 새로 채워주세요.\n\n계속할까요?`)) return
+    setVendorsDB(prev=>{
+      const next={...prev}
+      Object.keys(next).forEach(id=>{ next[id]={...next[id], paymentHistory:[]} })
+      return next
+    })
+    alert(`✅ ${cnt}건 삭제 완료. "⬆ 💰 외주비 업로드"로 다시 올려주세요.`)
+  }
+
   const cleanupCodeNames = () => {
     const isCodeLikeName = n => /^VE?\d{3,5}$/i.test(String(n||"").trim())
     const bad = Object.entries(vendorsDB||{}).filter(([id,v])=>isCodeLikeName(v.name))
@@ -158,17 +172,22 @@ export function VendorsTab({projects,setProjects,vendorsDB,setVendorsDB,vendorPa
           return !!(rgb && /^FF?FF0000$/i.test(rgb))
         }
 
-        // 파싱: 프로젝트명(col0) → 공종/업체/금액(col4,5,6) → 3행씩 (조건/날짜/금액)
+        // 파싱: "프로젝트명" 표시가 있는 행을 기준으로 블록을 나누고, 그 블록 안에서만 공종/업체/금액을 찾음.
+        // (예전 방식은 A열에 텍스트가 나오면 무조건 "새 프로젝트명"으로 오해해서, "외주비율"·"공고용역비"·
+        //  "발주처"·"계약일"·"1차"~"8차" 같은 항목명까지 프로젝트명으로 잘못 인식하는 문제가 있었음)
+        const blockHeaders = []
+        for(let i=0;i<rows.length;i++){ if(String(rows[i][0]||"").trim()==="프로젝트명") blockHeaders.push(i) }
         const records = []
-        let currentProj = ""
-        for(let i=3; i<rows.length; i++){
-          const r=rows[i]
-          const c0=String(r[0]||"").trim()
-          const c4=String(r[4]||"").trim()
-          const c5=String(r[5]||"").trim()
-          const c6=String(r[6]||"").trim()
-          if(c0&&!c4&&!c5){ currentProj=c0; continue }
-          if(c4&&c5&&toAmt(c6)>0&&currentProj){
+        blockHeaders.forEach((h,bi)=>{
+          const projName = String((rows[h+2]||[])[0]||"").trim()
+          if(!projName) return
+          const blockEnd = bi+1<blockHeaders.length ? blockHeaders[bi+1] : rows.length
+          for(let i=h+2; i<blockEnd; i++){
+            const r=rows[i]||[]
+            const c4=String(r[4]||"").trim()
+            const c5=String(r[5]||"").trim()
+            const c6=String(r[6]||"").trim()
+            if(!(c4&&c5&&toAmt(c6)>0)) continue
             const payments=[]
             const condRow=rows[i]||[], dateRow=rows[i+1]||[], amtRow=rows[i+2]||[]
             const amtRowIdx = i+2
@@ -182,10 +201,9 @@ export function VendorsTab({projects,setProjects,vendorsDB,setVendorsDB,vendorPa
               }
             }
             const paidSum = payments.filter(p=>p.status==="paid").reduce((s,p)=>s+p.amount,0)
-            records.push({project:currentProj, vendor:c5, type:c4, totalAmt:toAmt(c6), payments, paidSum, remain:Math.max(0,toAmt(c6)-paidSum)})
-            i+=2
+            records.push({project:projName, vendor:c5, type:c4, totalAmt:toAmt(c6), payments, paidSum, remain:Math.max(0,toAmt(c6)-paidSum)})
           }
-        }
+        })
 
         if(records.length===0){ alert("파싱된 데이터가 없습니다.\n프로젝트별_외주비.xlsx 형식인지 확인하세요."); return }
 
@@ -285,6 +303,10 @@ export function VendorsTab({projects,setProjects,vendorsDB,setVendorsDB,vendorPa
           {canWrite&&<button onClick={cleanupCodeNames}
             style={{...S.btn("#FEF2F2","#DC2626"),fontSize:13.8,padding:"7px 13px",border:"1.5px solid #DC2626"}}>
             🧹 코드성 업체명 정리
+          </button>}
+          {canWrite&&<button onClick={resetPaymentHistory}
+            style={{...S.btn("#FEF2F2","#DC2626"),fontSize:13.8,padding:"7px 13px",border:"1.5px solid #DC2626"}}>
+            🗑 외주비 지급이력 초기화
           </button>}
         </div>
       </div>
