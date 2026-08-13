@@ -125,12 +125,21 @@ export function VendorsTab({projects,setProjects,vendorsDB,setVendorsDB,vendorPa
     const reader = new FileReader()
     reader.onload = ev => {
       try{
-        const wb = XLSX.read(ev.target.result, {type:"binary"})
-        const ws = wb.Sheets[wb.SheetNames[0]]
+        // cellStyles:true 를 줘야 글자색(붉은색=지급예정, 검정=지급완료)을 읽을 수 있음
+        const wb = XLSX.read(ev.target.result, {type:"binary", cellStyles:true})
+        const wsName = wb.SheetNames[0]
+        const ws = wb.Sheets[wsName]
         const rows = XLSX.utils.sheet_to_json(ws, {header:1, defval:""})
 
         const toAmt = v => { try{const f=parseFloat(String(v).replace(/,/g,"")); return Number.isFinite(f)&&f>0?Math.round(f):0}catch{return 0} }
         const toDate = v => { const m=String(v).match(/(\d{4})-(\d{2})-(\d{2})/); return m?`${m[1]}-${m[2]}-${m[3]}`:""  }
+        // 셀 글자색이 붉은색인지 확인 — 붉은색이면 "아직 지급 전(외주비 기성 계획)", 아니면 "지급완료"
+        const isRedCell = (r,c) => {
+          const addr = XLSX.utils.encode_cell({r,c})
+          const cell = ws[addr]
+          const rgb = cell?.s?.font?.color?.rgb
+          return !!(rgb && /^FF?FF0000$/i.test(rgb))
+        }
 
         // 파싱: 프로젝트명(col0) → 공종/업체/금액(col4,5,6) → 3행씩 (조건/날짜/금액)
         const records = []
@@ -145,20 +154,25 @@ export function VendorsTab({projects,setProjects,vendorsDB,setVendorsDB,vendorPa
           if(c4&&c5&&toAmt(c6)>0&&currentProj){
             const payments=[]
             const condRow=rows[i]||[], dateRow=rows[i+1]||[], amtRow=rows[i+2]||[]
+            const amtRowIdx = i+2
             for(let j=7;j<27;j++){
               const cond=String(condRow[j]||"").trim()
               const date=toDate(dateRow[j])
               const amt=toAmt(amtRow[j])
-              if(cond||amt) payments.push({condition:cond,date,amount:amt})
+              if(cond||amt){
+                const status = amt>0 ? (isRedCell(amtRowIdx, j) ? "planned" : "paid") : ""
+                payments.push({round:j-6,condition:cond,date,amount:amt,status})
+              }
             }
-            records.push({project:currentProj, vendor:c5, type:c4, totalAmt:toAmt(c6), payments})
+            const paidSum = payments.filter(p=>p.status==="paid").reduce((s,p)=>s+p.amount,0)
+            records.push({project:currentProj, vendor:c5, type:c4, totalAmt:toAmt(c6), payments, paidSum, remain:Math.max(0,toAmt(c6)-paidSum)})
             i+=2
           }
         }
 
         if(records.length===0){ alert("파싱된 데이터가 없습니다.\n프로젝트별_외주비.xlsx 형식인지 확인하세요."); return }
 
-        // vendorsDB에 paymentHistory 연결
+        // vendorsDB에 paymentHistory 연결 (지급완료·지급예정 구분해서 전부 저장)
         const normN = n => n.replace(/[\s\(\)\[\]㈜주식회사]/g,"").toLowerCase()
         setVendorsDB(prev=>{
           const next={...prev}
@@ -181,14 +195,26 @@ export function VendorsTab({projects,setProjects,vendorsDB,setVendorsDB,vendorPa
           return next
         })
 
-        if(setVendorPayments) setVendorPayments(records)
+        // 실제 "지급완료"(검정 글자) 항목만 vendorPayments(지출 실적)로 반영 — 붉은 글자(지급예정)는 계획이라 지출로 잡지 않음
+        if(setVendorPayments){
+          const paidOnly = []
+          records.forEach(rec=>{
+            rec.payments.filter(p=>p.status==="paid"&&p.amount>0).forEach(p=>{
+              paidOnly.push({vendor:rec.vendor, project:rec.project, amount:p.amount, date:p.date, note:p.condition})
+            })
+          })
+          setVendorPayments(paidOnly)
+        }
 
         // 프로젝트별 요약
         const projSet = [...new Set(records.map(r=>r.project))]
         const totalAmt = records.reduce((s,r)=>s+r.totalAmt,0)
+        const paidTotal = records.reduce((s,r)=>s+r.payments.filter(p=>p.status==="paid").reduce((a,p)=>a+p.amount,0),0)
+        const plannedTotal = records.reduce((s,r)=>s+r.payments.filter(p=>p.status==="planned").reduce((a,p)=>a+p.amount,0),0)
         alert(`✅ 외주비 업로드 완료!\n` +
           `프로젝트 ${projSet.length}개 / 외주 항목 ${records.length}건\n` +
-          `총 금액: ${(totalAmt/1e8).toFixed(2)}억원\n\n` +
+          `총 계약금액: ${(totalAmt/1e8).toFixed(2)}억원\n` +
+          `지급완료(검정): ${(paidTotal/1e8).toFixed(2)}억원 / 지급예정(붉은글씨): ${(plannedTotal/1e8).toFixed(2)}억원\n\n` +
           `협력업체 DB의 외주비 이력에 자동 연결됩니다.`)
       }catch(err){ alert("외주비 업로드 오류: "+err.message) }
     }
@@ -762,6 +788,7 @@ function VendorDetail({entry,vendorsDB,setVendorsDB,vendorPayments,setVendorPaym
                               <th style={{padding:"8px 12px",textAlign:"center",fontSize:13.2,fontWeight:700,color:"#6B7280",borderBottom:"1px solid #E5E7EB"}}>지급일</th>
                               <th style={{padding:"8px 12px",textAlign:"right",fontSize:13.2,fontWeight:700,color:"#6B7280",borderBottom:"1px solid #E5E7EB"}}>금액(원)</th>
                               <th style={{padding:"8px 12px",textAlign:"right",fontSize:13.2,fontWeight:700,color:"#6B7280",borderBottom:"1px solid #E5E7EB"}}>비율</th>
+                              <th style={{padding:"8px 12px",textAlign:"center",fontSize:13.2,fontWeight:700,color:"#6B7280",borderBottom:"1px solid #E5E7EB"}}>상태</th>
                             </tr>
                           </thead>
                           <tbody>
@@ -779,6 +806,13 @@ function VendorDetail({entry,vendorsDB,setVendorsDB,vendorPayments,setVendorPaym
                                 </td>
                                 <td style={{padding:"8px 12px",textAlign:"right",fontSize:13.2,color:"#9CA3AF"}}>
                                   {ph.totalAmt>0&&p.amount>0?(p.amount/ph.totalAmt*100).toFixed(1)+"%":"-"}
+                                </td>
+                                <td style={{padding:"8px 12px",textAlign:"center"}}>
+                                  {p.status==="planned"
+                                    ? <span style={{fontSize:11.5,fontWeight:700,color:"#DC2626",background:"#FEE2E2",padding:"2px 8px",borderRadius:6}}>지급예정</span>
+                                    : p.status==="paid"
+                                    ? <span style={{fontSize:11.5,fontWeight:700,color:"#059669",background:"#D1FAE5",padding:"2px 8px",borderRadius:6}}>지급완료</span>
+                                    : "-"}
                                 </td>
                               </tr>
                             ))}
