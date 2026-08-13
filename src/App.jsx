@@ -1119,9 +1119,12 @@ export default function App() {
       if(cancelled) return
       const initData = mod.default || mod
       // JSON 형태를 기존 vendorsDB 구조로 변환
+      // ※ 예전 시드 데이터 중 실제 업체명을 못 찾아 "V1024"같은 코드가 이름으로 잘못 들어간 항목이
+      //   섞여 있어서(892/906건), 이런 코드성 이름은 애초에 걸러내고 불러옴 — 정상적인 업체명만 반영
+      const isCodeLikeName = n => /^VE?\d{3,5}$/i.test(String(n||"").trim())
       const db = {}
       Object.entries(initData).forEach(([name, v])=>{
-        if(!name || name==="미정업체") return
+        if(!name || name==="미정업체" || isCodeLikeName(name)) return
         const id = `V${Object.keys(db).length+1000}`
         db[id] = {
           id, name, bizType:v.bizType||"", bizNo:v.bizNo||"",

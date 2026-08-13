@@ -80,6 +80,23 @@ export function VendorsTab({projects,setProjects,vendorsDB,setVendorsDB,vendorPa
   }
 
   // 엑셀 업로드
+  // 예전 시드 데이터에 섞여 있던 "V1024" 같은 코드성 업체명을 한 번에 정리하는 기능.
+  // (실제 업체명 인식에 실패해서 자동생성 코드가 그대로 이름으로 들어간 항목들 — 상세 정보나
+  //  지급이력이 거의 비어있는 경우가 대부분이라 삭제해도 실질적인 손실은 크지 않음)
+  const cleanupCodeNames = () => {
+    const isCodeLikeName = n => /^VE?\d{3,5}$/i.test(String(n||"").trim())
+    const bad = Object.entries(vendorsDB||{}).filter(([id,v])=>isCodeLikeName(v.name))
+    if(bad.length===0){ alert("코드성 업체명이 없습니다. 이미 깨끗합니다."); return }
+    const sample = bad.slice(0,10).map(([id,v])=>v.name).join(", ")
+    if(!window.confirm(`업체명이 "${sample}${bad.length>10?" 등":""}" 같은 코드로만 되어 있는 항목이 ${bad.length}건 있습니다.\n\n이런 항목은 실제 업체명 인식에 실패해서 남은 찌꺼기 데이터일 가능성이 높습니다. 삭제할까요?\n(정말 필요한 데이터라면 취소 후 먼저 백업해주세요)`)) return
+    setVendorsDB(prev=>{
+      const next={...prev}
+      bad.forEach(([id])=>{ delete next[id] })
+      return next
+    })
+    alert(`✅ ${bad.length}건 정리 완료`)
+  }
+
   const uploadVendors = (e) => {
     const file = e.target.files?.[0]; if(!file) return
     const reader = new FileReader()
@@ -265,6 +282,10 @@ export function VendorsTab({projects,setProjects,vendorsDB,setVendorsDB,vendorPa
             ⬆ 💰 외주비 업로드
             <input type="file" accept=".xlsx,.xls" style={{display:"none"}} onChange={uploadPayments}/>
           </label>}
+          {canWrite&&<button onClick={cleanupCodeNames}
+            style={{...S.btn("#FEF2F2","#DC2626"),fontSize:13.8,padding:"7px 13px",border:"1.5px solid #DC2626"}}>
+            🧹 코드성 업체명 정리
+          </button>}
         </div>
       </div>
 
