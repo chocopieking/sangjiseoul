@@ -295,7 +295,7 @@ export function VendorsTab({projects,setProjects,vendorsDB,setVendorsDB,vendorPa
           onSelect={v=>{setSelVendor(v);setView("detail")}}/>
       )}
       {view==="detail" && selVendor && (
-        <VendorDetail entry={directory.find(d=>d.name===selVendor.name)||selVendor}
+        <VendorDetail entry={selVendor}
           vendorsDB={vendorsDB} setVendorsDB={setVendorsDB}
           vendorPayments={vendorPayments} setVendorPayments={setVendorPayments}
           projects={projects} setProjects={setProjects}
@@ -507,7 +507,7 @@ function VendorList({directory,search,setSearch,vendorsDB,setVendorsDB,onSelect}
               </td></tr>
             )}
             {pageData.map((v,i)=>(
-              <tr key={v.id||v.name} onClick={()=>mergeMode?toggleMergeSel(v.name):onSelect(v.dirEntry||v)}
+              <tr key={v.id||v.name} onClick={()=>mergeMode?toggleMergeSel(v.name):onSelect(v)}
                 style={{cursor:"pointer",background:mergeMode&&mergeSel.includes(v.name)?"#EDE9FE":(i%2===0?"var(--color-background-primary,#fff)":"var(--color-background-secondary,#f8f8f6)")}}
                 onMouseEnter={e=>{if(!(mergeMode&&mergeSel.includes(v.name)))e.currentTarget.style.background="rgba(24,95,165,.06)"}}
                 onMouseLeave={e=>{e.currentTarget.style.background=mergeMode&&mergeSel.includes(v.name)?"#EDE9FE":(i%2===0?"var(--color-background-primary,#fff)":"var(--color-background-secondary,#f8f8f6)")}}>
@@ -748,6 +748,21 @@ function VendorDetail({entry,vendorsDB,setVendorsDB,vendorPayments,setVendorPaym
                     </tr>
                   )
                 })}
+                {/* "외주비 업로드"(통합_외주비.xlsx)로 들어온 프로젝트별 지급이력 — 실행계획서에는 없지만
+                    외주비 파일에는 있는 프로젝트도 여기서 같이 보여줌(위 항목과 중복될 수 있음) */}
+                {(entry.paymentHistory||[]).map((ph,i)=>(
+                  <tr key={`ph${i}`} style={{background:"#FFFBEB"}}>
+                    <td style={S.td("left")}><div style={{fontWeight:600}}>{ph.project}</div><div style={{fontSize:12,color:"#D97706"}}>외주비 업로드 기준</div></td>
+                    <td style={S.td("left")}><span style={{...S.bdg("#FEF3C7","#D97706"),fontSize:12}}>{ph.type||"-"}</span></td>
+                    <td style={S.td()}>{(ph.totalAmt||0).toLocaleString()}</td>
+                    <td style={{...S.td(),fontWeight:700,color:C.navyM}}>{(ph.totalAmt||0).toLocaleString()}</td>
+                    <td style={{...S.td(),color:"#0EA86E",fontWeight:600}}>{(ph.paidSum||0)>0?(ph.paidSum||0).toLocaleString():"-"}</td>
+                    <td style={{...S.td(),color:(ph.remain||0)>0?"#EF4444":"#0EA86E",fontWeight:700}}>{(ph.remain||0).toLocaleString()}</td>
+                  </tr>
+                ))}
+                {items.length===0 && (entry.paymentHistory||[]).length===0 && (
+                  <tr><td colSpan={6} style={{...S.td("center"),padding:"30px",color:"#9CA3AF"}}>참여 이력이 없습니다.</td></tr>
+                )}
               </tbody>
             </table>
           </div>
