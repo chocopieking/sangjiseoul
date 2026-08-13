@@ -4055,6 +4055,12 @@ function ProjectsTab({projects,setProjects,selProjId,setSelProjId,selVerIdx,setS
                               style={{padding:"2px 6px",background:"#F8FAFC",color:"#64748B",border:"none",borderRadius:5,fontSize:13.2,cursor:"pointer"}}>✕</button>
                           </div>
                         ) : <>
+                          {(()=>{ const st=stageLabelFromCode(p.code); return st && (
+                            <span style={{fontSize:10.5,fontWeight:800,padding:"1px 6px",borderRadius:4,marginRight:5,
+                              background:st==="제안단계"?"#FEF3C7":"#DBEAFE", color:st==="제안단계"?"#92400E":"#1E40AF"}}>
+                              {st==="제안단계"?"제안":"실시"}
+                            </span>
+                          )})()}
                           {p.linkedProjectId && <span title="다른 단계(D/W 등)와 연결된 프로젝트입니다" style={{marginRight:4,fontSize:12}}>🔗</span>}
                           {p.name}
                           {p.updatedAt && <div style={{fontSize:10.5,color:"#CBD5E1",fontWeight:400,whiteSpace:"nowrap"}}>{relTime(p.updatedAt)}</div>}
@@ -7957,6 +7963,29 @@ function LinkedProjectBar({proj, projects, setProjects, canWrite, setSelProjId})
     }))
   }
 
+  // 당선 처리 — 제안단계(D)의 최신 실행계획서(외주비 포함)를 실시설계(W)의 최초 회차로 그대로 이어받음.
+  // 계약서·인허가서류·합사서류 등 나머지는 각자 단계 고유의 서류라 손대지 않음(D에 그대로 남김).
+  const carryOverExecPlan = () => {
+    if(!linked) return
+    const myVersions = proj.versions||[]
+    const myLatest = myVersions[myVersions.length-1]
+    if(!myLatest){ alert("이 프로젝트에는 실행계획서 회차가 없어서 이어받을 내용이 없습니다."); return }
+    const targetHasVersions = (linked.versions||[]).length>0
+    const msg = targetHasVersions
+      ? `"${linked.name}"에는 이미 실행계획서가 ${linked.versions.length}개 있습니다.\n\n"${proj.name}"의 최신 회차를 새 회차로 추가할까요? (기존 회차는 그대로 유지됩니다)`
+      : `"${proj.name}"의 최신 실행계획서(외주비 포함)를 "${linked.name}"의 최초 회차로 이어받습니다.\n\n계속할까요?`
+    if(!window.confirm(msg)) return
+    setProjects(prev=>prev.map(p=>{
+      if(p.id!==linked.id) return p
+      const nextVersions = p.versions||[]
+      const newRound = nextVersions.length+1
+      const carried = {...myLatest, ver:`${newRound}차`, round:newRound, date:new Date().toISOString().slice(0,10),
+        reason:`${proj.name}(${myStage||"제안단계"})에서 이어받음 — 원본 ${myLatest.round||""}차 기준`}
+      return {...p, versions:[...nextVersions, carried]}
+    }))
+    alert(`✅ 이어받기 완료! "${linked.name}"에서 확인해보세요.`)
+  }
+
   if(linked){
     return (
       <div style={{display:"flex",alignItems:"center",gap:10,background:"#EEF3FF",border:"1.5px solid #3B72F6",borderRadius:10,padding:"10px 14px",marginBottom:14,flexWrap:"wrap"}}>
@@ -7967,6 +7996,12 @@ function LinkedProjectBar({proj, projects, setProjects, canWrite, setSelProjId})
           style={{padding:"5px 12px",background:"#3B72F6",color:"#fff",border:"none",borderRadius:7,fontSize:12.5,fontWeight:700,cursor:"pointer"}}>
           {otherStage?`${otherStage} → `:""}{linked.name} ({linked.code}) 로 이동
         </button>
+        {canWrite && myStage==="제안단계" && otherStage==="실시설계단계" && (
+          <button onClick={carryOverExecPlan}
+            style={{padding:"5px 12px",background:"#059669",color:"#fff",border:"none",borderRadius:7,fontSize:12.5,fontWeight:700,cursor:"pointer"}}>
+            🏆 당선 처리 — 실행계획서 이어받기
+          </button>
+        )}
         {canWrite && <button onClick={doUnlink} style={{padding:"5px 10px",background:"#fff",color:"#DC2626",border:"1px solid #DC2626",borderRadius:7,fontSize:12,fontWeight:700,cursor:"pointer"}}>연결 해제</button>}
       </div>
     )
