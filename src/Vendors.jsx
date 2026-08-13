@@ -321,6 +321,7 @@ export function VendorsTab({projects,setProjects,vendorsDB,setVendorsDB,vendorPa
           vendorsDB={vendorsDB} setVendorsDB={setVendorsDB}
           vendorPayments={vendorPayments} setVendorPayments={setVendorPayments}
           projects={projects} setProjects={setProjects}
+          setTab={setTab} setSelProjId={setSelProjId}
           canWrite={canWrite} currentUser={currentUser}
           onBack={()=>{setView("list");setSelVendor(null)}}/>
       )}
@@ -597,7 +598,32 @@ function VendorList({directory,search,setSearch,vendorsDB,setVendorsDB,onSelect}
 // ════════════════════════════════════════════════════════════
 // 2) 업체 상세 — 기본정보 / 수행 프로젝트 / 지급내역
 // ════════════════════════════════════════════════════════════
-function VendorDetail({entry,vendorsDB,setVendorsDB,vendorPayments,setVendorPayments,projects,setProjects,canWrite,currentUser,onBack}) {
+function VendorDetail({entry,vendorsDB,setVendorsDB,vendorPayments,setVendorPayments,projects,setProjects,setTab,setSelProjId,canWrite,currentUser,onBack}) {
+  // 프로젝트명 문자열로 실제 프로젝트를 찾아서 클릭 시 이동시키기 위한 매칭 (다른 화면들과 같은 정규화 규칙)
+  const normProjName = s => (s||"").replace(/[\s\-_·.()【】\[\]]/g,"").toLowerCase()
+  const findProjectByName = name => {
+    const n = normProjName(name)
+    if(!n) return null
+    return (projects||[]).find(p=>normProjName(p.name)===n) || null
+  }
+  const ProjLink = ({name}) => {
+    const matched = findProjectByName(name)
+    if(!matched || !setTab || !setSelProjId){
+      return (
+        <div>
+          <div style={{fontWeight:600}}>{name}</div>
+          {!matched && <div style={{fontSize:11,color:"#D97706"}}>⚠ 미매칭 (같은 이름의 프로젝트를 찾지 못함)</div>}
+        </div>
+      )
+    }
+    return (
+      <div onClick={e=>{ e.stopPropagation(); setSelProjId(matched.id); setTab("projects") }}
+        style={{fontWeight:600,color:"#0C447C",cursor:"pointer",textDecoration:"underline",textUnderlineOffset:2}}>
+        {name}
+      </div>
+    )
+  }
+
   // vendorsDB에서 이름 또는 id로 매칭
   const info = useMemo(()=>{
     if(!vendorsDB) return VENDOR_EMPTY
@@ -761,7 +787,10 @@ function VendorDetail({entry,vendorsDB,setVendorsDB,vendorPayments,setVendorPaym
                   const applied = it.nego2||it.nego1||it.contract||0
                   return (
                     <tr key={i} style={{background:i%2===0?"#fff":"#FAFAFA"}}>
-                      <td style={S.td("left")}><div style={{fontWeight:600}}>{it.projName}</div><div style={{fontSize:12,color:"#9CA3AF"}}>{it.projId}</div></td>
+                      <td style={S.td("left")} onClick={e=>{ if(it.projId&&setTab&&setSelProjId){ e.stopPropagation(); setSelProjId(it.projId); setTab("projects") } }}>
+                        <div style={{fontWeight:600,color:it.projId&&setTab?"#0C447C":"inherit",cursor:it.projId&&setTab?"pointer":"default",textDecoration:it.projId&&setTab?"underline":"none",textUnderlineOffset:2}}>{it.projName}</div>
+                        <div style={{fontSize:12,color:"#9CA3AF"}}>{it.projId}</div>
+                      </td>
                       <td style={S.td("left")}><span style={{...S.bdg(C.navyL,C.navyM),fontSize:12}}>{it.cat}</span></td>
                       <td style={S.td()}>{it.contract>0?it.contract.toLocaleString():"-"}</td>
                       <td style={{...S.td(),fontWeight:700,color:C.navyM}}>{applied>0?applied.toLocaleString():"-"}</td>
@@ -774,7 +803,7 @@ function VendorDetail({entry,vendorsDB,setVendorsDB,vendorPayments,setVendorPaym
                     외주비 파일에는 있는 프로젝트도 여기서 같이 보여줌(위 항목과 중복될 수 있음) */}
                 {(entry.paymentHistory||[]).map((ph,i)=>(
                   <tr key={`ph${i}`} style={{background:"#FFFBEB"}}>
-                    <td style={S.td("left")}><div style={{fontWeight:600}}>{ph.project}</div><div style={{fontSize:12,color:"#D97706"}}>외주비 업로드 기준</div></td>
+                    <td style={S.td("left")}><ProjLink name={ph.project}/><div style={{fontSize:12,color:"#D97706"}}>외주비 업로드 기준</div></td>
                     <td style={S.td("left")}><span style={{...S.bdg("#FEF3C7","#D97706"),fontSize:12}}>{ph.type||"-"}</span></td>
                     <td style={S.td()}>{(ph.totalAmt||0).toLocaleString()}</td>
                     <td style={{...S.td(),fontWeight:700,color:C.navyM}}>{(ph.totalAmt||0).toLocaleString()}</td>

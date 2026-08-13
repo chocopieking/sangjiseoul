@@ -7667,7 +7667,17 @@ function ProjectVendorPaymentsCard({proj, vendorsDB={}}) {
     return out.sort((a,b)=>(a.type||"").localeCompare(b.type||""))
   },[vendorsDB, projNorm])
 
-  if(rows.length===0) return null
+  if(rows.length===0) {
+    return (
+      <Card title="💰 외주비 지급현황" note="공종별 협력업체 계약금액·지급완료·지급예정·잔액 — 통합_외주비.xlsx 업로드 기반">
+        <div style={{fontSize:13,color:"#94A3B8",padding:"10px 0"}}>
+          이 프로젝트와 이름이 정확히 일치하는 외주비 데이터가 없습니다.<br/>
+          "협력업체 → ⬆ 💰 외주비 업로드"로 통합_외주비.xlsx를 올리셨다면, 프로젝트명이 여기(<b>{proj.name}</b>)와
+          정확히 같은지 확인해주세요 — 협력업체 상세 화면에서 "⚠ 미매칭" 표시가 뜨는 항목이 있으면 그게 원인입니다.
+        </div>
+      </Card>
+    )
+  }
 
   const totalContract = rows.reduce((s,r)=>s+(r.totalAmt||0),0)
   const totalPaid = rows.reduce((s,r)=>s+(r.paidSum||0),0)
