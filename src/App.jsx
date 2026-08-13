@@ -3647,6 +3647,15 @@ const cardNote2 = {fontSize:14.3,color:C.gray,marginBottom:8}
 // 프로젝트 탭
 // ════════════════════════════════════════════════════════════
 function ProjectsTab({projects,setProjects,selProjId,setSelProjId,selVerIdx,setSelVerIdx,cmpIds,setCmpIds,showNewVer,setShowNewVer,canWrite,contractTypes,currentUser,setDetailTab:_extSetDetailTab,detailTab:_extDetailTab,cashItems=[],setCashItems,vendorsDB={},projBaseline={},setProjBaseline,contractItems=[],vendorPayments=[]}) {
+  // "최근 수정" 표시용 — 프로젝트 목록에서 언제 마지막으로 수정/생성됐는지 한눈에 보이게
+  const relTime = iso => {
+    const d = Math.floor((Date.now() - new Date(iso).getTime())/60000) // 분
+    if(d<1) return "방금 수정"
+    if(d<60) return `${d}분 전 수정`
+    if(d<1440) return `${Math.floor(d/60)}시간 전 수정`
+    if(d<43200) return `${Math.floor(d/1440)}일 전 수정`
+    return `${new Date(iso).toISOString().slice(0,10)} 수정`
+  }
   const toast = useToast()
   const {DEPTS, DEPT_COLORS} = React.useContext(DeptContext)
   const [manualFillVer, setManualFillVer] = useState(null)  // 미인식 수동 입력 팝업
@@ -3995,7 +4004,7 @@ function ProjectsTab({projects,setProjects,selProjId,setSelProjId,selVerIdx,setS
                     <input type="checkbox"
                       checked={sortedProjects.length>0 && sortedProjects.every(p=>cmpIds.includes(p.id))}
                       onChange={e=>setCmpIds(e.target.checked ? sortedProjects.map(p=>p.id) : [])}
-                      title="전체 선택/해제 (현재 목록 기준)"/>
+                      title="전체 선택/해제 (현재 목록 기준)" style={{width:18,height:18,cursor:"pointer"}}/>
                     <div style={{fontSize:10,color:"#94A3B8",marginTop:2}}>비교</div>
                   </th>
                   <th style={PTH("center")}>연번</th>
@@ -4020,7 +4029,7 @@ function ProjectsTab({projects,setProjects,selProjId,setSelProjId,selVerIdx,setS
                       onMouseEnter={e=>e.currentTarget.style.background="rgba(24,95,165,.04)"}
                       onMouseLeave={e=>e.currentTarget.style.background=i%2===0?"var(--color-background-primary,#fff)":"var(--color-background-secondary,#f8f8f6)"}
                       onClick={()=>{setSelProjId(p.id);setSelVerIdx(p.versions.length-1);setView("detail")}}>
-                      <td style={PTD("center")} onClick={e=>e.stopPropagation()}><input type="checkbox" checked={cmpIds.includes(p.id)} onChange={e=>setCmpIds(prev=>e.target.checked?[...prev,p.id]:prev.filter(id=>id!==p.id))}/></td>
+                      <td style={PTD("center")} onClick={e=>e.stopPropagation()}><input type="checkbox" checked={cmpIds.includes(p.id)} onChange={e=>setCmpIds(prev=>e.target.checked?[...prev,p.id]:prev.filter(id=>id!==p.id))} style={{width:18,height:18,cursor:"pointer"}}/></td>
                       <td style={{...PTD("center"),color:"#94A3B8",fontWeight:600}}>{globalIdx+1}</td>
                       <td style={PTD("left")}><span style={{display:"inline-flex",alignItems:"center",padding:"4px 10px",borderRadius:14,fontSize:14.3,fontWeight:700,background:tb.bg,color:tb.fg,whiteSpace:"nowrap"}}>{p.type}</span></td>
                       <td style={{...PTD("left"),maxWidth:320,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}} title={p.name}>
@@ -4045,7 +4054,10 @@ function ProjectsTab({projects,setProjects,selProjId,setSelProjId,selVerIdx,setS
                             <button onClick={()=>setInlineEditId(null)}
                               style={{padding:"2px 6px",background:"#F8FAFC",color:"#64748B",border:"none",borderRadius:5,fontSize:13.2,cursor:"pointer"}}>✕</button>
                           </div>
-                        ) : p.name}
+                        ) : <>
+                          {p.name}
+                          {p.updatedAt && <div style={{fontSize:10.5,color:"#CBD5E1",fontWeight:400,whiteSpace:"nowrap"}}>{relTime(p.updatedAt)}</div>}
+                        </>}
                       </td>
                       <td style={PTD("left")}>{p.depts.join(", ")}</td>
                       <td style={PTD("left")}>{p.pm}</td>
