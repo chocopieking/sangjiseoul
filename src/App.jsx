@@ -7700,7 +7700,7 @@ function ProjectVendorPaymentsCard({proj, vendorsDB={}}) {
               const planned = (r.payments||[]).filter(p=>p.status==="planned").reduce((a,p)=>a+p.amount,0)
               const rate = r.totalAmt>0 ? Math.round((r.paidSum||0)/r.totalAmt*100) : 0
               return (
-                <Fragment key={key}>
+                <React.Fragment key={key}>
                   <tr onClick={()=>setOpenKey(isOpen?null:key)} style={{cursor:"pointer",background:isOpen?"#F8FAFC":"transparent"}}>
                     <td style={S.td("left")}><span style={{fontSize:12,fontWeight:700,padding:"2px 8px",borderRadius:6,background:"#E3F6F3",color:"#0E9C8C"}}>{r.type||"-"}</span></td>
                     <td style={S.td("left")}>{r.vendor}</td>
@@ -7748,7 +7748,7 @@ function ProjectVendorPaymentsCard({proj, vendorsDB={}}) {
                       </td>
                     </tr>
                   )}
-                </Fragment>
+                </React.Fragment>
               )
             })}
           </tbody>
