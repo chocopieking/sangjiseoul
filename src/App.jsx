@@ -7969,7 +7969,7 @@ function Card({title,note,actions,children,style={},defaultOpen=true}) {
       }}>
         <div style={{display:"flex",alignItems:"center",gap:8}}>
           <i className={`ti ti-chevron-${open?"down":"right"}`} style={{fontSize:15,color:"#0E9C8C",flexShrink:0}}/>
-          <span>{title}</span>
+          <span style={{userSelect:"text",cursor:"text"}} onClick={e=>e.stopPropagation()}>{title}</span>
         </div>
         <div style={{display:"flex",alignItems:"center",gap:10}}>
           {note&&<span style={{fontSize:13,color:"var(--color-text-tertiary,#aaa)",fontWeight:400}}>{note}</span>}
