@@ -172,25 +172,36 @@ export function VendorsTab({projects,setProjects,vendorsDB,setVendorsDB,vendorPa
 
         if(records.length===0){ alert("파싱된 데이터가 없습니다.\n프로젝트별_외주비.xlsx 형식인지 확인하세요."); return }
 
-        // vendorsDB에 paymentHistory 연결 (지급완료·지급예정 구분해서 전부 저장)
-        const normN = n => n.replace(/[\s\(\)\[\]㈜주식회사]/g,"").toLowerCase()
+        // vendorsDB에 paymentHistory 연결 — 재업로드해도 중복 안 생기게, (프로젝트+업체+공종) 단위로 병합하고
+        // 그 안의 회차(round)별로 업데이트/추가함. 예: 잔금이 2회로 쪼개지면 회차가 자동으로 늘어남.
+        // ※ 업체명 매칭은 반드시 정확히 일치하는 경우만 인정 — 예전에 "앞 4글자만 같으면 매칭" 식으로 느슨하게
+        //   했다가 전혀 다른 업체(코드성 이름 등)에 잘못 합쳐지는 문제가 있어서 정확 일치만 허용하도록 수정함.
+        const normN = n => n.replace(/[\s\(\)\[\]㈜（）주식회사]/g,"").toLowerCase()
         setVendorsDB(prev=>{
           const next={...prev}
           records.forEach(pay=>{
             const pkey=normN(pay.vendor)
-            const match=Object.values(next).find(v=>normN(v.name||"")===pkey||
-              (pkey.length>=4&&normN(v.name||"").slice(0,4)===pkey.slice(0,4)))
-            if(match){
-              const exists=(next[match.id].paymentHistory||[]).some(
-                h=>h.project===pay.project&&h.vendor===pay.vendor&&h.totalAmt===pay.totalAmt)
-              if(!exists){
-                next[match.id]={...next[match.id], paymentHistory:[...(next[match.id].paymentHistory||[]),pay]}
-              }
+            const foundKey = Object.keys(next).find(k=>normN(next[k].name||"")===pkey)
+            const targetKey = foundKey || pay.vendor // 없으면 업체명을 키로 새로 등록(이 앱의 기본 키 규칙과 일치)
+            const cur = next[targetKey] || {id:targetKey, name:pay.vendor, bizType:pay.type, bizNo:"", rep:"", repTel:"", repMail:"", tel:"", addr:"", projects:[], paymentHistory:[], memo:[]}
+            const history = cur.paymentHistory || []
+            const hIdx = history.findIndex(h=>h.project===pay.project && h.vendor===pay.vendor && h.type===pay.type)
+            let nextHistory
+            if(hIdx===-1){
+              nextHistory = [...history, pay]
             } else {
-              // 매칭 안 되면 새 업체로 등록
-              const id=`VP${Date.now()}_${Math.random().toString(36).slice(2,5)}`
-              next[id]={id,name:pay.vendor,bizType:pay.type,bizNo:"",rep:"",repTel:"",repMail:"",tel:"",addr:"",projects:[],paymentHistory:[pay],memo:[]}
+              const old = history[hIdx]
+              const mergedPayments = [...(old.payments||[])]
+              pay.payments.forEach(np=>{
+                const idx = mergedPayments.findIndex(op=>op.round===np.round)
+                if(idx===-1) mergedPayments.push(np)
+                else mergedPayments[idx] = np // 같은 회차는 최신 업로드 내용으로 갱신(날짜·금액·상태 변경 반영)
+              })
+              const paidSum = mergedPayments.filter(p=>p.status==="paid").reduce((s,p)=>s+p.amount,0)
+              const merged = {...old, totalAmt:pay.totalAmt, payments:mergedPayments, paidSum, remain:Math.max(0,pay.totalAmt-paidSum)}
+              nextHistory = history.map((h,i)=>i===hIdx?merged:h)
             }
+            next[targetKey] = {...cur, name:cur.name||pay.vendor, paymentHistory:nextHistory}
           })
           return next
         })
@@ -259,7 +270,7 @@ export function VendorsTab({projects,setProjects,vendorsDB,setVendorsDB,vendorPa
 
       {view==="ai" && <VendorAIAnalysis projects={projects} vendorsDB={vendorsDB}/>}
       {view==="list" && (
-        <VendorList directory={directory} search={search} setSearch={setSearch} vendorsDB={vendorsDB}
+        <VendorList directory={directory} search={search} setSearch={setSearch} vendorsDB={vendorsDB} setVendorsDB={setVendorsDB}
           onSelect={v=>{setSelVendor(v);setView("detail")}}/>
       )}
       {view==="detail" && selVendor && (
@@ -280,11 +291,14 @@ export function VendorsTab({projects,setProjects,vendorsDB,setVendorsDB,vendorPa
 // ════════════════════════════════════════════════════════════
 // 1) 업체 목록
 // ════════════════════════════════════════════════════════════
-function VendorList({directory,search,setSearch,vendorsDB,onSelect}) {
+function VendorList({directory,search,setSearch,vendorsDB,setVendorsDB,onSelect}) {
   const [filters, setFilters] = useState({name:"",field:"",rep:"",tel:"",addr:""})
-  const [sortBy,  setSortBy]  = useState("name")   // name | projects | payment
+  const [sortBy,  setSortBy]  = useState("name")   // name | field | rep | tel | projects | payment
+  const [sortDir, setSortDir] = useState("asc")
   const [page,    setPage]    = useState(1)
   const [showFilter, setShowFilter] = useState(false)
+  const [mergeMode, setMergeMode] = useState(false)
+  const [mergeSel, setMergeSel] = useState([])
   const PER_PAGE = 50
 
   // vendorsDB 전체 + directory 병합
@@ -334,16 +348,54 @@ function VendorList({directory,search,setSearch,vendorsDB,onSelect}) {
       q(filters.tel, (v.tel||"")+" "+(v.contactTel||"")) &&
       q(filters.addr, v.addr||"")
     ).sort((a,b)=>{
-      if(sortBy==="projects") return (b.projects?.length||0)+(b.items?.length||0) - ((a.projects?.length||0)+(a.items?.length||0))
-      if(sortBy==="payment") return (b.paymentHistory?.length||0) - (a.paymentHistory?.length||0)
-      return (a.name||"").localeCompare(b.name||"","ko")
+      let r=0
+      if(sortBy==="projects") r = ((b.projects?.length||0)+(b.items?.length||0)) - ((a.projects?.length||0)+(a.items?.length||0))
+      else if(sortBy==="payment") r = (b.paymentHistory?.length||0) - (a.paymentHistory?.length||0)
+      else if(sortBy==="field") r = (a.bizType||"").localeCompare(b.bizType||"","ko")
+      else if(sortBy==="rep") r = (a.rep||"").localeCompare(b.rep||"","ko")
+      else if(sortBy==="tel") r = (a.tel||"").localeCompare(b.tel||"","ko")
+      else r = (a.name||"").localeCompare(b.name||"","ko")
+      return sortDir==="desc" ? -r : r
     })
-  },[allVendors, filters, search, sortBy])
+  },[allVendors, filters, search, sortBy, sortDir])
 
   const totalPages = Math.ceil(filtered.length / PER_PAGE)
   const pageData   = filtered.slice((page-1)*PER_PAGE, page*PER_PAGE)
 
   const setF = (k,v) => { setFilters(p=>({...p,[k]:v})); setPage(1) }
+  const toggleSort = (key) => {
+    if(sortBy===key) setSortDir(d=>d==="asc"?"desc":"asc")
+    else { setSortBy(key); setSortDir("asc") }
+  }
+  const arrow = key => sortBy===key ? (sortDir==="asc"?" ▲":" ▼") : ""
+
+  const toggleMergeSel = (name) => setMergeSel(prev=>prev.includes(name)?prev.filter(n=>n!==name):[...prev,name])
+  const doMerge = () => {
+    if(mergeSel.length<2){ alert("2개 이상 선택해주세요."); return }
+    const items = mergeSel.map(name=>allVendors.find(v=>v.name===name)).filter(Boolean)
+    const withId = items.filter(v=>v.id)
+    if(withId.length===0){ alert("선택한 항목 중 협력업체 DB에 등록된 게 없어서 병합할 수 없습니다."); return }
+    if(!window.confirm(`"${items.map(v=>v.name).join('", "')}"\n\n이 ${items.length}개를 하나의 업체로 합칠까요?\n(업무구분/분야는 전부 합쳐지고, 이력은 유지되며, 나머지는 삭제됩니다. 되돌릴 수 없습니다.)`)) return
+    const base = withId[0]
+    const bizTypes = [...new Set(items.map(v=>v.bizType).filter(Boolean))]
+    const merged = {
+      ...base,
+      bizType: bizTypes.join(", "),
+      rep: base.rep || items.map(v=>v.rep).find(Boolean) || "",
+      tel: base.tel || items.map(v=>v.tel).find(Boolean) || "",
+      addr: base.addr || items.map(v=>v.addr).find(Boolean) || "",
+      paymentHistory: items.flatMap(v=>v.paymentHistory||[]),
+      projects: [...new Set(items.flatMap(v=>v.projects||[]))],
+    }
+    setVendorsDB(prev=>{
+      const next = {...prev}
+      withId.forEach(v=>{ delete next[v.id] })
+      next[base.id] = merged
+      return next
+    })
+    setMergeSel([]); setMergeMode(false)
+    alert(`✅ "${merged.name}"(으)로 병합 완료 — 업무구분: ${merged.bizType}`)
+  }
 
   return (
     <SCard title="📇 협력업체 목록" note="">
@@ -390,7 +442,7 @@ function VendorList({directory,search,setSearch,vendorsDB,onSelect}) {
         )}
 
         {/* 정렬 */}
-        <div style={{display:"flex",gap:6,alignItems:"center"}}>
+        <div style={{display:"flex",gap:6,alignItems:"center",flexWrap:"wrap"}}>
           <span style={{fontSize:13.8,color:C.gray}}>정렬:</span>
           {[["name","업체명순"],["projects","프로젝트 많은순"],["payment","외주비 많은순"]].map(([v,l])=>(
             <button key={v} onClick={()=>setSortBy(v)}
@@ -399,6 +451,19 @@ function VendorList({directory,search,setSearch,vendorsDB,onSelect}) {
               {l}
             </button>
           ))}
+          <span style={{fontSize:12,color:"#CBD5E1"}}>| 표 머리글(업체명·업무구분·대표자·전화번호)을 눌러도 정렬됩니다</span>
+          <button onClick={()=>{setMergeMode(m=>!m);setMergeSel([])}}
+            style={{marginLeft:"auto",padding:"4px 12px",border:`1.5px solid ${mergeMode?"#7C3AED":"#E5E7EB"}`,borderRadius:7,
+              fontSize:13.2,cursor:"pointer",background:mergeMode?"#EDE9FE":"#fff",color:mergeMode?"#7C3AED":"#6B7280",fontWeight:700}}>
+            {mergeMode?"✕ 병합 취소":"🔗 같은 업체 병합"}
+          </button>
+          {mergeMode && (
+            <button onClick={doMerge} disabled={mergeSel.length<2}
+              style={{padding:"4px 12px",borderRadius:7,fontSize:13.2,fontWeight:700,cursor:mergeSel.length<2?"default":"pointer",
+                border:"none",background:mergeSel.length<2?"#F1F5F9":"#7C3AED",color:mergeSel.length<2?"#CBD5E1":"#fff"}}>
+              선택한 {mergeSel.length}개 병합하기
+            </button>
+          )}
         </div>
       </div>
 
@@ -406,21 +471,26 @@ function VendorList({directory,search,setSearch,vendorsDB,onSelect}) {
       <div style={{overflowX:"auto"}}>
         <table style={{width:"100%",borderCollapse:"collapse",minWidth:800}}>
           <thead><tr style={{background:"#F8FAFC"}}>
-            {["업체명","업무구분/분야","대표자","전화번호","프로젝트","외주비","주소"].map((h,i)=>(
-              <th key={h} style={S.th(i>=4?"right":"left")}>{h}</th>
+            {mergeMode && <th style={S.th("center")}>선택</th>}
+            {[["업체명","name"],["업무구분/분야","field"],["대표자","rep"],["전화번호","tel"],["프로젝트",null],["외주비",null],["주소",null]].map(([h,key],i)=>(
+              <th key={h} onClick={key?()=>toggleSort(key):undefined}
+                style={{...S.th(i>=4?"right":"left"), cursor:key?"pointer":"default", userSelect:"none"}}>
+                {h}{key?arrow(key):""}
+              </th>
             ))}
           </tr></thead>
           <tbody>
             {pageData.length===0&&(
-              <tr><td colSpan={7} style={{...S.td("center"),padding:"40px",color:C.gray,fontSize:15.4}}>
+              <tr><td colSpan={mergeMode?8:7} style={{...S.td("center"),padding:"40px",color:C.gray,fontSize:15.4}}>
                 검색 결과가 없습니다.
               </td></tr>
             )}
             {pageData.map((v,i)=>(
-              <tr key={v.id||v.name} onClick={()=>onSelect(v.dirEntry||v)}
-                style={{cursor:"pointer",background:i%2===0?"var(--color-background-primary,#fff)":"var(--color-background-secondary,#f8f8f6)"}}
-                onMouseEnter={e=>e.currentTarget.style.background="rgba(24,95,165,.06)"}
-                onMouseLeave={e=>e.currentTarget.style.background=i%2===0?"var(--color-background-primary,#fff)":"var(--color-background-secondary,#f8f8f6)"}>
+              <tr key={v.id||v.name} onClick={()=>mergeMode?toggleMergeSel(v.name):onSelect(v.dirEntry||v)}
+                style={{cursor:"pointer",background:mergeMode&&mergeSel.includes(v.name)?"#EDE9FE":(i%2===0?"var(--color-background-primary,#fff)":"var(--color-background-secondary,#f8f8f6)")}}
+                onMouseEnter={e=>{if(!(mergeMode&&mergeSel.includes(v.name)))e.currentTarget.style.background="rgba(24,95,165,.06)"}}
+                onMouseLeave={e=>{e.currentTarget.style.background=mergeMode&&mergeSel.includes(v.name)?"#EDE9FE":(i%2===0?"var(--color-background-primary,#fff)":"var(--color-background-secondary,#f8f8f6)")}}>
+                {mergeMode && <td style={S.td("center")}><input type="checkbox" checked={mergeSel.includes(v.name)} readOnly/></td>}
                 <td style={{...S.td("left"),fontWeight:700,color:C.navyM,maxWidth:220,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
                   {v.name}
                 </td>

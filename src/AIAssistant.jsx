@@ -17,7 +17,7 @@ const C = {
 
 // ── 시스템 데이터를 AI 컨텍스트로 직렬화 ──────────────────────
 function buildContext(data) {
-  const { projects=[], cashflow=[], years=[], vendorPayments=[] } = data
+  const { projects=[], cashflow=[], years=[], vendorPayments=[], vendorsDB={} } = data
 
   // 프로젝트 요약
   const projSummary = projects.map(p => {
@@ -45,6 +45,26 @@ function buildContext(data) {
     return `[${p.code}] ${p.name} (발주구분:${p.orderType||"민간"}): ${docs.join(", ")}`
   }).filter(Boolean).join("\n")
 
+  // 프로젝트별 외주비(협력업체 기성) 지급현황 — "잔여 기성잔액" 같은 질의에 사용
+  const normName = s => (s||"").replace(/[\s\-_·.()【】\[\]]/g,"").toLowerCase()
+  const vendorPaySummary = projects.map(p=>{
+    const pNorm = normName(p.name)
+    const items = []
+    Object.values(vendorsDB||{}).forEach(v=>{
+      ;(v.paymentHistory||[]).forEach(ph=>{
+        if(normName(ph.project)===pNorm) items.push(ph)
+      })
+    })
+    if(!items.length) return null
+    const contract = items.reduce((s,i)=>s+(i.totalAmt||0),0)
+    const paid = items.reduce((s,i)=>s+(i.paidSum||0),0)
+    const remain = items.reduce((s,i)=>s+(i.remain||0),0)
+    // 아직 지급 안 된(status:planned) 항목들의 예정일 중 가장 늦은 연도를 참고용으로 표기
+    const plannedDates = items.flatMap(i=>(i.payments||[]).filter(x=>x.status==="planned"&&x.date).map(x=>x.date))
+    const lastPlanned = plannedDates.sort().slice(-1)[0]
+    return `[${p.code}] ${p.name}: 외주계약${fE(contract)}억, 지급완료${fE(paid)}억, 잔액${fE(remain)}억${lastPlanned?`, 최종 지급예정일:${lastPlanned}`:""}`
+  }).filter(Boolean).join("\n")
+
   // 2026 수금 현황
   const cashSummary = cashflow.map((m,i)=>`${i+1}월:${(m.cash+m.note).toFixed(1)}억`).join(", ")
   const totalCash = cashflow.reduce((s,m)=>s+m.cash+m.note,0)
@@ -67,6 +87,9 @@ ${projSummary || "(없음)"}
 
 === 프로젝트별 첨부서류 현황 ===
 ${docSummary || "(등록된 서류 없음)"}
+
+=== 프로젝트별 외주비(협력업체 기성) 지급현황 — 잔액/기성잔액 질의에 사용 ===
+${vendorPaySummary || "(등록된 외주비 지급 데이터 없음)"}
 
 === 2026년 월별 수금 실적 ===
 총 ${totalCash.toFixed(1)}억 | ${cashSummary}

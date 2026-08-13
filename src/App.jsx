@@ -2073,7 +2073,7 @@ export default function App() {
       <AIAssistant
         isOpen={showAiPanel}
         onClose={()=>setShowAiPanel(false)}
-        data={{projects, cashflow, years, vendorPayments}}
+        data={{projects, cashflow, years, vendorPayments, vendorsDB}}
         onNavigate={(t,id)=>{ setTab(t); if(id) setSelProjId(id) }}
         onApplyChange={(projectId, fieldValues)=>{
           setProjects(prev=>prev.map(p=>p.id===projectId?{...p,...fieldValues}:p))
@@ -7655,9 +7655,9 @@ function ProjectVendorPaymentsCard({proj, vendorsDB={}}) {
     Object.values(vendorsDB||{}).forEach(v=>{
       ;(v.paymentHistory||[]).forEach(ph=>{
         const a = normName(ph.project)
-        if(!a) return
-        const match = a===projNorm || (a.length>=6 && projNorm.length>=6 && a.slice(0,6)===projNorm.slice(0,6))
-        if(!match) return
+        // 프로젝트명이 정확히 일치할 때만 이 프로젝트 것으로 인정 — 예전엔 앞 6글자만 같아도 매칭시켜서
+        // 서로 다른 프로젝트의 외주비 내역이 섞여 보이는 문제가 있었음
+        if(!a || a!==projNorm) return
         out.push({vendor:v.name, ...ph})
       })
     })
@@ -7671,19 +7671,22 @@ function ProjectVendorPaymentsCard({proj, vendorsDB={}}) {
   const totalPlanned = rows.reduce((s,r)=>s+(r.payments||[]).filter(p=>p.status==="planned").reduce((a,p)=>a+p.amount,0),0)
   const totalRemain = rows.reduce((s,r)=>s+(r.remain||0),0)
   const fW2 = n => n>=1e8?`${(n/1e8).toFixed(2)}억`:n>0?`${Math.round(n).toLocaleString()}원`:"-"
+  const pct = n => totalContract>0 ? `${(n/totalContract*100).toFixed(1)}%` : "-"
+  const serviceFeePct = proj.serviceFee>0 ? `${(totalContract/proj.serviceFee*100).toFixed(1)}%` : "-"
 
   return (
     <Card title="💰 외주비 지급현황" note="공종별 협력업체 계약금액·지급완료·지급예정·잔액 — 통합_외주비.xlsx 업로드 기반">
-      <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(140px,1fr))",gap:10,marginBottom:16}}>
+      <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(150px,1fr))",gap:10,marginBottom:16}}>
         {[
-          {label:"외주 계약금액 합계",value:fW2(totalContract),color:"#0F172A"},
-          {label:"지급완료",value:fW2(totalPaid),color:"#059669"},
-          {label:"지급예정(계획)",value:fW2(totalPlanned),color:"#DC2626"},
-          {label:"잔액",value:fW2(totalRemain),color:"#D97706"},
+          {label:"외주 계약금액 합계",value:fW2(totalContract),sub:`용역비 대비 ${serviceFeePct}`,color:"#0F172A"},
+          {label:"지급완료",value:fW2(totalPaid),sub:`외주비의 ${pct(totalPaid)}`,color:"#059669"},
+          {label:"지급예정(계획)",value:fW2(totalPlanned),sub:`외주비의 ${pct(totalPlanned)}`,color:"#DC2626"},
+          {label:"잔액",value:fW2(totalRemain),sub:`외주비의 ${pct(totalRemain)}`,color:"#D97706"},
         ].map(k=>(
           <div key={k.label} style={{background:"#F8FAFC",borderRadius:8,padding:"10px 12px"}}>
             <div style={{fontSize:11.5,color:"#94A3B8",marginBottom:3}}>{k.label}</div>
             <div style={{fontSize:16,fontWeight:800,color:k.color}}>{k.value}</div>
+            <div style={{fontSize:10.5,color:"#94A3B8",marginTop:2}}>{k.sub}</div>
           </div>
         ))}
       </div>
