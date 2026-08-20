@@ -18,7 +18,7 @@ import { ArchiveTab } from "./Archive.jsx"
 import { CostControlTab } from "./CostControl.jsx"
 import { DataHubTab } from "./DataHub.jsx"
 import { VendorsTab } from "./Vendors.jsx"
-import { WeeklyReportTab } from "./WeeklyReport.jsx"
+import { WeeklyReportTab, WEEKLY_REPORT_EMPTY, upsertScheduleEntry, removeScheduleEntriesBySourcePrefix, findScheduleEntriesBySourcePrefix } from "./WeeklyReport.jsx"
 // AI 기능 — 추후 ANTHROPIC_API_KEY 설정 시 활성화 가능
 import { AIAssistant, AIFloatButton } from "./AIAssistant.jsx"
 import { ManualTab } from "./ManualTab.jsx"
@@ -4359,13 +4359,17 @@ function ProjectsTab({projects,setProjects,selProjId,setSelProjId,selVerIdx,setS
                       let verDate=new Date().toISOString().slice(0,10)
                       if(dateStr){const m=dateStr.match(/(\d{4})[-.](\d{1,2})[-.](\d{1,2})/);if(m)verDate=`${m[1]}-${m[2].padStart(2,"0")}-${m[3].padStart(2,"0")}`}
                       const newVer={ver:`${roundRead}차 실행계획서`,round:roundRead,date:verDate,reason:"엑셀 업로드",laborCost,directExp,subContract,indirect,profit,vendors}
-                      // 프로젝트 기본정보도 함께 업데이트 (비어있는 필드만)
+                      // 프로젝트 기본정보도 함께 업데이트 (비어있는 필드만) + 주요일정에 실행계획서 작성일 자동 반영
                       setProjects(prev=>prev.map(p=>{
                         if(p.id!==selProj.id) return p
                         const updated={...p,versions:[...p.versions,newVer]}
                         if(pm&&!p.pm)       updated.pm=pm
                         if(client&&!p.client) updated.client=client
                         if(dept&&!p.director) updated.director=dept
+                        const byName = currentUser?.name || "알 수 없음"
+                        const wr = updated.weeklyReport || WEEKLY_REPORT_EMPTY
+                        updated.weeklyReport = {...wr, scheduleLog: upsertScheduleEntry(wr.scheduleLog,
+                          {date:verDate, category:`실행계획서 ${roundRead}차`, content:`실행계획서 ${roundRead}차 작성`, sourceKey:`execplan:${roundRead}`}, byName)}
                         return updated
                       }))
                       setSelVerIdx(selProj.versions.length)
@@ -4466,7 +4470,18 @@ function ProjectsTab({projects,setProjects,selProjId,setSelProjId,selVerIdx,setS
                                   style={{flex:1,padding:"4px 0",background:"#E3F6F3",color:"#0E9C8C",border:"none",borderRadius:5,fontSize:12,fontWeight:600,cursor:"pointer"}}>✏ 수정</button>
                                 <button onClick={()=>{
                                   if(!window.confirm(`${v.round||i+1}차 실행계획서를 삭제합니까?\n\n이 작업은 되돌릴 수 없습니다.`)) return
-                                  setProjects(prev=>prev.map(p=>p.id===selProj.id?{...p,versions:p.versions.filter((_,vi)=>vi!==i)}:p))
+                                  const roundNo = v.round||i+1
+                                  const linked = findScheduleEntriesBySourcePrefix(selProj.weeklyReport?.scheduleLog, `execplan:${roundNo}`)
+                                  const alsoDeleteLog = linked.length>0 && window.confirm(`주요일정에도 "실행계획서 ${roundNo}차 작성"(${linked[0]?.date}) 기록이 남아있습니다.\n같이 삭제할까요? (취소하면 주요일정 기록은 그대로 남습니다)`)
+                                  setProjects(prev=>prev.map(p=>{
+                                    if(p.id!==selProj.id) return p
+                                    const updated = {...p,versions:p.versions.filter((_,vi)=>vi!==i)}
+                                    if(alsoDeleteLog){
+                                      const wr = updated.weeklyReport || WEEKLY_REPORT_EMPTY
+                                      updated.weeklyReport = {...wr, scheduleLog: removeScheduleEntriesBySourcePrefix(wr.scheduleLog, `execplan:${roundNo}`)}
+                                    }
+                                    return updated
+                                  }))
                                   if(selVerIdx>=i) setSelVerIdx(Math.max(0,selVerIdx-1))
                                 }}
                                   style={{padding:"4px 8px",background:"#FEE2E2",color:"#DC2626",border:"none",borderRadius:5,fontSize:12,cursor:"pointer"}}>🗑</button>
@@ -4600,7 +4615,7 @@ function ProjectsTab({projects,setProjects,selProjId,setSelProjId,selVerIdx,setS
 
                   {/* 섹션: 주간보고 */}
                   <div id="sec-certs" style={{scrollMarginTop:70}}>
-                    <CertDocsCard proj={selProj} setProjects={setProjects} canWrite={canWrite}/>
+                    <CertDocsCard proj={selProj} setProjects={setProjects} canWrite={canWrite} currentUser={currentUser}/>
                     <VendorContractsCard proj={selProj} setProjects={setProjects} canWrite={canWrite} vendorPayments={vendorPayments}/>
                     <ProjectVendorPaymentsCard proj={selProj} vendorsDB={vendorsDB}/>
                     <BillingCard proj={selProj} setProjects={setProjects} canWrite={canWrite}/>
@@ -4706,7 +4721,24 @@ function ProjectsTab({projects,setProjects,selProjId,setSelProjId,selVerIdx,setS
                   }}
                 />
               )}
-              {editProj&&<NewProjModal initial={selProj} onClose={()=>setEditProj(false)} onSave={f=>{setProjects(prev=>prev.map(p=>p.id===selProj.id?normalizeProject({...p,...f}):p));setEditProj(false)}}/>}
+              {editProj&&<NewProjModal initial={selProj} onClose={()=>setEditProj(false)} onSave={f=>{
+                setProjects(prev=>prev.map(p=>{
+                  if(p.id!==selProj.id) return p
+                  const merged = normalizeProject({...p,...f})
+                  // 계약일·수주일은 프로젝트 상세정보에서 입력해도 "주요일정"에 자동으로 반영 —
+                  // 같은 정보를 두 군데서 따로 입력하지 않도록 (field:contractDate / field:orderDate 로 단일 항목만 유지)
+                  let wr = merged.weeklyReport || WEEKLY_REPORT_EMPTY
+                  const byName = currentUser?.name || "알 수 없음"
+                  if(merged.contractDate && merged.contractDate!==p.contractDate){
+                    wr = {...wr, scheduleLog: upsertScheduleEntry(wr.scheduleLog, {date:merged.contractDate, category:"계약일", content:"계약일", sourceKey:"field:contractDate"}, byName)}
+                  }
+                  if(merged.orderDate && merged.orderDate!==p.orderDate){
+                    wr = {...wr, scheduleLog: upsertScheduleEntry(wr.scheduleLog, {date:merged.orderDate, category:"수주일", content:"수주일", sourceKey:"field:orderDate"}, byName)}
+                  }
+                  return {...merged, weeklyReport:wr}
+                }))
+                setEditProj(false)
+              }}/>}
             </>
           ) : <div style={{padding:40,textAlign:"center",color:C.gray}}>위에서 프로젝트를 선택하거나 목록에서 행을 클릭하세요.</div>}
         </div>
@@ -7218,7 +7250,7 @@ function DocsOverviewPage({projects, setTab, setSelProjId, vendorsDB={}}) {
   )
 }
 
-function CertDocsCard({proj, setProjects, canWrite}) {
+function CertDocsCard({proj, setProjects, canWrite, currentUser}) {
   const [busyKey, setBusyKey] = useState(null)     // AI 분석 중인 문서 key
   const [editKey, setEditKey] = useState(null)     // 수동 편집(새 버전 추가) 중인 문서 key
   const [draft, setDraft] = useState(null)
@@ -7270,7 +7302,24 @@ function CertDocsCard({proj, setProjects, canWrite}) {
         // 민간은 계약만으로는 산입하지 않고, 10% 기성 수금 시점에 별도 로직(App 전역)에서 자동 반영됨.
         if((p.orderType||"민간")==="공공") syncFields.type = "계약"
       }
-      return {...p, certDocs: nextList, ...syncFields}
+      // 서류 등록 시 "주요일정"에도 자동 반영 — 업로드일 1건 + 서류에 적힌 날짜 1건(있으면).
+      // 계약서/계약체결보고서의 계약일·수주일은 "계약일"/"수주일" 단일 항목(field:xxx)으로 통합해
+      // 여러 서류·필드에서 입력해도 같은 항목 하나만 갱신되도록 한다(중복 방지).
+      const byName = currentUser?.name || "알 수 없음"
+      const docLabel = (CERT_DOC_TYPES.find(d=>d.key===key)||{}).label || key
+      let wr = p.weeklyReport || WEEKLY_REPORT_EMPTY
+      wr = {...wr, scheduleLog: upsertScheduleEntry(wr.scheduleLog,
+        {date:new Date().toISOString().slice(0,10), category:`서류등록:${docLabel}`, content:`${docLabel} 등록(${newVersion.versionLabel})`, sourceKey:`certdoc:${key}:${versionNo}:upload`}, byName)}
+      if(key==="contract" || key==="contractApproval"){
+        if(newVersion.startDate) wr = {...wr, scheduleLog: upsertScheduleEntry(wr.scheduleLog,
+          {date:newVersion.startDate, category:"계약일", content:"계약일", sourceKey:"field:contractDate"}, byName)}
+        if(newVersion.orderDate) wr = {...wr, scheduleLog: upsertScheduleEntry(wr.scheduleLog,
+          {date:newVersion.orderDate, category:"수주일", content:"수주일", sourceKey:"field:orderDate"}, byName)}
+      } else if(newVersion.startDate){
+        wr = {...wr, scheduleLog: upsertScheduleEntry(wr.scheduleLog,
+          {date:newVersion.startDate, category:docLabel, content:`${docLabel} 기준일(${newVersion.versionLabel})`, sourceKey:`certdoc:${key}:${versionNo}:date`}, byName)}
+      }
+      return {...p, certDocs: nextList, ...syncFields, weeklyReport: wr}
     }))
   }
   const deleteVersion = (key, idx) => {

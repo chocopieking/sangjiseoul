@@ -51,6 +51,67 @@ export const WEEKLY_REPORT_EMPTY = {
   contacts:     [],
 }
 
+// ══════════════════════════════════════════════════════════════
+// 🔗 프로젝트 필드 ↔ 주요일정 자동 연동 유틸
+// "계약일"/"수주일"처럼 프로젝트 상세정보와 주요일정에 같은 정보가 양쪽에 입력될 수 있는 값은
+// 한쪽만 입력해도 서로 채워지도록 한다. 값이 서로 다르면(충돌) 자동으로 덮어쓰지 않고
+// 호출부(화면)에서 사용자에게 확인을 받는다.
+// ══════════════════════════════════════════════════════════════
+export const FIELD_SYNC_RULES = [
+  {field:"contractDate", label:"계약일", sourceKey:"field:contractDate",
+    keywords:["계약체결","용역계약체결","설계계약","도급계약","계약 체결","계약일"]},
+  {field:"orderDate", label:"수주일", sourceKey:"field:orderDate",
+    keywords:["수주","낙찰","심사 및 당선","당선","선정"]},
+]
+
+// 주요일정의 구분/내용 텍스트가 위 연동 필드 중 하나와 관련 있어 보이면 그 규칙을 반환
+export function matchFieldSyncRule(text){
+  const t = (text||"")
+  return FIELD_SYNC_RULES.find(r=>r.keywords.some(k=>t.includes(k))) || null
+}
+
+// scheduleLog에 항목을 추가하거나(중복이면 무시) 갱신한다(sourceKey 기준).
+// - sourceKey가 있으면: 같은 sourceKey를 가진 기존 항목을 "그 하나만" 갱신 — 계약일처럼
+//   한 프로젝트에 값이 하나여야 하는 정보가 중복 생성되는 것을 막는다.
+// - sourceKey가 없으면: 날짜+구분+내용이 완전히 같은 항목이 이미 있는지 확인해 완전중복만 걸러낸다.
+export function upsertScheduleEntry(scheduleLog, entry, byName){
+  const log = scheduleLog || []
+  const now2 = new Date().toISOString()
+  if(entry.sourceKey){
+    const idx = log.findIndex(e=>e.sourceKey===entry.sourceKey)
+    if(idx>=0){
+      const cur = log[idx]
+      if(cur.date===entry.date && cur.category===entry.category && cur.content===entry.content) return log
+      const next=[...log]
+      next[idx] = {...cur, date:entry.date, category:entry.category, content:entry.content, memo:entry.memo??cur.memo, updatedAt:now2, updatedBy:byName}
+      return next.sort((a,b)=>a.date.localeCompare(b.date))
+    }
+  }
+  const dup = log.some(e=>e.date===entry.date && e.category===entry.category && e.content===entry.content)
+  if(dup) return log
+  const newEntry = {
+    id:`SL${Date.now()}_${Math.random().toString(36).slice(2,7)}`,
+    date:entry.date, category:entry.category, content:entry.content, memo:entry.memo||"",
+    sourceKey:entry.sourceKey||"", createdAt:now2, updatedAt:now2, createdBy:byName,
+  }
+  return [...log, newEntry].sort((a,b)=>a.date.localeCompare(b.date))
+}
+
+// sourceKey가 특정 접두어로 시작하는 항목 전부 제거 — 예: 실행계획서 삭제 시 연동된 일정도 같이 제거
+export function removeScheduleEntriesBySourcePrefix(scheduleLog, prefix){
+  return (scheduleLog||[]).filter(e=>!(e.sourceKey||"").startsWith(prefix))
+}
+export function findScheduleEntriesBySourcePrefix(scheduleLog, prefix){
+  return (scheduleLog||[]).filter(e=>(e.sourceKey||"").startsWith(prefix))
+}
+// 비슷한 항목(같은 날짜 + 구분/내용이 유사)이 이미 있는지 검사 — 수동입력·붙여넣기 중복 방지용 경고에 사용
+export function findSimilarScheduleEntry(scheduleLog, {date, category, content}){
+  const norm = s => (s||"").replace(/\s|\(.*?\)/g,"").toLowerCase()
+  return (scheduleLog||[]).find(e=>
+    e.date===date && (norm(e.category)===norm(category) || norm(e.content)===norm(content))
+  )
+}
+
 // ─────────────────────────────────────────────────────────────
 export function WeeklyReportTab({proj, setProjects, canWrite, currentUser}) {
   if(!proj?.id) return null
@@ -85,7 +146,7 @@ export function WeeklyReportTab({proj, setProjects, canWrite, currentUser}) {
         ))}
       </div>
 
-      {sub==="schedule" && <ScheduleLogSection wr={wr} save={save} canWrite={canWrite} proj={proj} currentUser={currentUser}/>}
+      {sub==="schedule" && <ScheduleLogSection wr={wr} save={save} canWrite={canWrite} proj={proj} setProjects={setProjects} currentUser={currentUser}/>}
       {sub==="stages"   && <StagesSection      wr={wr} save={save} canWrite={canWrite} proj={proj}/>}
       {sub==="agenda"   && <AgendaSection      wr={wr} save={save} canWrite={canWrite}/>}
       {sub==="contacts" && <ContactsSection    wr={wr} save={save} canWrite={canWrite}/>}
@@ -123,8 +184,13 @@ export function parseBulkSchedule(text) {
       const line = rawLine.replace(/^[▷▶]\s*/,"")
       const colonIdx = line.search(/[:：]/)
       if(colonIdx===-1){ pendingLabel = line.trim(); continue }
-      const label = line.slice(0,colonIdx).trim()
-      const rest  = line.slice(colonIdx+1).trim()
+      const part0 = line.slice(0,colonIdx).trim()
+      const part1 = line.slice(colonIdx+1).trim()
+      // "라벨 : 날짜"와 "날짜 : 라벨" 두 순서 모두 인식 — 콜론 앞쪽이 날짜형태면 날짜-먼저 순서로 판단
+      const looksLikeDate = s => /\d{4}[.\-]\d{1,2}[.\-]\d{1,2}/.test(s)
+      let label, rest
+      if(looksLikeDate(part0) && !looksLikeDate(part1)){ label = part1; rest = part0 }
+      else { label = part0; rest = part1 }
       if(!rest){ pendingLabel = label; continue }
       const segs = parseDateSegments(rest)
       if(segs.length===0){ pendingLabel = label; continue }
@@ -166,7 +232,7 @@ function hashColor(str){
   return SCHED_PALETTE[h%SCHED_PALETTE.length]
 }
 
-function ScheduleLogSection({wr, save, canWrite, proj, currentUser}) {
+function ScheduleLogSection({wr, save, canWrite, proj, setProjects, currentUser}) {
   const logs      = wr.scheduleLog || []
   const presets   = wr.schedCats   || DEFAULT_SCHED_CATS
 
@@ -193,6 +259,30 @@ function ScheduleLogSection({wr, save, canWrite, proj, currentUser}) {
 
   const byName = currentUser?.name || "알 수 없음"
 
+  // 계약일/수주일처럼 프로젝트 상세정보와 연동되는 항목이면, 비어있는 필드는 자동으로 채우고
+  // 이미 다른 값이 있으면 사용자에게 확인 후에만 덮어쓴다 (동일 필드에 서로 다른 날짜가 중복 생기지 않도록).
+  const trySyncField = (entry) => {
+    if(!setProjects || !proj?.id) return
+    const rule = matchFieldSyncRule(entry.category) || matchFieldSyncRule(entry.content)
+    if(!rule) return
+    const curVal = proj[rule.field]
+    if(!curVal){
+      setProjects(prev=>prev.map(p=>p.id===proj.id?{...p,[rule.field]:entry.date}:p))
+    } else if(curVal!==entry.date){
+      const ok = window.confirm(
+        `"${entry.content}"(${entry.date})가 프로젝트 상세정보의 기존 ${rule.label}(${curVal})과 다릅니다.\n같은 정보라면 ${rule.label}을 ${entry.date}로 업데이트할까요?\n\n(취소하면 방금 입력한 주요일정은 그대로 남고, 프로젝트 ${rule.label}은 변경되지 않습니다)`
+      )
+      if(ok) setProjects(prev=>prev.map(p=>p.id===proj.id?{...p,[rule.field]:entry.date}:p))
+    }
+  }
+
+  // 붙여넣기/수동 등록 직전 — 같은 날짜에 유사한 구분/내용이 이미 있으면 확인
+  const confirmIfDuplicate = (entry) => {
+    const hit = findSimilarScheduleEntry(logs, entry)
+    if(!hit) return true
+    return window.confirm(`같은 날짜(${entry.date})에 비슷한 항목이 이미 있습니다.\n기존: [${hit.category}] ${hit.content}\n새로 입력: [${entry.category}] ${entry.content}\n\n그래도 추가하시겠습니까?`)
+  }
+
   const add = () => {
     if(!text.trim()) return
     const entry = {
@@ -201,17 +291,21 @@ function ScheduleLogSection({wr, save, canWrite, proj, currentUser}) {
       createdAt:now(), updatedAt:now(),
       createdBy: byName,
     }
+    if(!confirmIfDuplicate(entry)) return
     save({scheduleLog:[...logs,entry].sort((a,b)=>a.date.localeCompare(b.date))})
+    trySyncField(entry)
     setText(""); setMemo(""); setCat("")
   }
 
   const startEdit = e => { setEditId(e.id); setED({date:e.date, cat:e.category, text:e.content, memo:e.memo||""}) }
   const saveEdit  = () => {
+    const entry = {date:editDraft.date, category:(editDraft.cat||"기타").trim(), content:editDraft.text, memo:editDraft.memo}
     save({scheduleLog:logs.map(e=>e.id===editId?{...e,
-      date:editDraft.date, category:(editDraft.cat||"기타").trim(),
-      content:editDraft.text, memo:editDraft.memo,
+      date:entry.date, category:entry.category,
+      content:entry.content, memo:entry.memo,
       updatedAt:now(), updatedBy:byName
     }:e).sort((a,b)=>a.date.localeCompare(b.date))})
+    trySyncField(entry)
     setEditId(null)
   }
   const del = id => { if(window.confirm("이 일정 기록을 삭제하시겠습니까?")) save({scheduleLog:logs.filter(e=>e.id!==id)}) }
@@ -256,18 +350,27 @@ function ScheduleLogSection({wr, save, canWrite, proj, currentUser}) {
 
   const runBulkParse = () => {
     const parsed = parseBulkSchedule(bulkText)
-    setBulkPreview(parsed)
+    const withDup = parsed.map(r=>({...r, dupWarning: !!findSimilarScheduleEntry(logs, r)}))
+    setBulkPreview(withDup)
   }
   const updateBulkRow = (i, patch) => setBulkPreview(prev=>prev.map((r,ri)=>ri===i?{...r,...patch}:r))
   const removeBulkRow = i => setBulkPreview(prev=>prev.filter((_,ri)=>ri!==i))
   const commitBulk = () => {
     if(!bulkPreview || !bulkPreview.length) return
+    const dupCount = bulkPreview.filter(r=>r.dupWarning).length
+    if(dupCount>0 && !window.confirm(`중복 의심 항목이 ${dupCount}건 있습니다. 그래도 전체 ${bulkPreview.length}건을 추가하시겠습니까?\n(중복이 걱정되면 취소 후 목록에서 ✕로 해당 행을 먼저 제거하세요)`)) return
     const newEntries = bulkPreview.map((r,i)=>({
       id:`SL${Date.now()}_${i}`, date:r.date, category:(r.category||"기타").trim(),
       content:r.content||r.category, memo:r.memo||"",
       createdAt:now(), updatedAt:now(), createdBy:byName,
     }))
     save({scheduleLog:[...logs, ...newEntries].sort((a,b)=>a.date.localeCompare(b.date))})
+    // 계약일/수주일 등 연동 필드는 규칙당 한 번만(처음 매칭되는 항목으로) 동기화 시도
+    const doneRules = new Set()
+    newEntries.forEach(entry=>{
+      const rule = matchFieldSyncRule(entry.category) || matchFieldSyncRule(entry.content)
+      if(rule && !doneRules.has(rule.field)){ doneRules.add(rule.field); trySyncField(entry) }
+    })
     setBulkText(""); setBulkPreview(null); setShowBulk(false)
   }
 
@@ -311,7 +414,8 @@ function ScheduleLogSection({wr, save, canWrite, proj, currentUser}) {
                   <div style={{fontSize:13.2,fontWeight:700,color:C.navyM,marginBottom:6}}>인식된 항목 {bulkPreview.length}건 — 확인 후 추가하세요</div>
                   <div style={{display:"flex",flexDirection:"column",gap:5,maxHeight:320,overflowY:"auto",marginBottom:10}}>
                     {bulkPreview.map((r,i)=>(
-                      <div key={i} style={{display:"flex",gap:5,alignItems:"center",background:"#fff",borderRadius:8,padding:"6px 8px"}}>
+                      <div key={i} style={{display:"flex",gap:5,alignItems:"center",background:r.dupWarning?"#FEF3C7":"#fff",borderRadius:8,padding:"6px 8px"}}>
+                        {r.dupWarning&&<span title="같은 날짜에 비슷한 항목이 이미 있습니다" style={{fontSize:13}}>⚠️</span>}
                         <input type="date" value={r.date} onChange={e=>updateBulkRow(i,{date:e.target.value})} style={{...inp(132),padding:"5px 7px",fontSize:12.5}}/>
                         <input value={r.category} onChange={e=>updateBulkRow(i,{category:e.target.value,content:e.target.value})} placeholder="구분/내용" style={{...inp(),padding:"5px 7px",fontSize:12.5,flex:1}}/>
                         <input value={r.memo} onChange={e=>updateBulkRow(i,{memo:e.target.value})} placeholder="메모" style={{...inp(),padding:"5px 7px",fontSize:12.5,flex:1}}/>
