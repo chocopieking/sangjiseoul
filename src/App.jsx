@@ -4062,13 +4062,15 @@ function ProjectsTab({projects,setProjects,selProjId,setSelProjId,selVerIdx,setS
                               style={{padding:"2px 6px",background:"#F8FAFC",color:"#64748B",border:"none",borderRadius:5,fontSize:13.2,cursor:"pointer"}}>✕</button>
                           </div>
                         ) : <>
-                          {(()=>{ const st=stageLabelFromCode(p.code); return st && (
-                            <span style={{fontSize:10.5,fontWeight:800,padding:"1px 6px",borderRadius:4,marginRight:5,
+                          {(()=>{ const st=inferProjectStage(p); return st && (
+                            <span title={st==="제안단계"?"제안단계(D) — 코드/이름으로 자동 인식":"실시설계단계(W) — 코드/이름으로 자동 인식"}
+                              style={{fontSize:11,fontWeight:800,padding:"2px 7px",borderRadius:5,marginRight:5,letterSpacing:.2,
                               background:st==="제안단계"?"#FEF3C7":"#DBEAFE", color:st==="제안단계"?"#92400E":"#1E40AF"}}>
-                              {st==="제안단계"?"제안":"실시"}
+                              {st==="제안단계"?"D 제안":"W 실시"}
                             </span>
                           )})()}
-                          {p.linkedProjectId && <span title="다른 단계(D/W 등)와 연결된 프로젝트입니다" style={{marginRight:4,fontSize:12}}>🔗</span>}
+                          {p.linkedProjectId && !inferProjectStage(p) && <span title="다른 단계(D/W 등)와 연결된 프로젝트입니다" style={{fontSize:11,fontWeight:800,padding:"2px 7px",borderRadius:5,marginRight:5,background:"#F1F5F9",color:"#475569"}}>🔗 연결됨</span>}
+                          {p.linkedProjectId && inferProjectStage(p) && <span title="다른 단계(D/W 등)와 연결된 프로젝트입니다" style={{marginRight:4,fontSize:12}}>🔗</span>}
                           {p.name}
                           {p.updatedAt && <div style={{fontSize:10.5,color:"#CBD5E1",fontWeight:400,whiteSpace:"nowrap"}}>{relTime(p.updatedAt)}</div>}
                         </>}
@@ -7984,19 +7986,28 @@ function BillingCard({proj, setProjects, canWrite}) {
 }
 
 // ── 제안단계(D)↔실시설계(W)처럼 이름이 같은 프로젝트를 서로 연결해서 배지로 보여줌 ──
-// 코드 끝이 -D/-W면 자동으로 "제안단계"/"실시설계단계" 라벨을 붙이고, 아니면 그냥 "연결됨"으로 표시
+// 코드 끝이 -D/-W면 자동으로 "제안단계"/"실시설계단계" 라벨을 붙임 (뒤에 괄호·공백이 붙어도 인식).
+// 코드에 그런 표기가 없는 프로젝트는 이름에 "현상설계/공모/제안설계" 또는 "실시설계"가 있으면 그걸로 추정한다.
 function stageLabelFromCode(code) {
-  const c = String(code||"").toUpperCase()
-  if(c.endsWith("-D")) return "제안단계"
-  if(c.endsWith("-W")) return "실시설계단계"
+  const c = String(code||"").toUpperCase().trim()
+  const m = c.match(/-([DW])[\)\]]?\s*$/)
+  if(m) return m[1]==="D" ? "제안단계" : "실시설계단계"
+  return null
+}
+function inferProjectStage(proj) {
+  const byCode = stageLabelFromCode(proj?.code)
+  if(byCode) return byCode
+  const n = String(proj?.name||"")
+  if(/현상설계|공모|제안설계|아이디어\s*공모/.test(n)) return "제안단계"
+  if(/실시설계/.test(n)) return "실시설계단계"
   return null
 }
 function LinkedProjectBar({proj, projects, setProjects, canWrite, setSelProjId}) {
   const [showLink, setShowLink] = useState(false)
   const [query, setQuery] = useState("")
   const linked = proj.linkedProjectId ? projects.find(p=>p.id===proj.linkedProjectId) : null
-  const myStage = stageLabelFromCode(proj.code)
-  const otherStage = linked ? stageLabelFromCode(linked.code) : null
+  const myStage = inferProjectStage(proj)
+  const otherStage = linked ? inferProjectStage(linked) : null
 
   const candidates = query.trim().length>=2
     ? projects.filter(p=>p.id!==proj.id && (p.name.includes(query)||((p.code||"").toLowerCase().includes(query.toLowerCase())))).slice(0,8)
@@ -8081,7 +8092,7 @@ function LinkedProjectBar({proj, projects, setProjects, canWrite, setSelProjId})
                 <div key={c.id} onClick={()=>doLink(c.id)}
                   style={{padding:"7px 10px",background:"#fff",border:"1px solid #E5E7EB",borderRadius:7,cursor:"pointer",fontSize:13}}
                   onMouseEnter={e=>e.currentTarget.style.background="#EEF3FF"} onMouseLeave={e=>e.currentTarget.style.background="#fff"}>
-                  <b>{c.name}</b> <span style={{color:"#94A3B8"}}>({c.code}{stageLabelFromCode(c.code)?` · ${stageLabelFromCode(c.code)}`:""})</span>
+                  <b>{c.name}</b> <span style={{color:"#94A3B8"}}>({c.code}{inferProjectStage(c)?` · ${inferProjectStage(c)}`:""})</span>
                 </div>
               ))}
             </div>
