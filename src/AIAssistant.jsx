@@ -4,7 +4,18 @@
 // 시스템 데이터를 컨텍스트로 주입하여 맞춤형 답변 생성
 // ══════════════════════════════════════════════════════════════
 import { useState, useRef, useEffect, useMemo } from "react"
-import { calcPnlTotals, getDeptShares, fE } from "./data.js"
+import { calcPnlTotals, getDeptShares, fE, VENDOR_DOC_TYPES } from "./data.js"
+
+// ── 서류함 전체 카테고리 라벨 (프로젝트서류 8종 + 신규 4종 + 업체등록서류 10종 + 문서보관소) ──
+const DOC_LABELS = {
+  contract:"계약서", perfBond:"계약이행보증서", liabilityCert:"손해배상공제증권",
+  experienceCert:"실적증명서", buildingReg:"건축물대장", jvMou:"업무협약서",
+  jvSettlement:"합사정산서", contractApproval:"계약체결보고서",
+  execPlan:"실행계획서", vendorContract:"협력업체 계약서", billing:"기성청구서",
+  vault:"문서보관소",
+}
+const VENDOR_REG_LABELS = Object.fromEntries(VENDOR_DOC_TYPES.map(t=>[t.key, t.label]))
+const VAULT_CATS = ["연간계약서","협력업체계약서","공문(수신)","공문(발신)","회의록","기타"]
 
 const C = {
   navyM:"#3B72F6", navyL:"#EEF3FF", navy:"#1A3B6E",
@@ -29,11 +40,6 @@ function buildContext(data) {
   }).join("\n")
 
   // 프로젝트별 첨부서류 현황 (계약서/보증서/실적증명서/건축물대장 등) — 문서 검색·다운로드 질의에 사용
-  const DOC_LABELS = {
-    contract:"계약서", perfBond:"계약이행보증서", liabilityCert:"손해배상공제증권",
-    experienceCert:"실적증명서", buildingReg:"건축물대장", jvMou:"업무협약서",
-    jvSettlement:"합사정산서", contractApproval:"계약체결보고서",
-  }
   const docSummary = projects.map(p=>{
     const docs = (p.certDocs||[]).map(g=>{
       const vs = Array.isArray(g.versions)?g.versions:[]
@@ -44,6 +50,53 @@ function buildContext(data) {
     if(!docs.length) return null
     return `[${p.code}] ${p.name} (발주구분:${p.orderType||"민간"}): ${docs.join(", ")}`
   }).filter(Boolean).join("\n")
+
+  // 프로젝트별 실행계획서 회차 현황 — "실행계획서 찾아줘/다운받고 싶어" 질의에 사용
+  const execPlanSummary = projects.map(p=>{
+    const vs = p.versions||[]
+    if(!vs.length) return null
+    const rounds = vs.map(v=>`${v.round||"?"}차(${v.date||"날짜없음"}${v.pdfData?",PDF있음":",PDF없음"})`).join(", ")
+    return `[${p.code}] ${p.name}: ${rounds}`
+  }).filter(Boolean).join("\n")
+
+  // 프로젝트별 협력업체 계약서 현황
+  const vendorContractSummary = projects.map(p=>{
+    const groups = (p.vendorDocs||[]).map(g=>{
+      const vs = g.versions||[]
+      if(!vs.length) return null
+      const latest = vs[vs.length-1]
+      return `${g.vendorName}(${latest.versionLabel||"최초"}${latest.fileData?",PDF있음":",PDF없음"})`
+    }).filter(Boolean)
+    if(!groups.length) return null
+    return `[${p.code}] ${p.name}: ${groups.join(", ")}`
+  }).filter(Boolean).join("\n")
+
+  // 프로젝트별 기성청구서 발송내역
+  const billingSummary = projects.map(p=>{
+    const list = p.billingSubmissions||[]
+    if(!list.length) return null
+    const items = list.map(b=>`${b.stage||"?"}(${b.date||"날짜없음"}${b.fileData?",PDF있음":",PDF없음"})`).join(", ")
+    return `[${p.code}] ${p.name}: ${items}`
+  }).filter(Boolean).join("\n")
+
+  // 협력업체별 등록서류 (사업자등록증/통장사본/면허증 등) 현황
+  const vendorRegSummary = Object.entries(vendorsDB||{}).map(([name, info])=>{
+    const docs = (info.certDocs||[]).map(g=>{
+      const vs = Array.isArray(g.versions)?g.versions:[]
+      if(!vs.length) return null
+      const latest = vs[vs.length-1]
+      return `${VENDOR_REG_LABELS[g.key]||g.key}(${latest.fileData?"PDF있음":"PDF없음"})`
+    }).filter(Boolean)
+    if(!docs.length) return null
+    return `${name}: ${docs.join(", ")}`
+  }).filter(Boolean).join("\n")
+
+  // 문서보관소(공문/회의록/연간계약서 등) — 브라우저 로컬 저장소 기반
+  let vaultSummary = ""
+  try{
+    const vaultDocs = JSON.parse(localStorage.getItem("sjs_docvault")||"[]")
+    vaultSummary = vaultDocs.map(d=>`[${d.category||"기타"}] ${d.title||"(제목없음)"} (${d.year||"?"}년${d.project?", 프로젝트:"+d.project:""}${d.fileData?", PDF있음":""})`).join("\n")
+  }catch{}
 
   // 프로젝트별 외주비(협력업체 기성) 지급현황 — "잔여 기성잔액" 같은 질의에 사용
   const normName = s => (s||"").replace(/[\s\-_·.()【】\[\]]/g,"").toLowerCase()
@@ -85,8 +138,23 @@ function buildContext(data) {
 === 프로젝트 현황 (총 ${projects.length}건) ===
 ${projSummary || "(없음)"}
 
-=== 프로젝트별 첨부서류 현황 ===
+=== 프로젝트별 첨부서류 현황 (계약서·보증서·실적증명서 등 8종) ===
 ${docSummary || "(등록된 서류 없음)"}
+
+=== 프로젝트별 실행계획서 회차 현황 ===
+${execPlanSummary || "(등록된 실행계획서 없음)"}
+
+=== 프로젝트별 협력업체 계약서 현황 ===
+${vendorContractSummary || "(등록된 협력업체 계약서 없음)"}
+
+=== 프로젝트별 기성청구서 발송내역 ===
+${billingSummary || "(등록된 기성청구서 없음)"}
+
+=== 협력업체별 등록서류 현황 (사업자등록증·통장사본·면허증 등) ===
+${vendorRegSummary || "(등록된 협력업체 서류 없음)"}
+
+=== 문서보관소 (연간계약서/협력업체계약서/공문수신/공문발신/회의록/기타) ===
+${vaultSummary || "(등록된 문서 없음)"}
 
 === 프로젝트별 외주비(협력업체 기성) 지급현황 — 잔액/기성잔액 질의에 사용 ===
 ${vendorPaySummary || "(등록된 외주비 지급 데이터 없음)"}
@@ -204,11 +272,12 @@ const QUICK_QUESTIONS = [
   "외주비 비중이 높은 프로젝트 상위 3개는?",
   "본부별 수주금액 현황을 요약해줘",
   "공공 프로젝트 실적증명서 목록 보여줘",
+  "동아아파트 실행계획서 찾아줘",
 ]
 
 export function AIAssistant({ data, onNavigate, isOpen, onClose, onApplyChange }) {
   const [messages, setMessages] = useState([
-    { role:"assistant", text:"안녕하세요! 저는 상지서울 통합경영시스템 AI 어시스턴트입니다. 프로젝트, 수금, 이윤, 협력업체 등 궁금한 것을 물어보세요.\n\n일정·매출금액·상지지분 변경도 말씀하시면 됩니다. 예: \"수원남부경찰서 계약일을 10월로 변경해줘\"\n(바로 반영되지 않고, 먼저 변경 내용을 보여드리고 확인 후에만 반영됩니다.)\n\n서류 찾기도 됩니다. 예: \"공공 프로젝트 실적증명서 목록 보여줘\" — 조건에 맞는 서류를 찾아 바로 다운로드할 수 있게 보여드립니다." }
+    { role:"assistant", text:"안녕하세요! 저는 상지서울 통합경영시스템 AI 어시스턴트입니다. 프로젝트, 수금, 이윤, 협력업체 등 궁금한 것을 물어보세요.\n\n일정·매출금액·상지지분 변경도 말씀하시면 됩니다. 예: \"수원남부경찰서 계약일을 10월로 변경해줘\"\n(바로 반영되지 않고, 먼저 변경 내용을 보여드리고 확인 후에만 반영됩니다.)\n\n서류 찾기도 됩니다 — 계약서·보증서·실적증명서 외에도 실행계획서, 협력업체 계약서·등록서류, 기성청구서, 문서보관소(공문/회의록 등)까지 전부 찾아드립니다. 예: \"동아아파트 실행계획서 찾아줘\", \"OO업체 사업자등록증 있어?\" — 조건에 맞는 서류를 찾아 바로 다운로드할 수 있게 보여드립니다." }
   ])
   const [input, setInput] = useState("")
   const [loading, setLoading] = useState(false)
@@ -279,14 +348,37 @@ ${ctx}
 - 위 3가지에 해당하지 않는 일반 질문은 평소처럼 마커 없이 답변하세요.
 
 === 서류 검색 모드 (중요) ===
-사용자가 특정 종류의 서류를 찾거나("실적증명서 목록 보여줘", "공공 프로젝트 계약서 다운받고 싶어" 등) 다운로드를 원하는 것 같으면,
-"프로젝트별 첨부서류 현황" 데이터를 참고해서 조건에 맞는 프로젝트를 찾고, 아래 형식 그대로 맨 앞에 <<SJS_DOCLIST>> 마커와 함께 JSON만 응답하세요 (다른 텍스트 섞지 말 것):
-<<SJS_DOCLIST>>{"docKey":"experienceCert","items":[{"project_query":"프로젝트명에서 추출한 검색어"}],"summary":"사람이 읽을 한국어 한 줄 설명"}
+사용자가 시스템 안의 어떤 자료든 찾거나("실적증명서 목록 보여줘", "동아아파트 실행계획서 찾아줘", "이 업체 사업자등록증 있어?", "작년 회의록 찾아줘" 등) 다운로드를 원하는 것 같으면,
+아래 형식 그대로 맨 앞에 <<SJS_DOCLIST>> 마커와 함께 JSON만 응답하세요 (다른 텍스트 섞지 말 것). docKey별로 필요한 필드가 다르니 아래 표를 정확히 따르세요.
 
-- docKey는 다음 중 하나: contract(계약서), perfBond(계약이행보증서), liabilityCert(손해배상공제증권), experienceCert(실적증명서), buildingReg(건축물대장), jvMou(업무협약서), jvSettlement(합사정산서), contractApproval(계약체결보고서)
-- items에는 조건에 맞는 프로젝트를 전부 나열하세요(예: "공공 프로젝트"면 발주구분이 공공인 것만).
-- "첨부서류 현황"에 아예 그 문서가 없는 프로젝트는 items에 넣지 마세요.
-- 어떤 서류를 찾는지 불명확하면 JSON을 만들지 말고 일반 텍스트로 되물어보세요.`,
+**A. 프로젝트 첨부서류 (8종)** — "프로젝트별 첨부서류 현황" 데이터 참고
+docKey: contract(계약서) | perfBond(계약이행보증서) | liabilityCert(손해배상공제증권) | experienceCert(실적증명서) | buildingReg(건축물대장) | jvMou(업무협약서) | jvSettlement(합사정산서) | contractApproval(계약체결보고서)
+<<SJS_DOCLIST>>{"docKey":"experienceCert","items":[{"project_query":"프로젝트명에서 추출한 검색어"}],"summary":"..."}
+
+**B. 실행계획서** — "프로젝트별 실행계획서 회차 현황" 데이터 참고. 특정 회차를 콕 집으면 round_query에 숫자만(예:"2"), 아니면 생략(전체 회차 반환).
+docKey: execPlan
+<<SJS_DOCLIST>>{"docKey":"execPlan","items":[{"project_query":"동아아파트","round_query":"2"}],"summary":"..."}
+
+**C. 협력업체 계약서(프로젝트별)** — "프로젝트별 협력업체 계약서 현황" 데이터 참고. 특정 업체면 vendor_query, 아니면 생략(전체 업체 반환).
+docKey: vendorContract
+<<SJS_DOCLIST>>{"docKey":"vendorContract","items":[{"project_query":"...","vendor_query":"구조"}],"summary":"..."}
+
+**D. 기성청구서** — "프로젝트별 기성청구서 발송내역" 데이터 참고. 특정 회차(선금/1차 기성 등)면 stage_query, 아니면 생략.
+docKey: billing
+<<SJS_DOCLIST>>{"docKey":"billing","items":[{"project_query":"...","stage_query":"1차 기성"}],"summary":"..."}
+
+**E. 협력업체 등록서류** — "협력업체별 등록서류 현황" 데이터 참고. subKey는 다음 중 하나: vendorApp(등록신청서) | bizReg(사업자등록증) | techLicense(기술자면허증) | corpReg(법인등기부등본) | bankbook(통장사본) | newTech(신기술보유현황) | patent(특허기술보유현황) | taxInvoice2(세금계산서) | vendorContract2(계약서) | quote(견적서) | etc(기타서류)
+docKey: vendorReg
+<<SJS_DOCLIST>>{"docKey":"vendorReg","subKey":"bizReg","items":[{"vendor_query":"업체명"}],"summary":"..."}
+
+**F. 문서보관소(연간계약서/공문수신/공문발신/회의록/기타)** — "문서보관소" 데이터 참고. vault_query는 제목·태그·프로젝트명 등 자유 검색어.
+docKey: vault
+<<SJS_DOCLIST>>{"docKey":"vault","items":[{"vault_query":"검색어"}],"summary":"..."}
+
+- items에는 조건에 맞는 대상을 전부 나열하세요(예: "공공 프로젝트"면 발주구분이 공공인 것만).
+- 위 데이터 섹션에 아예 등록되어 있지 않은 자료는 items에 넣지 말고, docResults 없이 "등록된 자료가 없습니다"라고 일반 텍스트로 답하세요.
+- 어떤 서류를 찾는지 불명확하면 JSON을 만들지 말고 일반 텍스트로 되물어보세요.
+- 이 6가지 카테고리(A~F) 외에 시스템에 아예 없는 자료를 요청받으면 정직하게 없다고 답하세요.`,
           messages:[
             ...history.map(m=>({role:m.role==="user"?"user":"assistant",content:m.text})),
             {role:"user",content:q}
@@ -302,23 +394,86 @@ ${ctx}
         try{
           const jsonStr = reply.slice(reply.indexOf(docMarker)+docMarker.length).trim()
           const parsed = JSON.parse(jsonStr)
-          const DOC_LABELS = {
-            contract:"계약서", perfBond:"계약이행보증서", liabilityCert:"손해배상공제증권",
-            experienceCert:"실적증명서", buildingReg:"건축물대장", jvMou:"업무협약서",
-            jvSettlement:"합사정산서", contractApproval:"계약체결보고서",
+          const findVendor = (query) => {
+            if(!query) return null
+            const q = query.trim().toLowerCase()
+            const names = Object.keys(data.vendorsDB||{})
+            return names.find(n=>n.toLowerCase().includes(q))
           }
-          const items = (parsed.items||[]).map(it=>{
-            const proj = findProject(it.project_query)
-            if(!proj) return null
-            const g = (proj.certDocs||[]).find(d=>d.key===parsed.docKey)
-            const vs = Array.isArray(g?.versions) ? g.versions : []
-            if(!vs.length) return null
-            return {projectId:proj.id, projectName:proj.name, doc:vs[vs.length-1]}
-          }).filter(Boolean)
+          let items = []
+          let docLabel = DOC_LABELS[parsed.docKey] || parsed.docKey
+
+          if(parsed.docKey==="execPlan"){
+            items = (parsed.items||[]).flatMap(it=>{
+              const proj = findProject(it.project_query)
+              if(!proj) return []
+              let vs = proj.versions||[]
+              if(it.round_query) vs = vs.filter(v=>String(v.round)===String(it.round_query).trim())
+              return vs.map(v=>({
+                projectId:proj.id, projectName:proj.name,
+                doc:{versionLabel:`${v.round||"?"}차 실행계획서`, docNo:v.date||"", endDate:"", fileData:v.pdfData||"", fileName:v.pdfName||`실행계획서_${proj.code||""}${v.round||""}차.pdf`}
+              }))
+            })
+          } else if(parsed.docKey==="vendorContract"){
+            items = (parsed.items||[]).flatMap(it=>{
+              const proj = findProject(it.project_query)
+              if(!proj) return []
+              let groups = proj.vendorDocs||[]
+              if(it.vendor_query){ const vq=it.vendor_query.trim().toLowerCase(); groups = groups.filter(g=>(g.vendorName||"").toLowerCase().includes(vq)) }
+              return groups.filter(g=>(g.versions||[]).length).map(g=>{
+                const latest = g.versions[g.versions.length-1]
+                return {projectId:proj.id, projectName:`${proj.name} — ${g.vendorName}`, doc:latest}
+              })
+            })
+          } else if(parsed.docKey==="billing"){
+            items = (parsed.items||[]).flatMap(it=>{
+              const proj = findProject(it.project_query)
+              if(!proj) return []
+              let list = proj.billingSubmissions||[]
+              if(it.stage_query){ const sq=it.stage_query.trim().toLowerCase(); list = list.filter(b=>(b.stage||"").toLowerCase().includes(sq)) }
+              return list.map(b=>({
+                projectId:proj.id, projectName:`${proj.name} — ${b.stage||""}`,
+                doc:{versionLabel:b.stage||"", docNo:b.date||"", endDate:"", fileData:b.fileData||"", fileName:b.fileName||""}
+              }))
+            })
+          } else if(parsed.docKey==="vendorReg"){
+            docLabel = VENDOR_REG_LABELS[parsed.subKey] || parsed.subKey || "협력업체 서류"
+            items = (parsed.items||[]).flatMap(it=>{
+              const vname = findVendor(it.vendor_query)
+              if(!vname) return []
+              const info = (data.vendorsDB||{})[vname]
+              const g = (info?.certDocs||[]).find(d=>d.key===parsed.subKey)
+              const vs = Array.isArray(g?.versions) ? g.versions : []
+              if(!vs.length) return []
+              return [{projectId:vname, projectName:vname, doc:vs[vs.length-1]}]
+            })
+          } else if(parsed.docKey==="vault"){
+            let vaultDocs = []
+            try{ vaultDocs = JSON.parse(localStorage.getItem("sjs_docvault")||"[]") }catch{}
+            const queries = (parsed.items||[]).map(it=>(it.vault_query||"").trim().toLowerCase()).filter(Boolean)
+            const matched = queries.length
+              ? vaultDocs.filter(d=>queries.some(q=>(d.title||"").toLowerCase().includes(q)||(d.tags||"").toLowerCase().includes(q)||(d.project||"").toLowerCase().includes(q)||(d.category||"").toLowerCase().includes(q)))
+              : vaultDocs
+            items = matched.map((d,i)=>({
+              projectId:`vault_${i}`, projectName:`[${d.category||"기타"}] ${d.title||"(제목없음)"}`,
+              doc:{versionLabel:d.year?`${d.year}년`:"", docNo:d.date||"", endDate:"", fileData:d.fileData||"", fileName:d.fileName||""}
+            }))
+          } else {
+            // 기존 8종 프로젝트 첨부서류
+            items = (parsed.items||[]).map(it=>{
+              const proj = findProject(it.project_query)
+              if(!proj) return null
+              const g = (proj.certDocs||[]).find(d=>d.key===parsed.docKey)
+              const vs = Array.isArray(g?.versions) ? g.versions : []
+              if(!vs.length) return null
+              return {projectId:proj.id, projectName:proj.name, doc:vs[vs.length-1]}
+            }).filter(Boolean)
+          }
+
           if(items.length===0){
             setMessages(prev=>[...prev,{role:"assistant",text:"조건에 맞는 서류를 찾지 못했습니다. 다른 조건으로 다시 물어봐 주세요."}])
           } else {
-            setDocResults({docKey:parsed.docKey, docLabel:DOC_LABELS[parsed.docKey]||parsed.docKey, items, summary:parsed.summary||""})
+            setDocResults({docKey:parsed.docKey, docLabel, items, summary:parsed.summary||""})
           }
         }catch(e){
           setMessages(prev=>[...prev,{role:"assistant",text:"서류 검색 요청을 이해했지만 형식을 해석하는 데 실패했습니다. 다시 한번 말씀해주시겠어요?"}])
