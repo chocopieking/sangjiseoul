@@ -2963,12 +2963,18 @@ function SimplePieChart({data=[], total=0}) {
                   return (
                     <div key={d.dept} style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",gap:1,minWidth:0,cursor:"pointer"}}
                       onClick={()=>setSelDetail({type:"기성+확정",dept:d.dept,items:d.all})}>
-                      <div style={{fontSize:12,fontWeight:800,color:"#0B6E63",textAlign:"center",marginBottom:3}}>
-                        {(d.total+d.push)>=1e8?`${((d.total+d.push)/1e8).toFixed(1)}억`:"-"}
+                      {/* 매출현황(현누계)를 가장 진하고 크게, 기성+확정·미정은 옅은 톤으로 작게 — 아직 안 들어온 돈이
+                          이미 실적처럼 보이지 않도록 시각적 우선순위를 명확히 구분 */}
+                      <div style={{textAlign:"center",marginBottom:3,lineHeight:1.35}}>
+                        <div style={{fontSize:14.3,fontWeight:800,color:"#059669"}}>
+                          {d.paid>=1e8?`${(d.paid/1e8).toFixed(1)}억`:"-"}
+                        </div>
+                        {d.conf>0 && <div style={{fontSize:10.5,fontWeight:600,color:"#A7C4BE"}}>+{(d.conf/1e8).toFixed(1)}억</div>}
+                        {d.push>0 && <div style={{fontSize:9.5,fontWeight:500,color:"#D9C5A8"}}>+{(d.push/1e8).toFixed(1)}억</div>}
                       </div>
                       <div style={{width:"70%",display:"flex",flexDirection:"column",alignItems:"stretch",borderRadius:"4px 4px 0 0",overflow:"hidden"}}>
-                        {puH>0&&<div style={{height:puH,background:"#D9770688"}}/>}
-                        {cH>0&&<div style={{height:cH,background:"#0E9C8C"}}/>}
+                        {puH>0&&<div style={{height:puH,background:"#FDE8CE"}}/>}
+                        {cH>0&&<div style={{height:cH,background:"#B7E4DA"}}/>}
                         {pH>0&&<div style={{height:pH,background:"#059669"}}/>}
                         {pH===0&&cH===0&&puH===0&&<div style={{height:4,background:"#E2E8F0"}}/>}
                       </div>
@@ -2980,16 +2986,17 @@ function SimplePieChart({data=[], total=0}) {
                 })}
               </div>
               <div style={{display:"flex",gap:12,marginTop:10,fontSize:13.2,color:"#64748B"}}>
-                <span style={{display:"flex",alignItems:"center",gap:4}}><span style={{width:10,height:10,background:"#059669",borderRadius:2,display:"inline-block"}}/> 현누계</span>
-                <span style={{display:"flex",alignItems:"center",gap:4}}><span style={{width:10,height:10,background:"#0E9C8C",borderRadius:2,display:"inline-block"}}/> 기성+확정</span>
-                <span style={{display:"flex",alignItems:"center",gap:4}}><span style={{width:10,height:10,background:"#D9770688",borderRadius:2,display:"inline-block"}}/> 추진</span>
+                <span style={{display:"flex",alignItems:"center",gap:4}}><span style={{width:10,height:10,background:"#059669",borderRadius:2,display:"inline-block"}}/> 현누계(입금완료)</span>
+                <span style={{display:"flex",alignItems:"center",gap:4}}><span style={{width:10,height:10,background:"#B7E4DA",borderRadius:2,display:"inline-block"}}/> 기성+확정(미입금)</span>
+                <span style={{display:"flex",alignItems:"center",gap:4}}><span style={{width:10,height:10,background:"#FDE8CE",borderRadius:2,display:"inline-block"}}/> 추진(불확실)</span>
               </div>
             </div>
 
-            {/* 파이차트 */}
+            {/* 파이차트 — 실제로 들어온 매출현황(현누계) 기준으로만 본부 비중을 계산 (미정·확정 섞어서 실적을 부풀리지 않도록) */}
             <div style={{background:"#fff",borderRadius:8,border:"1px solid #E5E7EB",padding:"20px 24px"}}>
-              <div style={{fontSize:16.5,fontWeight:800,color:"#0F172A",marginBottom:12}}>본부별 비중</div>
-              <SimplePieChart data={cashByDept.filter(d=>d.total>0).map(d=>({name:d.dept.replace("본부","").slice(0,4),value:+(d.total/1e8).toFixed(2),color:d.color}))} total={+(totalCash/1e8).toFixed(2)}/>
+              <div style={{fontSize:16.5,fontWeight:800,color:"#0F172A",marginBottom:4}}>본부별 비중</div>
+              <div style={{fontSize:11.5,color:"#94A3B8",marginBottom:8}}>매출현황(현누계) 기준</div>
+              <SimplePieChart data={cashByDept.filter(d=>d.paid>0).map(d=>({name:d.dept.replace("본부","").slice(0,4),value:+(d.paid/1e8).toFixed(2),color:d.color}))} total={+(totalPaid/1e8).toFixed(2)}/>
             </div>
           </div>
 
@@ -14983,10 +14990,11 @@ function ContractStatusPage({contractItems=[], setContractItems, DEPTS, DEPT_COL
           <div>
             <div style={{fontSize:14.3,opacity:.75,marginBottom:4}}>{YEAR}년 계약현황</div>
             <div style={{fontSize:39.6,fontWeight:800,marginBottom:10}}>{fA(계약Sum)}</div>
-            <div style={{fontSize:14.3,opacity:.75}}>기성+확정 {fA(합계)}</div>
-            <div style={{display:"flex",gap:10,flexWrap:"wrap"}}>
-              {[["✅ 계약",계약Sum,"#34D399"],["📋 확정",확정Sum,"#93C5FD"],["🔶 추진",추진Sum,"#FDE68A"]].map(([l,v,c])=>(
-                <span key={l} style={{background:"rgba(255,255,255,.15)",padding:"4px 12px",borderRadius:20,fontSize:14.3,fontWeight:700,color:c}}>{l} {fA(v)}</span>
+            {/* "계약"만 크고 진하게, 확정·추진은 옅은 톤의 작은 배지로 — 아직 확정/추진 단계인 금액이
+                이미 계약된 것처럼 보이지 않도록 시각적 비중을 다르게 둠 */}
+            <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+              {[["📋 확정",확정Sum,"rgba(255,255,255,.55)"],["🔶 추진",추진Sum,"rgba(255,255,255,.4)"]].map(([l,v,c])=>(
+                <span key={l} style={{background:"rgba(255,255,255,.08)",padding:"3px 10px",borderRadius:20,fontSize:12.5,fontWeight:600,color:c}}>{l} {fA(v)}</span>
               ))}
             </div>
           </div>
