@@ -2953,7 +2953,7 @@ function SimplePieChart({data=[], total=0}) {
           <div style={{display:"grid",gridTemplateColumns:"1fr 280px",gap:14,marginBottom:20}}>
             {/* 세로 바차트 */}
             <div style={{background:"#fff",borderRadius:8,border:"1px solid #E5E7EB",padding:"20px 24px"}}>
-              <div style={{fontSize:16.5,fontWeight:800,color:"#0F172A",marginBottom:16}}>본부별 수금 현황</div>
+              <div style={{fontSize:16.5,fontWeight:800,color:"#0F172A",marginBottom:16}}>{viewYear}년 본부별 수금 현황</div>
               <div style={{display:"flex",gap:10,alignItems:"flex-end",minHeight:220,borderBottom:"2px solid #E5E7EB",paddingBottom:4,overflow:"visible"}}>
                 {cashByDept.filter(d=>d.total+d.push>0).map((d,i)=>{
                   const maxD=Math.max(...cashByDept.map(x=>x.total+x.push),1)
@@ -2994,7 +2994,7 @@ function SimplePieChart({data=[], total=0}) {
 
             {/* 파이차트 — 실제로 들어온 매출현황(현누계) 기준으로만 본부 비중을 계산 (미정·확정 섞어서 실적을 부풀리지 않도록) */}
             <div style={{background:"#fff",borderRadius:8,border:"1px solid #E5E7EB",padding:"20px 24px"}}>
-              <div style={{fontSize:16.5,fontWeight:800,color:"#0F172A",marginBottom:4}}>본부별 비중</div>
+              <div style={{fontSize:16.5,fontWeight:800,color:"#0F172A",marginBottom:4}}>{viewYear}년 본부별 비중</div>
               <div style={{fontSize:11.5,color:"#94A3B8",marginBottom:8}}>매출현황(현누계) 기준</div>
               <SimplePieChart data={cashByDept.filter(d=>d.paid>0).map(d=>({name:d.dept.replace("본부","").slice(0,4),value:+(d.paid/1e8).toFixed(2),color:d.color}))} total={+(totalPaid/1e8).toFixed(2)}/>
             </div>
@@ -3003,7 +3003,7 @@ function SimplePieChart({data=[], total=0}) {
           {/* 월별 연간 바 차트 */}
           <div style={{background:"#fff",borderRadius:8,border:"1px solid #E5E7EB",padding:"20px 24px",marginBottom:20}}>
             <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16,flexWrap:"wrap",gap:8}}>
-              <div style={{fontSize:17.6,fontWeight:800,color:"#0F172A"}}>{YEAR}년 월별 수금 현황 (단위: 억원)</div>
+              <div style={{fontSize:17.6,fontWeight:800,color:"#0F172A"}}>{viewYear}년 월별 수금 현황 (단위: 억원)</div>
               <div style={{display:"flex",gap:6,alignItems:"center",flexWrap:"wrap"}}>
                 <div style={{display:"flex",gap:4,background:"#F8FAFC",borderRadius:8,padding:3}}>
                   {[["overview","📊 연간"],["list","📋 목록"],["monthly","📅 월별"],["dept","🏢 본부별"]].map(([v,l])=>(
@@ -3018,7 +3018,7 @@ function SimplePieChart({data=[], total=0}) {
             </div>
             {/* 기성내역 입력 버튼 - 차트와 분리 */}
             {cashView==="overview"&&(
-              <div style={{display:"flex",justifyContent:"flex-end",marginBottom:12}}>
+              <div style={{display:"flex",justifyContent:"flex-end",marginBottom:12,position:"relative",zIndex:5}}>
                 <button onClick={()=>setCashView("list")}
                   style={{padding:"6px 14px",background:"#0E9C8C",color:"#fff",border:"none",borderRadius:6,fontSize:14.3,fontWeight:700,cursor:"pointer"}}>
                   ✏ 기성내역 입력/추가
@@ -3030,8 +3030,8 @@ function SimplePieChart({data=[], total=0}) {
               <div>
                 {/* 막대 차트 — 본부별 스택 + 롤오버 툴팁 */}
                 <div style={{position:"relative"}}>
-                  <div style={{display:"flex",gap:4,alignItems:"flex-end",height:160,borderBottom:"2px solid #E5E7EB",marginBottom:8,paddingBottom:4,marginTop:28}}>
-                    {/* marginTop:28 → 바 위 금액 라벨 공간 확보 */}
+                  <div style={{display:"flex",gap:4,alignItems:"flex-end",height:160,borderBottom:"2px solid #E5E7EB",marginBottom:8,paddingBottom:4,marginTop:44}}>
+                    {/* marginTop:44 → 바 위 금액 라벨 공간 확보 (가장 큰 막대의 라벨이 위쪽 버튼과 겹치지 않도록 여유 있게) */}
                     {monthlyData.map((d,i)=>{
                       const maxM=Math.max(...monthlyData.map(x=>x.total),1)
                       const totalH=maxM>0?Math.round((d.total/maxM)*130):0
