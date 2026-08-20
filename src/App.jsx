@@ -8201,7 +8201,7 @@ function ContractTab({projects, currentUser}) {
   }
 
   // 지불금액 자동계산
-  const feeNum = parseInt((form.totalFee||"").replace(/[^0-9]/g,""))||0
+  const feeNum = Math.round(parseFloat((form.totalFee||"").replace(/[^0-9.\-]/g,"")))||0
   const payments = form.payments.map(p=>({...p, amount: Math.round(feeNum*p.ratio/100)}))
   const totalRatio = form.payments.reduce((s,p)=>s+p.ratio,0)
 
@@ -10638,8 +10638,11 @@ function uploadDeptExpenseExcel(e, saleItems, setSaleItems, currentUser) {
         let amount = 0
         const wonRaw = get(row,"amountWon")
         const okRaw  = get(row,"amountOk")
-        if(wonRaw && String(wonRaw).trim() && parseInt(String(wonRaw).replace(/[^0-9]/g,"")) > 0) {
-          amount = parseInt(String(wonRaw).replace(/[^0-9]/g,""))
+        // 소수점 있는 값(엑셀 수식 결과 등)에서 숫자 아닌 문자를 지울 때 "."까지 같이 지워버리면
+        // 965050625 처럼 자릿수가 밀려서 금액이 크게 부풀려지는 문제가 있어, 부호/소수점은 남기고 정리함
+        const cleanNum = s => { const n = parseFloat(String(s).replace(/[^0-9.\-]/g,"")); return Number.isFinite(n) ? n : 0 }
+        if(wonRaw && String(wonRaw).trim() && cleanNum(wonRaw) > 0) {
+          amount = Math.round(cleanNum(wonRaw))
         } else if(okRaw && parseFloat(String(okRaw)) > 0) {
           amount = Math.round(parseFloat(String(okRaw)) * 1e8)
         }
@@ -10792,7 +10795,7 @@ function uploadCashExcel(e, type, cashItems, setCashItems, saleItems, setSaleIte
           stage:       String(get(r,"stage")||"").trim(),
           paidDate:    toDateStr(get(r,"paidDate")),
           expectedDate:toDateStr(get(r,"expectedDate")),
-          amount:      parseInt(String(get(r,"amount")||"0").replace(/[^0-9]/g,""))||0,
+          amount:      Math.round(parseFloat(String(get(r,"amount")||"0").replace(/[^0-9.\-]/g,"")))||0,
           memo:        String(get(r,"memo")||"").trim(),
           createdAt:   new Date().toISOString(),
           createdBy:   currentUser?.name||"",
@@ -12659,7 +12662,7 @@ function ProjectContractHistory({proj, setProjects, canWrite}) {
 
   const [draft, setDraft] = useState(null)
   const u = (k,v) => setDraft(p=>({...p,[k]:v}))
-  const fmtNum = v => parseInt(String(v).replace(/[^0-9]/g,""))||0
+  const fmtNum = v => Math.round(parseFloat(String(v).replace(/[^0-9.\-]/g,"")))||0
 
   const openNew = () => {
     setDraft(emptyEntry())
