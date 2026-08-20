@@ -10705,6 +10705,17 @@ function uploadCashExcel(e, type, cashItems, setCashItems, saleItems, setSaleIte
   const file = e.target.files?.[0]; if(!file) return
   const isSale = type==="sale"
 
+  // 업로드 파일의 "본부" 값이 "설계2"처럼 줄여서 적혀있어도, 실제 본부 목록("설계2본부" 등)과
+  // 매칭되도록 정리 — 본부 개수가 몇 개 안 되는 고정 목록이라 안전하게 유연히 매칭해도 됨
+  // (프로젝트명·업체명처럼 수천 건 되는 경우와 달리, 여기서는 엉뚱한 것과 잘못 합쳐질 위험이 낮음)
+  const resolveDept = raw => {
+    const s = String(raw||"").trim()
+    if(!s) return s
+    if(DEPTS.includes(s)) return s
+    const found = DEPTS.find(d => d===s+"본부" || d.replace("본부","")===s || d.includes(s) || s.includes(d.replace("본부","")))
+    return found || s
+  }
+
   const toDateStr = (val) => {
     if(!val && val!==0) return ""
     const s = String(val).trim()
@@ -10788,7 +10799,7 @@ function uploadCashExcel(e, type, cashItems, setCashItems, saleItems, setSaleIte
           : `CI${Date.now()}_${Math.random().toString(36).slice(2,7)}`
         return {
           id,
-          dept:        String(get(r,"dept")||"").trim(),
+          dept:        resolveDept(get(r,"dept")),
           orderType:   String(get(r,"orderType")||"민간").trim(),
           itemType:    String(get(r,"itemType")||"기성").trim(),
           projectName: String(get(r,"projectName")||"").trim(),
