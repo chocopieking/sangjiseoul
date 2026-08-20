@@ -94,97 +94,248 @@ export function WeeklyReportTab({proj, setProjects, canWrite, currentUser}) {
 }
 
 // ══════════════════════════════════════════════════════════════
-// 1) 주요일정 로그 — 날짜/구분/주요내용/메모 + 구분 커스텀 + 수정자 기록
+// 1) 주요일정 로그 — 날짜/구분(자유 텍스트)/주요내용/메모 + 일괄 붙여넣기 파싱 + 수정자 기록
 // ══════════════════════════════════════════════════════════════
+
+// "▷ 라벨 : 2025.05.06(메모)" 같은 텍스트를 여러 줄 붙여넣으면 자동으로 구분해 항목화한다.
+// - 한 줄에 날짜가 여러 개면("2024.11.08(접수) / 2025.01.08(취하)") 각각 별도 항목으로 분리하고,
+//   그때만 구분 라벨 뒤에 (접수)/(취하) 같은 태그를 붙여 구분한다.
+// - "라벨 :" 로 끝나고 날짜가 없으면, 바로 다음 줄(들)에서 날짜를 찾는다.
+// - 날짜가 없는 줄(들여쓰기된 부가설명 등)은 직전 항목의 메모에 이어붙인다.
+export function parseBulkSchedule(text) {
+  const lines = (text||"").split(/\r?\n/).map(l=>l.trim()).filter(l=>l.length>0)
+  const entries = []
+  let pendingLabel = null
+
+  const parseDateSegments = (str) => {
+    return str.split("/").map(seg=>seg.trim()).filter(Boolean).map(seg=>{
+      const m = seg.match(/(\d{4})[.\-](\d{1,2})[.\-](\d{1,2})\.?/)
+      if(!m) return null
+      const date = `${m[1]}-${String(m[2]).padStart(2,"0")}-${String(m[3]).padStart(2,"0")}`
+      const tagM = seg.match(/\(([^)]+)\)/)
+      return {date, tag: tagM ? tagM[1] : ""}
+    }).filter(Boolean)
+  }
+
+  for(const rawLine of lines){
+    const isBullet = /^[▷▶]/.test(rawLine)
+    if(isBullet){
+      const line = rawLine.replace(/^[▷▶]\s*/,"")
+      const colonIdx = line.search(/[:：]/)
+      if(colonIdx===-1){ pendingLabel = line.trim(); continue }
+      const label = line.slice(0,colonIdx).trim()
+      const rest  = line.slice(colonIdx+1).trim()
+      if(!rest){ pendingLabel = label; continue }
+      const segs = parseDateSegments(rest)
+      if(segs.length===0){ pendingLabel = label; continue }
+      if(segs.length===1){
+        entries.push({date:segs[0].date, category:label, content:label, memo:segs[0].tag||""})
+      } else {
+        segs.forEach(s=>{
+          const cat = s.tag ? `${label}(${s.tag})` : label
+          entries.push({date:s.date, category:cat, content:cat, memo:""})
+        })
+      }
+      pendingLabel = null
+    } else {
+      const cleaned = rawLine.replace(/^[-•]\s*/,"")
+      const segs = parseDateSegments(cleaned)
+      if(segs.length && pendingLabel){
+        if(segs.length===1){
+          entries.push({date:segs[0].date, category:pendingLabel, content:pendingLabel, memo:segs[0].tag||""})
+        } else {
+          segs.forEach(s=>{
+            const cat = s.tag ? `${pendingLabel}(${s.tag})` : pendingLabel
+            entries.push({date:s.date, category:cat, content:cat, memo:""})
+          })
+        }
+        pendingLabel = null
+      } else if(!segs.length && entries.length){
+        const last = entries[entries.length-1]
+        last.memo = last.memo ? `${last.memo} ${cleaned}` : cleaned
+      }
+    }
+  }
+  return entries.sort((a,b)=>a.date.localeCompare(b.date))
+}
+
+// 자유 텍스트 구분값에 안정적인 색을 부여 (즐겨찾기 프리셋에 있으면 그 색, 없으면 텍스트 해시로 팔레트에서 고정 배정)
+const SCHED_PALETTE = [C.navyM, C.amber, C.green, "#0E9C8C", C.red, "#D85A30", "#7C5295", "#2E86AB", "#B45309", "#4B5563"]
+function hashColor(str){
+  let h=0; for(let i=0;i<str.length;i++) h=(h*31+str.charCodeAt(i))>>>0
+  return SCHED_PALETTE[h%SCHED_PALETTE.length]
+}
 
 function ScheduleLogSection({wr, save, canWrite, proj, currentUser}) {
   const logs      = wr.scheduleLog || []
-  const schedCats = wr.schedCats   || DEFAULT_SCHED_CATS
+  const presets   = wr.schedCats   || DEFAULT_SCHED_CATS
 
-  // 입력 폼
+  // 입력 폼 (단건)
   const [date,  setDate]  = useState(fDate(new Date().toISOString()))
-  const [cat,   setCat]   = useState(schedCats[0]||"기타")
+  const [cat,   setCat]   = useState("")
   const [text,  setText]  = useState("")
   const [memo,  setMemo]  = useState("")
   const [editId,setEditId]= useState(null)
   const [editDraft,setED] = useState({})
   const [filter,setFilter]= useState("")
+  const [sortAsc, setSortAsc] = useState(false) // false=최신순(기본), true=오래된순
 
-  // 구분 관리
+  // 자주 쓰는 구분(프리셋) 관리
   const [showCatMgr, setShowCatMgr] = useState(false)
   const [newCat, setNewCat]         = useState("")
   const [editCatIdx, setEditCatIdx] = useState(null)
   const [editCatVal, setEditCatVal] = useState("")
+
+  // 일괄 붙여넣기
+  const [showBulk, setShowBulk]     = useState(false)
+  const [bulkText, setBulkText]     = useState("")
+  const [bulkPreview, setBulkPreview] = useState(null) // 파싱 결과(편집 가능)
 
   const byName = currentUser?.name || "알 수 없음"
 
   const add = () => {
     if(!text.trim()) return
     const entry = {
-      id:`SL${Date.now()}`, date, category:cat,
+      id:`SL${Date.now()}`, date, category:(cat||"기타").trim(),
       content: text.trim(), memo: memo.trim(),
       createdAt:now(), updatedAt:now(),
       createdBy: byName,
     }
     save({scheduleLog:[...logs,entry].sort((a,b)=>a.date.localeCompare(b.date))})
-    setText(""); setMemo("")
+    setText(""); setMemo(""); setCat("")
   }
 
   const startEdit = e => { setEditId(e.id); setED({date:e.date, cat:e.category, text:e.content, memo:e.memo||""}) }
   const saveEdit  = () => {
     save({scheduleLog:logs.map(e=>e.id===editId?{...e,
-      date:editDraft.date, category:editDraft.cat,
+      date:editDraft.date, category:(editDraft.cat||"기타").trim(),
       content:editDraft.text, memo:editDraft.memo,
       updatedAt:now(), updatedBy:byName
-    }:e)})
+    }:e).sort((a,b)=>a.date.localeCompare(b.date))})
     setEditId(null)
   }
   const del = id => { if(window.confirm("이 일정 기록을 삭제하시겠습니까?")) save({scheduleLog:logs.filter(e=>e.id!==id)}) }
 
-  // 구분 CRUD
+  // 프리셋(자주 쓰는 구분) CRUD — 목록을 강제하지 않고, 입력을 빠르게 하기 위한 참고용 칩일 뿐
   const addCat    = () => {
-    const t=newCat.trim(); if(!t||schedCats.includes(t)) return
-    save({schedCats:[...schedCats, t]}); setNewCat("")
+    const t=newCat.trim(); if(!t||presets.includes(t)) return
+    save({schedCats:[...presets, t]}); setNewCat("")
   }
   const saveCat   = i => {
     const t=editCatVal.trim(); if(!t) return
-    const next=[...schedCats]; next[i]=t
+    const next=[...presets]; next[i]=t
     save({schedCats:next}); setEditCatIdx(null)
   }
   const removeCat = i => {
-    if(!window.confirm(`"${schedCats[i]}" 구분을 삭제하시겠습니까?`)) return
-    save({schedCats:schedCats.filter((_,ri)=>ri!==i)})
+    if(!window.confirm(`"${presets[i]}" 프리셋을 삭제하시겠습니까? (이미 등록된 일정 기록에는 영향 없습니다)`)) return
+    save({schedCats:presets.filter((_,ri)=>ri!==i)})
   }
   const moveCat   = (i,d) => {
-    const a=[...schedCats]; [a[i],a[i+d]]=[a[i+d],a[i]]; save({schedCats:a})
+    const a=[...presets]; [a[i],a[i+d]]=[a[i+d],a[i]]; save({schedCats:a})
   }
 
-  const filtered  = logs.filter(e=>!filter||e.category===filter||e.content?.includes(filter)||e.memo?.includes(filter))
-  const catColor  = {계약:C.navyM,심의:C.amber,인허가:C.green,착공:"#0E9C8C",준공:C.green,변경:C.red,기타:C.gray}
-  const getColor  = c => catColor[c] || C.navyM
+  // 실제 쓰인 구분값 전부 (필터 칩 + 자동완성 후보)
+  const usedCats = useMemo(()=>{
+    const set = new Set(presets)
+    logs.forEach(e=>e.category&&set.add(e.category))
+    return [...set]
+  },[logs, presets])
+
+  const getColor  = c => {
+    const base = { 계약:C.navyM, 심의:C.amber, 인허가:C.green, 착공:"#0E9C8C", 준공:C.green, 변경:C.red, 기타:C.gray }
+    if(base[c]) return base[c]
+    const hit = Object.keys(base).find(k=>c?.includes(k))
+    return hit ? base[hit] : hashColor(c||"")
+  }
+
+  const filtered = useMemo(()=>{
+    const f = logs.filter(e=>!filter||e.category===filter||e.content?.includes(filter)||e.memo?.includes(filter))
+    const sorted = f.slice().sort((a,b)=>a.date.localeCompare(b.date))
+    return sortAsc ? sorted : sorted.reverse()
+  },[logs, filter, sortAsc])
+
+  const runBulkParse = () => {
+    const parsed = parseBulkSchedule(bulkText)
+    setBulkPreview(parsed)
+  }
+  const updateBulkRow = (i, patch) => setBulkPreview(prev=>prev.map((r,ri)=>ri===i?{...r,...patch}:r))
+  const removeBulkRow = i => setBulkPreview(prev=>prev.filter((_,ri)=>ri!==i))
+  const commitBulk = () => {
+    if(!bulkPreview || !bulkPreview.length) return
+    const newEntries = bulkPreview.map((r,i)=>({
+      id:`SL${Date.now()}_${i}`, date:r.date, category:(r.category||"기타").trim(),
+      content:r.content||r.category, memo:r.memo||"",
+      createdAt:now(), updatedAt:now(), createdBy:byName,
+    }))
+    save({scheduleLog:[...logs, ...newEntries].sort((a,b)=>a.date.localeCompare(b.date))})
+    setBulkText(""); setBulkPreview(null); setShowBulk(false)
+  }
 
   return (
     <div style={card()}>
-      <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:4}}>
+      <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:4,flexWrap:"wrap",gap:8}}>
         <div style={{fontSize:16.5,fontWeight:700}}>📅 주요일정 기록</div>
-        {canWrite&&<button onClick={()=>setShowCatMgr(v=>!v)} style={{...btn(C.grayL,C.gray),padding:"5px 12px",fontSize:13.2}}>
-          ⚙ 구분 관리
-        </button>}
+        <div style={{display:"flex",gap:6}}>
+          {canWrite&&<button onClick={()=>{setShowBulk(v=>!v);setShowCatMgr(false)}} style={{...btn(showBulk?C.navyM:C.navyL,showBulk?"#fff":C.navyM),padding:"5px 12px",fontSize:13.2}}>
+            📋 일괄 붙여넣기
+          </button>}
+          {canWrite&&<button onClick={()=>{setShowCatMgr(v=>!v);setShowBulk(false)}} style={{...btn(C.grayL,C.gray),padding:"5px 12px",fontSize:13.2}}>
+            ⭐ 자주 쓰는 구분
+          </button>}
+        </div>
       </div>
       <div style={{fontSize:13.2,color:C.gray,marginBottom:14}}>
-        날짜별 주요 사안을 기록합니다. 수정 시 수정자와 일시가 자동 기록됩니다.
+        날짜별 주요 사안을 기록합니다. "구분"은 자유롭게 입력할 수 있으며(예: 변경승인(경미) 완료(1차)), 여러 줄을 한꺼번에 붙여넣으면 자동으로 항목화됩니다. 수정 시 수정자와 일시가 자동 기록됩니다.
       </div>
 
-      {/* 구분 관리 패널 */}
+      {/* 일괄 붙여넣기 패널 */}
+      {showBulk && (
+        <div style={{background:C.navyL,borderRadius:12,padding:"14px 16px",marginBottom:14,border:`1px solid ${C.navyM}22`}}>
+          <div style={{fontSize:15.4,fontWeight:700,color:C.navyM,marginBottom:8}}>📋 일괄 붙여넣기</div>
+          <div style={{fontSize:12.5,color:C.gray,marginBottom:8,lineHeight:1.6}}>
+            "▷ 설계계약 : 2021.12.20" 형식으로 여러 줄을 붙여넣으면 자동으로 구분·날짜를 인식합니다.<br/>
+            날짜가 여러 개인 줄(예: "2024.11.08(접수) / 2025.01.08(취하)")은 각각 별도 항목으로 나뉩니다.
+          </div>
+          <textarea value={bulkText} onChange={e=>setBulkText(e.target.value)} rows={8}
+            placeholder={"▷ 설계계약 : 2021.12.20\n▷ 건축심의접수 : 2022.02.09\n▷ (도시/건축/경관/교통) 통합심의 :\n  - 2024.11.08 (접수) / 2025.01.08 (취하)"}
+            style={{...inp(),fontFamily:"inherit",marginBottom:8,resize:"vertical"}}/>
+          <div style={{display:"flex",gap:7,marginBottom:bulkPreview?12:0}}>
+            <button onClick={runBulkParse} style={btn(C.navyM)}>미리보기 파싱</button>
+            {bulkPreview&&<button onClick={()=>{setBulkText("");setBulkPreview(null)}} style={btn(C.grayL,C.gray)}>초기화</button>}
+          </div>
+
+          {bulkPreview && (
+            bulkPreview.length===0
+              ? <div style={{padding:"14px",textAlign:"center",color:C.red,fontSize:13.2,background:"#fff",borderRadius:8}}>인식된 일정이 없습니다. 형식을 확인해주세요.</div>
+              : <div>
+                  <div style={{fontSize:13.2,fontWeight:700,color:C.navyM,marginBottom:6}}>인식된 항목 {bulkPreview.length}건 — 확인 후 추가하세요</div>
+                  <div style={{display:"flex",flexDirection:"column",gap:5,maxHeight:320,overflowY:"auto",marginBottom:10}}>
+                    {bulkPreview.map((r,i)=>(
+                      <div key={i} style={{display:"flex",gap:5,alignItems:"center",background:"#fff",borderRadius:8,padding:"6px 8px"}}>
+                        <input type="date" value={r.date} onChange={e=>updateBulkRow(i,{date:e.target.value})} style={{...inp(132),padding:"5px 7px",fontSize:12.5}}/>
+                        <input value={r.category} onChange={e=>updateBulkRow(i,{category:e.target.value,content:e.target.value})} placeholder="구분/내용" style={{...inp(),padding:"5px 7px",fontSize:12.5,flex:1}}/>
+                        <input value={r.memo} onChange={e=>updateBulkRow(i,{memo:e.target.value})} placeholder="메모" style={{...inp(),padding:"5px 7px",fontSize:12.5,flex:1}}/>
+                        <button onClick={()=>removeBulkRow(i)} style={{...btn(C.redL,C.red),padding:"3px 8px",fontSize:12}}>✕</button>
+                      </div>
+                    ))}
+                  </div>
+                  <button onClick={commitBulk} style={btn(C.green)}>✓ 전체 {bulkPreview.length}건 추가</button>
+                </div>
+          )}
+        </div>
+      )}
+
+      {/* 자주 쓰는 구분(프리셋) 관리 패널 — 목록 강제 아님, 빠른 입력용 칩 */}
       {showCatMgr && (
         <div style={{background:C.navyL,borderRadius:12,padding:"14px 16px",marginBottom:14,border:`1px solid ${C.navyM}22`}}>
-          <div style={{fontSize:15.4,fontWeight:700,color:C.navyM,marginBottom:10}}>⚙ 구분 항목 관리</div>
+          <div style={{fontSize:15.4,fontWeight:700,color:C.navyM,marginBottom:4}}>⭐ 자주 쓰는 구분 관리</div>
+          <div style={{fontSize:12,color:C.gray,marginBottom:10}}>여기 등록된 값은 입력폼에서 빠르게 선택할 수 있는 참고용 칩일 뿐, 구분 입력을 제한하지 않습니다 — 언제든 다른 텍스트를 직접 입력할 수 있습니다.</div>
           <div style={{display:"flex",flexDirection:"column",gap:6,marginBottom:10}}>
-            {schedCats.map((c,i)=>(
+            {presets.map((c,i)=>(
               <div key={i} style={{display:"flex",gap:6,alignItems:"center"}}>
                 <div style={{display:"flex",flexDirection:"column",gap:2}}>
                   <button onClick={()=>i>0&&moveCat(i,-1)} style={{...btn(C.navyL,C.navyM),padding:"1px 6px",fontSize:11,opacity:i===0?.3:1}}>▲</button>
-                  <button onClick={()=>i<schedCats.length-1&&moveCat(i,1)} style={{...btn(C.navyL,C.navyM),padding:"1px 6px",fontSize:11,opacity:i===schedCats.length-1?.3:1}}>▼</button>
+                  <button onClick={()=>i<presets.length-1&&moveCat(i,1)} style={{...btn(C.navyL,C.navyM),padding:"1px 6px",fontSize:11,opacity:i===presets.length-1?.3:1}}>▼</button>
                 </div>
                 <div style={{width:10,height:10,borderRadius:"50%",background:getColor(c),flexShrink:0}}/>
                 {editCatIdx===i
@@ -207,13 +358,13 @@ function ScheduleLogSection({wr, save, canWrite, proj, currentUser}) {
           <div style={{display:"flex",gap:7}}>
             <input value={newCat} onChange={e=>setNewCat(e.target.value)}
               onKeyDown={e=>e.key==="Enter"&&addCat()}
-              placeholder="새 구분 추가 (Enter)" style={{...inp(),flex:1,padding:"7px 10px",fontSize:14.3}}/>
+              placeholder="새 프리셋 추가 (Enter)" style={{...inp(),flex:1,padding:"7px 10px",fontSize:14.3}}/>
             <button onClick={addCat} style={{...btn(C.navyM),padding:"7px 14px"}}>+ 추가</button>
           </div>
         </div>
       )}
 
-      {/* 입력 폼 */}
+      {/* 입력 폼 (단건) */}
       {canWrite && (
         <div style={{background:"#F8FAFC",borderRadius:12,padding:"14px 16px",marginBottom:14,border:"1px solid #E5E7EB"}}>
           <div style={{display:"flex",gap:8,flexWrap:"wrap",alignItems:"flex-start",marginBottom:8}}>
@@ -222,10 +373,12 @@ function ScheduleLogSection({wr, save, canWrite, proj, currentUser}) {
               <input type="date" value={date} onChange={e=>setDate(e.target.value)} style={{...inp(),width:148}}/>
             </div>
             <div style={{flexShrink:0}}>
-              <label style={lbl()}>구분</label>
-              <select value={cat} onChange={e=>setCat(e.target.value)} style={{...inp(),width:120}}>
-                {schedCats.map(c=><option key={c} value={c}>{c}</option>)}
-              </select>
+              <label style={lbl()}>구분 (자유 입력)</label>
+              <input list="schedCatOptions" value={cat} onChange={e=>setCat(e.target.value)}
+                placeholder="예: 변경승인(경미) 완료(1차)" style={{...inp(),width:220}}/>
+              <datalist id="schedCatOptions">
+                {usedCats.map(c=><option key={c} value={c}/>)}
+              </datalist>
             </div>
             <div style={{flex:1,minWidth:200}}>
               <label style={lbl()}>주요내용 *</label>
@@ -242,19 +395,22 @@ function ScheduleLogSection({wr, save, canWrite, proj, currentUser}) {
             </div>
             <button onClick={add} style={{...btn(C.navyM),padding:"10px 18px",flexShrink:0}}>+ 추가</button>
           </div>
-          <div style={{fontSize:12,color:C.gray,marginTop:6}}>Ctrl+Enter로도 추가 가능</div>
+          <div style={{fontSize:12,color:C.gray,marginTop:6}}>Ctrl+Enter로도 추가 가능 · 구분을 비워두면 "기타"로 저장됩니다</div>
         </div>
       )}
 
-      {/* 필터 */}
-      <div style={{display:"flex",gap:5,flexWrap:"wrap",marginBottom:14}}>
+      {/* 필터 + 정렬 */}
+      <div style={{display:"flex",gap:5,flexWrap:"wrap",marginBottom:14,alignItems:"center"}}>
         <button onClick={()=>setFilter("")} style={{...btn(filter?"#F3F4F6":""+C.navyM,filter?"#374151":"#fff"),padding:"5px 12px",fontSize:13.2,borderRadius:20}}>전체</button>
-        {schedCats.map(c=>(
+        {usedCats.map(c=>(
           <button key={c} onClick={()=>setFilter(f=>f===c?"":c)}
             style={{...btn(filter===c?getColor(c):C.grayL,filter===c?"#fff":C.gray),padding:"5px 12px",fontSize:13.2,borderRadius:20}}>
             {c}
           </button>
         ))}
+        <button onClick={()=>setSortAsc(v=>!v)} style={{...btn(C.grayL,C.gray),padding:"5px 12px",fontSize:13.2,borderRadius:20,marginLeft:"auto"}}>
+          {sortAsc ? "↑ 오래된순" : "↓ 최신순"}
+        </button>
       </div>
 
       {/* 타임라인 */}
@@ -262,7 +418,7 @@ function ScheduleLogSection({wr, save, canWrite, proj, currentUser}) {
         ? <div style={{padding:"24px",textAlign:"center",color:C.gray,fontSize:14.3}}>등록된 일정이 없습니다.</div>
         : <div style={{position:"relative"}}>
             <div style={{position:"absolute",left:120,top:0,bottom:0,width:2,background:"#E5E7EB"}}/>
-            {filtered.slice().reverse().map(e=>(
+            {filtered.map(e=>(
               <div key={e.id} style={{display:"flex",gap:14,marginBottom:12,alignItems:"flex-start"}}>
                 {/* 날짜 */}
                 <div style={{width:112,flexShrink:0,textAlign:"right",paddingTop:4}}>
@@ -276,9 +432,7 @@ function ScheduleLogSection({wr, save, canWrite, proj, currentUser}) {
                     ? <div>
                         <div style={{display:"flex",gap:7,flexWrap:"wrap",marginBottom:8}}>
                           <input type="date" value={editDraft.date} onChange={ev=>setED(p=>({...p,date:ev.target.value}))} style={{...inp(),width:148}}/>
-                          <select value={editDraft.cat} onChange={ev=>setED(p=>({...p,cat:ev.target.value}))} style={{...inp(),width:120}}>
-                            {schedCats.map(c=><option key={c} value={c}>{c}</option>)}
-                          </select>
+                          <input list="schedCatOptions" value={editDraft.cat} onChange={ev=>setED(p=>({...p,cat:ev.target.value}))} style={{...inp(),width:200}}/>
                         </div>
                         <div style={{display:"flex",flexDirection:"column",gap:7,marginBottom:8}}>
                           <div>
