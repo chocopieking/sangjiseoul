@@ -2475,7 +2475,7 @@ function SimplePieChart({data=[], total=0}) {
       staffAvg:    si.avg,      // 연평균인원 (DataHub 기준)
       staffCurrent:si.current,  // 현재인원
       perCapitaPaid: paid/cur,         // 현재인원 기준 인당(현누계)
-      perCapitaConf: (paid+conf)/cur,  // 현재인원 기준 인당(기성+확정)
+      perCapitaConf: conf/cur,  // 현재인원 기준 인당(기성+확정) — "확정만" 기준(현누계는 별도 컬럼이라 중복 안 되게)
     }
   }),[yearCashItems,DEPTS,DEPT_COLORS,staffMonthly,staffTarget,deptStaff])
 
@@ -2904,8 +2904,8 @@ function SimplePieChart({data=[], total=0}) {
                         {d.perCapitaPaid>=1e8?`${(d.perCapitaPaid/1e8).toFixed(2)}억`:d.perCapitaPaid>=1e4?`${(d.perCapitaPaid/1e4).toFixed(0)}만`:"-"}
                       </td>
                       <td style={{padding:"10px 12px",textAlign:"right",fontSize:14.3,fontWeight:600,color:"#0E9C8C",cursor:"pointer",textDecoration:"underline"}}
-                        onClick={()=>setSelDetail({type:"기성+확정",dept:d.dept,items:d.all.filter(i=>i.paidDate||i.expectedDate)})}>
-                        {d.total>0?fAmt(d.total):"-"}
+                        onClick={()=>setSelDetail({type:"기성+확정",dept:d.dept,items:d.all.filter(i=>!i.paidDate&&i.expectedDate&&i.itemType!=="미정"&&i.itemType!=="추진")})}>
+                        {d.conf>0?fAmt(d.conf):"-"}
                       </td>
                       <td style={{padding:"10px 12px",textAlign:"right",fontSize:14.3,fontWeight:600,color:"#0E9C8C",background:"#ECFDF5"}}>
                         {d.perCapitaConf>=1e8?`${(d.perCapitaConf/1e8).toFixed(2)}억`:d.perCapitaConf>=1e4?`${(d.perCapitaConf/1e4).toFixed(0)}만`:"-"}
@@ -2924,7 +2924,7 @@ function SimplePieChart({data=[], total=0}) {
                     const totalAvg     = cashByDept.reduce((s,d)=>s+d.staffAvg,0)
                     const totalCurrent = cashByDept.reduce((s,d)=>s+d.staffCurrent,0)||1
                     const grandPaid    = totalPaid
-                    const grandConf    = totalPaid+totalConf
+                    const grandConf    = totalConf
                     const totRevTarget = viewYear===YR ? DEPTS.reduce((s,d)=>{ const db=(deptBiz||{})[d]||{}; return s+(db.revTarget||0)*1e8 }, 0) : 0
                     return (
                       <tr style={{background:"#D1FAE5",fontWeight:700,borderTop:"2px solid #E5E7EB"}}>
@@ -2934,7 +2934,7 @@ function SimplePieChart({data=[], total=0}) {
                         <td style={{padding:"11px 12px",textAlign:"right",fontSize:14.3,fontWeight:700,color:"#059669",background:"#A7F3D0"}}>
                           {grandPaid/totalCurrent>=1e8?`${(grandPaid/totalCurrent/1e8).toFixed(2)}억`:grandPaid/totalCurrent>=1e4?`${(grandPaid/totalCurrent/1e4).toFixed(0)}만`:"-"}
                         </td>
-                        <td style={{padding:"11px 12px",textAlign:"right",fontSize:15.4,fontWeight:800,color:"#0E9C8C"}}>{fAmt(totalCash)}</td>
+                        <td style={{padding:"11px 12px",textAlign:"right",fontSize:15.4,fontWeight:800,color:"#0E9C8C"}}>{fAmt(totalConf)}</td>
                         <td style={{padding:"11px 12px",textAlign:"right",fontSize:14.3,fontWeight:700,color:"#0E9C8C",background:"#A7F3D0"}}>
                           {grandConf/totalCurrent>=1e8?`${(grandConf/totalCurrent/1e8).toFixed(2)}억`:grandConf/totalCurrent>=1e4?`${(grandConf/totalCurrent/1e4).toFixed(0)}만`:"-"}
                         </td>
@@ -10996,7 +10996,7 @@ function AnalysisDashboard({projects, cashItems, saleItems, DEPTS, DEPT_COLORS, 
       const rate     = revTarget>0 ? Math.round(revCum/revTarget*100) : null
       return {dept, revTarget, revCum, revConf, revPush, rate, staff,
               perCapitaPaid: staff>0?revCum/staff:0,
-              perCapitaConf: staff>0?(revCum+revConf)/staff:0}
+              perCapitaConf: staff>0?revConf/staff:0}
     })
   },[DEPTS,DEPT_BIZ,deptStaff,cashItems])
 
@@ -11197,7 +11197,7 @@ function AnalysisDashboard({projects, cashItems, saleItems, DEPTS, DEPT_COLORS, 
                 const push  = d.revPush                // 원(미정)
                 const staff = d.staff || 1
                 const perPaid = staff>0 ? paid/staff : 0
-                const perConf = staff>0 ? (paid+conf)/staff : 0
+                const perConf = staff>0 ? conf/staff : 0
                 return (
                   <tr key={d.dept} style={{background:i%2===0?"#fff":"#FAFAFA",borderBottom:"1px solid #E2E8F0"}}>
                     <td style={{padding:"10px 12px"}}>
@@ -11209,7 +11209,7 @@ function AnalysisDashboard({projects, cashItems, saleItems, DEPTS, DEPT_COLORS, 
                     <td style={{padding:"10px 12px",textAlign:"right",fontSize:14.3,fontWeight:700,color:"#DC2626"}}>{revT>0?fA(revT):"-"}</td>
                     <td style={{padding:"10px 12px",textAlign:"right",fontSize:14.3,fontWeight:800,color:"#059669",background:"#F0FDF4",cursor:"pointer"}}>{paid>0?fA(paid):"-"}</td>
                     <td style={{padding:"10px 12px",textAlign:"right",fontSize:13.2,color:"#059669",background:"#ECFDF5"}}>{perPaid>=1e8?fA(perPaid):"-"}</td>
-                    <td style={{padding:"10px 12px",textAlign:"right",fontSize:14.3,color:"#0E9C8C"}}>{paid+conf>0?fA(paid+conf):"-"}</td>
+                    <td style={{padding:"10px 12px",textAlign:"right",fontSize:14.3,color:"#0E9C8C"}}>{conf>0?fA(conf):"-"}</td>
                     <td style={{padding:"10px 12px",textAlign:"right",fontSize:13.2,color:"#0E9C8C",background:"#ECFDF5"}}>{perConf>=1e8?fA(perConf):"-"}</td>
                     <td style={{padding:"10px 12px",textAlign:"right",fontSize:14.3,color:"#D97706"}}>{push>0?fA(push):"-"}</td>
                     <td style={{padding:"10px 12px",textAlign:"right",fontSize:15.4,fontWeight:800,color:"#0B6E63",background:"#D1FAE5"}}>{paid+conf>0?fA(paid+conf):"-"}</td>
@@ -11230,8 +11230,8 @@ function AnalysisDashboard({projects, cashItems, saleItems, DEPTS, DEPT_COLORS, 
                     <td style={{padding:"11px 12px",textAlign:"right",fontSize:14.3,fontWeight:700,color:"#DC2626"}}>{totRevT>0?fA(totRevT):"-"}</td>
                     <td style={{padding:"11px 12px",textAlign:"right",fontSize:15.4,fontWeight:800,color:"#059669"}}>{fA(totPaid)}</td>
                     <td style={{padding:"11px 12px",textAlign:"right",fontSize:13.2,color:"#059669",background:"#A7F3D0"}}>{totPaid/totStaff>=1e8?fA(totPaid/totStaff):"-"}</td>
-                    <td style={{padding:"11px 12px",textAlign:"right",fontSize:15.4,fontWeight:800,color:"#0E9C8C"}}>{fA(totPaid+totConf)}</td>
-                    <td style={{padding:"11px 12px",textAlign:"right",fontSize:13.2,color:"#0E9C8C",background:"#BFDBFE"}}>{(totPaid+totConf)/totStaff>=1e8?fA((totPaid+totConf)/totStaff):"-"}</td>
+                    <td style={{padding:"11px 12px",textAlign:"right",fontSize:15.4,fontWeight:800,color:"#0E9C8C"}}>{fA(totConf)}</td>
+                    <td style={{padding:"11px 12px",textAlign:"right",fontSize:13.2,color:"#0E9C8C",background:"#BFDBFE"}}>{totConf/totStaff>=1e8?fA(totConf/totStaff):"-"}</td>
                     <td style={{padding:"11px 12px",textAlign:"right",fontSize:14.3,fontWeight:700,color:"#D97706"}}>{fA(totPush)}</td>
                     <td style={{padding:"11px 12px",textAlign:"right",fontSize:15.4,fontWeight:800,color:"#0B6E63",background:"#A7F3D0"}}>{fA(totPaid+totConf)}</td>
                     <td style={{padding:"11px 12px",textAlign:"right",fontSize:15.4,fontWeight:800,color:"#0B6E63",background:"#A7F3D0"}}>{fA(totPaid+totConf+totPush)}</td>
