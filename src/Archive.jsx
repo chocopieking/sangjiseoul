@@ -96,45 +96,42 @@ function buildStructuredDocs(projects=[], vendorsDB={}) {
   projects.forEach(p=>{
     (p.certDocs||[]).forEach(g=>{
       (g.versions||[]).forEach((v,vi)=>{
-        if(!v.fileData) return
+        // 파일이 없어도(8MB 초과로 파일만 저장 안 됐거나, 정보만 입력된 경우) 목록에는 나오게 함 — 검색·확인은 가능해야 함
         out.push({id:`SD_cert_${p.id}_${g.key}_${vi}`, title:`${p.name} — ${CERT_DOC_LABELS[g.key]||g.key}`,
           category:CERT_DOC_CAT[g.key]||"기타", description:v.versionLabel||"", tags:[], projectId:p.id,
-          dateDoc:v.endDate||v.startDate||"", createdAt:v.updatedAt||v.createdAt||"", createdBy:"",
-          fileSize:0, fileData:v.fileData, fileName:v.fileName||`${CERT_DOC_LABELS[g.key]||g.key}.pdf`, source:"structured"})
+          dateDoc:v.endDate||v.startDate||"", createdAt:v.updatedAt||v.createdAt||v.uploadedAt||"", createdBy:"",
+          fileSize:0, fileData:v.fileData||"", fileName:v.fileName||`${CERT_DOC_LABELS[g.key]||g.key}.pdf`, source:"structured"})
       })
     })
     ;(p.versions||[]).forEach((v,vi)=>{
-      if(!v.pdfData) return
+      // 실행계획서는 엑셀 업로드만으로는 PDF가 첨부되지 않는 경우가 많음(별도 "PDF 첨부" 단계 필요) — 그래도 회차 자체는 목록에 노출
       out.push({id:`SD_exec_${p.id}_${vi}`, title:`${p.name} — 실행계획서 ${v.round||vi+1}차`,
         category:"실행계획서", description:v.ver||"", tags:[], projectId:p.id,
         dateDoc:v.date||"", createdAt:v.date||"", createdBy:"",
-        fileSize:0, fileData:v.pdfData, fileName:v.pdfName||`실행계획서_${v.round||vi+1}차.pdf`, source:"structured"})
+        fileSize:0, fileData:v.pdfData||"", fileName:v.pdfName||`실행계획서_${v.round||vi+1}차.pdf`, source:"structured"})
     })
     ;(p.vendorDocs||[]).forEach(g=>{
       (g.versions||[]).forEach((v,vi)=>{
-        if(!v.fileData) return
         out.push({id:`SD_vdoc_${p.id}_${g.vendorName}_${vi}`, title:`${p.name} — ${g.vendorName} 계약서`,
           category:"협약서", description:v.versionLabel||"", tags:[], projectId:p.id,
           dateDoc:v.endDate||v.startDate||"", createdAt:v.updatedAt||v.createdAt||"", createdBy:"",
-          fileSize:0, fileData:v.fileData, fileName:v.fileName||`${g.vendorName}_계약서.pdf`, source:"structured"})
+          fileSize:0, fileData:v.fileData||"", fileName:v.fileName||`${g.vendorName}_계약서.pdf`, source:"structured"})
       })
     })
     ;(p.billingSubmissions||[]).forEach((b,bi)=>{
-      if(!b.fileData) return
       out.push({id:`SD_bill_${p.id}_${bi}`, title:`${p.name} — ${b.stage||"기성청구"}`,
         category:"기성청구서", description:"", tags:[], projectId:p.id,
         dateDoc:b.date||"", createdAt:b.date||"", createdBy:"",
-        fileSize:0, fileData:b.fileData, fileName:b.fileName||`기성청구서.pdf`, source:"structured"})
+        fileSize:0, fileData:b.fileData||"", fileName:b.fileName||`기성청구서.pdf`, source:"structured"})
     })
   })
   Object.entries(vendorsDB||{}).forEach(([name,info])=>{
     (info.certDocs||[]).forEach(g=>{
       (g.versions||[]).forEach((v,vi)=>{
-        if(!v.fileData) return
         out.push({id:`SD_vreg_${name}_${g.key}_${vi}`, title:`${name} — ${VENDOR_DOC_LABELS[g.key]||g.key}`,
           category:"업체등록서류", description:v.versionLabel||"", tags:[], projectId:"",
           dateDoc:v.endDate||v.startDate||"", createdAt:v.updatedAt||v.createdAt||"", createdBy:"",
-          fileSize:0, fileData:v.fileData, fileName:v.fileName||`${name}_${VENDOR_DOC_LABELS[g.key]||g.key}.pdf`, source:"structured"})
+          fileSize:0, fileData:v.fileData||"", fileName:v.fileName||`${name}_${VENDOR_DOC_LABELS[g.key]||g.key}.pdf`, source:"structured"})
       })
     })
   })
@@ -369,6 +366,7 @@ function DocCard({ doc, projects, onView, onEdit, onDelete }) {
           {doc.title} {doc.source==="structured"&&<span style={{fontSize:10.5,fontWeight:800,color:"#0E9C8C",background:"#E3F6F3",borderRadius:5,padding:"1px 5px",marginLeft:3}}>🔗</span>}
         </div>
         {doc.description&&<div style={{fontSize:13.2,color:"#6B7280",marginBottom:8,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{doc.description}</div>}
+        {!doc.fileData&&<div style={{fontSize:12,color:"#B45309",marginBottom:6}}>⚠ 원본파일 미보관 (정보만 등록됨)</div>}
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
           <div style={{fontSize:12.6,color:"#9CA3AF"}}>{doc.dateDoc||doc.createdAt?.slice(0,10)} · {doc.createdBy||""}</div>
           {doc.fileSize&&<span style={{fontSize:12,color:"#9CA3AF"}}>{fmtSize(doc.fileSize)}</span>}
@@ -422,6 +420,13 @@ function ViewModal({ doc, projects, currentUser, onClose, onEdit, onDelete }) {
         </div>
 
         {/* 파일 뷰어 */}
+        {!doc.fileData && (
+          <div style={{padding:"16px 24px",borderBottom:"1px solid #E5E7EB"}}>
+            <div style={{background:"#FEF3C7",borderRadius:10,padding:"14px 16px",fontSize:14.3,color:"#92400E"}}>
+              ⚠ 원본파일이 저장되어 있지 않습니다 — 8MB를 초과하는 파일은 정보만 저장되고 파일 자체는 보관되지 않거나, {doc.source==="structured"?"실행계획서처럼 파일 첨부 없이 정보만 등록된 경우입니다.":"파일 없이 정보만 등록된 경우입니다."}
+            </div>
+          </div>
+        )}
         {doc.fileData && (
           <div style={{padding:"16px 24px",borderBottom:"1px solid #E5E7EB"}}>
             {isImage && <img src={doc.fileData} alt={doc.title} style={{maxWidth:"100%",maxHeight:400,borderRadius:10,display:"block",margin:"0 auto"}}/>}
