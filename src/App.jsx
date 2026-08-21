@@ -1286,7 +1286,7 @@ export default function App() {
     setDeptBiz(prev=>renameObjKey(prev,oldName,newName))
     setPnlData(prev=>prev.map(r=>({...r,byDept:renameObjKey(r.byDept,oldName,newName)})))
     setCashflow(prev=>prev.map(m=>({...m,byDept:renameObjKey(m.byDept,oldName,newName)})))
-    setProjects(prev=>prev.map(p=>({...p,depts:(p.depts||[]).map(d=>d===oldName?newName:d)})))
+    setProjects(prev=>prev.map(p=>(p.depts||[]).includes(oldName)?{...p,depts:p.depts.map(d=>d===oldName?newName:d)}:p))
     return {ok:true}
   },[departments,STAFF_DEPTS])
 
@@ -1299,7 +1299,7 @@ export default function App() {
     setDeptBiz(prev=>omitKey(prev,name))
     setPnlData(prev=>prev.map(r=>({...r,byDept:omitKey(r.byDept,name)})))
     setCashflow(prev=>prev.map(m=>({...m,byDept:omitKey(m.byDept,name)})))
-    setProjects(prev=>prev.map(p=>({...p,depts:(p.depts||[]).filter(d=>d!==name)})))
+    setProjects(prev=>prev.map(p=>(p.depts||[]).includes(name)?{...p,depts:p.depts.filter(d=>d!==name)}:p))
     return {ok:true}
   },[departments,STAFF_DEPTS])
 
@@ -1705,13 +1705,11 @@ export default function App() {
     {id:"deptdash",  label:"🏢 본부별 현황",  group:"경영"},
     {id:"projects",  label:"🏗 프로젝트",     group:"프로젝트"},
     {id:"execplans", label:"📋 실행계획서",   group:"프로젝트"},
-    {id:"docsoverview", label:"📎 서류함",    group:"프로젝트"},
     {id:"history",   label:"📜 히스토리",     group:"프로젝트"},
     {id:"calendar",  label:"📅 일정 캘린더",  group:"프로젝트"},
     {id:"vendors",   label:"🤝 협력업체",     group:"관리"},
     {id:"contract",  label:"📄 계약서",       group:"관리"},
     {id:"archive",   label:"📁 아카이브",     group:"관리"},
-    {id:"docvault",  label:"📂 문서보관소",    group:"관리"},
     {id:"staffmgmt", label:"👤 직원관리",        group:"관리"},
     {id:"pnl",       label:"📉 손익분석",     group:"분석"},
     {id:"optimize",  label:"💰 외주비 원가통제", group:"분석"},
@@ -1724,9 +1722,9 @@ export default function App() {
       const s=JSON.parse(localStorage.getItem("sjs_tab_order")||"null")
       if(Array.isArray(s)&&s.length>0){
         // TAB_DEFAULTS에 있는데 저장된 목록에 없는 탭 자동 추가 (버전 업그레이드 대응)
-        const TAB_IDS_DEFAULT = ["home","analysis","notice","stats","gamify","deptdash","projects","execplans","history","calendar","vendors","contract","archive","docvault","staffmgmt","pnl","optimize","datahub","manual","auth_mgmt"]
+        const TAB_IDS_DEFAULT = ["home","analysis","notice","stats","gamify","deptdash","projects","execplans","history","calendar","vendors","contract","archive","staffmgmt","pnl","optimize","datahub","manual","auth_mgmt"]
         const savedIds = new Set(s.map(t=>t.id))
-        const merged = [...s]
+        const merged = [...s].filter(t=>t.id!=="docsoverview"&&t.id!=="docvault") // 서류함·문서보관소는 아카이브로 통합되어 제거됨
         const DEFAULT_MAP = {
           home:{id:"home",label:"🏠 홈",group:"경영"},
           analysis:{id:"analysis",label:"📊 경영분석",group:"경영"},
@@ -1736,13 +1734,11 @@ export default function App() {
           deptdash:{id:"deptdash",label:"🏢 본부별 현황",group:"경영"},
           projects:{id:"projects",label:"🏗 프로젝트",group:"프로젝트"},
           execplans:{id:"execplans",label:"📋 실행계획서",group:"프로젝트"},
-          docsoverview:{id:"docsoverview",label:"📎 서류함",group:"프로젝트"},
           history:{id:"history",label:"📜 히스토리",group:"프로젝트"},
           calendar:{id:"calendar",label:"📅 일정 캘린더",group:"프로젝트"},
           vendors:{id:"vendors",label:"🤝 협력업체",group:"관리"},
           contract:{id:"contract",label:"📄 계약서",group:"관리"},
           archive:{id:"archive",label:"📁 아카이브",group:"관리"},
-          docvault:{id:"docvault",label:"📂 문서보관소",group:"관리"},
           staffmgmt:{id:"staffmgmt",label:"👤 직원관리",group:"관리"},
           pnl:{id:"pnl",label:"📉 손익분석",group:"분석"},
           optimize:{id:"optimize",label:"💰 외주비 원가통제",group:"분석"},
@@ -2034,14 +2030,18 @@ export default function App() {
             })()}
           </div>
         )}
-        {tab==="docsoverview" && canReadTab("projects") && (
-          <DocsOverviewPage projects={projects} setTab={setTab} setSelProjId={setSelProjId} vendorsDB={vendorsDB}/>
-        )}
         {tab==="vendors" && canReadTab("vendors") && <VendorsTab projects={projects} setProjects={setProjects} vendorsDB={vendorsDB} setVendorsDB={setVendorsDB} vendorPayments={vendorPayments} setVendorPayments={setVendorPayments} canWrite={canWrite&&canWriteTab("vendors")} currentUser={currentUser} setTab={setTab} setSelProjId={setSelProjId} setSelVerIdx={setSelVerIdx}/>}
         {tab==="pnl"      && canReadTab("pnl")      && <PnlTab pnlData={pnlData} setPnlData={setPnlData} canWrite={canWrite&&canWriteTab("pnl")}/>}
         {tab==="optimize" && <CostControlTab projects={projects} vendorsDB={vendorsDB} cashItems={cashItems} vendorPayments={vendorPayments} canWrite={canWrite&&canWriteTab("optimize")}/>}
-        {tab==="archive"   && <ArchiveTab currentUser={currentUser} projects={projects}/>}
-        {tab==="docvault"  && <DocVaultPage currentUser={currentUser} projects={projects}/>}
+        {tab==="archive"   && <ArchiveTab currentUser={currentUser} projects={projects} vendorsDB={vendorsDB}/>}
+        {(tab==="docsoverview"||tab==="docvault") && canReadTab("projects") && (
+          <div style={{padding:60,textAlign:"center"}}>
+            <div style={{fontSize:15.4,color:"#64748B",marginBottom:14}}>
+              "서류함"과 "문서보관소"는 <b>아카이브</b>로 통합되었습니다. 기존에 등록하신 문서는 그대로 아카이브에서 검색·열람하실 수 있습니다.
+            </div>
+            <button onClick={()=>setTab("archive")} style={{padding:"10px 22px",background:"#0E9C8C",color:"#fff",border:"none",borderRadius:10,fontSize:14.8,fontWeight:700,cursor:"pointer"}}>📁 아카이브로 이동</button>
+          </div>
+        )}
         {tab==="staffmgmt" && <StaffMgmtPage currentUser={currentUser} deptStaff={deptStaff} setDeptStaff={setDeptStaff} DEPTS={DEPTS} DEPT_COLORS={DEPT_COLORS} setTab={setTab}/>}
         {tab==="contract"  && <ContractTab projects={projects} currentUser={currentUser}/>}
         {tab==="history"   && <ProjectHistoryPage projects={projects} currentUser={currentUser} cashItems={cashItems}/>}
@@ -3727,7 +3727,7 @@ function ProjectsTab({projects,setProjects,selProjId,setSelProjId,selVerIdx,setS
   },[projects,deptFilter,deptMultiFilter,typeFilter,searchQuery,pmFilter,dateFromFilter,dateToFilter,areaMinFilter])
 
   // 표 헤더 클릭 정렬 — 평당단가처럼 계산이 필요한 항목은 미리 계산해서 넣어둠
-  const {sortKey:projSortKey, sortFn:projSortFn, SortTh:ProjSortTh} = useSortTable("_updatedAt","desc")
+  const {sortKey:projSortKey, sortDir:projSortDir, resetSort:resetProjSort, sortFn:projSortFn, SortTh:ProjSortTh} = useSortTable("_updatedAt","desc")
   const sortedProjects = useMemo(()=>{
     const withComputed = filtered.map(p=>({
       ...p,
@@ -3976,7 +3976,16 @@ function ProjectsTab({projects,setProjects,selProjId,setSelProjId,selVerIdx,setS
             )}
           </div>
 
-          <Card title="프로젝트 목록" note={`행 클릭 → 실행계획서 상세 · ${PROJ_PER_PAGE}건씩 표시`}>
+          <Card title="프로젝트 목록" note={`행 클릭 → 실행계획서 상세 · ${PROJ_PER_PAGE}건씩 표시 · 기본 정렬: 최근 수정순`}>
+            {!(projSortKey==="_updatedAt"&&projSortDir==="desc") && (
+              <div style={{marginBottom:10}}>
+                <button onClick={()=>resetProjSort("_updatedAt","desc")}
+                  style={{padding:"5px 12px",background:"#F1F5F9",color:"#334155",border:"1px solid #E2E8F0",
+                    borderRadius:20,fontSize:12.5,fontWeight:700,cursor:"pointer"}}>
+                  🕒 최근 수정순으로
+                </button>
+              </div>
+            )}
             {/* 선택 삭제 툴바 */}
             {cmpIds.length>0&&currentUser?.role==="admin"&&(
               <div style={{background:"#FEE2E2",border:"1px solid #FECACA",borderRadius:8,
@@ -14625,7 +14634,7 @@ function useSortTable(defaultKey="contractTime", defaultDir="asc") {
     )
   }
 
-  return {sortKey, sortDir, toggleSort, sortFn, SortTh}
+  return {sortKey, sortDir, toggleSort, sortFn, SortTh, resetSort:(key=defaultKey,dir=defaultDir)=>{setSortKey(key);setSortDir(dir)}}
 }
 
 

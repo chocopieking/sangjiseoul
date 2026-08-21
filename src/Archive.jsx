@@ -3,7 +3,7 @@
 // 실제 파일은 Base64로 localStorage 저장 (소용량 문서 전용)
 // Supabase Storage 연결 시 자동으로 클라우드 저장으로 전환
 // ══════════════════════════════════════════════════════════════
-import { useState, useMemo, useRef } from "react"
+import { useState, useMemo, useRef, useEffect } from "react"
 import { useDepts } from "./DeptContext.jsx"
 
 // ── 색상 ─────────────────────────────────────────────────────
@@ -18,13 +18,19 @@ const C = {
 // ── 문서 분류 (건축설계사무소 특화) ──────────────────────────
 const DOC_CATS = {
   "계약서":     { icon:"📄", color:"#0E9C8C", desc:"설계용역계약서, 협약서" },
-  "협약서":     { icon:"🤝", color:"#0EA86E", desc:"MOU, 협약서" },
+  "협약서":     { icon:"🤝", color:"#0EA86E", desc:"MOU, 협약서, 협력업체 계약서" },
+  "보증서":     { icon:"🛡️", color:"#DC2626", desc:"계약이행보증서·손해배상공제증권" },
+  "실적증명서": { icon:"🏆", color:"#059669", desc:"실적증명서" },
+  "건축물대장": { icon:"🏢", color:"#0E7490", desc:"건축물대장" },
+  "실행계획서": { icon:"📐", color:"#2563EB", desc:"프로젝트별 실행계획서" },
+  "기성청구서": { icon:"🧾", color:"#0891B2", desc:"기성 청구·세금계산서" },
+  "업체등록서류": { icon:"📇", color:"#9333EA", desc:"협력업체 사업자등록증·통장사본 등" },
   "사업자등록": { icon:"🏢", color:"#F59E0B", desc:"협력업체·발주처 사업자등록증" },
   "회의록":     { icon:"📝", color:"#534AB7", desc:"착수·진행·완료 회의록" },
   "보고서":     { icon:"📊", color:"#0F6E56", desc:"임원보고, 경영보고" },
   "견적서":     { icon:"💰", color:"#D85A30", desc:"외주 견적, 비교표" },
   "인허가":     { icon:"🏛", color:"#A32D2D", desc:"건축허가, 심의서류" },
-  "기타":       { icon:"📂", color:"#6B7280", desc:"기타 문서" },
+  "기타":       { icon:"📂", color:"#6B7280", desc:"기타 문서(공문 등)" },
 }
 
 // ── 허용 파일 형식 (소용량 문서만) ───────────────────────────
@@ -48,8 +54,96 @@ const STORE_KEY = "sjs_archive_docs"
 const loadDocs = () => { try{ return JSON.parse(localStorage.getItem(STORE_KEY)||"[]") }catch{ return [] } }
 const saveDocs = docs => { try{ localStorage.setItem(STORE_KEY, JSON.stringify(docs)) }catch(e){ alert("저장 용량 초과: "+e.message) } }
 
-export function ArchiveTab({ currentUser, projects }) {
+// ── 기존 "문서보관소"(sjs_docvault)에 등록돼 있던 문서를 한 번만 이 아카이브로 옮겨온다 ──
+// 서류함/아카이브/문서보관소 3곳이 중복되어 있던 것을 하나로 통합하기 위한 1회성 이전 작업.
+const VAULT_CAT_MAP = {"연간계약서":"계약서","협력업체계약서":"협약서","공문(수신)":"기타","공문(발신)":"기타","회의록":"회의록","기타":"기타"}
+function migrateDocVaultOnce(projects) {
+  const MIGRATED_FLAG = "sjs_docvault_migrated_v1"
+  if(localStorage.getItem(MIGRATED_FLAG)) return
+  let vaultDocs = []
+  try{ vaultDocs = JSON.parse(localStorage.getItem("sjs_docvault")||"[]") }catch{}
+  if(vaultDocs.length){
+    const existing = loadDocs()
+    const migrated = vaultDocs.map(d=>{
+      const matchedProj = d.project ? (projects||[]).find(p=>p.name.includes(d.project)||d.project.includes(p.name)) : null
+      return {
+        id: `MIG_${d.id||Date.now()}_${Math.random().toString(36).slice(2,7)}`,
+        title: d.title || "(제목없음)",
+        category: VAULT_CAT_MAP[d.category] || "기타",
+        description: [d.category&&!VAULT_CAT_MAP[d.category]?`[${d.category}]`:"", d.summary||"", !matchedProj&&d.project?`(관련: ${d.project})`:""].filter(Boolean).join(" ").trim(),
+        tags: (d.tags||"").split(",").map(t=>t.trim()).filter(Boolean),
+        projectId: matchedProj?.id || "",
+        dateDoc: d.date || "",
+        createdAt: d.createdAt || new Date().toISOString(),
+        createdBy: d.createdBy || "",
+        fileSize: d.fileSize || 0,
+        fileData: d.fileData || null,
+        fileName: d.fileName || "",
+      }
+    })
+    saveDocs([...migrated, ...existing])
+  }
+  localStorage.setItem(MIGRATED_FLAG, "1")
+}
+
+// ── 프로젝트에 구조화되어 저장된 서류(계약서 8종·실행계획서·협력업체계약서·기성청구서·업체등록서류)를
+//    아카이브와 같은 모양으로 변환 — 읽기전용(수정·삭제 불가, 원본은 각자의 프로젝트/업체 화면에서 관리)
+const CERT_DOC_LABELS = {contract:"계약서",perfBond:"계약이행보증서",liabilityCert:"손해배상공제증권",experienceCert:"실적증명서",buildingReg:"건축물대장",jvMou:"업무협약서",jvSettlement:"합사정산서",contractApproval:"계약체결보고서"}
+const CERT_DOC_CAT   = {contract:"계약서",perfBond:"보증서",liabilityCert:"보증서",experienceCert:"실적증명서",buildingReg:"건축물대장",jvMou:"협약서",jvSettlement:"기타",contractApproval:"계약서"}
+const VENDOR_DOC_LABELS = {vendorApp:"등록신청서",bizReg:"사업자등록증",techLicense:"기술자면허증",corpReg:"법인등기부등본",bankbook:"통장사본",newTech:"신기술보유현황",patent:"특허기술보유현황",taxInvoice2:"세금계산서",vendorContract2:"계약서",quote:"견적서",etc:"기타서류"}
+function buildStructuredDocs(projects=[], vendorsDB={}) {
+  const out = []
+  projects.forEach(p=>{
+    (p.certDocs||[]).forEach(g=>{
+      (g.versions||[]).forEach((v,vi)=>{
+        if(!v.fileData) return
+        out.push({id:`SD_cert_${p.id}_${g.key}_${vi}`, title:`${p.name} — ${CERT_DOC_LABELS[g.key]||g.key}`,
+          category:CERT_DOC_CAT[g.key]||"기타", description:v.versionLabel||"", tags:[], projectId:p.id,
+          dateDoc:v.endDate||v.startDate||"", createdAt:v.updatedAt||v.createdAt||"", createdBy:"",
+          fileSize:0, fileData:v.fileData, fileName:v.fileName||`${CERT_DOC_LABELS[g.key]||g.key}.pdf`, source:"structured"})
+      })
+    })
+    ;(p.versions||[]).forEach((v,vi)=>{
+      if(!v.pdfData) return
+      out.push({id:`SD_exec_${p.id}_${vi}`, title:`${p.name} — 실행계획서 ${v.round||vi+1}차`,
+        category:"실행계획서", description:v.ver||"", tags:[], projectId:p.id,
+        dateDoc:v.date||"", createdAt:v.date||"", createdBy:"",
+        fileSize:0, fileData:v.pdfData, fileName:v.pdfName||`실행계획서_${v.round||vi+1}차.pdf`, source:"structured"})
+    })
+    ;(p.vendorDocs||[]).forEach(g=>{
+      (g.versions||[]).forEach((v,vi)=>{
+        if(!v.fileData) return
+        out.push({id:`SD_vdoc_${p.id}_${g.vendorName}_${vi}`, title:`${p.name} — ${g.vendorName} 계약서`,
+          category:"협약서", description:v.versionLabel||"", tags:[], projectId:p.id,
+          dateDoc:v.endDate||v.startDate||"", createdAt:v.updatedAt||v.createdAt||"", createdBy:"",
+          fileSize:0, fileData:v.fileData, fileName:v.fileName||`${g.vendorName}_계약서.pdf`, source:"structured"})
+      })
+    })
+    ;(p.billingSubmissions||[]).forEach((b,bi)=>{
+      if(!b.fileData) return
+      out.push({id:`SD_bill_${p.id}_${bi}`, title:`${p.name} — ${b.stage||"기성청구"}`,
+        category:"기성청구서", description:"", tags:[], projectId:p.id,
+        dateDoc:b.date||"", createdAt:b.date||"", createdBy:"",
+        fileSize:0, fileData:b.fileData, fileName:b.fileName||`기성청구서.pdf`, source:"structured"})
+    })
+  })
+  Object.entries(vendorsDB||{}).forEach(([name,info])=>{
+    (info.certDocs||[]).forEach(g=>{
+      (g.versions||[]).forEach((v,vi)=>{
+        if(!v.fileData) return
+        out.push({id:`SD_vreg_${name}_${g.key}_${vi}`, title:`${name} — ${VENDOR_DOC_LABELS[g.key]||g.key}`,
+          category:"업체등록서류", description:v.versionLabel||"", tags:[], projectId:"",
+          dateDoc:v.endDate||v.startDate||"", createdAt:v.updatedAt||v.createdAt||"", createdBy:"",
+          fileSize:0, fileData:v.fileData, fileName:v.fileName||`${name}_${VENDOR_DOC_LABELS[g.key]||g.key}.pdf`, source:"structured"})
+      })
+    })
+  })
+  return out
+}
+
+export function ArchiveTab({ currentUser, projects, vendorsDB={} }) {
   const { STAFF_DEPTS } = useDepts()
+  useEffect(()=>{ migrateDocVaultOnce(projects) },[]) // eslint-disable-line
   const [docs, setDocsRaw] = useState(loadDocs)
   const setDocs = d => { const next=typeof d==="function"?d(docs):d; saveDocs(next); setDocsRaw(next) }
 
@@ -60,11 +154,17 @@ export function ArchiveTab({ currentUser, projects }) {
   const [selDoc,      setSelDoc]      = useState(null)
   const [showUpload,  setShowUpload]  = useState(false)
   const [editDoc,     setEditDoc]     = useState(null)
+  const [showStructured, setShowStructured] = useState(true) // 프로젝트 연동 서류 포함 여부
 
   const canWrite = currentUser?.role==="admin" || currentUser?.write===true
 
+  // 프로젝트·업체에 구조화되어 저장된 서류(계약서 8종·실행계획서·협력업체계약서·기성청구서·업체등록서류)를
+  // 수동 업로드 문서와 같은 목록에서 함께 검색·열람할 수 있도록 합침 (구조화 서류는 읽기전용)
+  const structuredDocs = useMemo(()=>showStructured?buildStructuredDocs(projects, vendorsDB):[], [projects, vendorsDB, showStructured])
+  const allDocs = useMemo(()=>[...docs, ...structuredDocs], [docs, structuredDocs])
+
   const filtered = useMemo(() => {
-    let r = [...docs]
+    let r = [...allDocs]
     if(catFilter)  r = r.filter(d => d.category===catFilter)
     if(projFilter) r = r.filter(d => d.projectId===projFilter)
     if(search.trim()) {
@@ -76,12 +176,12 @@ export function ArchiveTab({ currentUser, projects }) {
         d.category?.toLowerCase().includes(q)
       )
     }
-    return r.sort((a,b)=>new Date(b.createdAt)-new Date(a.createdAt))
-  }, [docs, catFilter, projFilter, search])
+    return r.sort((a,b)=>new Date(b.dateDoc||b.createdAt||0)-new Date(a.dateDoc||a.createdAt||0))
+  }, [allDocs, catFilter, projFilter, search])
 
   const stats = useMemo(() =>
-    Object.fromEntries(Object.keys(DOC_CATS).map(k=>[k, docs.filter(d=>d.category===k).length]))
-  , [docs])
+    Object.fromEntries(Object.keys(DOC_CATS).map(k=>[k, allDocs.filter(d=>d.category===k).length]))
+  , [allDocs])
 
   const totalSize = useMemo(() => docs.reduce((s,d)=>s+(d.fileSize||0),0), [docs])
 
@@ -97,10 +197,10 @@ export function ArchiveTab({ currentUser, projects }) {
       <div style={{background:"linear-gradient(135deg,#1A3B6E 0%,#0E9C8C 100%)",borderRadius:16,padding:"22px 28px",marginBottom:20,color:"#fff"}}>
         <div style={{display:"flex",alignItems:"flex-start",justifyContent:"space-between",flexWrap:"wrap",gap:12}}>
           <div>
-            <div style={{fontSize:24.2,fontWeight:800,marginBottom:4}}>📁 문서 아카이브</div>
-            <div style={{fontSize:14.8,opacity:.8}}>계약서·협약서·사업자등록증·회의록 등 중요 문서를 보관합니다</div>
+            <div style={{fontSize:24.2,fontWeight:800,marginBottom:4}}>📁 아카이브 — 모든 서류 통합 검색</div>
+            <div style={{fontSize:14.8,opacity:.8}}>수동 등록 문서(계약서·협약서·회의록 등)와 프로젝트·업체에 저장된 서류(계약서 8종·실행계획서·기성청구서·업체등록서류)를 한 곳에서 검색합니다</div>
             <div style={{fontSize:13.2,opacity:.6,marginTop:4}}>
-              ⚠ 건축설계 도면·대용량 파일은 NAS에 보관 · 이 시스템은 소용량 문서 전용 (전체 {fmtSize(totalSize)} 사용 중)
+              ⚠ 건축설계 도면·대용량 파일은 NAS에 보관 · 수동 등록 문서는 소용량 전용 (전체 {fmtSize(totalSize)} 사용 중)
             </div>
           </div>
           {canWrite && (
@@ -115,7 +215,7 @@ export function ArchiveTab({ currentUser, projects }) {
         <div style={{display:"flex",gap:7,flexWrap:"wrap",marginTop:18}}>
           <button onClick={()=>setCatFilter("")}
             style={{padding:"6px 14px",borderRadius:20,border:`1.5px solid ${catFilter?"rgba(255,255,255,.3)":"#fff"}`,background:catFilter?"rgba(255,255,255,.1)":"rgba(255,255,255,.25)",color:"#fff",fontSize:14.3,fontWeight:700,cursor:"pointer"}}>
-            전체 ({docs.length})
+            전체 ({allDocs.length})
           </button>
           {Object.entries(DOC_CATS).map(([k,v])=>(
             <button key={k} onClick={()=>setCatFilter(f=>f===k?"":k)}
@@ -130,7 +230,7 @@ export function ArchiveTab({ currentUser, projects }) {
       <div style={{display:"flex",gap:9,marginBottom:16,alignItems:"center",flexWrap:"wrap"}}>
         <div style={{flex:1,minWidth:220,position:"relative"}}>
           <span style={{position:"absolute",left:12,top:"50%",transform:"translateY(-50%)",fontSize:16.5}}>🔍</span>
-          <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="제목·설명·태그 검색"
+          <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="제목·설명·태그·프로젝트 등 통합 검색"
             style={{width:"100%",padding:"10px 12px 10px 36px",border:"1.5px solid #E5E7EB",borderRadius:10,fontSize:15.4,boxSizing:"border-box"}}/>
         </div>
         <select value={projFilter} onChange={e=>setProjFilter(e.target.value)}
@@ -139,6 +239,10 @@ export function ArchiveTab({ currentUser, projects }) {
           {(projects||[]).map(p=><option key={p.id} value={p.id}>{p.name.slice(0,20)}</option>)}
           <option value="__none">공통 (프로젝트 무관)</option>
         </select>
+        <label style={{display:"flex",alignItems:"center",gap:5,fontSize:13.2,color:"#374151",cursor:"pointer",whiteSpace:"nowrap"}}>
+          <input type="checkbox" checked={showStructured} onChange={e=>setShowStructured(e.target.checked)}/>
+          프로젝트·업체 서류 포함
+        </label>
         <div style={{display:"flex",gap:2,border:"1.5px solid #E5E7EB",borderRadius:10,overflow:"hidden"}}>
           {[["grid","⊞"],["list","☰"]].map(([v,l])=>(
             <button key={v} onClick={()=>setViewMode(v)}
@@ -166,8 +270,8 @@ export function ArchiveTab({ currentUser, projects }) {
           {filtered.map(doc=>(
             <DocCard key={doc.id} doc={doc} projects={projects}
               onView={()=>setSelDoc(doc)}
-              onEdit={canWrite?()=>setEditDoc(doc):null}
-              onDelete={canWrite?()=>deleteDoc(doc.id):null}/>
+              onEdit={canWrite&&doc.source!=="structured"?()=>setEditDoc(doc):null}
+              onDelete={canWrite&&doc.source!=="structured"?()=>deleteDoc(doc.id):null}/>
           ))}
         </div>
       )}
@@ -198,7 +302,7 @@ export function ArchiveTab({ currentUser, projects }) {
                       </span>
                     </td>
                     <td style={{padding:"12px 16px"}}>
-                      <div style={{fontSize:15.4,fontWeight:600,color:"#111827"}}>{doc.title}</div>
+                      <div style={{fontSize:15.4,fontWeight:600,color:"#111827"}}>{doc.title} {doc.source==="structured"&&<span title="프로젝트/업체 화면에 저장된 서류 — 여기서는 열람만 가능" style={{fontSize:11,fontWeight:800,color:"#0E9C8C",background:"#E3F6F3",borderRadius:5,padding:"1px 6px",marginLeft:4}}>🔗 연동</span>}</div>
                       {doc.description&&<div style={{fontSize:13.2,color:"#6B7280",marginTop:2}}>{doc.description.slice(0,50)}</div>}
                     </td>
                     <td style={{padding:"12px 16px",textAlign:"center",fontSize:14.3,color:"#374151"}}>{proj?.name?.slice(0,14)||"-"}</td>
@@ -207,8 +311,8 @@ export function ArchiveTab({ currentUser, projects }) {
                     <td style={{padding:"12px 16px",textAlign:"center",fontSize:13.2,color:"#6B7280"}}>{doc.createdBy||"-"}</td>
                     <td style={{padding:"12px 16px",textAlign:"center"}}>
                       <div style={{display:"flex",gap:5,justifyContent:"center"}}>
-                        {canWrite&&<button onClick={e=>{e.stopPropagation();setEditDoc(doc)}} style={{padding:"4px 10px",background:"#EEF3FF",color:"#0E9C8C",border:"none",borderRadius:7,fontSize:13.2,fontWeight:600,cursor:"pointer"}}>수정</button>}
-                        {canWrite&&<button onClick={e=>{e.stopPropagation();deleteDoc(doc.id)}} style={{padding:"4px 10px",background:"#FEE2E2",color:"#EF4444",border:"none",borderRadius:7,fontSize:13.2,fontWeight:600,cursor:"pointer"}}>삭제</button>}
+                        {canWrite&&doc.source!=="structured"&&<button onClick={e=>{e.stopPropagation();setEditDoc(doc)}} style={{padding:"4px 10px",background:"#EEF3FF",color:"#0E9C8C",border:"none",borderRadius:7,fontSize:13.2,fontWeight:600,cursor:"pointer"}}>수정</button>}
+                        {canWrite&&doc.source!=="structured"&&<button onClick={e=>{e.stopPropagation();deleteDoc(doc.id)}} style={{padding:"4px 10px",background:"#FEE2E2",color:"#EF4444",border:"none",borderRadius:7,fontSize:13.2,fontWeight:600,cursor:"pointer"}}>삭제</button>}
                       </div>
                     </td>
                   </tr>
@@ -226,8 +330,8 @@ export function ArchiveTab({ currentUser, projects }) {
         onSave={updated=>{setDocs(prev=>prev.map(d=>d.id===updated.id?updated:d));setEditDoc(null)}}/>}
       {selDoc && <ViewModal doc={selDoc} projects={projects} currentUser={currentUser}
         onClose={()=>setSelDoc(null)}
-        onEdit={canWrite?()=>{setEditDoc(selDoc);setSelDoc(null)}:null}
-        onDelete={canWrite?()=>{deleteDoc(selDoc.id)}:null}/>}
+        onEdit={canWrite&&selDoc.source!=="structured"?()=>{setEditDoc(selDoc);setSelDoc(null)}:null}
+        onDelete={canWrite&&selDoc.source!=="structured"?()=>{deleteDoc(selDoc.id)}:null}/>}
     </div>
   )
 }
@@ -262,7 +366,7 @@ function DocCard({ doc, projects, onView, onEdit, onDelete }) {
         </div>
         <div style={{fontSize:15.4,fontWeight:700,color:"#111827",lineHeight:1.4,marginBottom:6,
           overflow:"hidden",textOverflow:"ellipsis",display:"-webkit-box",WebkitLineClamp:2,WebkitBoxOrient:"vertical"}}>
-          {doc.title}
+          {doc.title} {doc.source==="structured"&&<span style={{fontSize:10.5,fontWeight:800,color:"#0E9C8C",background:"#E3F6F3",borderRadius:5,padding:"1px 5px",marginLeft:3}}>🔗</span>}
         </div>
         {doc.description&&<div style={{fontSize:13.2,color:"#6B7280",marginBottom:8,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{doc.description}</div>}
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>

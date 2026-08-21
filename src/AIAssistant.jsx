@@ -94,8 +94,8 @@ function buildContext(data) {
   // 문서보관소(공문/회의록/연간계약서 등) — 브라우저 로컬 저장소 기반
   let vaultSummary = ""
   try{
-    const vaultDocs = JSON.parse(localStorage.getItem("sjs_docvault")||"[]")
-    vaultSummary = vaultDocs.map(d=>`[${d.category||"기타"}] ${d.title||"(제목없음)"} (${d.year||"?"}년${d.project?", 프로젝트:"+d.project:""}${d.fileData?", PDF있음":""})`).join("\n")
+    const vaultDocs = JSON.parse(localStorage.getItem("sjs_archive_docs")||"[]")
+    vaultSummary = vaultDocs.map(d=>`[${d.category||"기타"}] ${d.title||"(제목없음)"} (${(d.dateDoc||d.createdAt||"").slice(0,10)||"날짜없음"}${d.fileData?", PDF있음":""})`).join("\n")
   }catch{}
 
   // 프로젝트별 주요일정 기록(주간보고 > 주요일정) — "OOO프로젝트 주요일정/히스토리 알려줘" 질의에 사용
@@ -160,7 +160,7 @@ ${billingSummary || "(등록된 기성청구서 없음)"}
 === 협력업체별 등록서류 현황 (사업자등록증·통장사본·면허증 등) ===
 ${vendorRegSummary || "(등록된 협력업체 서류 없음)"}
 
-=== 문서보관소 (연간계약서/협력업체계약서/공문수신/공문발신/회의록/기타) ===
+=== 아카이브 수동 등록 문서 (계약서/협약서/보증서/회의록/보고서/견적서/인허가/기타 등) ===
 ${vaultSummary || "(등록된 문서 없음)"}
 
 === 프로젝트별 주요일정 기록 (주간보고 > 주요일정) ===
@@ -381,7 +381,7 @@ docKey: billing
 docKey: vendorReg
 <<SJS_DOCLIST>>{"docKey":"vendorReg","subKey":"bizReg","items":[{"vendor_query":"업체명"}],"summary":"..."}
 
-**F. 문서보관소(연간계약서/공문수신/공문발신/회의록/기타)** — "문서보관소" 데이터 참고. vault_query는 제목·태그·프로젝트명 등 자유 검색어.
+**F. 아카이브 수동 등록 문서(계약서/협약서/보증서/회의록/보고서/견적서/인허가/기타)** — "아카이브 수동 등록 문서" 데이터 참고. vault_query는 제목·태그·프로젝트명 등 자유 검색어.
 docKey: vault
 <<SJS_DOCLIST>>{"docKey":"vault","items":[{"vault_query":"검색어"}],"summary":"..."}
 
@@ -482,14 +482,14 @@ docKey: vault
             })
           } else if(parsed.docKey==="vault"){
             let vaultDocs = []
-            try{ vaultDocs = JSON.parse(localStorage.getItem("sjs_docvault")||"[]") }catch{}
+            try{ vaultDocs = JSON.parse(localStorage.getItem("sjs_archive_docs")||"[]") }catch{}
             const queries = (parsed.items||[]).map(it=>(it.vault_query||"").trim().toLowerCase()).filter(Boolean)
             const matched = queries.length
-              ? vaultDocs.filter(d=>queries.some(q=>(d.title||"").toLowerCase().includes(q)||(d.tags||"").toLowerCase().includes(q)||(d.project||"").toLowerCase().includes(q)||(d.category||"").toLowerCase().includes(q)))
+              ? vaultDocs.filter(d=>queries.some(q=>(d.title||"").toLowerCase().includes(q)||(d.tags||[]).join(",").toLowerCase().includes(q)||(d.description||"").toLowerCase().includes(q)||(d.category||"").toLowerCase().includes(q)))
               : vaultDocs
             items = matched.map((d,i)=>({
               projectId:`vault_${i}`, projectName:`[${d.category||"기타"}] ${d.title||"(제목없음)"}`,
-              doc:{versionLabel:d.year?`${d.year}년`:"", docNo:d.date||"", endDate:"", fileData:d.fileData||"", fileName:d.fileName||""}
+              doc:{versionLabel:d.description||"", docNo:(d.dateDoc||d.createdAt||"").slice(0,10), endDate:"", fileData:d.fileData||"", fileName:d.fileName||""}
             }))
           } else {
             // 기존 8종 프로젝트 첨부서류
