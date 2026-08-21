@@ -946,8 +946,10 @@ export default function App() {
     return ()=>{ cancelled = true }
   },[])
   const setProjectsPersist = mkPersist(setProjectsRaw, "sjs_projects")
-  // 신규 생성되거나 실제로 내용이 바뀐 프로젝트에만 updatedAt을 자동으로 찍어줌 — 목록 화면에서
-  // "최근 수정된/새로 만든 프로젝트가 위로" 정렬하는 데 사용 (참조가 달라진 프로젝트 = 방금 수정된 것)
+  // 신규 생성되거나 "실제로 내용이 바뀐" 프로젝트에만 updatedAt을 자동으로 찍어줌 — 목록 화면에서
+  // "최근 수정된/새로 만든 프로젝트가 위로" 정렬하는 데 사용.
+  // 참조(reference)가 아니라 내용을 비교한다 — 데이터 재로드·엑셀 재업로드처럼 배열 전체를 다시
+  // 만들기만 하고 실제 값은 그대로인 경우까지 "방금 수정됨"으로 잘못 찍히는 것을 막기 위함.
   const setProjects = (updater) => {
     setProjectsPersist(prev => {
       const next = typeof updater==="function" ? updater(prev) : updater
@@ -955,8 +957,12 @@ export default function App() {
       const prevMap = new Map(prev.map(p=>[p.id,p]))
       return next.map(np=>{
         const op = prevMap.get(np.id)
-        if(!op || op!==np) return {...np, updatedAt: now}
-        return np
+        if(!op) return {...np, updatedAt: np.updatedAt || now} // 신규 생성
+        if(op===np) return np // 참조도 같으면 당연히 무변경
+        const {updatedAt:_a, ...opRest} = op
+        const {updatedAt:_b, ...npRest} = np
+        if(JSON.stringify(opRest)===JSON.stringify(npRest)) return {...np, updatedAt: op.updatedAt} // 내용은 그대로 — 타임스탬프 건드리지 않음
+        return {...np, updatedAt: now}
       })
     })
   }
