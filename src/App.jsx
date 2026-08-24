@@ -4087,7 +4087,7 @@ function ProjectsTab({projects,setProjects,selProjId,setSelProjId,selVerIdx,setS
                           {p.linkedProjectId && !inferProjectStage(p) && <span title="다른 단계(D/W 등)와 연결된 프로젝트입니다" style={{fontSize:11,fontWeight:800,padding:"2px 7px",borderRadius:5,marginRight:5,background:"#F1F5F9",color:"#475569"}}>🔗 연결됨</span>}
                           {p.linkedProjectId && inferProjectStage(p) && <span title="다른 단계(D/W 등)와 연결된 프로젝트입니다" style={{marginRight:4,fontSize:12}}>🔗</span>}
                           {p.name}
-                          {p.updatedAt && <div style={{fontSize:10.5,color:"#CBD5E1",fontWeight:400,whiteSpace:"nowrap"}}>{relTime(p.updatedAt)}</div>}
+                          {p.updatedAt && <div style={{fontSize:12,color:"#0E9C8C",fontWeight:700,whiteSpace:"nowrap",marginTop:2}}>🕒 {relTime(p.updatedAt)}</div>}
                         </>}
                       </td>
                       <td style={PTD("left")}>{p.depts.join(", ")}</td>
