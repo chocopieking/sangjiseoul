@@ -2007,87 +2007,7 @@ export default function App() {
         {tab==="cashflow" && canReadTab("cashflow") && <CashflowTab cashflow={effectiveCashflow} setCashflow={setCashflow} currentUser={currentUser} projects={projects} setProjects={setProjects} projectCashflowByDept={projectCashflowByDept} cashItems={cashItems} setCashItems={setCashItems} saleItems={saleItems} setSaleItems={setSaleItems} setTab={setTab} setSelProjId={setSelProjId} setDetailTab={setDetailTab} yearTargets={yearTargets} setYearTargets={setYearTargets} deptBiz={deptBiz} deptStaff={deptStaff} staffMonthly={staffMonthly} staffTarget={staffTarget} contractItems={contractItems} setContractItems={setContractItems}/>}
         {tab==="projects" && canReadTab("projects") && <ProjectsTab projects={projects} setProjects={setProjects} selProjId={selProjId} setSelProjId={setSelProjId} selVerIdx={selVerIdx} setSelVerIdx={setSelVerIdx} cmpIds={cmpIds} setCmpIds={setCmpIds} showNewVer={showNewVer} setShowNewVer={setShowNewVer} canWrite={canWrite&&canWriteTab("projects")} contractTypes={contractTypes} currentUser={currentUser} setDetailTab={setDetailTab} detailTab={detailTab} cashItems={cashItems} setCashItems={setCashItems} vendorsDB={vendorsDB} projBaseline={projBaseline} setProjBaseline={setProjBaseline} contractItems={contractItems} vendorPayments={vendorPayments} markProjectsDeleted={markProjectsDeleted}/>}
         {tab==="execplans" && canReadTab("projects") && (
-          <div style={S.card()}>
-            <div style={{display:"flex",alignItems:"flex-start",justifyContent:"space-between",flexWrap:"wrap",gap:10,marginBottom:4}}>
-              <div style={{fontSize:21,fontWeight:800,color:C.navy}}>📋 전체 프로젝트 실행계획서 현황</div>
-            </div>
-            <div style={{fontSize:15.4,color:"#64748B",marginBottom:20}}>프로젝트별 최신 실행계획서 회차를 한눈에 모아봅니다. 각 금액 아래 파란 숫자는 합계(예상용역금액) 대비 비율(%)입니다. 행을 클릭하면 해당 프로젝트 상세로 이동하고, 여러 프로젝트를 나란히 비교하려면 "프로젝트 › 🔍 비교" 탭을 이용하세요.</div>
-            {(()=>{
-              const rows = projects
-                .filter(p=>(p.versions||[]).length>0)
-                .map(p=>{
-                  const versions=p.versions||[]
-                  const latest=versions.reduce((mx,v)=>(!mx||(v.round||0)>(mx.round||0))?v:mx,versions[0])
-                  const latestIdx=versions.indexOf(latest)
-                  const pnl=calcPnlTotals(latest)
-                  return {p,versions,latest,latestIdx,pnl}
-                })
-              if(rows.length===0) return <div style={{padding:"40px 0",textAlign:"center",color:"#94A3B8",fontSize:16.5}}>등록된 실행계획서가 없습니다.</div>
-              const downloadXlsx = () => {
-                const data = rows.map(({p,versions,latest,pnl})=>{
-                  const tot=pnl.total||0
-                  const pct=v=>tot>0?+(v/tot*100).toFixed(1):0
-                  return {
-                    "프로젝트":p.name, "코드":p.code||"", "최신회차":`${latest.round||1}차`, "회차수":versions.length, "작성일":latest.date||"",
-                    "직접인건비":latest.laborCost||0, "직접인건비(%)":pct(latest.laborCost),
-                    "직접경비":latest.directExp||0, "직접경비(%)":pct(latest.directExp),
-                    "외주용역비":latest.subContract||0, "외주용역비(%)":pct(latest.subContract),
-                    "간접비":pnl.indirect||0, "간접비(%)":pct(pnl.indirect),
-                    "이윤":pnl.profit||0, "이윤(%)":pct(pnl.profit),
-                    "합계(예상용역금액)":tot,
-                  }
-                })
-                const ws = XLSX.utils.json_to_sheet(data)
-                ws["!cols"] = [{wch:32},{wch:14},{wch:8},{wch:8},{wch:11},{wch:13},{wch:9},{wch:13},{wch:9},{wch:14},{wch:9},{wch:13},{wch:9},{wch:13},{wch:9},{wch:16}]
-                const wb = XLSX.utils.book_new()
-                XLSX.utils.book_append_sheet(wb, ws, "실행계획서현황")
-                XLSX.writeFile(wb, `상지서울_실행계획서현황_${new Date().toISOString().slice(0,10)}.xlsx`)
-              }
-              return (<>
-                <div style={{display:"flex",justifyContent:"flex-end",marginBottom:10}}>
-                  <button onClick={downloadXlsx} style={{...S.btn(C.green),padding:"7px 16px",fontSize:14.3,display:"flex",alignItems:"center",gap:6}}>
-                    ⬇ 엑셀 다운로드 ({rows.length}건)
-                  </button>
-                </div>
-                <div style={{overflowX:"auto",overflowY:"auto",maxHeight:1400,border:"1px solid #F1F5F9",borderRadius:8}}>
-                <table style={{width:"100%",borderCollapse:"collapse"}}>
-                  <thead style={{position:"sticky",top:0,zIndex:1}}><tr>
-                    {["프로젝트","최신 회차","작성일","직접인건비","직접경비","외주용역비","간접비","이윤","합계(예상용역금액)"].map((h,i)=>
-                      <th key={h} style={S.th(i===0?"left":"right")}>{h}</th>)}
-                  </tr></thead>
-                  <tbody>
-                    {rows.map(({p,versions,latest,latestIdx,pnl})=>{
-                      const tot = pnl.total||0
-                      const pct = v => tot>0 ? `${(v/tot*100).toFixed(1)}%` : "-"
-                      const amtCell = (v) => (
-                        <td style={S.td("right")}>
-                          <div>{fW(v)}</div>
-                          <div style={{fontSize:14.3,color:C.navyM,fontWeight:700,marginTop:1}}>{pct(v)}</div>
-                        </td>
-                      )
-                      return (
-                      <tr key={p.id} style={{cursor:"pointer"}}
-                        onMouseEnter={e=>e.currentTarget.style.background="#F8FAFC"}
-                        onMouseLeave={e=>e.currentTarget.style.background=""}
-                        onClick={()=>{ setTab("projects"); setSelProjId(p.id); setSelVerIdx(Math.max(0,latestIdx)); setDetailTab("basic") }}>
-                        <td style={{...S.td("left"),fontWeight:700,color:C.navyM,maxWidth:260,overflow:"hidden",textOverflow:"ellipsis"}} title={p.name}>{p.name}</td>
-                        <td style={S.td("right")}>{latest.round||1}차 <span style={{color:"#94A3B8",fontSize:13.2}}>({versions.length}개 회차)</span></td>
-                        <td style={S.td("right")}>{latest.date||"-"}</td>
-                        {amtCell(latest.laborCost)}
-                        {amtCell(latest.directExp)}
-                        {amtCell(latest.subContract)}
-                        {amtCell(pnl.indirect)}
-                        {amtCell(pnl.profit)}
-                        <td style={{...S.td("right"),fontWeight:800,color:C.navy}}>{fW(pnl.total)}</td>
-                      </tr>
-                      )
-                    })}
-                  </tbody>
-                </table>
-                </div>
-              </>)
-            })()}
-          </div>
+          <ExecPlansOverviewPage projects={projects} setTab={setTab} setSelProjId={setSelProjId} setSelVerIdx={setSelVerIdx} setDetailTab={setDetailTab}/>
         )}
         {tab==="vendors" && canReadTab("vendors") && <VendorsTab projects={projects} setProjects={setProjects} vendorsDB={vendorsDB} setVendorsDB={setVendorsDB} vendorPayments={vendorPayments} setVendorPayments={setVendorPayments} canWrite={canWrite&&canWriteTab("vendors")} currentUser={currentUser} setTab={setTab} setSelProjId={setSelProjId} setSelVerIdx={setSelVerIdx}/>}
         {tab==="pnl"      && canReadTab("pnl")      && <PnlTab pnlData={pnlData} setPnlData={setPnlData} canWrite={canWrite&&canWriteTab("pnl")}/>}
@@ -3712,6 +3632,122 @@ const cardNote2 = {fontSize:14.3,color:C.gray,marginBottom:8}
 // ════════════════════════════════════════════════════════════
 // 프로젝트 탭
 // ════════════════════════════════════════════════════════════
+// ── 전체 프로젝트 실행계획서 현황 (전체/선택 다운로드 지원) ──────────────
+function ExecPlansOverviewPage({projects, setTab, setSelProjId, setSelVerIdx, setDetailTab}) {
+  const [selIds, setSelIds] = useState([])
+  const rows = useMemo(()=>projects
+    .filter(p=>(p.versions||[]).length>0)
+    .map(p=>{
+      const versions=p.versions||[]
+      const latest=versions.reduce((mx,v)=>(!mx||(v.round||0)>(mx.round||0))?v:mx,versions[0])
+      const latestIdx=versions.indexOf(latest)
+      const pnl=calcPnlTotals(latest)
+      return {p,versions,latest,latestIdx,pnl}
+    }),[projects])
+
+  const toRow = ({p,versions,latest,pnl}) => {
+    const tot=pnl.total||0
+    const pct=v=>tot>0?+(v/tot*100).toFixed(1):0
+    return {
+      "프로젝트":p.name, "코드":p.code||"", "최신회차":`${latest.round||1}차`, "회차수":versions.length, "작성일":latest.date||"",
+      "직접인건비":latest.laborCost||0, "직접인건비(%)":pct(latest.laborCost),
+      "직접경비":latest.directExp||0, "직접경비(%)":pct(latest.directExp),
+      "외주용역비":latest.subContract||0, "외주용역비(%)":pct(latest.subContract),
+      "간접비":pnl.indirect||0, "간접비(%)":pct(pnl.indirect),
+      "이윤":pnl.profit||0, "이윤(%)":pct(pnl.profit),
+      "합계(예상용역금액)":tot,
+    }
+  }
+  const downloadXlsx = (targetRows, label) => {
+    const data = targetRows.map(toRow)
+    const ws = XLSX.utils.json_to_sheet(data)
+    ws["!cols"] = [{wch:32},{wch:14},{wch:8},{wch:8},{wch:11},{wch:13},{wch:9},{wch:13},{wch:9},{wch:14},{wch:9},{wch:13},{wch:9},{wch:13},{wch:9},{wch:16}]
+    const wb = XLSX.utils.book_new()
+    XLSX.utils.book_append_sheet(wb, ws, "실행계획서현황")
+    XLSX.writeFile(wb, `상지서울_실행계획서현황_${label}_${new Date().toISOString().slice(0,10)}.xlsx`)
+  }
+
+  if(rows.length===0) return (
+    <div style={S.card()}>
+      <div style={{fontSize:21,fontWeight:800,color:C.navy,marginBottom:16}}>📋 전체 프로젝트 실행계획서 현황</div>
+      <div style={{padding:"40px 0",textAlign:"center",color:"#94A3B8",fontSize:16.5}}>등록된 실행계획서가 없습니다.</div>
+    </div>
+  )
+
+  const selRows = rows.filter(r=>selIds.includes(r.p.id))
+
+  return (
+    <div style={S.card()}>
+      <div style={{display:"flex",alignItems:"flex-start",justifyContent:"space-between",flexWrap:"wrap",gap:10,marginBottom:4}}>
+        <div style={{fontSize:21,fontWeight:800,color:C.navy}}>📋 전체 프로젝트 실행계획서 현황</div>
+      </div>
+      <div style={{fontSize:15.4,color:"#64748B",marginBottom:20}}>프로젝트별 최신 실행계획서 회차를 한눈에 모아봅니다. 각 금액 아래 파란 숫자는 합계(예상용역금액) 대비 비율(%)입니다. 행을 클릭하면 해당 프로젝트 상세로 이동하고, 여러 프로젝트를 나란히 비교하려면 "프로젝트 › 🔍 비교" 탭을 이용하세요.</div>
+
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10,flexWrap:"wrap",gap:8}}>
+        <div style={{fontSize:13.2,color:C.gray}}>{selIds.length>0?`${selIds.length}개 선택됨`:`전체 ${rows.length}건`}</div>
+        <div style={{display:"flex",gap:8}}>
+          {selIds.length>0 && (
+            <button onClick={()=>downloadXlsx(selRows,"선택")} style={{...S.btn(C.navyM),padding:"7px 16px",fontSize:14.3,display:"flex",alignItems:"center",gap:6}}>
+              ⬇ 선택 다운로드 ({selIds.length}건)
+            </button>
+          )}
+          <button onClick={()=>downloadXlsx(rows,"전체")} style={{...S.btn(C.green),padding:"7px 16px",fontSize:14.3,display:"flex",alignItems:"center",gap:6}}>
+            ⬇ 전체 다운로드 ({rows.length}건)
+          </button>
+        </div>
+      </div>
+
+      <div style={{overflowX:"auto",overflowY:"auto",maxHeight:1400,border:"1px solid #F1F5F9",borderRadius:8}}>
+      <table style={{width:"100%",borderCollapse:"collapse"}}>
+        <thead style={{position:"sticky",top:0,zIndex:1}}><tr>
+          <th style={S.th("center")}>
+            <input type="checkbox" checked={rows.length>0 && selIds.length===rows.length}
+              onChange={e=>setSelIds(e.target.checked?rows.map(r=>r.p.id):[])}
+              title="전체 선택/해제" style={{width:18,height:18,cursor:"pointer"}}/>
+          </th>
+          {["프로젝트","최신 회차","작성일","직접인건비","직접경비","외주용역비","간접비","이윤","합계(예상용역금액)"].map((h,i)=>
+            <th key={h} style={S.th(i===0?"left":"right")}>{h}</th>)}
+        </tr></thead>
+        <tbody>
+          {rows.map(({p,versions,latest,latestIdx,pnl})=>{
+            const tot = pnl.total||0
+            const pct = v => tot>0 ? `${(v/tot*100).toFixed(1)}%` : "-"
+            const amtCell = (v) => (
+              <td style={S.td("right")}>
+                <div>{fW(v)}</div>
+                <div style={{fontSize:14.3,color:C.navyM,fontWeight:700,marginTop:1}}>{pct(v)}</div>
+              </td>
+            )
+            const checked = selIds.includes(p.id)
+            return (
+            <tr key={p.id} style={{cursor:"pointer",background:checked?"#F0F9FF":undefined}}
+              onMouseEnter={e=>{ if(!checked) e.currentTarget.style.background="#F8FAFC" }}
+              onMouseLeave={e=>{ if(!checked) e.currentTarget.style.background="" }}
+              onClick={()=>{ setTab("projects"); setSelProjId(p.id); setSelVerIdx(Math.max(0,latestIdx)); setDetailTab("basic") }}>
+              <td style={S.td("center")} onClick={e=>e.stopPropagation()}>
+                <input type="checkbox" checked={checked}
+                  onChange={e=>setSelIds(prev=>e.target.checked?[...prev,p.id]:prev.filter(id=>id!==p.id))}
+                  style={{width:18,height:18,cursor:"pointer"}}/>
+              </td>
+              <td style={{...S.td("left"),fontWeight:700,color:C.navyM,maxWidth:260,overflow:"hidden",textOverflow:"ellipsis"}} title={p.name}>{p.name}</td>
+              <td style={S.td("right")}>{latest.round||1}차 <span style={{color:"#94A3B8",fontSize:13.2}}>({versions.length}개 회차)</span></td>
+              <td style={S.td("right")}>{latest.date||"-"}</td>
+              {amtCell(latest.laborCost)}
+              {amtCell(latest.directExp)}
+              {amtCell(latest.subContract)}
+              {amtCell(pnl.indirect)}
+              {amtCell(pnl.profit)}
+              <td style={{...S.td("right"),fontWeight:800,color:C.navy}}>{fW(pnl.total)}</td>
+            </tr>
+            )
+          })}
+        </tbody>
+      </table>
+      </div>
+    </div>
+  )
+}
+
 function ProjectsTab({projects,setProjects,selProjId,setSelProjId,selVerIdx,setSelVerIdx,cmpIds,setCmpIds,showNewVer,setShowNewVer,canWrite,contractTypes,currentUser,setDetailTab:_extSetDetailTab,detailTab:_extDetailTab,cashItems=[],setCashItems,vendorsDB={},projBaseline={},setProjBaseline,contractItems=[],vendorPayments=[],markProjectsDeleted}) {
   // "최근 수정" 표시용 — 프로젝트 목록에서 언제 마지막으로 수정/생성됐는지 한눈에 보이게
   const relTime = iso => {
