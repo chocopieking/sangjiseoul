@@ -909,7 +909,10 @@ export default function App() {
     if(!saved || saved.length === 0) setUsingSeedData(true)
   },[])
   // 프로젝트 초기 데이터 lazy load (144KB 번들 분리)
+  // ⚠ Supabase 동기화가 끝나기 전에 병합하면, 다른 기기·세션에서 이미 삭제한 프로젝트가
+  //   "로컬에는 아직 없음"으로 오인되어 되살아날 수 있다(경쟁 상태) — 반드시 dbReady 이후에만 실행.
   useEffect(()=>{
+    if(USE_DB && !dbReady) return
     const saved = lsGet("sjs_projects", null)
     if(saved && saved.length > 0) return  // 이미 데이터 있음
     // 리셋 플래그가 있으면 초기 데이터 재로드 안 함
@@ -918,10 +921,11 @@ export default function App() {
     import("./projectsInitData.json").then(mod=>{
       if(cancelled) return
       const initList = mod.default || mod
+      const delKeys = new Set(lsGet("sjs_deleted_proj_keys", []))
       setProjectsRaw(prev=>{
         const baseNames = new Set(prev.map(p=>(p.name||"").slice(0,12)))
         const extra = initList
-          .filter(p=>p.name && !baseNames.has((p.name||"").slice(0,12)))
+          .filter(p=>p.name && !baseNames.has((p.name||"").slice(0,12)) && !delKeys.has((p.name||"").slice(0,12)))
           .map((p,i)=>normalizeProject({
             id: `PI${Date.now()}_${i}`,
             code: p.pjNo||"",
@@ -944,7 +948,7 @@ export default function App() {
       })
     }).catch(e=>console.warn("초기 프로젝트 로드 실패:", e))
     return ()=>{ cancelled = true }
-  },[])
+  },[dbReady])
   const setProjectsPersist = mkPersist(setProjectsRaw, "sjs_projects")
   // 신규 생성되거나 "실제로 내용이 바뀐" 프로젝트에만 updatedAt을 자동으로 찍어줌 — 목록 화면에서
   // "최근 수정된/새로 만든 프로젝트가 위로" 정렬하는 데 사용.
@@ -1176,6 +1180,16 @@ export default function App() {
   const setBidTypes = mkPersist(setBidTypesRaw, "sjs_bid_types")
   const bidTypes = bidTypesRaw
 
+  // ── 삭제된 프로젝트 이름 registry — 초기 시드데이터 재병합 시 "삭제했던" 프로젝트가 되살아나지 않도록
+  // 영구 기록(Supabase까지 동기화)해두는 목록. 삭제할 때마다 이름 앞 12자를 여기 추가한다.
+  const [deletedProjKeysRaw, setDeletedProjKeysRaw] = useState(()=>lsGet("sjs_deleted_proj_keys", []))
+  const setDeletedProjKeys = mkPersist(setDeletedProjKeysRaw, "sjs_deleted_proj_keys")
+  const deletedProjKeys = deletedProjKeysRaw
+  const markProjectsDeleted = (names) => {
+    const keys = names.map(n=>(n||"").slice(0,12)).filter(Boolean)
+    setDeletedProjKeys(prev=>[...new Set([...prev, ...keys])])
+  }
+
   // ── Supabase: 앱 시작 시 전체 로드 (state 선언 후에 위치해야 함) ──
   useEffect(() => {
     if (!USE_DB) return
@@ -1210,6 +1224,7 @@ export default function App() {
       setContractTypesRaw(g("sjs_contract_types", CONTRACT_TYPES_DEFAULT))
       setProjTypesRaw(g("sjs_proj_types", PROJ_TYPES_DEFAULT))
       setBidTypesRaw(g("sjs_bid_types", BID_TYPES_DEFAULT))
+      setDeletedProjKeysRaw(g("sjs_deleted_proj_keys", []))
       setDbStatus("ok"); setDbReady(true)
     }).catch(() => { setDbStatus("error"); setDbReady(true) })
   }, []) // eslint-disable-line
@@ -1245,6 +1260,7 @@ export default function App() {
       else if (key==="sjs_contract_types")   setContractTypesRaw(value)
       else if (key==="sjs_proj_types")       setProjTypesRaw(value)
       else if (key==="sjs_bid_types")        setBidTypesRaw(value)
+      else if (key==="sjs_deleted_proj_keys") setDeletedProjKeysRaw(value)
     })
     return unsub
   }, []) // eslint-disable-line
@@ -1989,7 +2005,7 @@ export default function App() {
         {tab==="analysis"  && (canReadTab("analysis") ? <AnalysisHub deptStaff={deptStaff} setDeptStaff={setDeptStaff} years={years} setYears={setYears} canWrite={canWrite} isAdmin={currentUser?.role==="admin"} cashflow={effectiveCashflow} cashItems={cashItems} setCashItems={setCashItems} saleItems={saleItems} setSaleItems={setSaleItems} contractItems={contractItems} setContractItems={setContractItems} projects={projects} setProjects={setProjects} setTab={setTab} setSelProjId={setSelProjId} setDetailTab={setDetailTab} selProjId={selProjId} selVerIdx={selVerIdx} setSelVerIdx={setSelVerIdx} currentUser={currentUser} yearTargets={yearTargets} setYearTargets={setYearTargets} deptBiz={deptBiz} staffMonthly={staffMonthly} staffTarget={staffTarget}/> : <NoPermScreen tabId="analysis"/>)}
         {tab==="datahub" && canReadTab("datahub") && <DataHubTab currentUser={currentUser} deptStaff={deptStaff} setDeptStaff={setDeptStaff} staffTarget={staffTarget} setStaffTarget={setStaffTarget} staffMonthly={staffMonthly} setStaffMonthly={setStaffMonthly} pnlData={pnlData} setPnlData={setPnlData} cashflow={cashflow} setCashflow={setCashflow} years={years} setYears={setYears} projects={projects} setProjects={setProjects} setTab={setTab} setSelProjId={setSelProjId} setSelVerIdx={setSelVerIdx} setShowNewProj={setShowNewProj} versions={versions} saveVersion={saveVersion} restoreVersion={restoreVersion} deleteVersion={deleteVersion} contractTypes={contractTypes} setContractTypes={setContractTypes} projTypes={projTypes} setProjTypes={setProjTypes} bidTypes={bidTypes} setBidTypes={setBidTypes} allData={null} restoreAllData={(entries)=>dbSetAll(entries, userEmail.current)} dbStatus={dbStatus} vendorsDB={vendorsDB} setVendorsDB={setVendorsDB} vendorPayments={vendorPayments} setVendorPayments={setVendorPayments} cashItems={cashItems} setCashItems={setCashItems} saleItems={saleItems} setSaleItems={setSaleItems} contractItems={contractItems} setContractItems={setContractItems}/>}
         {tab==="cashflow" && canReadTab("cashflow") && <CashflowTab cashflow={effectiveCashflow} setCashflow={setCashflow} currentUser={currentUser} projects={projects} setProjects={setProjects} projectCashflowByDept={projectCashflowByDept} cashItems={cashItems} setCashItems={setCashItems} saleItems={saleItems} setSaleItems={setSaleItems} setTab={setTab} setSelProjId={setSelProjId} setDetailTab={setDetailTab} yearTargets={yearTargets} setYearTargets={setYearTargets} deptBiz={deptBiz} deptStaff={deptStaff} staffMonthly={staffMonthly} staffTarget={staffTarget} contractItems={contractItems} setContractItems={setContractItems}/>}
-        {tab==="projects" && canReadTab("projects") && <ProjectsTab projects={projects} setProjects={setProjects} selProjId={selProjId} setSelProjId={setSelProjId} selVerIdx={selVerIdx} setSelVerIdx={setSelVerIdx} cmpIds={cmpIds} setCmpIds={setCmpIds} showNewVer={showNewVer} setShowNewVer={setShowNewVer} canWrite={canWrite&&canWriteTab("projects")} contractTypes={contractTypes} currentUser={currentUser} setDetailTab={setDetailTab} detailTab={detailTab} cashItems={cashItems} setCashItems={setCashItems} vendorsDB={vendorsDB} projBaseline={projBaseline} setProjBaseline={setProjBaseline} contractItems={contractItems} vendorPayments={vendorPayments}/>}
+        {tab==="projects" && canReadTab("projects") && <ProjectsTab projects={projects} setProjects={setProjects} selProjId={selProjId} setSelProjId={setSelProjId} selVerIdx={selVerIdx} setSelVerIdx={setSelVerIdx} cmpIds={cmpIds} setCmpIds={setCmpIds} showNewVer={showNewVer} setShowNewVer={setShowNewVer} canWrite={canWrite&&canWriteTab("projects")} contractTypes={contractTypes} currentUser={currentUser} setDetailTab={setDetailTab} detailTab={detailTab} cashItems={cashItems} setCashItems={setCashItems} vendorsDB={vendorsDB} projBaseline={projBaseline} setProjBaseline={setProjBaseline} contractItems={contractItems} vendorPayments={vendorPayments} markProjectsDeleted={markProjectsDeleted}/>}
         {tab==="execplans" && canReadTab("projects") && (
           <div style={S.card()}>
             <div style={{display:"flex",alignItems:"flex-start",justifyContent:"space-between",flexWrap:"wrap",gap:10,marginBottom:4}}>
@@ -3696,7 +3712,7 @@ const cardNote2 = {fontSize:14.3,color:C.gray,marginBottom:8}
 // ════════════════════════════════════════════════════════════
 // 프로젝트 탭
 // ════════════════════════════════════════════════════════════
-function ProjectsTab({projects,setProjects,selProjId,setSelProjId,selVerIdx,setSelVerIdx,cmpIds,setCmpIds,showNewVer,setShowNewVer,canWrite,contractTypes,currentUser,setDetailTab:_extSetDetailTab,detailTab:_extDetailTab,cashItems=[],setCashItems,vendorsDB={},projBaseline={},setProjBaseline,contractItems=[],vendorPayments=[]}) {
+function ProjectsTab({projects,setProjects,selProjId,setSelProjId,selVerIdx,setSelVerIdx,cmpIds,setCmpIds,showNewVer,setShowNewVer,canWrite,contractTypes,currentUser,setDetailTab:_extSetDetailTab,detailTab:_extDetailTab,cashItems=[],setCashItems,vendorsDB={},projBaseline={},setProjBaseline,contractItems=[],vendorPayments=[],markProjectsDeleted}) {
   // "최근 수정" 표시용 — 프로젝트 목록에서 언제 마지막으로 수정/생성됐는지 한눈에 보이게
   const relTime = iso => {
     const d = Math.floor((Date.now() - new Date(iso).getTime())/60000) // 분
@@ -3732,6 +3748,10 @@ function ProjectsTab({projects,setProjects,selProjId,setSelProjId,selVerIdx,setS
   const [editProj, setEditProj]     = useState(false)
   const [editVerIdx, setEditVerIdx] = useState(null)   // 회차 수정 모달 인덱스
   const [inlineEditId, setInlineEditId] = useState(null)   // 인라인 이름 편집
+  // "비교" 선택(cmpIds, 프로젝트 간 비교용)과 "삭제" 선택은 완전히 별개 목적이라 서로 다른 state로 분리한다.
+  // 체크박스 열은 기본적으로 비교 선택용이며, 관리자가 "🗑 삭제 모드"를 켰을 때만 삭제 선택용으로 전환된다.
+  const [delMode, setDelMode] = useState(false)
+  const [delIds, setDelIds] = useState([])
   const [inlineEditName, setInlineEditName] = useState("")
   const [cfEditing, setCfEditing]   = useState(false)
   const [cfDraft, setCfDraft]       = useState(null)
@@ -4020,35 +4040,60 @@ function ProjectsTab({projects,setProjects,selProjId,setSelProjId,selVerIdx,setS
           </div>
 
           <Card title="프로젝트 목록" note={`행 클릭 → 실행계획서 상세 · ${PROJ_PER_PAGE}건씩 표시 · 기본 정렬: 최근 수정순`}>
-            {!(projSortKey==="_updatedAt"&&projSortDir==="desc") && (
-              <div style={{marginBottom:10}}>
+            <div style={{display:"flex",flexWrap:"wrap",gap:10,marginBottom:10,alignItems:"center"}}>
+              {!(projSortKey==="_updatedAt"&&projSortDir==="desc") && (
                 <button onClick={()=>resetProjSort("_updatedAt","desc")}
                   style={{padding:"5px 12px",background:"#F1F5F9",color:"#334155",border:"1px solid #E2E8F0",
                     borderRadius:20,fontSize:12.5,fontWeight:700,cursor:"pointer"}}>
                   🕒 최근 수정순으로
                 </button>
+              )}
+              {currentUser?.role==="admin" && (
+                <button onClick={()=>{ setDelMode(v=>!v); setDelIds([]) }}
+                  style={{padding:"5px 12px",background:delMode?"#DC2626":"#FEE2E2",color:delMode?"#fff":"#DC2626",
+                    border:"1px solid #FECACA",borderRadius:20,fontSize:12.5,fontWeight:700,cursor:"pointer",marginLeft:"auto"}}>
+                  {delMode?"✕ 삭제 모드 종료":"🗑 삭제 모드"}
+                </button>
+              )}
+            </div>
+            {/* 비교 선택 안내(삭제 모드가 아닐 때만) */}
+            {!delMode && cmpIds.length>0 && (
+              <div style={{background:C.navyL,border:`1px solid ${C.navyM}`,borderRadius:8,
+                padding:"10px 14px",marginBottom:12,display:"flex",alignItems:"center",
+                justifyContent:"space-between",flexWrap:"wrap",gap:8}}>
+                <span style={{fontSize:14.3,color:C.navyM,fontWeight:700}}>
+                  🔍 {cmpIds.length}개 프로젝트가 비교 선택되었습니다 — 상단 "🔍 비교" · "📊 평당단가" 탭에서 바로 비교해보세요.
+                </span>
+                <button onClick={()=>setCmpIds([])}
+                  style={{padding:"6px 12px",background:"#fff",color:C.navyM,border:`1px solid ${C.navyM}`,
+                    borderRadius:8,fontSize:13.2,cursor:"pointer"}}>
+                  선택 해제
+                </button>
               </div>
             )}
-            {/* 선택 삭제 툴바 */}
-            {cmpIds.length>0&&currentUser?.role==="admin"&&(
+            {/* 삭제 선택 툴바(삭제 모드일 때만) */}
+            {delMode && (
               <div style={{background:"#FEE2E2",border:"1px solid #FECACA",borderRadius:8,
                 padding:"10px 14px",marginBottom:12,display:"flex",alignItems:"center",
                 justifyContent:"space-between",flexWrap:"wrap",gap:8}}>
                 <span style={{fontSize:14.3,color:"#7F1D1D",fontWeight:700}}>
-                  {cmpIds.length}개 프로젝트 선택됨
+                  🗑 삭제 모드 — {delIds.length}개 프로젝트 선택됨 (비교 선택과는 별개입니다)
                 </span>
                 <div style={{display:"flex",gap:8}}>
-                  <button onClick={()=>{
-                    if(!window.confirm(`⚠️ 선택한 ${cmpIds.length}개 프로젝트를 완전히 삭제합니다.\n\n각 프로젝트에 딸린 실행계획서 회차·계약서·실적증명서·건축물대장·보증서류·히스토리·주간보고 등 모든 첨부 정보가 함께 영구 삭제되며, 되돌릴 수 없습니다.\n\n삭제 전 데이터관리에서 반드시 백업을 받아두셨는지 확인해주세요.\n\n정말 삭제하시겠습니까?`)) return
-                    if(!window.confirm(`마지막 확인입니다.\n\n"${cmpIds.length}개 프로젝트 삭제"를 진행할까요? 이 창을 취소하면 아무것도 삭제되지 않습니다.`)) return
-                    setProjects(prev=>prev.filter(p=>!cmpIds.includes(p.id)))
-                    const cnt2=cmpIds.length; setCmpIds([])
+                  <button disabled={delIds.length===0} onClick={()=>{
+                    if(delIds.length===0) return
+                    if(!window.confirm(`⚠️ 선택한 ${delIds.length}개 프로젝트를 완전히 삭제합니다.\n\n각 프로젝트에 딸린 실행계획서 회차·계약서·실적증명서·건축물대장·보증서류·히스토리·주간보고 등 모든 첨부 정보가 함께 영구 삭제되며, 되돌릴 수 없습니다.\n\n삭제 전 데이터관리에서 반드시 백업을 받아두셨는지 확인해주세요.\n\n정말 삭제하시겠습니까?`)) return
+                    if(!window.confirm(`마지막 확인입니다.\n\n"${delIds.length}개 프로젝트 삭제"를 진행할까요? 이 창을 취소하면 아무것도 삭제되지 않습니다.`)) return
+                    const names = projects.filter(p=>delIds.includes(p.id)).map(p=>p.name)
+                    setProjects(prev=>prev.filter(p=>!delIds.includes(p.id)))
+                    markProjectsDeleted && markProjectsDeleted(names)
+                    const cnt2=delIds.length; setDelIds([]); setDelMode(false)
                     toast&&toast(`🗑 ${cnt2}개 프로젝트 삭제 완료`,"info")
-                  }} style={{padding:"7px 14px",background:"#DC2626",color:"#fff",border:"none",
-                    borderRadius:8,fontSize:14.3,fontWeight:700,cursor:"pointer"}}>
-                    🗑 선택 삭제 ({cmpIds.length}건)
+                  }} style={{padding:"7px 14px",background:delIds.length===0?"#FCA5A5":"#DC2626",color:"#fff",border:"none",
+                    borderRadius:8,fontSize:14.3,fontWeight:700,cursor:delIds.length===0?"default":"pointer"}}>
+                    🗑 선택 삭제 ({delIds.length}건)
                   </button>
-                  <button onClick={()=>setCmpIds([])}
+                  <button onClick={()=>setDelIds([])}
                     style={{padding:"7px 14px",background:"#F8FAFC",color:"#64748B",
                       border:"none",borderRadius:8,fontSize:14.3,cursor:"pointer"}}>
                     선택 해제
@@ -4061,10 +4106,10 @@ function ProjectsTab({projects,setProjects,selProjId,setSelProjId,selVerIdx,setS
                 <thead><tr>
                   <th style={PTH("center")}>
                     <input type="checkbox"
-                      checked={sortedProjects.length>0 && sortedProjects.every(p=>cmpIds.includes(p.id))}
-                      onChange={e=>setCmpIds(e.target.checked ? sortedProjects.map(p=>p.id) : [])}
+                      checked={sortedProjects.length>0 && sortedProjects.every(p=>(delMode?delIds:cmpIds).includes(p.id))}
+                      onChange={e=>(delMode?setDelIds:setCmpIds)(e.target.checked ? sortedProjects.map(p=>p.id) : [])}
                       title="전체 선택/해제 (현재 목록 기준)" style={{width:18,height:18,cursor:"pointer"}}/>
-                    <div style={{fontSize:10,color:"#94A3B8",marginTop:2}}>비교</div>
+                    <div style={{fontSize:10,color:delMode?"#DC2626":"#94A3B8",marginTop:2,fontWeight:delMode?800:400}}>{delMode?"삭제":"비교"}</div>
                   </th>
                   <th style={PTH("center")}>연번</th>
                   <ProjSortTh label="구분" skey="type" align="left" style={{padding:"8px 10px",fontSize:14}}/>
@@ -4088,7 +4133,11 @@ function ProjectsTab({projects,setProjects,selProjId,setSelProjId,selVerIdx,setS
                       onMouseEnter={e=>e.currentTarget.style.background="rgba(24,95,165,.04)"}
                       onMouseLeave={e=>e.currentTarget.style.background=i%2===0?"var(--color-background-primary,#fff)":"var(--color-background-secondary,#f8f8f6)"}
                       onClick={()=>{setSelProjId(p.id);setSelVerIdx(p.versions.length-1);setView("detail")}}>
-                      <td style={PTD("center")} onClick={e=>e.stopPropagation()}><input type="checkbox" checked={cmpIds.includes(p.id)} onChange={e=>setCmpIds(prev=>e.target.checked?[...prev,p.id]:prev.filter(id=>id!==p.id))} style={{width:18,height:18,cursor:"pointer"}}/></td>
+                      <td style={PTD("center")} onClick={e=>e.stopPropagation()}>
+                        <input type="checkbox" checked={(delMode?delIds:cmpIds).includes(p.id)}
+                          onChange={e=>(delMode?setDelIds:setCmpIds)(prev=>e.target.checked?[...prev,p.id]:prev.filter(id=>id!==p.id))}
+                          style={{width:18,height:18,cursor:"pointer",accentColor:delMode?"#DC2626":undefined}}/>
+                      </td>
                       <td style={{...PTD("center"),color:"#94A3B8",fontWeight:600}}>{globalIdx+1}</td>
                       <td style={PTD("left")}><span style={{display:"inline-flex",alignItems:"center",padding:"4px 10px",borderRadius:14,fontSize:14.3,fontWeight:700,background:tb.bg,color:tb.fg,whiteSpace:"nowrap"}}>{p.type}</span></td>
                       <td style={{...PTD("left"),maxWidth:320,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}} title={p.name}>
@@ -4169,6 +4218,7 @@ function ProjectsTab({projects,setProjects,selProjId,setSelProjId,selVerIdx,setS
                             <button onClick={()=>{
                               if(!window.confirm(`"${p.name}" 프로젝트를 삭제합니까?\n\n삭제 후 복원할 수 없습니다.`)) return
                               setProjects(prev=>prev.filter(pp=>pp.id!==p.id))
+                              markProjectsDeleted && markProjectsDeleted([p.name])
                               if(selProjId===p.id) setSelProjId(null)
                               toast&&toast(`🗑 "${p.name.slice(0,20)}" 프로젝트 삭제 완료`,"info")
                             }} title="삭제"
@@ -5590,7 +5640,8 @@ function ProjectCashflowCard({proj,setProjects,canWrite}) {
 function CompareProjects({projects,cmpIds,setCmpIds,allCats}) {
   const [priceKey,setPriceKey]=useState("contract")
   const [catFilter,setCatFilter]=useState("")
-  const selPs=cmpIds.length>0?projects.filter(p=>cmpIds.includes(p.id)):projects.slice(0,3)
+  const [showChart,setShowChart]=useState(false) // 기본은 표만 — 필요할 때만 그래프를 펼쳐서 화면이 복잡해 보이지 않게 함
+  const selPs=projects.filter(p=>cmpIds.includes(p.id)) // 아무것도 선택 안 했을 때 임의로 3개를 보여주지 않음 — 빈 화면 안내로 대체
   const tableData=useMemo(()=>{
     const cats=catFilter?[catFilter]:allCats
     return cats.map(cat=>{
@@ -5599,7 +5650,12 @@ function CompareProjects({projects,cmpIds,setCmpIds,allCats}) {
       return row
     }).filter(row=>selPs.some(p=>row[p.id]>0))
   },[selPs,allCats,catFilter,priceKey])
-  const barData=tableData.map(row=>({name:row.cat.length>6?row.cat.slice(0,6)+"…":row.cat,...Object.fromEntries(selPs.map(p=>[p.id,+(row[p.id]/1e6).toFixed(1)]))}))
+  // 그래프는 최대 10개 분야까지만(금액 큰 순) — 그 이상은 표로 확인하도록 유도해 그래프가 지나치게 길어지지 않게 함
+  const chartRows = useMemo(()=>{
+    const withMax = tableData.map(row=>({...row,_max:Math.max(...selPs.map(p=>row[p.id]||0))}))
+    return withMax.sort((a,b)=>b._max-a._max).slice(0,10)
+  },[tableData,selPs])
+  const barData=chartRows.map(row=>({name:row.cat.length>6?row.cat.slice(0,6)+"…":row.cat,...Object.fromEntries(selPs.map(p=>[p.id,+(row[p.id]/1e6).toFixed(1)]))}))
   return (
     <div>
       <div style={{display:"flex",gap:7,marginBottom:13,flexWrap:"wrap",alignItems:"center"}}>
@@ -5627,19 +5683,35 @@ function CompareProjects({projects,cmpIds,setCmpIds,allCats}) {
           </select>
         </div>
       </div>
-      <Card title="분야별 협력업체 비용 비교" note="단위: 백만원">
-        <ResponsiveContainer width="100%" height={Math.max(260,tableData.length*28*Math.max(1,selPs.length))}>
-          <BarChart data={barData} layout="vertical" margin={{left:70,right:42,top:4,bottom:4}}>
-            <CartesianGrid strokeDasharray="3 3" stroke="rgba(0,0,0,.05)"/>
-            <XAxis type="number" tick={{fontSize:10}} tickFormatter={v=>v+"M"}/>
-            <YAxis type="category" dataKey="name" tick={{fontSize:11}} width={70}/>
-            <Tooltip formatter={(v,n)=>[`${v}백만원`,n]}/><Legend wrapperStyle={{fontSize:12}}/>
-            {selPs.map((p,i)=><Bar key={p.id} dataKey={p.id} name={p.name.length>14?p.name.slice(0,14)+"…":p.name} fill={COLORS[i%COLORS.length]} radius={[0,3,3,0]} barSize={Math.max(10,18-selPs.length)}>
-              <LabelList dataKey={p.id} position="right" formatter={v=>v>0?`${v}M`:""} style={{fontSize:10.4,fontWeight:700,fill:COLORS[i%COLORS.length]}}/>
-            </Bar>)}
-          </BarChart>
-        </ResponsiveContainer>
-      </Card>
+
+      {selPs.length===0 ? (
+        <div style={{padding:"48px 20px",textAlign:"center",background:"#F8FAFC",borderRadius:10,color:"#94A3B8"}}>
+          <div style={{fontSize:32,marginBottom:8}}>🔍</div>
+          <div style={{fontSize:15.4,fontWeight:600,marginBottom:4}}>비교할 프로젝트를 선택해주세요</div>
+          <div style={{fontSize:13.2}}>위 "+ 프로젝트 선택"에서 2~3개를 골라주세요.</div>
+        </div>
+      ) : (<>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
+          <div style={{fontSize:13.2,color:C.gray}}>{selPs.length}개 프로젝트 비교 중{tableData.length>10?` · 그래프는 금액이 큰 상위 10개 분야만 표시(전체는 아래 표 참고)`:""}</div>
+          <button onClick={()=>setShowChart(v=>!v)} style={{...S.btn(showChart?C.navyM:C.navyL,showChart?"#fff":C.navyM),padding:"6px 14px",fontSize:13.2}}>
+            {showChart?"📊 그래프 숨기기":"📊 그래프로 보기"}
+          </button>
+        </div>
+        {showChart && (
+          <Card title="분야별 협력업체 비용 비교" note="단위: 백만원 · 금액 상위 10개 분야">
+            <ResponsiveContainer width="100%" height={Math.max(220,chartRows.length*30*Math.max(1,Math.min(selPs.length,4)))}>
+              <BarChart data={barData} layout="vertical" margin={{left:70,right:36,top:4,bottom:4}} barGap={2}>
+                <CartesianGrid strokeDasharray="3 3" stroke="rgba(0,0,0,.04)" horizontal={false}/>
+                <XAxis type="number" tick={{fontSize:10}} tickFormatter={v=>v+"M"}/>
+                <YAxis type="category" dataKey="name" tick={{fontSize:11}} width={70}/>
+                <Tooltip formatter={(v,n)=>[`${v}백만원`,n]}/><Legend wrapperStyle={{fontSize:12}}/>
+                {selPs.map((p,i)=><Bar key={p.id} dataKey={p.id} name={p.name.length>14?p.name.slice(0,14)+"…":p.name} fill={COLORS[i%COLORS.length]} radius={[0,3,3,0]} barSize={Math.max(8,14-selPs.length)}/>)}
+              </BarChart>
+            </ResponsiveContainer>
+          </Card>
+        )}
+      </>)}
+      {selPs.length>0 &&
       <Card title="비교 상세표" note="분야별 [금액 / 평당단가 / 비율] 3개 한 세트로 비교 · 초록=최저 빨강=최고">
         <div style={{overflowX:"auto"}}>
           <table style={{width:"100%",borderCollapse:"collapse",fontSize:13.2}}>
@@ -5706,18 +5778,18 @@ function CompareProjects({projects,cmpIds,setCmpIds,allCats}) {
             </tbody>
           </table>
         </div>
-      </Card>
+      </Card>}
     </div>
   )
 }
-
 // ── 평당단가 비교 ────────────────────────────────────────────
 function BenchProjects({projects,cmpIds,setCmpIds,allCats}) {
   const [selCat,setSelCat]=useState("")
   const [showBench,setShowBench]=useState(true)  // 우수사례 비교 표시 여부
+  const [showChart,setShowChart]=useState(false) // 그래프는 기본 숨김 — 필요할 때만 펼쳐서 화면이 복잡해 보이지 않게 함
   const BENCH_MIN=0.30, BENCH_MAX=0.38           // 우수 외주율 기준 (30~38%)
   const UP_CATS=["구조","토목","조경","기계","전기통신소방","전기통신","기계소방","CG","견적","건축외주","부대토목","흙막이","흙막이·지반","지반조사","현황측량","소방"]
-  const selPs=cmpIds.length>0?projects.filter(p=>cmpIds.includes(p.id)):projects
+  const selPs=cmpIds.length>0?projects.filter(p=>cmpIds.includes(p.id)):[] // 아무것도 선택 안 했을 때 전체 프로젝트를 다 그리지 않음(그래프 과밀 방지)
 
   // 우수사례 프로젝트 (외주율 30~38% 이내)
   const benchmarkProjs = useMemo(()=>{
@@ -5775,7 +5847,12 @@ function BenchProjects({projects,cmpIds,setCmpIds,allCats}) {
       return {cat,items,benchAvgUp,benchItemCount:benchItems.length}
     }).filter(r=>r.items.length>0)
   },[selPs,allCats,selCat,showBench,benchmarkProjs])
-  const barData=benchData.map(row=>({name:row.cat.length>5?row.cat.slice(0,5)+"…":row.cat,...Object.fromEntries(row.items.filter(i=>i&&i.up>0).map(i=>[i.projId,+i.up.toFixed(0)])),benchAvg:row.benchAvgUp&&row.benchAvgUp>0?+row.benchAvgUp.toFixed(0):undefined}))
+  // 그래프는 최대 10개 분야까지만(단가 큰 순) — 그 이상은 표로 확인하도록 유도
+  const chartRows = useMemo(()=>{
+    const withMax = benchData.map(row=>({...row,_max:Math.max(0,...row.items.map(i=>i?.up||0))}))
+    return withMax.sort((a,b)=>b._max-a._max).slice(0,10)
+  },[benchData])
+  const barData=chartRows.map(row=>({name:row.cat.length>5?row.cat.slice(0,5)+"…":row.cat,...Object.fromEntries(row.items.filter(i=>i&&i.up>0).map(i=>[i.projId,+i.up.toFixed(0)])),benchAvg:row.benchAvgUp&&row.benchAvgUp>0?+row.benchAvgUp.toFixed(0):undefined}))
   const fAmt = v => v>=1e8?`${(v/1e8).toFixed(2)}억`:v>=1e4?`${Math.round(v/1e4)}만`:`${v.toLocaleString()}`
   const fPy  = v => `${Math.round(v).toLocaleString()}평`
   // 현재 선택 프로젝트 외주율
@@ -5968,18 +6045,33 @@ function BenchProjects({projects,cmpIds,setCmpIds,allCats}) {
         </select>
       </div>
       <Card title="공종별 평당단가 비교 (원/평)" note="1식 항목 제외">
-        <ResponsiveContainer width="100%" height={Math.max(240,benchData.length*28*Math.max(1,selPs.length))}>
-          <BarChart data={barData} layout="vertical" margin={{left:60,right:50}}>
-            <CartesianGrid strokeDasharray="3 3" stroke="rgba(0,0,0,.05)"/>
-            <XAxis type="number" tick={{fontSize:10}} tickFormatter={v=>v.toLocaleString()}/>
-            <YAxis type="category" dataKey="name" tick={{fontSize:11}} width={60}/>
-            <Tooltip formatter={(v,n)=>[`${v.toLocaleString()}원/평`,n]}/><Legend wrapperStyle={{fontSize:12}}/>
-            {selPs.map((p,i)=><Bar key={p.id} dataKey={p.id} name={p.name.length>14?p.name.slice(0,14)+"…":p.name} fill={COLORS[i%COLORS.length]} radius={[0,3,3,0]} barSize={Math.max(10,18-selPs.length)}>
-              <LabelList dataKey={p.id} position="right" formatter={v=>v>0?v.toLocaleString():""} style={{fontSize:10.4,fontWeight:700,fill:COLORS[i%COLORS.length]}}/>
-            </Bar>)}
-          </BarChart>
-        </ResponsiveContainer>
+        {selPs.length===0 ? (
+          <div style={{padding:"40px 20px",textAlign:"center",background:"#F8FAFC",borderRadius:10,color:"#94A3B8"}}>
+            <div style={{fontSize:28,marginBottom:8}}>📊</div>
+            <div style={{fontSize:15.4,fontWeight:600,marginBottom:4}}>비교할 프로젝트를 선택해주세요</div>
+            <div style={{fontSize:13.2}}>위 "+ 프로젝트 선택"에서 프로젝트를 골라주세요.</div>
+          </div>
+        ) : (<>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
+            <div style={{fontSize:13.2,color:C.gray}}>{selPs.length}개 프로젝트 비교 중{benchData.length>10?` · 그래프는 단가가 큰 상위 10개 분야만 표시(전체는 아래 표 참고)`:""}</div>
+            <button onClick={()=>setShowChart(v=>!v)} style={{...S.btn(showChart?C.navyM:C.navyL,showChart?"#fff":C.navyM),padding:"6px 14px",fontSize:13.2}}>
+              {showChart?"그래프 숨기기":"그래프로 보기"}
+            </button>
+          </div>
+          {showChart && (
+            <ResponsiveContainer width="100%" height={Math.max(220,chartRows.length*30*Math.max(1,Math.min(selPs.length,4)))}>
+              <BarChart data={barData} layout="vertical" margin={{left:60,right:44}} barGap={2}>
+                <CartesianGrid strokeDasharray="3 3" stroke="rgba(0,0,0,.04)" horizontal={false}/>
+                <XAxis type="number" tick={{fontSize:10}} tickFormatter={v=>v.toLocaleString()}/>
+                <YAxis type="category" dataKey="name" tick={{fontSize:11}} width={60}/>
+                <Tooltip formatter={(v,n)=>[`${v.toLocaleString()}원/평`,n]}/><Legend wrapperStyle={{fontSize:12}}/>
+                {selPs.map((p,i)=><Bar key={p.id} dataKey={p.id} name={p.name.length>14?p.name.slice(0,14)+"…":p.name} fill={COLORS[i%COLORS.length]} radius={[0,3,3,0]} barSize={Math.max(8,14-selPs.length)}/>)}
+              </BarChart>
+            </ResponsiveContainer>
+          )}
+        </>)}
       </Card>
+      {selPs.length>0 &&
       <Card title="공종별 상세 (연면적 · 공종금액 · 평당단가)">
         <div style={{overflowX:"auto"}}>
           <table style={{width:"100%",borderCollapse:"collapse",minWidth:700}}>
@@ -6045,7 +6137,7 @@ function BenchProjects({projects,cmpIds,setCmpIds,allCats}) {
             </tbody>
           </table>
         </div>
-      </Card>
+      </Card>}
     </div>
   )
 }
