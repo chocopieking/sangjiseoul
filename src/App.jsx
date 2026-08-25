@@ -1993,7 +1993,7 @@ export default function App() {
         {tab==="execplans" && canReadTab("projects") && (
           <div style={S.card()}>
             <div style={{fontSize:21,fontWeight:800,color:C.navy,marginBottom:4}}>📋 전체 프로젝트 실행계획서 현황</div>
-            <div style={{fontSize:15.4,color:"#64748B",marginBottom:20}}>프로젝트별 최신 실행계획서 회차를 한눈에 모아봅니다. 행을 클릭하면 해당 프로젝트 상세로 이동합니다.</div>
+            <div style={{fontSize:15.4,color:"#64748B",marginBottom:20}}>프로젝트별 최신 실행계획서 회차를 한눈에 모아봅니다. 각 금액 아래 회색 숫자는 합계(예상용역금액) 대비 비율(%)입니다. 행을 클릭하면 해당 프로젝트 상세로 이동합니다.</div>
             {(()=>{
               const rows = projects
                 .filter(p=>(p.versions||[]).length>0)
@@ -2013,7 +2013,16 @@ export default function App() {
                       <th key={h} style={S.th(i===0?"left":"right")}>{h}</th>)}
                   </tr></thead>
                   <tbody>
-                    {rows.map(({p,versions,latest,latestIdx,pnl})=>(
+                    {rows.map(({p,versions,latest,latestIdx,pnl})=>{
+                      const tot = pnl.total||0
+                      const pct = v => tot>0 ? `${(v/tot*100).toFixed(1)}%` : "-"
+                      const amtCell = (v) => (
+                        <td style={S.td("right")}>
+                          <div>{fW(v)}</div>
+                          <div style={{fontSize:12,color:"#94A3B8",fontWeight:400}}>{pct(v)}</div>
+                        </td>
+                      )
+                      return (
                       <tr key={p.id} style={{cursor:"pointer"}}
                         onMouseEnter={e=>e.currentTarget.style.background="#F8FAFC"}
                         onMouseLeave={e=>e.currentTarget.style.background=""}
@@ -2021,14 +2030,15 @@ export default function App() {
                         <td style={{...S.td("left"),fontWeight:700,color:C.navyM,maxWidth:260,overflow:"hidden",textOverflow:"ellipsis"}} title={p.name}>{p.name}</td>
                         <td style={S.td("right")}>{latest.round||1}차 <span style={{color:"#94A3B8",fontSize:13.2}}>({versions.length}개 회차)</span></td>
                         <td style={S.td("right")}>{latest.date||"-"}</td>
-                        <td style={S.td("right")}>{fW(latest.laborCost)}</td>
-                        <td style={S.td("right")}>{fW(latest.directExp)}</td>
-                        <td style={S.td("right")}>{fW(latest.subContract)}</td>
-                        <td style={S.td("right")}>{fW(pnl.indirect)}</td>
-                        <td style={S.td("right")}>{fW(pnl.profit)}</td>
+                        {amtCell(latest.laborCost)}
+                        {amtCell(latest.directExp)}
+                        {amtCell(latest.subContract)}
+                        {amtCell(pnl.indirect)}
+                        {amtCell(pnl.profit)}
                         <td style={{...S.td("right"),fontWeight:800,color:C.navy}}>{fW(pnl.total)}</td>
                       </tr>
-                    ))}
+                      )
+                    })}
                   </tbody>
                 </table>
                 </div>
