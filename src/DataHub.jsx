@@ -5,6 +5,40 @@ import { useState, Fragment } from "react"
 import { fE, MONTHS } from "./data.js"
 import { useDepts } from "./DeptContext.jsx"
 
+// ── 전체 백업 대상 키 (24개) — App.jsx의 자동 서버 백업과 공유하는 단일 목록 ──
+export const ALL_BACKUP_KEYS = [
+  // 핵심 경영 데이터
+  {key:"sjs_projects",        label:"프로젝트",        emoji:"🏗"},
+  {key:"sjs_cash_items",      label:"월수금계획",       emoji:"💧"},
+  {key:"sjs_contract_items",  label:"계약현황",         emoji:"📝"},
+  {key:"sjs_sale_items",      label:"지출현황",         emoji:"💸"},
+  {key:"sjs_year_targets",    label:"연도별 목표",       emoji:"🎯"},
+  // 인원/조직
+  {key:"sjs_departments",     label:"본부 구성",        emoji:"🏢"},
+  {key:"sjs_dept_biz",        label:"본부별 매출목표",   emoji:"📊"},
+  // 협력업체
+  {key:"sjs_vendors",         label:"협력업체 DB",      emoji:"🤝"},
+  {key:"sjs_vendor_payments", label:"협력업체 지급",     emoji:"💰"},
+  // 분류 코드
+  {key:"sjs_contract_types",  label:"계약유형",         emoji:"📋"},
+  {key:"sjs_bid_types",       label:"수주형태",         emoji:"📋"},
+  // 기타 설정·기록
+  {key:"sjs_versions",        label:"이력(버전)",       emoji:"🗂"},
+  {key:"sjs_notices",         label:"공지사항",         emoji:"📢"},
+  {key:"sjs_schedules",       label:"캘린더",           emoji:"📅"},
+  {key:"sjs_docvault",        label:"문서보관함",       emoji:"📁"},
+  {key:"sjs_archive_docs",    label:"아카이브 문서",     emoji:"📁"},
+  {key:"sjs_proj_baseline",   label:"프로젝트 기준선",  emoji:"📐"},
+  {key:"sjs_contract_checklist",label:"계약 체크리스트",emoji:"✅"},
+  {key:"sjs_hub_favorites",   label:"즐겨찾기",         emoji:"⭐"},
+  {key:"sjs_tab_groups",      label:"탭 그룹",          emoji:"📑"},
+  {key:"sjs_tab_order",       label:"탭 순서",          emoji:"↕"},
+  {key:"sjs_deleted_proj_keys",label:"삭제된 프로젝트 기록",emoji:"🗑"},
+  // 계정 (비밀번호는 제외 - 해시값이므로 포함해도 안전)
+  {key:"sjs_auth",            label:"계정 정보",        emoji:"👤"},
+  {key:"sjs_pw",              label:"비밀번호(해시)",   emoji:"🔒"},
+]
+
 const C = {
   navy:"#0C447C",navyM:"#0B6E63",navyL:"#E6F1FB",
   green:"#1D9E75",greenL:"#EAF3DE",
@@ -52,6 +86,7 @@ export function DataHubTab({
   cashItems, setCashItems,
   saleItems, setSaleItems,
   contractItems, setContractItems,
+  serverBackups, serverBackupsLoading, refreshServerBackups, restoreServerBackup, dbStatus,
 }) {
   const {STAFF_DEPTS,DEPTS,DEPT_COLORS,departments,addDept,renameDept,deleteDept,mergeDept,setDeptColor,setDeptFinance,deptUsage} = useDepts()
   const isAdmin = currentUser.role === "admin"
@@ -115,7 +150,7 @@ export function DataHubTab({
       {section==="ctypes"    && <ContractTypeSection contractTypes={contractTypes||[]} setContractTypes={setContractTypes} canManage={canManage}/>}
       {section==="ptypes"    && <SimpleListSection title="🏢 건물유형 관리" description="프로젝트 개설 시 선택하는 건물 유형 목록입니다." list={projTypes||[]} setList={setProjTypes} canManage={canManage}/>}
       {section==="btypes"    && <SimpleListSection title="📋 수주형태 관리" description="프로젝트 수주형태(외주비 비교 기준) 목록입니다." list={bidTypes||[]} setList={setBidTypes} canManage={canManage}/>}
-      {section==="backup"    && <BackupSection allData={allData} restoreAllData={restoreAllData} isAdmin={isAdmin} cashItems={cashItems} setCashItems={setCashItems} saleItems={saleItems} setSaleItems={setSaleItems} contractItems={contractItems} setContractItems={setContractItems} projects={projects} setProjects={setProjects}/>}
+      {section==="backup"    && <BackupSection allData={allData} restoreAllData={restoreAllData} isAdmin={isAdmin} cashItems={cashItems} setCashItems={setCashItems} saleItems={saleItems} setSaleItems={setSaleItems} contractItems={contractItems} setContractItems={setContractItems} projects={projects} setProjects={setProjects} serverBackups={serverBackups} serverBackupsLoading={serverBackupsLoading} refreshServerBackups={refreshServerBackups} restoreServerBackup={restoreServerBackup} dbStatus={dbStatus}/>}
       {section==="archive_import" && <ArchiveImportSection projects={projects} setProjects={setProjects} isAdmin={isAdmin}/>}
       {section==="history"   && <VersionHistorySection versions={versions} restoreVersion={restoreVersion} deleteVersion={deleteVersion} saveVersion={saveVersion}
                                     currentUser={currentUser} canManage={canManage} STAFF_DEPTS={STAFF_DEPTS} DEPTS={DEPTS} DEPT_COLORS={DEPT_COLORS}
@@ -1499,7 +1534,7 @@ function ContractTypeSection({contractTypes, setContractTypes, canManage}) {
 }
 
 // ── 데이터 백업·복구 ────────────────────────────────────────────
-function BackupSection({allData, restoreAllData, isAdmin, cashItems=[], setCashItems, saleItems=[], setSaleItems, contractItems=[], setContractItems, projects=[], setProjects}) {
+function BackupSection({allData, restoreAllData, isAdmin, cashItems=[], setCashItems, saleItems=[], setSaleItems, contractItems=[], setContractItems, projects=[], setProjects, serverBackups=[], serverBackupsLoading=false, refreshServerBackups, restoreServerBackup, dbStatus}) {
   const [msg, setMsg] = useState("")
   const [importing, setImporting] = useState(false)
   const [previewInfo, setPreviewInfo] = useState(null)  // 복구 전 미리보기
@@ -1521,37 +1556,8 @@ function BackupSection({allData, restoreAllData, isAdmin, cashItems=[], setCashI
     flash(`✅ ${labels[type]} 데이터가 삭제됐습니다.`)
   }
 
-  // ── 전체 백업 대상 키 (24개) ──────────────────────────────
-  const ALL_KEYS = [
-    // 핵심 경영 데이터
-    {key:"sjs_projects",        label:"프로젝트",        emoji:"🏗"},
-    {key:"sjs_cash_items",      label:"월수금계획",       emoji:"💧"},
-    {key:"sjs_contract_items",  label:"계약현황",         emoji:"📝"},
-    {key:"sjs_sale_items",      label:"지출현황",         emoji:"💸"},
-    {key:"sjs_year_targets",    label:"연도별 목표",       emoji:"🎯"},
-    // 인원/조직
-    {key:"sjs_departments",     label:"본부 구성",        emoji:"🏢"},
-    {key:"sjs_dept_biz",        label:"본부별 매출목표",   emoji:"📊"},
-    // 협력업체
-    {key:"sjs_vendors",         label:"협력업체 DB",      emoji:"🤝"},
-    {key:"sjs_vendor_payments", label:"협력업체 지급",     emoji:"💰"},
-    // 분류 코드
-    {key:"sjs_contract_types",  label:"계약유형",         emoji:"📋"},
-    {key:"sjs_bid_types",       label:"수주형태",         emoji:"📋"},
-    // 기타 설정·기록
-    {key:"sjs_versions",        label:"이력(버전)",       emoji:"🗂"},
-    {key:"sjs_notices",         label:"공지사항",         emoji:"📢"},
-    {key:"sjs_schedules",       label:"캘린더",           emoji:"📅"},
-    {key:"sjs_docvault",        label:"문서보관함",       emoji:"📁"},
-    {key:"sjs_proj_baseline",   label:"프로젝트 기준선",  emoji:"📐"},
-    {key:"sjs_contract_checklist",label:"계약 체크리스트",emoji:"✅"},
-    {key:"sjs_hub_favorites",   label:"즐겨찾기",         emoji:"⭐"},
-    {key:"sjs_tab_groups",      label:"탭 그룹",          emoji:"📑"},
-    {key:"sjs_tab_order",       label:"탭 순서",          emoji:"↕"},
-    // 계정 (비밀번호는 제외 - 해시값이므로 포함해도 안전)
-    {key:"sjs_auth",            label:"계정 정보",        emoji:"👤"},
-    {key:"sjs_pw",              label:"비밀번호(해시)",   emoji:"🔒"},
-  ]
+  // ── 전체 백업 대상 키 — App.jsx 자동 서버 백업과 동일한 목록 사용 ──
+  const ALL_KEYS = ALL_BACKUP_KEYS
 
   // 저장 용량 계산
   const getSize = (key) => { try{ return (localStorage.getItem(key)||"").length }catch{ return 0 } }
@@ -1666,7 +1672,7 @@ function BackupSection({allData, restoreAllData, isAdmin, cashItems=[], setCashI
   }
 
   // ── 실제 복구 실행 ───────────────────────────────────────
-  const doRestore = () => {
+  const doRestore = async () => {
     if(!previewInfo) return
     const {snap} = previewInfo
     if(!window.confirm(
@@ -1681,6 +1687,13 @@ function BackupSection({allData, restoreAllData, isAdmin, cashItems=[], setCashI
         try{ localStorage.setItem(key, JSON.stringify(snap.data[key])); restored++ }catch(e){ console.warn(`복구 실패 (${key}):`, e) }
       }
     })
+    // ⚠️ 서버(Supabase) 연동 중이면 로컬 저장만으로는 복구가 유지되지 않는다 — 새로고침 시
+    // 서버의 예전 데이터를 다시 불러오면서 방금 한 복구가 도로 덮어써지기 때문에, 반드시
+    // 서버에도 함께 반영해야 한다.
+    if(restoreAllData) {
+      flash("서버에 복구 데이터를 반영하는 중입니다...")
+      try{ await restoreAllData(snap.data) }catch(e){ console.warn("서버 반영 실패:", e) }
+    }
     flash(`✅ 복구 완료! ${restored}개 항목이 복구됐습니다. 페이지를 새로고침합니다...`)
     setTimeout(()=>window.location.reload(), 1800)
   }
@@ -1698,6 +1711,42 @@ function BackupSection({allData, restoreAllData, isAdmin, cashItems=[], setCashI
           fontSize:14.3,fontWeight:600,lineHeight:1.7,whiteSpace:"pre-line",
           border:`1px solid ${msg.ok?"#6EE7B7":"#FCA5A5"}`}}>
           {msg.text}
+        </div>
+      )}
+
+      {/* ⓪ 자동 서버 백업 — 사람이 잊어버려도 매일 자동으로 서버에 저장됨 */}
+      {dbStatus==="ok" && (
+        <div style={{...card2,border:"2px solid #7C3AED",background:"linear-gradient(135deg,#F3EEFF,#EEF2FF)"}}>
+          <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:6,flexWrap:"wrap",gap:8}}>
+            <div style={{fontSize:16.5,fontWeight:800,color:"#5B21B6",display:"flex",alignItems:"center",gap:8}}>
+              ☁️ 자동 서버 백업
+            </div>
+            <button onClick={refreshServerBackups} disabled={serverBackupsLoading}
+              style={{padding:"5px 12px",background:"#fff",color:"#7C3AED",border:"1px solid #C4B5FD",borderRadius:8,fontSize:13.2,fontWeight:600,cursor:serverBackupsLoading?"default":"pointer"}}>
+              {serverBackupsLoading?"불러오는 중...":"🔄 새로고침"}
+            </button>
+          </div>
+          <div style={{fontSize:13.2,color:"#6D28D9",marginBottom:14,lineHeight:1.6}}>
+            사람이 따로 챙기지 않아도 매일 최초 접속 시 서버에 자동으로 스냅샷이 저장됩니다(최근 14일 보관). 실수로 데이터가 사라지거나 잘못 덮어써졌을 때, 아래에서 원하는 날짜로 즉시 복원할 수 있습니다.
+          </div>
+          {serverBackups.length===0 ? (
+            <div style={{fontSize:13.2,color:"#94A3B8",padding:"10px 0"}}>{serverBackupsLoading?"불러오는 중...":"아직 자동 백업이 없습니다. (오늘 접속 시 첫 백업이 자동으로 만들어집니다)"}</div>
+          ) : (
+            <div style={{display:"flex",flexDirection:"column",gap:6,maxHeight:260,overflowY:"auto"}}>
+              {serverBackups.map(b=>(
+                <div key={b.key} style={{display:"flex",alignItems:"center",justifyContent:"space-between",background:"#fff",borderRadius:8,padding:"9px 14px",border:"1px solid #E9D5FF"}}>
+                  <div>
+                    <span style={{fontSize:14.3,fontWeight:700,color:"#4C1D95"}}>{b.key.replace("sjs_autobackup_","")}</span>
+                    {b.updated_at && <span style={{fontSize:12,color:"#94A3B8",marginLeft:8}}>{new Date(b.updated_at).toLocaleString("ko-KR")}</span>}
+                  </div>
+                  <button onClick={()=>restoreServerBackup&&restoreServerBackup(b.key)}
+                    style={{padding:"5px 12px",background:"#7C3AED",color:"#fff",border:"none",borderRadius:7,fontSize:12.5,fontWeight:700,cursor:"pointer"}}>
+                    이 날짜로 복원
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       )}
 

@@ -16,7 +16,7 @@ import {
 } from "./ReChartsFallback.jsx"
 import { ArchiveTab } from "./Archive.jsx"
 import { CostControlTab } from "./CostControl.jsx"
-import { DataHubTab } from "./DataHub.jsx"
+import { DataHubTab, ALL_BACKUP_KEYS } from "./DataHub.jsx"
 import { VendorsTab } from "./Vendors.jsx"
 import { WeeklyReportTab, WEEKLY_REPORT_EMPTY, upsertScheduleEntry, removeScheduleEntriesBySourcePrefix, findScheduleEntriesBySourcePrefix } from "./WeeklyReport.jsx"
 // AI 기능 — 추후 ANTHROPIC_API_KEY 설정 시 활성화 가능
@@ -34,7 +34,7 @@ import {
   PROJECTS_INIT, ALERTS_INIT, normalizeProject, getDeptShares, BID_TYPES, CONTRACT_TYPES_DEFAULT, PROJ_TYPES_DEFAULT, BID_TYPES_DEFAULT,
   CERT_DOC_TYPES, VENDOR_DOC_PROMPT, BILLING_STAGE_OPTIONS, BILLING_PROMPT, VENDOR_DOC_TYPES
 } from "./data.js"
-import { isConfigured, dbGet, dbSet, dbGetAll, dbSetAll, subscribeChanges } from "./supabase.js"
+import { isConfigured, dbGet, dbSet, dbGetAll, dbSetAll, dbListKeys, dbDeleteKey, subscribeChanges } from "./supabase.js"
 
 // ── 색상 팔레트 ───────────────────────────────────────────────
 const num = v => { const n=parseFloat(v); return Number.isFinite(n)?n:0 }
@@ -860,10 +860,23 @@ export default function App() {
       }
     }
   }
-  const mkPersist = (setter, key) => updater => setter(prev => {
+  const debounceTimers = useRef({})
+  const mkPersist = (setter, key, opts={}) => updater => setter(prev => {
     const next = typeof updater==="function" ? updater(prev) : updater
     lsSet(key, next)
-    if (USE_DB) dbSet(key, next, userEmail.current).catch(()=>{})
+    if (USE_DB) {
+      // ⚠ 이 저장은 서버의 해당 키 전체를 덮어쓴다(부분 수정 아님). 같은 키를 짧은 간격으로 여러 번
+      // 저장하면(연속 편집) 중간 상태들이 네트워크 순서에 따라 서로 경쟁할 수 있어, 자주 바뀌는
+      // 무거운 키(프로젝트 등)는 마지막 변경만 모아서 한 번에 저장하도록 살짝 지연(debounce)시킨다.
+      if(opts.debounceMs){
+        clearTimeout(debounceTimers.current[key])
+        debounceTimers.current[key] = setTimeout(()=>{
+          dbSet(key, next, userEmail.current).catch(()=>{})
+        }, opts.debounceMs)
+      } else {
+        dbSet(key, next, userEmail.current).catch(()=>{})
+      }
+    }
     return next
   })
 
@@ -949,17 +962,20 @@ export default function App() {
     }).catch(e=>console.warn("초기 프로젝트 로드 실패:", e))
     return ()=>{ cancelled = true }
   },[dbReady])
-  const setProjectsPersist = mkPersist(setProjectsRaw, "sjs_projects")
-  // 신규 생성되거나 "실제로 내용이 바뀐" 프로젝트에만 updatedAt을 자동으로 찍어줌 — 목록 화면에서
-  // "최근 수정된/새로 만든 프로젝트가 위로" 정렬하는 데 사용.
-  // 참조(reference)가 아니라 내용을 비교한다 — 데이터 재로드·엑셀 재업로드처럼 배열 전체를 다시
-  // 만들기만 하고 실제 값은 그대로인 경우까지 "방금 수정됨"으로 잘못 찍히는 것을 막기 위함.
+  // ── 프로젝트 저장 — "행 1개 = 프로젝트 1건"으로 서버에 개별 저장 ──────────────
+  // 예전에는 프로젝트 440개 전체가 서버의 행 하나(sjs_projects)에 통째로 들어 있어서, 어느 프로젝트를
+  // 하나만 고쳐도 매번 440개 전체를 덮어썼다. 그 상태에서 두 세션(다른 탭·다른 기기 등)이 거의 동시에
+  // 저장하면, 더 오래된 스냅샷을 들고 있던 쪽이 나중에 저장되는 순간 다른 사람의 최신 변경사항 전체가
+  // 통째로 사라졌다 — 이번에 실제로 겪은 데이터 유실 사고가 정확히 이 구조 때문이었다.
+  // 이제는 "실제로 바뀐 프로젝트"만 그 프로젝트 자신의 행(project:<id>)에만 저장한다. 서로 다른
+  // 프로젝트를 아무리 동시에 고쳐도 각자의 행만 건드리므로, 이런 사고가 구조적으로 불가능해진다.
+  const projRowTimers = useRef({})
   const setProjects = (updater) => {
-    setProjectsPersist(prev => {
+    setProjectsRaw(prev => {
       const next = typeof updater==="function" ? updater(prev) : updater
       const now = new Date().toISOString()
       const prevMap = new Map(prev.map(p=>[p.id,p]))
-      return next.map(np=>{
+      const stamped = next.map(np=>{
         const op = prevMap.get(np.id)
         if(!op) return {...np, updatedAt: np.updatedAt || now} // 신규 생성
         if(op===np) return np // 참조도 같으면 당연히 무변경
@@ -968,6 +984,22 @@ export default function App() {
         if(JSON.stringify(opRest)===JSON.stringify(npRest)) return {...np, updatedAt: op.updatedAt} // 내용은 그대로 — 타임스탬프 건드리지 않음
         return {...np, updatedAt: now}
       })
+      lsSet("sjs_projects", stamped) // 로컬 캐시(빠른 재로드·자동백업용) — 서버 동기화의 기준이 아니라 참고용 사본일 뿐
+
+      if(USE_DB){
+        const stampedMap = new Map(stamped.map(p=>[p.id,p]))
+        stampedMap.forEach((p,id)=>{
+          if(prevMap.get(id) === p) return // 이 프로젝트는 실제로 안 바뀜 — 그 행은 건드리지 않음
+          clearTimeout(projRowTimers.current[id])
+          projRowTimers.current[id] = setTimeout(()=>{
+            dbSet(`project:${id}`, p, userEmail.current).catch(()=>{})
+          }, 900) // 같은 프로젝트를 짧은 시간에 여러 번 고쳐도 마지막 상태 하나만 저장
+        })
+        prev.forEach(p=>{
+          if(!stampedMap.has(p.id)){ clearTimeout(projRowTimers.current[p.id]); dbDeleteKey(`project:${p.id}`).catch(()=>{}) }
+        })
+      }
+      return stamped
     })
   }
   const projects = projectsRaw
@@ -1203,7 +1235,31 @@ export default function App() {
         if (typeof v === 'object' && !Array.isArray(v) && Object.keys(v).length === 0) return lsGet(k, init)
         return v
       }
-      setProjectsRaw(g("sjs_projects", PROJECTS_INIT).map(normalizeProject))
+      setProjectsRaw((()=>{
+        // ── "행 1개 = 프로젝트 1건"으로 저장된 데이터가 있으면 그것을 최우선으로 사용 ──
+        const projectRows = Object.entries(all).filter(([k])=>k.startsWith("project:")).map(([,v])=>v).filter(Boolean)
+        let result
+        if(projectRows.length > 0) result = projectRows.map(normalizeProject)
+        else {
+          // 아직 개별 행으로 나뉘기 전(예전 방식) — 통짜 배열을 그대로 쓰고, 이번 접속을 계기로
+          // 각 프로젝트를 개별 행으로 나눠 서버에 추가 저장한다(1회성 마이그레이션).
+          // ⚠ 기존 통짜 키(sjs_projects)는 안전을 위해 절대 지우거나 덮어쓰지 않고 그대로 남겨둔다 —
+          //   혹시 이 마이그레이션에 문제가 생겨도 예전 방식 그대로 복구할 수 있는 마지막 안전망이 된다.
+          const legacyArr = g("sjs_projects", PROJECTS_INIT).map(normalizeProject)
+          if(legacyArr.length > 0){
+            const entries = {}
+            legacyArr.forEach(p=>{ if(p.id) entries[`project:${p.id}`] = p })
+            dbSetAll(entries, "system-migration-per-row")
+              .then(ok=>console[ok?"info":"warn"](ok
+                ? `✅ 프로젝트 ${legacyArr.length}건을 개별 행으로 마이그레이션 완료 (기존 통짜 데이터는 안전하게 보존됨)`
+                : "⚠️ 프로젝트 개별 행 마이그레이션 실패 — 다음 접속 시 재시도됩니다"))
+              .catch(()=>{})
+          }
+          result = legacyArr
+        }
+        lsSet("sjs_projects", result) // 로컬 캐시도 함께 채워둬야, 아래 "초기 시드데이터 병합" 로직이 이미 동기화된 상태를 정확히 인식한다
+        return result
+      })())
       setPnlDataRaw(g("sjs_pnl", PNL_INIT))
       setYearsRaw(g("sjs_years", YEARS_DB_INIT))
       setCashflowRaw(g("sjs_cashflow", CF_2026))
@@ -1232,8 +1288,35 @@ export default function App() {
   // ── Supabase: 실시간 구독 ──────────────────────────────────
   useEffect(() => {
     if (!USE_DB) return
-    const unsub = subscribeChanges((key, value) => {
-      if      (key==="sjs_projects")         setProjectsRaw(value.map(normalizeProject))
+    const unsub = subscribeChanges((key, value, eventType) => {
+      if      (key && key.startsWith("project:")) {
+        // "행 1개 = 프로젝트 1건" 방식 — 다른 세션에서 프로젝트 하나가 바뀌면 그 프로젝트 하나만
+        // 갱신한다. 이 배열의 다른 프로젝트는 절대 건드리지 않으므로, 여러 사람이 서로 다른
+        // 프로젝트를 동시에 고쳐도 한쪽이 다른 쪽의 변경사항을 덮어쓸 위험이 구조적으로 없다.
+        const id = key.slice("project:".length)
+        if(eventType === "DELETE") {
+          setProjectsRaw(prev=>prev.filter(p=>p.id!==id))
+        } else if(value) {
+          const np = normalizeProject(value)
+          setProjectsRaw(prev=>{
+            const idx = prev.findIndex(p=>p.id===id)
+            if(idx===-1) return [...prev, np]
+            if(prev[idx]===value) return prev
+            const next=[...prev]; next[idx]=np
+            return next
+          })
+        }
+      }
+      else if (key==="sjs_projects") {
+        // 예전 방식(통짜 배열)의 흔적 — 이제는 project:<id> 개별 행이 기준이라 더 이상 이 키에
+        // 새로 저장하지 않는다. 혹시 옛 버전 클라이언트가 아직 남아 이 키에 저장하더라도,
+        // 개별 행 데이터가 이미 있으면 무시하고, 없을 때만 참고용으로 반영한다.
+        if(Array.isArray(value) && value.length === 0) { console.warn("⚠️ 서버에서 빈 프로젝트 목록이 수신되어 무시했습니다."); return }
+        setProjectsRaw(prev=>{
+          if(Array.isArray(prev) && prev.length>0) return prev // 이미 개별 행 기준으로 채워져 있음 — 통짜 키는 무시
+          return value.map(normalizeProject)
+        })
+      }
       else if (key==="sjs_pnl")              setPnlDataRaw(value)
       else if (key==="sjs_years")            setYearsRaw(value)
       else if (key==="sjs_cashflow")         setCashflowRaw(value)
@@ -1264,6 +1347,67 @@ export default function App() {
     })
     return unsub
   }, []) // eslint-disable-line
+
+  // ── 자동 서버 백업 — 사람이 잊어도 매일 최초 접속 시 자동으로 스냅샷을 서버에 저장(최근 14일 보관) ──
+  // 오늘 아침처럼 데이터가 사라지거나 옛날 값으로 되돌아가는 사고가 나도, 데이터관리 → 백업·복구에서
+  // 최근 며칠 중 하나를 골라 바로 되돌릴 수 있게 하기 위한 안전망.
+  const [serverBackups, setServerBackups] = useState([])
+  const [serverBackupsLoading, setServerBackupsLoading] = useState(false)
+  const refreshServerBackups = useCallback(async ()=>{
+    if(!USE_DB) return
+    setServerBackupsLoading(true)
+    try{ setServerBackups(await dbListKeys("sjs_autobackup_")) }
+    finally{ setServerBackupsLoading(false) }
+  },[]) // eslint-disable-line
+  const restoreServerBackup = useCallback(async (key)=>{
+    if(!window.confirm(`"${key.replace("sjs_autobackup_","")}" 시점의 자동 백업으로 복원합니다.\n\n현재 데이터가 그 시점의 데이터로 완전히 대체되며 되돌릴 수 없습니다.\n계속하시겠습니까?`)) return
+    const snap = await dbGet(key)
+    if(!snap){ alert("백업 데이터를 불러오지 못했습니다."); return }
+    let restored = 0
+    ALL_BACKUP_KEYS.forEach(({key:k})=>{
+      if(snap[k]!==undefined){ try{ localStorage.setItem(k, JSON.stringify(snap[k])); restored++ }catch{} }
+    })
+    await dbSetAll(snap, userEmail.current).catch(()=>{})
+    if(Array.isArray(snap.sjs_projects)) await restoreProjectsPerRow(snap.sjs_projects)
+    alert(`✅ 복원 완료 (${restored}개 항목). 새로고침합니다.`)
+    window.location.reload()
+  },[]) // eslint-disable-line
+  // 백업 스냅샷 안의 프로젝트 배열을 "행 1개 = 프로젝트 1건" 구조에도 정확히 반영 —
+  // 이게 없으면 복원해도 기존 개별 행이 우선시되어 화면상 아무것도 안 바뀐 것처럼 보인다.
+  const restoreProjectsPerRow = async (projectsArray) => {
+    if(!USE_DB || !Array.isArray(projectsArray)) return
+    try{
+      const currentRows = await dbListKeys("project:")
+      const keepIds = new Set(projectsArray.map(p=>p.id).filter(Boolean))
+      for(const r of currentRows){ if(!keepIds.has(r.key.slice("project:".length))) await dbDeleteKey(r.key).catch(()=>{}) }
+      const entries = {}
+      projectsArray.forEach(p=>{ if(p.id) entries[`project:${p.id}`] = p })
+      if(Object.keys(entries).length>0) await dbSetAll(entries, (userEmail.current||"")+"(복원)").catch(()=>{})
+    }catch(e){ console.warn("프로젝트 개별 행 복원 실패:", e) }
+  }
+  useEffect(()=>{
+    if(!USE_DB || !dbReady) return
+    refreshServerBackups()
+    ;(async ()=>{
+      try{
+        const today = new Date().toISOString().slice(0,10)
+        const todayKey = `sjs_autobackup_${today}`
+        if(await dbGet(todayKey)) return // 오늘 백업 이미 있음
+        const snap = {}
+        ALL_BACKUP_KEYS.forEach(({key})=>{
+          try{ const v=localStorage.getItem(key); if(v) snap[key]=JSON.parse(v) }catch{}
+        })
+        if(Object.keys(snap).length===0) return
+        await dbSet(todayKey, snap, "system-auto")
+        const list = await dbListKeys("sjs_autobackup_") // 최신순 정렬
+        const KEEP = 14
+        if(list.length > KEEP){
+          for(const b of list.slice(KEEP)) await dbDeleteKey(b.key).catch(()=>{})
+        }
+        refreshServerBackups()
+      }catch(e){ console.warn("자동 백업 실패:", e) }
+    })()
+  },[dbReady]) // eslint-disable-line
 
   const DEPTS       = useMemo(()=>departments.filter(d=>d.finance).map(d=>d.name),[departments])
   const STAFF_DEPTS = useMemo(()=>departments.map(d=>d.name),[departments])
@@ -2003,7 +2147,7 @@ export default function App() {
         {tab==="deptdash"  && <DeptDashTab projects={projects} vendorPayments={vendorPayments} years={years}/>}
         {tab==="home" && <EventDashboard setTab={setTab} currentUser={currentUser} projects={projects} cashItems={cashItems} contractItems={contractItems} deptStaff={deptStaff} setSelProjId={setSelProjId} setDetailTab={setDetailTab} vendorPayments={vendorPayments} DEPTS={DEPTS} DEPT_COLORS={DEPT_COLORS}/>}
         {tab==="analysis"  && (canReadTab("analysis") ? <AnalysisHub deptStaff={deptStaff} setDeptStaff={setDeptStaff} years={years} setYears={setYears} canWrite={canWrite} isAdmin={currentUser?.role==="admin"} cashflow={effectiveCashflow} cashItems={cashItems} setCashItems={setCashItems} saleItems={saleItems} setSaleItems={setSaleItems} contractItems={contractItems} setContractItems={setContractItems} projects={projects} setProjects={setProjects} setTab={setTab} setSelProjId={setSelProjId} setDetailTab={setDetailTab} selProjId={selProjId} selVerIdx={selVerIdx} setSelVerIdx={setSelVerIdx} currentUser={currentUser} yearTargets={yearTargets} setYearTargets={setYearTargets} deptBiz={deptBiz} staffMonthly={staffMonthly} staffTarget={staffTarget}/> : <NoPermScreen tabId="analysis"/>)}
-        {tab==="datahub" && canReadTab("datahub") && <DataHubTab currentUser={currentUser} deptStaff={deptStaff} setDeptStaff={setDeptStaff} staffTarget={staffTarget} setStaffTarget={setStaffTarget} staffMonthly={staffMonthly} setStaffMonthly={setStaffMonthly} pnlData={pnlData} setPnlData={setPnlData} cashflow={cashflow} setCashflow={setCashflow} years={years} setYears={setYears} projects={projects} setProjects={setProjects} setTab={setTab} setSelProjId={setSelProjId} setSelVerIdx={setSelVerIdx} setShowNewProj={setShowNewProj} versions={versions} saveVersion={saveVersion} restoreVersion={restoreVersion} deleteVersion={deleteVersion} contractTypes={contractTypes} setContractTypes={setContractTypes} projTypes={projTypes} setProjTypes={setProjTypes} bidTypes={bidTypes} setBidTypes={setBidTypes} allData={null} restoreAllData={(entries)=>dbSetAll(entries, userEmail.current)} dbStatus={dbStatus} vendorsDB={vendorsDB} setVendorsDB={setVendorsDB} vendorPayments={vendorPayments} setVendorPayments={setVendorPayments} cashItems={cashItems} setCashItems={setCashItems} saleItems={saleItems} setSaleItems={setSaleItems} contractItems={contractItems} setContractItems={setContractItems}/>}
+        {tab==="datahub" && canReadTab("datahub") && <DataHubTab currentUser={currentUser} deptStaff={deptStaff} setDeptStaff={setDeptStaff} staffTarget={staffTarget} setStaffTarget={setStaffTarget} staffMonthly={staffMonthly} setStaffMonthly={setStaffMonthly} pnlData={pnlData} setPnlData={setPnlData} cashflow={cashflow} setCashflow={setCashflow} years={years} setYears={setYears} projects={projects} setProjects={setProjects} setTab={setTab} setSelProjId={setSelProjId} setSelVerIdx={setSelVerIdx} setShowNewProj={setShowNewProj} versions={versions} saveVersion={saveVersion} restoreVersion={restoreVersion} deleteVersion={deleteVersion} contractTypes={contractTypes} setContractTypes={setContractTypes} projTypes={projTypes} setProjTypes={setProjTypes} bidTypes={bidTypes} setBidTypes={setBidTypes} allData={null} restoreAllData={async (entries)=>{ const ok = await dbSetAll(entries, userEmail.current); if(Array.isArray(entries.sjs_projects)) await restoreProjectsPerRow(entries.sjs_projects); return ok }} dbStatus={dbStatus} vendorsDB={vendorsDB} setVendorsDB={setVendorsDB} vendorPayments={vendorPayments} setVendorPayments={setVendorPayments} cashItems={cashItems} setCashItems={setCashItems} saleItems={saleItems} setSaleItems={setSaleItems} contractItems={contractItems} setContractItems={setContractItems} serverBackups={serverBackups} serverBackupsLoading={serverBackupsLoading} refreshServerBackups={refreshServerBackups} restoreServerBackup={restoreServerBackup}/>}
         {tab==="cashflow" && canReadTab("cashflow") && <CashflowTab cashflow={effectiveCashflow} setCashflow={setCashflow} currentUser={currentUser} projects={projects} setProjects={setProjects} projectCashflowByDept={projectCashflowByDept} cashItems={cashItems} setCashItems={setCashItems} saleItems={saleItems} setSaleItems={setSaleItems} setTab={setTab} setSelProjId={setSelProjId} setDetailTab={setDetailTab} yearTargets={yearTargets} setYearTargets={setYearTargets} deptBiz={deptBiz} deptStaff={deptStaff} staffMonthly={staffMonthly} staffTarget={staffTarget} contractItems={contractItems} setContractItems={setContractItems}/>}
         {tab==="projects" && canReadTab("projects") && <ProjectsTab projects={projects} setProjects={setProjects} selProjId={selProjId} setSelProjId={setSelProjId} selVerIdx={selVerIdx} setSelVerIdx={setSelVerIdx} cmpIds={cmpIds} setCmpIds={setCmpIds} showNewVer={showNewVer} setShowNewVer={setShowNewVer} canWrite={canWrite&&canWriteTab("projects")} contractTypes={contractTypes} currentUser={currentUser} setDetailTab={setDetailTab} detailTab={detailTab} cashItems={cashItems} setCashItems={setCashItems} vendorsDB={vendorsDB} projBaseline={projBaseline} setProjBaseline={setProjBaseline} contractItems={contractItems} vendorPayments={vendorPayments} markProjectsDeleted={markProjectsDeleted}/>}
         {tab==="execplans" && canReadTab("projects") && (

@@ -49,6 +49,19 @@ export async function dbGetAll() {
   return Object.fromEntries((data||[]).map(r => [r.key, r.value]))
 }
 
+// ── 접두어로 시작하는 모든 행을 {key: value} 형태로 한 번에 읽기 ──
+// (프로젝트를 "행 1개 = 통짜 배열"이 아니라 "행 1개 = 프로젝트 1건"으로 나눠 저장할 때 사용)
+export async function dbGetAllByPrefix(prefix) {
+  if (!supabase) return {}
+  const { data, error } = await supabase
+    .from('app_data')
+    .select('key,value')
+    .eq('org_id', ORG_ID)
+    .like('key', `${prefix}%`)
+  if (error) { console.warn(`dbGetAllByPrefix(${prefix}):`, error.message); return {} }
+  return Object.fromEntries((data||[]).map(r => [r.key, r.value]))
+}
+
 // ── 전체 데이터 한 번에 쓰기 (백업 복구용) ────────────────────
 export async function dbSetAll(entries, updatedBy = '') {
   if (!supabase) return false
@@ -62,18 +75,46 @@ export async function dbSetAll(entries, updatedBy = '') {
   return true
 }
 
+// ── 특정 접두어로 시작하는 키 목록 조회 (자동 백업 스냅샷 등) ──
+export async function dbListKeys(prefix) {
+  if (!supabase) return []
+  const { data, error } = await supabase
+    .from('app_data')
+    .select('key,updated_at,updated_by')
+    .eq('org_id', ORG_ID)
+    .like('key', `${prefix}%`)
+    .order('key', { ascending: false })
+  if (error) { console.warn('dbListKeys:', error.message); return [] }
+  return data || []
+}
+
+// ── 키 삭제 (오래된 자동 백업 정리용) ─────────────────────────
+export async function dbDeleteKey(key) {
+  if (!supabase) return false
+  const { error } = await supabase
+    .from('app_data')
+    .delete()
+    .eq('org_id', ORG_ID)
+    .eq('key', key)
+  if (error) { console.warn(`dbDeleteKey(${key}):`, error.message); return false }
+  return true
+}
+
 // ── 실시간 구독 (다른 사용자 변경 즉시 반영) ──────────────────
+// onUpdate(key, value, eventType) — eventType: 'INSERT' | 'UPDATE' | 'DELETE'
+// (DELETE 이벤트에는 payload.old만 있고 value가 없을 수 있어 key만 넘어올 수 있음)
 export function subscribeChanges(onUpdate) {
   if (!supabase) return ()=>{}
   const channel = supabase
     .channel('app_data_changes')
     .on('postgres_changes', {
-      event: 'UPDATE',
+      event: '*',
       schema: 'public',
       table: 'app_data',
       filter: `org_id=eq.${ORG_ID}`
     }, payload => {
-      onUpdate(payload.new.key, payload.new.value)
+      if(payload.eventType === 'DELETE') onUpdate(payload.old?.key, undefined, 'DELETE')
+      else onUpdate(payload.new.key, payload.new.value, payload.eventType)
     })
     .subscribe()
   return () => supabase.removeChannel(channel)
