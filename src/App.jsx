@@ -19,6 +19,7 @@ import { CostControlTab } from "./CostControl.jsx"
 import { DataHubTab, ALL_BACKUP_KEYS } from "./DataHub.jsx"
 import { VendorsTab } from "./Vendors.jsx"
 import { WeeklyReportTab, WEEKLY_REPORT_EMPTY, upsertScheduleEntry, removeScheduleEntriesBySourcePrefix, findScheduleEntriesBySourcePrefix } from "./WeeklyReport.jsx"
+import { DeptReportPage } from "./DeptReport.jsx"
 // AI 기능 — 추후 ANTHROPIC_API_KEY 설정 시 활성화 가능
 import { AIAssistant, AIFloatButton } from "./AIAssistant.jsx"
 import { ManualTab } from "./ManualTab.jsx"
@@ -1237,15 +1238,24 @@ export default function App() {
       }
       setProjectsRaw((()=>{
         // ── "행 1개 = 프로젝트 1건"으로 저장된 데이터가 있으면 그것을 최우선으로 사용 ──
-        const projectRows = Object.entries(all).filter(([k])=>k.startsWith("project:")).map(([,v])=>v).filter(Boolean)
+        const deletedKeys = new Set(all["sjs_deleted_proj_keys"] || [])
+        const notDeleted = p => !deletedKeys.has((p.name||"").slice(0,12))
+        const projectRows = Object.entries(all).filter(([k])=>k.startsWith("project:")).map(([k,v])=>({k,v})).filter(x=>x.v)
         let result
-        if(projectRows.length > 0) result = projectRows.map(normalizeProject)
+        if(projectRows.length > 0) {
+          const kept = projectRows.filter(x=>notDeleted(x.v))
+          const purge = projectRows.filter(x=>!notDeleted(x.v))
+          if(purge.length>0) purge.forEach(x=>dbDeleteKey(x.k).catch(()=>{})) // 예전에 삭제됐어야 할 행이 서버에 남아있으면 정리
+          result = kept.map(x=>normalizeProject(x.v))
+        }
         else {
           // 아직 개별 행으로 나뉘기 전(예전 방식) — 통짜 배열을 그대로 쓰고, 이번 접속을 계기로
           // 각 프로젝트를 개별 행으로 나눠 서버에 추가 저장한다(1회성 마이그레이션).
           // ⚠ 기존 통짜 키(sjs_projects)는 안전을 위해 절대 지우거나 덮어쓰지 않고 그대로 남겨둔다 —
           //   혹시 이 마이그레이션에 문제가 생겨도 예전 방식 그대로 복구할 수 있는 마지막 안전망이 된다.
-          const legacyArr = g("sjs_projects", PROJECTS_INIT).map(normalizeProject)
+          // ⚠ 예전에 삭제했던 프로젝트가 통짜 데이터에 남아있을 수 있으므로(삭제 당시 경쟁 상태로 되살아난
+          //   흔적), 삭제 기록(sjs_deleted_proj_keys)에 있는 이름은 마이그레이션 대상에서 반드시 제외한다.
+          const legacyArr = g("sjs_projects", PROJECTS_INIT).map(normalizeProject).filter(notDeleted)
           if(legacyArr.length > 0){
             const entries = {}
             legacyArr.forEach(p=>{ if(p.id) entries[`project:${p.id}`] = p })
@@ -1871,6 +1881,7 @@ export default function App() {
     {id:"deptdash",  label:"🏢 본부별 현황",  group:"경영"},
     {id:"projects",  label:"🏗 프로젝트",     group:"프로젝트"},
     {id:"execplans", label:"📋 실행계획서",   group:"프로젝트"},
+    {id:"deptreport", label:"📋 주간보고",    group:"프로젝트"},
     {id:"history",   label:"📜 히스토리",     group:"프로젝트"},
     {id:"calendar",  label:"📅 일정 캘린더",  group:"프로젝트"},
     {id:"vendors",   label:"🤝 협력업체",     group:"관리"},
@@ -1888,7 +1899,7 @@ export default function App() {
       const s=JSON.parse(localStorage.getItem("sjs_tab_order")||"null")
       if(Array.isArray(s)&&s.length>0){
         // TAB_DEFAULTS에 있는데 저장된 목록에 없는 탭 자동 추가 (버전 업그레이드 대응)
-        const TAB_IDS_DEFAULT = ["home","analysis","notice","stats","gamify","deptdash","projects","execplans","history","calendar","vendors","contract","archive","staffmgmt","pnl","optimize","datahub","manual","auth_mgmt"]
+        const TAB_IDS_DEFAULT = ["home","analysis","notice","stats","gamify","deptdash","projects","execplans","deptreport","history","calendar","vendors","contract","archive","staffmgmt","pnl","optimize","datahub","manual","auth_mgmt"]
         const savedIds = new Set(s.map(t=>t.id))
         const merged = [...s].filter(t=>t.id!=="docsoverview"&&t.id!=="docvault") // 서류함·문서보관소는 아카이브로 통합되어 제거됨
         const DEFAULT_MAP = {
@@ -1900,6 +1911,7 @@ export default function App() {
           deptdash:{id:"deptdash",label:"🏢 본부별 현황",group:"경영"},
           projects:{id:"projects",label:"🏗 프로젝트",group:"프로젝트"},
           execplans:{id:"execplans",label:"📋 실행계획서",group:"프로젝트"},
+          deptreport:{id:"deptreport",label:"📋 주간보고",group:"프로젝트"},
           history:{id:"history",label:"📜 히스토리",group:"프로젝트"},
           calendar:{id:"calendar",label:"📅 일정 캘린더",group:"프로젝트"},
           vendors:{id:"vendors",label:"🤝 협력업체",group:"관리"},
@@ -2152,6 +2164,9 @@ export default function App() {
         {tab==="projects" && canReadTab("projects") && <ProjectsTab projects={projects} setProjects={setProjects} selProjId={selProjId} setSelProjId={setSelProjId} selVerIdx={selVerIdx} setSelVerIdx={setSelVerIdx} cmpIds={cmpIds} setCmpIds={setCmpIds} showNewVer={showNewVer} setShowNewVer={setShowNewVer} canWrite={canWrite&&canWriteTab("projects")} contractTypes={contractTypes} currentUser={currentUser} setDetailTab={setDetailTab} detailTab={detailTab} cashItems={cashItems} setCashItems={setCashItems} vendorsDB={vendorsDB} projBaseline={projBaseline} setProjBaseline={setProjBaseline} contractItems={contractItems} vendorPayments={vendorPayments} markProjectsDeleted={markProjectsDeleted}/>}
         {tab==="execplans" && canReadTab("projects") && (
           <ExecPlansOverviewPage projects={projects} setTab={setTab} setSelProjId={setSelProjId} setSelVerIdx={setSelVerIdx} setDetailTab={setDetailTab}/>
+        )}
+        {tab==="deptreport" && canReadTab("projects") && (
+          <DeptReportPage projects={projects} cashItems={cashItems} currentUser={currentUser} setTab={setTab} setSelProjId={setSelProjId} setDetailTab={setDetailTab}/>
         )}
         {tab==="vendors" && canReadTab("vendors") && <VendorsTab projects={projects} setProjects={setProjects} vendorsDB={vendorsDB} setVendorsDB={setVendorsDB} vendorPayments={vendorPayments} setVendorPayments={setVendorPayments} canWrite={canWrite&&canWriteTab("vendors")} currentUser={currentUser} setTab={setTab} setSelProjId={setSelProjId} setSelVerIdx={setSelVerIdx}/>}
         {tab==="pnl"      && canReadTab("pnl")      && <PnlTab pnlData={pnlData} setPnlData={setPnlData} canWrite={canWrite&&canWriteTab("pnl")}/>}
@@ -6740,7 +6755,7 @@ function NewProjModal({onClose,onSave,initial=null}) {
       const ds = getDeptShares(initial).map(s=>({...s}))
       return {...initial, shareRatio:(initial.shareRatio??1)*100, deptShares: ds.length?ds:[{dept:STAFF_DEPTS[0],share:100}], orderType: initial.orderType||"민간", contractType: initial.contractType||"민간"}
     }
-    return {year:new Date().getFullYear()+"",code:"",name:"",deptShares:[{dept:STAFF_DEPTS[0],share:100}],pm:"",director:"",projType:"",contractType:"민간",usage:"",scale:"",siteArea:0,buildArea:0,floorArea:0,units:0,client:"",clientPm:"",clientTel:"",clientEmail:"",staffMembers:[],totalFee:0,shareRatio:100,serviceFee:0,address:"",contractDate:"",orderDate:"",orderType:"민간",bidType:"민간수의",note:"",type:"확정",contractYear:new Date().getFullYear(),isAmendment:false,parentProjName:"",prog:0,
+    return {year:new Date().getFullYear()+"",code:"",name:"",deptShares:[{dept:STAFF_DEPTS[0],share:100}],pm:"",director:"",projType:"",contractType:"민간",usage:"",scale:"",siteArea:0,buildArea:0,floorArea:0,units:0,client:"",clientPm:"",clientTel:"",clientEmail:"",staffMembers:[],totalFee:0,shareRatio:100,serviceFee:0,constructionCost:0,jvShareText:"",agendaNotes:"",crossReviewNotes:"",address:"",contractDate:"",orderDate:"",orderType:"민간",bidType:"민간수의",note:"",type:"확정",contractYear:new Date().getFullYear(),isAmendment:false,parentProjName:"",prog:0,
       jvType:"단독이행",
       jvMembers:[],
       // ── 신규 필드 ──
@@ -6902,6 +6917,20 @@ function NewProjModal({onClose,onSave,initial=null}) {
             <F label="총설계비(원,VAT별도)" val={f.totalFee} onChange={v=>u("totalFee",parseInt(v)||0)} type="number"/>
             <div><F label="상지지분(%)" val={f.shareRatio} onChange={v=>u("shareRatio",parseFloat(v)||0)} type="number"/><button onClick={()=>u("serviceFee",Math.round(f.totalFee*f.shareRatio/100))} style={{...S.btn(C.navyL,C.navyM),marginTop:4,padding:"4px 9px",fontSize:11}}>용역비 계산</button></div>
             <div><F label="용역비(원,VAT별도)" val={f.serviceFee} onChange={v=>u("serviceFee",parseInt(v)||0)} type="number"/>{pyF>0&&f.serviceFee>0&&<div style={{fontSize:11,color:C.navyM,marginTop:2}}>평당: {fPy(f.serviceFee/pyF)}</div>}</div>
+            <F label="공사비(억원,VAT포함)" val={f.constructionCost} onChange={v=>u("constructionCost",parseFloat(v)||0)} type="number"/>
+            <div style={{gridColumn:"span 2"}}><F label="공동분담/분담이행 지분" val={f.jvShareText} onChange={v=>u("jvShareText",v)} ph="예: 상지35%/해마50%/태건15%"/></div>
+          </div>},
+          {title:"주간보고 메모",content:<div style={S.grid(1,9)}>
+            <div>
+              <label style={S.lbl()}>AGENDA (경영진 주간보고용, 4줄 이내 권장)</label>
+              <textarea value={f.agendaNotes||""} onChange={e=>u("agendaNotes",e.target.value)} rows={4}
+                placeholder={"1. ...\n2. ...\n3. ...\n4. ..."} style={{...S.inp(),fontFamily:"inherit",resize:"vertical"}}/>
+            </div>
+            <div>
+              <label style={S.lbl()}>설계도면 교차 검토 (검토 일시 및 검토의견서 송부 내용)</label>
+              <textarea value={f.crossReviewNotes||""} onChange={e=>u("crossReviewNotes",e.target.value)} rows={4}
+                placeholder="검토 일시 및 검토의견서 송부 내용 간략 기재" style={{...S.inp(),fontFamily:"inherit",resize:"vertical"}}/>
+            </div>
           </div>},
           {title:"계약·수주정보",content:<>
             <div style={{background:C.navyL,borderRadius:7,padding:"7px 11px",fontSize:12,color:C.navyM,marginBottom:9}}>★ 수주일 = 계약금 10% 수령일 (회사 내규)</div>
