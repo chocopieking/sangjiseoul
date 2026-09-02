@@ -7607,7 +7607,8 @@ function DocsOverviewPage({projects, setTab, setSelProjId, vendorsDB={}}) {
 
 function CertDocsCard({proj, setProjects, canWrite, currentUser}) {
   const [busyKey, setBusyKey] = useState(null)     // AI 분석 중인 문서 key
-  const [editKey, setEditKey] = useState(null)     // 수동 편집(새 버전 추가) 중인 문서 key
+  const [editKey, setEditKey] = useState(null)     // 수동 편집(새 버전 추가/현재 버전 수정) 중인 문서 key
+  const [editIsFix, setEditIsFix] = useState(false) // true=현재(최신) 버전 값을 그대로 고침, false=새 버전으로 추가
   const [draft, setDraft] = useState(null)
   const [historyKey, setHistoryKey] = useState(null) // 이력(1차/2차 변경) 펼쳐진 문서 key
   const fileInputs = useRef({})
@@ -7738,14 +7739,45 @@ function CertDocsCard({proj, setProjects, canWrite, currentUser}) {
 
   const startNewVersionManual = (docType) => {
     setDraft({}) // 빈 값에서 시작 — "변경"이므로 이전 값을 그대로 베끼지 않고 새로 입력받음
+    setEditIsFix(false)
     setEditKey(docType.key)
   }
+  // 새 버전을 쌓지 않고, 지금 등록돼 있는 최신 버전의 값 자체를 그 자리에서 고침(오타 정정 등 잦은 수정에 사용)
+  const startFixCurrent = (docType) => {
+    const doc = getLatest(docType.key)
+    setDraft(doc ? {...doc} : {})
+    setEditIsFix(true)
+    setEditKey(docType.key)
+  }
+  const updateLatestVersion = (key, patch) => {
+    setProjects(prev=>prev.map(p=>{
+      if(p.id!==proj.id) return p
+      const list = p.certDocs||[]
+      const group = getGroupFor(list, key)
+      if(group.versions.length===0) return p
+      const idx = group.versions.length-1
+      const updated = {...group.versions[idx], ...patch, updatedAt:new Date().toISOString(), updatedBy: currentUser?.name||""}
+      const nextVersions = group.versions.map((v,i)=>i===idx?updated:v)
+      const nextList = list.map(d=>d.key===key?{key,versions:nextVersions}:d)
+      const syncFields = {}
+      if(key==="contract" || key==="contractApproval"){
+        if(updated.startDate) syncFields.contractDate = updated.startDate
+        if(updated.orderDate) syncFields.orderDate     = updated.orderDate
+        if(updated.amount>0)  syncFields.serviceFee    = updated.amount
+      }
+      return {...p, certDocs: nextList, ...syncFields}
+    }))
+  }
   const saveEdit = () => {
-    addVersion(editKey, draft)
-    if((editKey==="contract"||editKey==="contractApproval") && (draft?.startDate || draft?.orderDate || draft?.amount>0)){
-      alert("계약서 정보를 저장했습니다.\n입력하신 계약일·수주일·용역비는 프로젝트 정보에도 자동으로 반영됩니다.")
+    if(editIsFix){
+      updateLatestVersion(editKey, draft)
+    } else {
+      addVersion(editKey, draft)
+      if((editKey==="contract"||editKey==="contractApproval") && (draft?.startDate || draft?.orderDate || draft?.amount>0)){
+        alert("계약서 정보를 저장했습니다.\n입력하신 계약일·수주일·용역비는 프로젝트 정보에도 자동으로 반영됩니다.")
+      }
     }
-    setEditKey(null); setDraft(null)
+    setEditKey(null); setDraft(null); setEditIsFix(false)
   }
 
   return (
@@ -7808,8 +7840,10 @@ function CertDocsCard({proj, setProjects, canWrite, currentUser}) {
 
               {isEditing && (
                 <div style={{display:"flex",flexDirection:"column",gap:6,marginBottom:10}}>
-                  <div style={{fontSize:11.5,color:"#0E9C8C",fontWeight:700,marginBottom:2}}>
-                    새 버전({group.versions.length+1===1?"최초":`${group.versions.length+1}차 변경`})으로 추가됩니다
+                  <div style={{fontSize:11.5,color:editIsFix?"#7C3AED":"#0E9C8C",fontWeight:700,marginBottom:2}}>
+                    {editIsFix
+                      ? `현재(${doc?.versionLabel||"최초"}) 버전의 값을 그대로 고칩니다 — 새 이력이 남지 않습니다`
+                      : `새 버전(${group.versions.length+1===1?"최초":`${group.versions.length+1}차 변경`})으로 추가됩니다`}
                   </div>
                   {docType.fields.map(f=>(
                     <div key={f.k}>
@@ -7822,8 +7856,8 @@ function CertDocsCard({proj, setProjects, canWrite, currentUser}) {
                     </div>
                   ))}
                   <div style={{display:"flex",gap:6,marginTop:4}}>
-                    <button onClick={saveEdit} style={{flex:1,padding:"6px 0",background:"#0E9C8C",color:"#fff",border:"none",borderRadius:6,fontSize:12.5,fontWeight:700,cursor:"pointer"}}>저장</button>
-                    <button onClick={()=>{setEditKey(null);setDraft(null)}} style={{flex:1,padding:"6px 0",background:"#F8FAFC",color:"#64748B",border:"1px solid #E5E7EB",borderRadius:6,fontSize:12.5,fontWeight:700,cursor:"pointer"}}>취소</button>
+                    <button onClick={saveEdit} style={{flex:1,padding:"6px 0",background:editIsFix?"#7C3AED":"#0E9C8C",color:"#fff",border:"none",borderRadius:6,fontSize:12.5,fontWeight:700,cursor:"pointer"}}>저장</button>
+                    <button onClick={()=>{setEditKey(null);setDraft(null);setEditIsFix(false)}} style={{flex:1,padding:"6px 0",background:"#F8FAFC",color:"#64748B",border:"1px solid #E5E7EB",borderRadius:6,fontSize:12.5,fontWeight:700,cursor:"pointer"}}>취소</button>
                   </div>
                 </div>
               )}
@@ -7836,6 +7870,7 @@ function CertDocsCard({proj, setProjects, canWrite, currentUser}) {
                     style={{padding:"6px 11px",background:"#E3F6F3",color:"#0E9C8C",border:"none",borderRadius:6,fontSize:12,fontWeight:700,cursor:busyKey===docType.key?"default":"pointer"}}>
                     {busyKey===docType.key ? "⏳ 분석 중..." : doc ? "📤 변경분 업로드" : "📤 PDF 업로드"}
                   </button>
+                  {doc && <button onClick={()=>startFixCurrent(docType)} style={{padding:"6px 11px",background:"#F3EEFF",color:"#7C3AED",border:"1px solid #DDD6FE",borderRadius:6,fontSize:12,fontWeight:700,cursor:"pointer"}}>✏ 현재 정보 수정</button>}
                   <button onClick={()=>startNewVersionManual(docType)} style={{padding:"6px 11px",background:"#F8FAFC",color:"#64748B",border:"1px solid #E5E7EB",borderRadius:6,fontSize:12,fontWeight:700,cursor:"pointer"}}>✎ {doc?"새 버전 직접 입력":"직접 입력"}</button>
                   {pastVersions.length>0 && (
                     <button onClick={()=>setHistoryKey(showHistory?null:docType.key)} style={{padding:"6px 11px",background:"#F8FAFC",color:"#7C3AED",border:"1px solid #E5E7EB",borderRadius:6,fontSize:12,fontWeight:700,cursor:"pointer"}}>
