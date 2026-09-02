@@ -20,6 +20,7 @@ import { DataHubTab, ALL_BACKUP_KEYS } from "./DataHub.jsx"
 import { VendorsTab } from "./Vendors.jsx"
 import { WeeklyReportTab, WEEKLY_REPORT_EMPTY, upsertScheduleEntry, removeScheduleEntriesBySourcePrefix, findScheduleEntriesBySourcePrefix } from "./WeeklyReport.jsx"
 import { DeptReportPage } from "./DeptReport.jsx"
+import { ProjectMapPage } from "./ProjectMap.jsx"
 // AI 기능 — 추후 ANTHROPIC_API_KEY 설정 시 활성화 가능
 import { AIAssistant, AIFloatButton } from "./AIAssistant.jsx"
 import { ManualTab } from "./ManualTab.jsx"
@@ -1223,6 +1224,11 @@ export default function App() {
     setDeletedProjKeys(prev=>[...new Set([...prev, ...keys])])
   }
 
+  // ── 프로젝트 지도용 주소→좌표 캐시 — 한 번 지오코딩한 주소는 서버에 저장해 모든 사용자가 재사용(중복 API 호출 방지)
+  const [geocodeCacheRaw, setGeocodeCacheRaw] = useState(()=>lsGet("sjs_geocode_cache", {}))
+  const setGeocodeCache = mkPersist(setGeocodeCacheRaw, "sjs_geocode_cache")
+  const geocodeCache = geocodeCacheRaw
+
   // ── Supabase: 앱 시작 시 전체 로드 (state 선언 후에 위치해야 함) ──
   useEffect(() => {
     if (!USE_DB) return
@@ -1291,6 +1297,7 @@ export default function App() {
       setProjTypesRaw(g("sjs_proj_types", PROJ_TYPES_DEFAULT))
       setBidTypesRaw(g("sjs_bid_types", BID_TYPES_DEFAULT))
       setDeletedProjKeysRaw(g("sjs_deleted_proj_keys", []))
+      setGeocodeCacheRaw(g("sjs_geocode_cache", {}))
       setDbStatus("ok"); setDbReady(true)
     }).catch(() => { setDbStatus("error"); setDbReady(true) })
   }, []) // eslint-disable-line
@@ -1354,6 +1361,7 @@ export default function App() {
       else if (key==="sjs_proj_types")       setProjTypesRaw(value)
       else if (key==="sjs_bid_types")        setBidTypesRaw(value)
       else if (key==="sjs_deleted_proj_keys") setDeletedProjKeysRaw(value)
+      else if (key==="sjs_geocode_cache") setGeocodeCacheRaw(value)
     })
     return unsub
   }, []) // eslint-disable-line
@@ -1882,6 +1890,7 @@ export default function App() {
     {id:"projects",  label:"🏗 프로젝트",     group:"프로젝트"},
     {id:"execplans", label:"📋 실행계획서",   group:"프로젝트"},
     {id:"deptreport", label:"📋 주간보고",    group:"프로젝트"},
+    {id:"projmap",    label:"🗺 프로젝트 지도", group:"프로젝트"},
     {id:"history",   label:"📜 히스토리",     group:"프로젝트"},
     {id:"calendar",  label:"📅 일정 캘린더",  group:"프로젝트"},
     {id:"vendors",   label:"🤝 협력업체",     group:"관리"},
@@ -1899,7 +1908,7 @@ export default function App() {
       const s=JSON.parse(localStorage.getItem("sjs_tab_order")||"null")
       if(Array.isArray(s)&&s.length>0){
         // TAB_DEFAULTS에 있는데 저장된 목록에 없는 탭 자동 추가 (버전 업그레이드 대응)
-        const TAB_IDS_DEFAULT = ["home","analysis","notice","stats","gamify","deptdash","projects","execplans","deptreport","history","calendar","vendors","contract","archive","staffmgmt","pnl","optimize","datahub","manual","auth_mgmt"]
+        const TAB_IDS_DEFAULT = ["home","analysis","notice","stats","gamify","deptdash","projects","execplans","deptreport","projmap","history","calendar","vendors","contract","archive","staffmgmt","pnl","optimize","datahub","manual","auth_mgmt"]
         const savedIds = new Set(s.map(t=>t.id))
         const merged = [...s].filter(t=>t.id!=="docsoverview"&&t.id!=="docvault") // 서류함·문서보관소는 아카이브로 통합되어 제거됨
         const DEFAULT_MAP = {
@@ -1912,6 +1921,7 @@ export default function App() {
           projects:{id:"projects",label:"🏗 프로젝트",group:"프로젝트"},
           execplans:{id:"execplans",label:"📋 실행계획서",group:"프로젝트"},
           deptreport:{id:"deptreport",label:"📋 주간보고",group:"프로젝트"},
+          projmap:{id:"projmap",label:"🗺 프로젝트 지도",group:"프로젝트"},
           history:{id:"history",label:"📜 히스토리",group:"프로젝트"},
           calendar:{id:"calendar",label:"📅 일정 캘린더",group:"프로젝트"},
           vendors:{id:"vendors",label:"🤝 협력업체",group:"관리"},
@@ -2167,6 +2177,9 @@ export default function App() {
         )}
         {tab==="deptreport" && canReadTab("projects") && (
           <DeptReportPage projects={projects} cashItems={cashItems} currentUser={currentUser} setTab={setTab} setSelProjId={setSelProjId} setDetailTab={setDetailTab}/>
+        )}
+        {tab==="projmap" && canReadTab("projects") && (
+          <ProjectMapPage projects={projects} geocodeCache={geocodeCache} setGeocodeCache={setGeocodeCache} currentUser={currentUser} setTab={setTab} setSelProjId={setSelProjId} setDetailTab={setDetailTab}/>
         )}
         {tab==="vendors" && canReadTab("vendors") && <VendorsTab projects={projects} setProjects={setProjects} vendorsDB={vendorsDB} setVendorsDB={setVendorsDB} vendorPayments={vendorPayments} setVendorPayments={setVendorPayments} canWrite={canWrite&&canWriteTab("vendors")} currentUser={currentUser} setTab={setTab} setSelProjId={setSelProjId} setSelVerIdx={setSelVerIdx}/>}
         {tab==="pnl"      && canReadTab("pnl")      && <PnlTab pnlData={pnlData} setPnlData={setPnlData} canWrite={canWrite&&canWriteTab("pnl")}/>}
