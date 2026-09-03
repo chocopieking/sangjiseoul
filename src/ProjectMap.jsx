@@ -1,24 +1,41 @@
 // ══════════════════════════════════════════════════════════════
-// 🗺 프로젝트 지도 — 이세미 캠프 "우리동네 현안도" 스타일 프로토타입
-// 프로젝트 주소를 지도 위에 본부별 색상 핀으로 표시하고, 본부별로 필터링.
-// 지금은 무료 OpenStreetMap(Leaflet) + Nominatim 지오코딩으로 동작 — 정확도를 높이려면
-// 카카오맵 JS 키를 발급받아 지오코딩만 카카오 API로 교체하면 된다(레이아웃은 그대로 재사용 가능).
-// 한 번 좌표로 변환한 주소는 서버(geocodeCache)에 저장해 모든 사용자가 재사용한다.
+// 🗺 프로젝트 지도 — 카카오맵 기반
+// 프로젝트 주소를 카카오맵 위에 본부별 색상 핀으로 표시하고, 본부별로 필터링.
+// 주소→좌표 변환(지오코딩)은 카카오 로컬 API(REST)를 사용. 결과는 서버(geocodeCache)에
+// 저장해 모든 사용자가 재사용한다(같은 주소를 반복해서 API 호출하지 않도록).
 // ══════════════════════════════════════════════════════════════
 import { useState, useEffect, useRef, useMemo } from "react"
-import L from "leaflet"
-import "leaflet/dist/leaflet.css"
 import { useDepts } from "./DeptContext.jsx"
 
-// Nominatim(OpenStreetMap 무료 지오코딩) — 초당 1건 제한 권장이라 순차 호출 + 지연
+// ⚠ developers.kakao.com에서 발급받은 키 — 등록된 도메인에서만 동작하도록 카카오 측에서 제한하는 공개용 키입니다.
+const KAKAO_JS_KEY   = "33ac6b75145611fd7aba3e45c9db9b33"
+const KAKAO_REST_KEY = "e4c1b0baa8430fa6fc9b85f0e578df2c"
+
+// 카카오맵 JS SDK를 페이지에 한 번만 로드
+let kakaoSdkPromise = null
+function loadKakaoSdk() {
+  if (window.kakao?.maps) return Promise.resolve(window.kakao)
+  if (kakaoSdkPromise) return kakaoSdkPromise
+  kakaoSdkPromise = new Promise((resolve, reject) => {
+    const script = document.createElement("script")
+    script.src = `https://dapi.kakao.com/v2/maps/sdk.js?appkey=${KAKAO_JS_KEY}&autoload=false`
+    script.onload = () => window.kakao.maps.load(() => resolve(window.kakao))
+    script.onerror = () => reject(new Error("카카오맵 SDK 로드 실패"))
+    document.head.appendChild(script)
+  })
+  return kakaoSdkPromise
+}
+
+// 카카오 로컬 API(주소 검색)로 지오코딩 — 도로명·지번 주소 모두 지원
 async function geocodeAddress(address) {
   try {
-    const url = `https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=kr&q=${encodeURIComponent(address)}`
-    const res = await fetch(url, { headers: { "Accept-Language": "ko" } })
+    const url = `https://dapi.kakao.com/v2/local/search/address.json?query=${encodeURIComponent(address)}`
+    const res = await fetch(url, { headers: { Authorization: `KakaoAK ${KAKAO_REST_KEY}` } })
     if (!res.ok) return null
     const data = await res.json()
-    if (!data?.[0]) return null
-    return { lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon) }
+    const doc = data?.documents?.[0]
+    if (!doc) return null
+    return { lat: parseFloat(doc.y), lng: parseFloat(doc.x) }
   } catch { return null }
 }
 const sleep = ms => new Promise(r=>setTimeout(r, ms))
@@ -27,28 +44,31 @@ export function ProjectMapPage({projects=[], geocodeCache={}, setGeocodeCache, c
   const {DEPTS, DEPT_COLORS} = useDepts()
   const mapRef = useRef(null)
   const mapObj = useRef(null)
-  const markersLayer = useRef(null)
+  const markersRef = useRef([])
+  const [sdkReady, setSdkReady] = useState(false)
+  const [sdkError, setSdkError] = useState(false)
   const [deptFilter, setDeptFilter] = useState("전체")
   const [geocoding, setGeocoding] = useState(false)
   const [geoProgress, setGeoProgress] = useState({done:0, total:0})
   const isAdmin = currentUser?.role==="admin"
 
-  // 주소가 있는 프로젝트 중 좌표 캐시에 없는 것 개수
   const withAddress = useMemo(()=>projects.filter(p=>p.address && p.address.trim()), [projects])
   const missingCoords = useMemo(()=>withAddress.filter(p=>!geocodeCache[p.address]), [withAddress, geocodeCache])
 
-  // 지도 초기화 (한 번만)
+  // SDK 로드 + 지도 초기화 (한 번만)
   useEffect(()=>{
-    if(!mapRef.current || mapObj.current) return
-    mapObj.current = L.map(mapRef.current, {zoomControl:true}).setView([37.4138, 127.1216], 8) // 판교 부근 기본 중심
-    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-      maxZoom: 19, attribution: '© OpenStreetMap contributors'
-    }).addTo(mapObj.current)
-    markersLayer.current = L.layerGroup().addTo(mapObj.current)
-    return ()=>{ mapObj.current?.remove(); mapObj.current=null }
+    let cancelled = false
+    loadKakaoSdk().then(kakao=>{
+      if(cancelled || !mapRef.current) return
+      mapObj.current = new kakao.maps.Map(mapRef.current, {
+        center: new kakao.maps.LatLng(37.4138, 127.1216), // 판교 부근 기본 중심
+        level: 8,
+      })
+      setSdkReady(true)
+    }).catch(()=>{ if(!cancelled) setSdkError(true) })
+    return ()=>{ cancelled = true }
   },[])
 
-  // 필터된 프로젝트 목록 (좌표 있는 것만)
   const pinned = useMemo(()=>{
     return withAddress
       .filter(p=>deptFilter==="전체" || (p.depts||[]).includes(deptFilter))
@@ -58,39 +78,48 @@ export function ProjectMapPage({projects=[], geocodeCache={}, setGeocodeCache, c
 
   // 마커 렌더링
   useEffect(()=>{
-    if(!mapObj.current || !markersLayer.current) return
-    markersLayer.current.clearLayers()
+    if(!sdkReady || !mapObj.current) return
+    const kakao = window.kakao
+    markersRef.current.forEach(m=>m.setMap(null))
+    markersRef.current = []
     if(pinned.length===0) return
-    const bounds = []
+    const bounds = new kakao.maps.LatLngBounds()
+    const infoWindow = new kakao.maps.InfoWindow({ removable: true })
+
     pinned.forEach(({p, coord})=>{
       const dept = (p.depts||[])[0] || "기타"
       const color = DEPT_COLORS?.[dept] || "#0E9C8C"
-      const icon = L.divIcon({
-        className: "", html: `<div style="width:16px;height:16px;border-radius:50%;background:${color};border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.4)"></div>`,
-        iconSize:[16,16], iconAnchor:[8,8]
+      const pos = new kakao.maps.LatLng(coord.lat, coord.lng)
+      const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20"><circle cx="10" cy="10" r="8" fill="${color.replace("#","%23")}" stroke="white" stroke-width="2"/></svg>`
+      const marker = new kakao.maps.Marker({
+        position: pos, map: mapObj.current,
+        image: new kakao.maps.MarkerImage(`data:image/svg+xml,${svg}`, new kakao.maps.Size(20,20), {offset:new kakao.maps.Point(10,10)}),
       })
-      const marker = L.marker([coord.lat, coord.lng], {icon}).addTo(markersLayer.current)
-      const html = document.createElement("div")
-      html.style.cssText = "min-width:220px;font-family:inherit"
-      html.innerHTML = `
-        <div style="font-weight:800;font-size:14.3px;color:#0B6E63;margin-bottom:6px">${p.name}</div>
-        <div style="font-size:12.5px;color:#64748B;line-height:1.7">
-          ${dept} ${p.pm?" · PM "+p.pm:""}<br/>
-          ${p.client?"발주처: "+p.client+"<br/>":""}
-          ${p.address}
-        </div>
-        <button id="mapopen-${p.id}" style="margin-top:8px;padding:5px 12px;background:#E3F6F3;color:#0B6E63;border:none;border-radius:6px;font-size:12.5px;font-weight:700;cursor:pointer">상세 열기 →</button>
-      `
-      marker.bindPopup(html)
-      marker.on("popupopen", ()=>{
-        document.getElementById(`mapopen-${p.id}`)?.addEventListener("click", ()=>{
-          setTab("projects"); setSelProjId(p.id); setDetailTab && setDetailTab("basic")
-        })
+      kakao.maps.event.addListener(marker, "click", ()=>{
+        const html = document.createElement("div")
+        html.style.cssText = "min-width:220px;padding:12px 14px;font-family:inherit"
+        html.innerHTML = `
+          <div style="font-weight:800;font-size:14px;color:#0B6E63;margin-bottom:6px">${p.name}</div>
+          <div style="font-size:12.5px;color:#64748B;line-height:1.7">
+            ${dept}${p.pm?" · PM "+p.pm:""}<br/>
+            ${p.client?"발주처: "+p.client+"<br/>":""}
+            ${p.address}
+          </div>
+          <button id="mapopen-${p.id}" style="margin-top:8px;padding:5px 12px;background:#E3F6F3;color:#0B6E63;border:none;border-radius:6px;font-size:12.5px;font-weight:700;cursor:pointer">상세 열기 →</button>
+        `
+        infoWindow.setContent(html)
+        infoWindow.open(mapObj.current, marker)
+        setTimeout(()=>{
+          document.getElementById(`mapopen-${p.id}`)?.addEventListener("click", ()=>{
+            setTab("projects"); setSelProjId(p.id); setDetailTab && setDetailTab("basic")
+          })
+        }, 0)
       })
-      bounds.push([coord.lat, coord.lng])
+      markersRef.current.push(marker)
+      bounds.extend(pos)
     })
-    if(bounds.length>0) mapObj.current.fitBounds(bounds, {padding:[40,40], maxZoom:14})
-  },[pinned, DEPT_COLORS])
+    if(pinned.length>0) mapObj.current.setBounds(bounds)
+  },[pinned, sdkReady, DEPT_COLORS])
 
   const runGeocoding = async () => {
     if(missingCoords.length===0) return
@@ -102,7 +131,7 @@ export function ProjectMapPage({projects=[], geocodeCache={}, setGeocodeCache, c
       const coord = await geocodeAddress(p.address)
       if(coord) newEntries[p.address] = coord
       setGeoProgress({done:i+1, total:missingCoords.length})
-      await sleep(1100) // Nominatim 요청 제한(1req/sec) 준수
+      await sleep(150) // 카카오는 일일 할당량 기준이라 초당 제한이 느슨함 — 가볍게만 페이싱
     }
     setGeocodeCache(prev=>({...prev, ...newEntries}))
     setGeocoding(false)
@@ -110,11 +139,17 @@ export function ProjectMapPage({projects=[], geocodeCache={}, setGeocodeCache, c
 
   return (
     <div>
-      <div style={{fontSize:24.2,fontWeight:800,color:"#0B6E63",marginBottom:6}}>🗺 프로젝트 지도 <span style={{fontSize:13.2,fontWeight:600,color:"#94A3B8"}}>(프로토타입)</span></div>
+      <div style={{fontSize:24.2,fontWeight:800,color:"#0B6E63",marginBottom:6}}>🗺 프로젝트 지도</div>
       <div style={{fontSize:14.3,color:"#64748B",marginBottom:16}}>
-        프로젝트 상세정보의 "주소"를 기준으로 지도에 표시합니다. 지금은 무료 OpenStreetMap 기반이라 일부 주소는 정확도가 떨어질 수 있습니다 —
-        카카오맵 API 키를 발급받으시면 훨씬 정확한 버전으로 바꿔드릴 수 있습니다.
+        프로젝트 상세정보의 "주소"를 기준으로 카카오맵에 표시합니다.
       </div>
+
+      {sdkError && (
+        <div style={{background:"#FEE2E2",border:"1px solid #FECACA",borderRadius:10,padding:"14px 16px",marginBottom:14,fontSize:13.6,color:"#7F1D1D"}}>
+          ⚠ 카카오맵을 불러오지 못했습니다. developers.kakao.com에서 이 사이트 도메인이 [플랫폼]에 정확히 등록되어 있는지 확인해주세요
+          (등록한 주소와 지금 접속 중인 주소가 https:// 까지 정확히 일치해야 합니다).
+        </div>
+      )}
 
       <div style={{display:"flex",gap:8,marginBottom:14,flexWrap:"wrap",alignItems:"center"}}>
         <button onClick={()=>setDeptFilter("전체")}
@@ -154,7 +189,7 @@ export function ProjectMapPage({projects=[], geocodeCache={}, setGeocodeCache, c
         </div>
       )}
 
-      <div ref={mapRef} style={{width:"100%",height:600,borderRadius:12,border:"1px solid #E5E7EB",overflow:"hidden"}}/>
+      <div ref={mapRef} style={{width:"100%",height:600,borderRadius:12,border:"1px solid #E5E7EB",overflow:"hidden",background:"#F8FAFC"}}/>
     </div>
   )
 }

@@ -1229,6 +1229,11 @@ export default function App() {
   const setGeocodeCache = mkPersist(setGeocodeCacheRaw, "sjs_geocode_cache")
   const geocodeCache = geocodeCacheRaw
 
+  // ── 본부별 주간보고 화면의 프로젝트 정렬 순서 — 본부명별로 프로젝트id 순서를 저장(수동 이동 가능)
+  const [deptReportOrderRaw, setDeptReportOrderRaw] = useState(()=>lsGet("sjs_deptreport_order", {}))
+  const setDeptReportOrder = mkPersist(setDeptReportOrderRaw, "sjs_deptreport_order")
+  const deptReportOrder = deptReportOrderRaw
+
   // ── Supabase: 앱 시작 시 전체 로드 (state 선언 후에 위치해야 함) ──
   useEffect(() => {
     if (!USE_DB) return
@@ -1298,6 +1303,7 @@ export default function App() {
       setBidTypesRaw(g("sjs_bid_types", BID_TYPES_DEFAULT))
       setDeletedProjKeysRaw(g("sjs_deleted_proj_keys", []))
       setGeocodeCacheRaw(g("sjs_geocode_cache", {}))
+      setDeptReportOrderRaw(g("sjs_deptreport_order", {}))
       setDbStatus("ok"); setDbReady(true)
     }).catch(() => { setDbStatus("error"); setDbReady(true) })
   }, []) // eslint-disable-line
@@ -1362,6 +1368,7 @@ export default function App() {
       else if (key==="sjs_bid_types")        setBidTypesRaw(value)
       else if (key==="sjs_deleted_proj_keys") setDeletedProjKeysRaw(value)
       else if (key==="sjs_geocode_cache") setGeocodeCacheRaw(value)
+      else if (key==="sjs_deptreport_order") setDeptReportOrderRaw(value)
     })
     return unsub
   }, []) // eslint-disable-line
@@ -2176,7 +2183,7 @@ export default function App() {
           <ExecPlansOverviewPage projects={projects} setTab={setTab} setSelProjId={setSelProjId} setSelVerIdx={setSelVerIdx} setDetailTab={setDetailTab}/>
         )}
         {tab==="deptreport" && canReadTab("projects") && (
-          <DeptReportPage projects={projects} cashItems={cashItems} currentUser={currentUser} setTab={setTab} setSelProjId={setSelProjId} setDetailTab={setDetailTab}/>
+          <DeptReportPage projects={projects} setProjects={setProjects} cashItems={cashItems} currentUser={currentUser} setTab={setTab} setSelProjId={setSelProjId} setDetailTab={setDetailTab} deptReportOrder={deptReportOrder} setDeptReportOrder={setDeptReportOrder}/>
         )}
         {tab==="projmap" && canReadTab("projects") && (
           <ProjectMapPage projects={projects} geocodeCache={geocodeCache} setGeocodeCache={setGeocodeCache} currentUser={currentUser} setTab={setTab} setSelProjId={setSelProjId} setDetailTab={setDetailTab}/>
@@ -5041,12 +5048,24 @@ function ProjectsTab({projects,setProjects,selProjId,setSelProjId,selVerIdx,setS
                   // 같은 정보를 두 군데서 따로 입력하지 않도록 (field:contractDate / field:orderDate 로 단일 항목만 유지)
                   let wr = merged.weeklyReport || WEEKLY_REPORT_EMPTY
                   const byName = currentUser?.name || "알 수 없음"
+                  const today = new Date().toISOString().slice(0,10)
                   if(merged.contractDate && merged.contractDate!==p.contractDate){
                     wr = {...wr, scheduleLog: upsertScheduleEntry(wr.scheduleLog, {date:merged.contractDate, category:"계약일", content:"계약일", sourceKey:"field:contractDate"}, byName)}
                   }
                   if(merged.orderDate && merged.orderDate!==p.orderDate){
                     wr = {...wr, scheduleLog: upsertScheduleEntry(wr.scheduleLog, {date:merged.orderDate, category:"수주일", content:"수주일", sourceKey:"field:orderDate"}, byName)}
                   }
+                  // PM 등 핵심 담당자 정보가 바뀌면 "주요일정"에 변경 이력을 그대로 남긴다(누가 언제 바꿨는지 나중에 추적 가능하도록)
+                  ;[
+                    {field:"pm", label:"PM"},
+                    {field:"director", label:"담당임원"},
+                    {field:"clientPm", label:"발주처 담당자"},
+                  ].forEach(({field,label})=>{
+                    if(merged[field] && p[field] && merged[field]!==p[field]){
+                      wr = {...wr, scheduleLog: upsertScheduleEntry(wr.scheduleLog,
+                        {date:today, category:`${label} 변경`, content:`${label} 변경: ${p[field]} → ${merged[field]}`, sourceKey:`histlog:${field}:${Date.now()}`}, byName)}
+                    }
+                  })
                   return {...merged, weeklyReport:wr}
                 }))
                 setEditProj(false)
@@ -6768,7 +6787,7 @@ function NewProjModal({onClose,onSave,initial=null}) {
       const ds = getDeptShares(initial).map(s=>({...s}))
       return {...initial, shareRatio:(initial.shareRatio??1)*100, deptShares: ds.length?ds:[{dept:STAFF_DEPTS[0],share:100}], orderType: initial.orderType||"민간", contractType: initial.contractType||"민간"}
     }
-    return {year:new Date().getFullYear()+"",code:"",name:"",deptShares:[{dept:STAFF_DEPTS[0],share:100}],pm:"",director:"",projType:"",contractType:"민간",usage:"",scale:"",siteArea:0,buildArea:0,floorArea:0,units:0,client:"",clientPm:"",clientTel:"",clientEmail:"",staffMembers:[],totalFee:0,shareRatio:100,serviceFee:0,constructionCost:0,jvShareText:"",agendaNotes:"",crossReviewNotes:"",address:"",contractDate:"",orderDate:"",orderType:"민간",bidType:"민간수의",note:"",type:"확정",contractYear:new Date().getFullYear(),isAmendment:false,parentProjName:"",prog:0,
+    return {year:new Date().getFullYear()+"",code:"",name:"",deptShares:[{dept:STAFF_DEPTS[0],share:100}],pm:"",director:"",projType:"",contractType:"민간",usage:"",scale:"",siteArea:0,buildArea:0,floorArea:0,units:0,client:"",clientPm:"",clientTel:"",clientEmail:"",staffMembers:[],totalFee:0,shareRatio:100,serviceFee:0,constructionCost:0,jvShareText:"",jvExecText:"",agendaNotes:"",crossReviewNotes:"",address:"",contractDate:"",orderDate:"",orderType:"민간",bidType:"민간수의",note:"",type:"확정",contractYear:new Date().getFullYear(),isAmendment:false,parentProjName:"",prog:0,
       jvType:"단독이행",
       jvMembers:[],
       // ── 신규 필드 ──
@@ -6931,7 +6950,8 @@ function NewProjModal({onClose,onSave,initial=null}) {
             <div><F label="상지지분(%)" val={f.shareRatio} onChange={v=>u("shareRatio",parseFloat(v)||0)} type="number"/><button onClick={()=>u("serviceFee",Math.round(f.totalFee*f.shareRatio/100))} style={{...S.btn(C.navyL,C.navyM),marginTop:4,padding:"4px 9px",fontSize:11}}>용역비 계산</button></div>
             <div><F label="용역비(원,VAT별도)" val={f.serviceFee} onChange={v=>u("serviceFee",parseInt(v)||0)} type="number"/>{pyF>0&&f.serviceFee>0&&<div style={{fontSize:11,color:C.navyM,marginTop:2}}>평당: {fPy(f.serviceFee/pyF)}</div>}</div>
             <F label="공사비(억원,VAT포함)" val={f.constructionCost} onChange={v=>u("constructionCost",parseFloat(v)||0)} type="number"/>
-            <div style={{gridColumn:"span 2"}}><F label="공동분담/분담이행 지분" val={f.jvShareText} onChange={v=>u("jvShareText",v)} ph="예: 상지35%/해마50%/태건15%"/></div>
+            <div style={{gridColumn:"span 2"}}><F label="공동분담 업체·비율" val={f.jvShareText} onChange={v=>u("jvShareText",v)} ph="예: 상지35%/해마50%/태건15%"/></div>
+            <div style={{gridColumn:"span 3"}}><F label="분담이행 업체·비율" val={f.jvExecText} onChange={v=>u("jvExecText",v)} ph="예: 전기통신 해마100%, 소방 태건100%"/></div>
           </div>},
           {title:"주간보고 메모",content:<div style={S.grid(1,9)}>
             <div>

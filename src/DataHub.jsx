@@ -35,6 +35,7 @@ export const ALL_BACKUP_KEYS = [
   {key:"sjs_tab_order",       label:"탭 순서",          emoji:"↕"},
   {key:"sjs_deleted_proj_keys",label:"삭제된 프로젝트 기록",emoji:"🗑"},
   {key:"sjs_geocode_cache",   label:"프로젝트 지도 좌표 캐시",emoji:"🗺"},
+  {key:"sjs_deptreport_order",label:"주간보고 정렬 순서",emoji:"↕"},
   // 계정 (비밀번호는 제외 - 해시값이므로 포함해도 안전)
   {key:"sjs_auth",            label:"계정 정보",        emoji:"👤"},
   {key:"sjs_pw",              label:"비밀번호(해시)",   emoji:"🔒"},

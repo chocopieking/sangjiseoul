@@ -26,15 +26,7 @@ const fDate = iso=>iso?iso.slice(0,10):""
 const fDT   = iso=>{ if(!iso) return "-"; const d=new Date(iso); return `${d.getFullYear()}.${String(d.getMonth()+1).padStart(2,"0")}.${String(d.getDate()).padStart(2,"0")} ${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}` }
 const getWeek = ()=>{ const d=new Date(); const start=new Date(d.getFullYear(),0,1); const w=Math.ceil(((d-start)/86400000+start.getDay()+1)/7); return `${d.getFullYear()}-W${String(w).padStart(2,"0")}` }
 
-// ── 설계 단계 기본값 (프로젝트별 커스텀 가능) ───────────────────
-export const DEFAULT_DESIGN_STAGES = [
-  {id:"contract",  label:"계약시",   color:C.navyM},
-  {id:"review",    label:"심의",     color:C.amber},
-  {id:"permit",    label:"인허가",   color:C.green},
-  {id:"impl",      label:"실시설계", color:"#0E9C8C"},
-  {id:"site",      label:"현장관리", color:C.red},
-]
-const STAGE_COLORS = [C.navyM, C.amber, C.green, "#0E9C8C", C.red, "#D85A30", "#7C5295", "#2E86AB"]
+// ── 설계 단계 기본값(DEFAULT_DESIGN_STAGES)·유틸 함수는 파일 하단(WeeklyReportTab 앞)에 정의됨 ──
 
 // ── 일정 카테고리 기본값 ──────────────────────────────────────────
 export const DEFAULT_SCHED_CATS = [
@@ -113,6 +105,44 @@ export function findSimilarScheduleEntry(scheduleLog, {date, category, content})
 }
 
 // ─────────────────────────────────────────────────────────────
+export const DEFAULT_DESIGN_STAGES = [
+  {id:"contract",  label:"계약시",   color:C.navyM},
+  {id:"review",    label:"심의",     color:C.amber},
+  {id:"permit",    label:"인허가",   color:C.green},
+  {id:"impl",      label:"실시설계", color:"#0E9C8C"},
+  {id:"site",      label:"현장관리", color:C.red},
+]
+const STAGE_COLORS = [C.navyM, C.amber, C.green, "#0E9C8C", C.red, "#D85A30", "#7C5295", "#2E86AB"]
+
+// ── 설계진행현황 날짜 계산 유틸 — WeeklyReport·DeptReport 양쪽에서 공용으로 사용 ──
+// 일수(day count) 계산
+export function daysBetween(startStr, endStr) {
+  if(!startStr || !endStr) return null
+  const s = new Date(startStr), e = new Date(endStr)
+  return Math.round((e-s)/86400000)
+}
+// 단계 하나의 진행률(%) — 오늘 날짜가 시작일 이전이면 0%, 종료일 이후면 100%, 그 사이면 일수 비례
+export function calcStageProgress(startStr, endStr, todayStr) {
+  if(!startStr || !endStr) return 0
+  const today = new Date(todayStr || new Date().toISOString().slice(0,10))
+  const s = new Date(startStr), e = new Date(endStr)
+  if(today<=s) return 0
+  if(today>=e) return 100
+  return Math.round((today-s)/(e-s)*100)
+}
+// 전체 단계(stagesDef+stages)를 하나의 타임라인(100%)으로 보고, 오늘이 몇 %/어느 단계에 와 있는지 계산
+export function calcOverallProgress(stagesDef, stages, todayStr) {
+  const withDates = stagesDef.map(s=>({...s, ...(stages[s.id]||{})})).filter(s=>s.startDate && s.endDate)
+  if(withDates.length===0) return {pct:0, currentStageId:null, overallStart:null, overallEnd:null}
+  const overallStart = withDates.reduce((mn,s)=>s.startDate<mn?s.startDate:mn, withDates[0].startDate)
+  const overallEnd    = withDates.reduce((mx,s)=>s.endDate>mx?s.endDate:mx, withDates[0].endDate)
+  const today = todayStr || new Date().toISOString().slice(0,10)
+  const pct = calcStageProgress(overallStart, overallEnd, today)
+  const current = withDates.find(s=>today>=s.startDate && today<=s.endDate)
+  const currentStageId = current ? current.id : (today<overallStart ? withDates[0].id : withDates[withDates.length-1].id)
+  return {pct, currentStageId, overallStart, overallEnd}
+}
+
 export function WeeklyReportTab({proj, setProjects, canWrite, currentUser}) {
   if(!proj?.id) return null
   const wr = proj.weeklyReport || WEEKLY_REPORT_EMPTY
@@ -610,12 +640,15 @@ function StagesSection({wr, save, canWrite, proj}) {
 
   const startEdit = stageId => {
     setEditStage(stageId)
-    setDraft({...{startDate:"",endDate:"",progress:0,currentNote:""},...stages[stageId]})
+    setDraft({...{startDate:"",endDate:"",currentNote:""},...stages[stageId]})
   }
   const saveSt = ()=>{
-    save({stages:{...stages,[editStage]:{...draft,updatedAt:now()}}})
+    // progress는 더 이상 수동 입력값이 아니라 시작일·종료일과 오늘 날짜로 자동 계산됨(draft에서 제거)
+    const {progress:_ignored, ...rest} = draft
+    save({stages:{...stages,[editStage]:{...rest,updatedAt:now()}}})
     setEditStage(null)
   }
+  const overall = calcOverallProgress(stagesDef, stages)
 
   return (
     <div>
@@ -642,6 +675,27 @@ function StagesSection({wr, save, canWrite, proj}) {
           </div>
         </div>
         <div style={{fontSize:12,color:C.navyM,marginTop:8}}>※ 누계 입금기성은 "프로젝트 정보 → 연도별 월수금계획" 입금실적 합산값입니다.</div>
+
+        {/* 설계단계 전체(100%) 기준 타임라인 + 오늘 위치 */}
+        {overall.overallStart && (
+          <div style={{marginTop:14}}>
+            <div style={{display:"flex",justifyContent:"space-between",fontSize:12,color:C.navy,fontWeight:600,marginBottom:4}}>
+              <span>설계단계 전체 진행률 ({overall.overallStart} ~ {overall.overallEnd})</span>
+              <span style={{fontWeight:800}}>오늘 {overall.pct}%</span>
+            </div>
+            <div style={{position:"relative",height:22,background:"#fff",borderRadius:6,overflow:"visible",display:"flex",border:`1px solid ${C.navyM}33`}}>
+              {stagesDef.filter(s=>stages[s.id]?.startDate && stages[s.id]?.endDate).map(s=>{
+                const d = daysBetween(stages[s.id].startDate, stages[s.id].endDate) || 0
+                const totalDays = daysBetween(overall.overallStart, overall.overallEnd) || 1
+                const w = Math.max(2, d/totalDays*100)
+                return <div key={s.id} title={`${s.label} (${d}일)`} style={{width:`${w}%`,background:s.color,opacity:s.id===overall.currentStageId?1:.55,borderRight:"1px solid #fff"}}/>
+              })}
+              <div style={{position:"absolute",left:`${overall.pct}%`,top:-4,bottom:-4,width:2,background:C.red,transform:"translateX(-1px)"}}>
+                <div style={{position:"absolute",top:-16,left:"50%",transform:"translateX(-50%)",fontSize:10.4,fontWeight:800,color:C.red,whiteSpace:"nowrap"}}>오늘</div>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* 단계정의 관리 버튼 */}
@@ -682,13 +736,15 @@ function StagesSection({wr, save, canWrite, proj}) {
 
       {/* 단계별 카드 */}
       <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(300px,1fr))",gap:12}}>
-        {stagesDef.map(stage=>{
+        {stagesDef.map((stage,si)=>{
           const st = stages[stage.id] || {}
-          const prog = st.progress||0
+          const prog = calcStageProgress(st.startDate, st.endDate)
+          const days = daysBetween(st.startDate, st.endDate)
+          const isCurrent = overall.currentStageId===stage.id
           return (
-            <div key={stage.id} style={{...card(),marginBottom:0,borderLeft:`4px solid ${stage.color}`}}>
+            <div key={stage.id} style={{...card(),marginBottom:0,borderLeft:`4px solid ${stage.color}`,boxShadow:isCurrent?`0 0 0 2px ${stage.color}55`:undefined}}>
               <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:8}}>
-                <span style={{fontSize:15.4,fontWeight:700,color:stage.color}}>{stage.label}</span>
+                <span style={{fontSize:15.4,fontWeight:700,color:stage.color}}>{si+1}. {stage.label}{isCurrent&&<span style={{marginLeft:6,fontSize:11,fontWeight:800,color:"#fff",background:stage.color,borderRadius:4,padding:"1px 7px"}}>진행중</span>}</span>
                 {canWrite&&<button onClick={()=>startEdit(stage.id)} style={{...btn(C.grayL,C.gray),padding:"4px 10px",fontSize:12}}>편집</button>}
               </div>
 
@@ -698,11 +754,7 @@ function StagesSection({wr, save, canWrite, proj}) {
                       <div><label style={lbl()}>시작일</label><input type="date" value={draft.startDate||""} onChange={e=>setDraft(p=>({...p,startDate:e.target.value}))} style={inp()}/></div>
                       <div><label style={lbl()}>종료일</label><input type="date" value={draft.endDate||""} onChange={e=>setDraft(p=>({...p,endDate:e.target.value}))} style={inp()}/></div>
                     </div>
-                    <div>
-                      <label style={lbl()}>진행률 {draft.progress||0}%</label>
-                      <input type="range" min={0} max={100} step={5} value={draft.progress||0} onChange={e=>setDraft(p=>({...p,progress:+e.target.value}))} style={{width:"100%",accentColor:stage.color}}/>
-                      <div style={{display:"flex",justifyContent:"space-between",fontSize:11,color:C.gray}}><span>0%</span><span>50%</span><span>100%</span></div>
-                    </div>
+                    {draft.startDate&&draft.endDate&&<div style={{fontSize:12,color:C.gray}}>총 {daysBetween(draft.startDate,draft.endDate)}일 · 진행률은 오늘 날짜 기준으로 자동 계산됩니다</div>}
                     <div>
                       <label style={lbl()}>현재일정 메모</label>
                       <textarea value={draft.currentNote||""} onChange={e=>setDraft(p=>({...p,currentNote:e.target.value}))} rows={2} style={{...inp(),resize:"vertical"}} placeholder="예: 실시설계 도서 작성중"/>
@@ -715,7 +767,7 @@ function StagesSection({wr, save, canWrite, proj}) {
                 : <>
                     <div style={{marginBottom:8}}>
                       <div style={{display:"flex",justifyContent:"space-between",fontSize:12,color:C.gray,marginBottom:3}}>
-                        <span>{st.startDate||"미정"} ~ {st.endDate||"미정"}</span>
+                        <span>{st.startDate&&st.endDate?`${st.startDate} ~ ${st.endDate}(${days}일)`:"미정"}</span>
                         <span style={{fontWeight:700,color:stage.color}}>{prog}%</span>
                       </div>
                       <div style={{height:8,background:"var(--color-border-tertiary,#eee)",borderRadius:4,overflow:"hidden"}}>
